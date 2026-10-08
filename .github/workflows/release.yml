@@ -3,17 +3,24 @@ name: Release plugin
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag whose installation feed should be updated
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   release:
     name: Build and publish release
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -74,3 +81,55 @@ jobs:
           name: release-test-results
           path: test-results/*.trx
           if-no-files-found: ignore
+
+  update-manifest:
+    name: Update installation feed
+    needs: release
+    if: ${{ !cancelled() && (needs.release.result == 'success' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: installation-feed-development
+      cancel-in-progress: false
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Check out automation
+        uses: actions/checkout@v6
+        with:
+          path: automation
+          persist-credentials: false
+      - name: Download the published installation manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view "$RELEASE_TAG" --json isDraft --jq 'if .isDraft then error("Release is still a draft") else true end'
+          gh release download "$RELEASE_TAG" --pattern manifest.json --dir "$RUNNER_TEMP/released-manifest"
+      - name: Check out the development feed with its deploy key
+        uses: actions/checkout@v6
+        with:
+          ref: development
+          path: feed
+          ssh-key: ${{ secrets.RELEASE_FEED_SSH_KEY }}
+      - name: Commit only the released manifest to development
+        run: |
+          git -C feed config user.name "github-actions[bot]"
+          git -C feed config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git -C feed fetch origin development
+            git -C feed reset --hard origin/development
+            python3 automation/scripts/release.py update-feed \
+              --manifest feed/manifest.json --released "$RUNNER_TEMP/released-manifest/manifest.json"
+            git -C feed add -- manifest.json
+            if git -C feed diff --cached --quiet; then
+              echo "Installation feed is already current."
+              exit 0
+            fi
+            git -C feed commit -m "chore: update installation feed for $RELEASE_TAG"
+            if git -C feed push origin HEAD:development; then
+              exit 0
+            fi
+          done
+          echo "Could not update development after three attempts."
+          exit 1

@@ -20,9 +20,11 @@ Pull requests targeting `development` run the required **Build and test** check.
    - `.zip.md5`: the checksum used by Jellyfin's repository manifest.
    - `.zip.sha256`: an additional checksum for manual verification.
    - `manifest.json`: the generated feed with download URL, MD5 checksum, and release timestamp filled in.
-5. Download the release's `manifest.json`, replace the repository copy on a feature branch, and open a PR into `development`. After merging it, Jellyfin can install the release using the existing `development/manifest.json` URL.
+5. The **Update installation feed** job downloads the published manifest and commits its release entries directly to `development`. It preserves newer version entries and changes only `manifest.json`. Jellyfin can then install the release using the existing `development/manifest.json` URL; no follow-up PR is needed.
 
-The workflow never pushes directly to the protected development branch. A tag alone publishes the release assets; the feed-update PR makes them available through the Jellyfin catalogue. Prerelease tag suffixes are not supported. To retry a failed workflow, rerun it from Actions; if the release was already published, inspect it before attempting another publication.
+Normal changes to `development` still require a PR and successful CI. The feed job authenticates with the repository deploy key stored in the `RELEASE_FEED_SSH_KEY` Actions secret. Deploy keys bypass the PR/status-check ruleset; a separate ruleset still blocks branch deletion and force pushes. GitHub applies deploy-key bypass to all repository deploy keys, so additional write keys would receive the same exception. `upstream-master` remains locked against these pushes.
+
+Prerelease tag suffixes are not supported. If publication succeeds but the feed update fails, select **Release plugin → Run workflow**, enter the existing release tag, and run it from `development`. This updates the feed without rebuilding or replacing release assets. An already-current feed is a no-op.
 
 ## Optional Docker image
 

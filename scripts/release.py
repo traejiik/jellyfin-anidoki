@@ -96,21 +96,54 @@ def package(manifest, publish_dir, output_dir, tag, repository):
     (output_dir / 'release-notes.md').write_text(
         f'{release["changelog"]}\n\nRequires Jellyfin {release["targetAbi"]}.\n\n'
         'The ZIP contains the plugin DLL and meta.json. Verify it with the attached checksum files.\n\n'
-        'Update the development installation feed by copying the attached manifest.json into a pull request.\n'
+        'The release workflow automatically updates the development installation feed.\n'
     )
     return assets
 
 
+def merge_feed(current, published):
+    """Merge released versions without overwriting current development metadata."""
+    if len(current) != 1 or len(published) != 1 or current[0]['guid'] != published[0]['guid']:
+        raise ValueError('Published manifest plugin identity does not match the development feed')
+    result = copy.deepcopy(current)
+    versions = result[0]['versions']
+    for released in published[0]['versions']:
+        # Old template entries in the release attachment may not be published yet.
+        if not released.get('checksum') and not released.get('sourceUrl'):
+            continue
+        if not re.fullmatch(r'[0-9a-f]{32}', released.get('checksum', '')) or not released.get('sourceUrl', '').startswith('https://github.com/'):
+            raise ValueError('Feed update requires a fully published release URL and MD5 checksum')
+        key = (released['version'], released['targetAbi'])
+        versions[:] = [v for v in versions if (v['version'], v['targetAbi']) != key]
+        versions.append(copy.deepcopy(released))
+    latest = published[0]['versions'][0]
+    if not latest.get('checksum') or not latest.get('sourceUrl'):
+        raise ValueError('Feed update requires a fully published release')
+    versions.sort(key=lambda v: (tuple(map(int, v['version'].split('.'))), tuple(map(int, v['targetAbi'].split('.')))), reverse=True)
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('check', 'package'))
+    parser.add_argument('command', choices=('check', 'package', 'update-feed'))
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument('--manifest', type=Path)
+    parser.add_argument('--released', type=Path)
     parser.add_argument('--tag')
     parser.add_argument('--repository')
     parser.add_argument('--publish-dir', type=Path)
     parser.add_argument('--output', type=Path, default=Path('dist'))
     args = parser.parse_args()
     try:
+        if args.command == 'update-feed':
+            if not args.manifest or not args.released:
+                parser.error('update-feed requires --manifest and --released')
+            current = json.loads(args.manifest.read_text())
+            published = json.loads(args.released.read_text())
+            result = merge_feed(current, published)
+            args.manifest.write_text(json.dumps(result, indent=2) + '\n')
+            print('Updated installation feed from the published release.')
+            return
         manifest = validate_repository(args.root, args.tag)
         if args.command == 'package':
             if not all((args.tag, args.repository, args.publish_dir)):
