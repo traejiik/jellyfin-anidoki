@@ -1,0 +1,14 @@
+---
+name: "AniDoki"
+guid: "dceb799c-238e-4a33-aa5e-14fc0b1efe9d"
+version: "0.1.0.0"
+targetAbi: "12.2.0.0"
+framework: "net10.0"
+owner: "traejiik"
+overview: "Synchronize anime watch status"
+description: "Synchronize anime watch status between Jellyfin and anime tracking sites."
+category: "Anime"
+artifacts:
+  - "jellyfin-anidoki.dll"
+changelog: |1-
+  Build for Jellyfin version 12.2.

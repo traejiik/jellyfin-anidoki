@@ -11,31 +11,31 @@ SCRIPT_PATH="$(pwd)"
 DEST_PATH=$1
 
 if [[ $DEST_PATH == "" ]]; then
-    echo "Usage: $0 <path to Ani-Sync or plugins folder> [docker image]"
+    echo "Usage: $0 <path to AniDoki or plugins folder> [docker image]"
     exit 1
 fi
 
 DOCKER_IMAGE=$2
 
-# If "Ani-Sync" not in path name, try to find it in the given folder
-if [[ $DEST_PATH != *"Ani-Sync"* ]]; then
-    echo "Searching for Ani-Sync folder in $DEST_PATH"
+# If "AniDoki" not in path name, try to find it in the given folder
+if [[ $DEST_PATH != *"AniDoki"* ]]; then
+    echo "Searching for AniDoki folder in $DEST_PATH"
     cd "$DEST_PATH"
-    VERSION_NUM="$(echo Ani-Sync* | sed 's/Ani-Sync_//g' | sed 's/ /\n/g' | sort -V | tac | head -n 1)"
-    # If we didn't find anything, just pretend dest is the Ani-Sync folder
+    VERSION_NUM="$(echo AniDoki* | sed 's/AniDoki_//g' | sed 's/ /\n/g' | sort -V | tac | head -n 1)"
+    # If we didn't find anything, just pretend dest is the AniDoki folder
     if [[ $VERSION_NUM == "" ]]; then
-        echo "No Ani-Sync folder found in $DEST_PATH, assuming this is the Ani-Sync folder"
+        echo "No AniDoki folder found in $DEST_PATH, assuming this is the AniDoki folder"
     else
-        DEST_PATH="$DEST_PATH/Ani-Sync_$VERSION_NUM"
-        echo "Found Ani-Sync folder at $DEST_PATH"
+        DEST_PATH="$DEST_PATH/AniDoki_$VERSION_NUM"
+        echo "Found AniDoki folder at $DEST_PATH"
     fi
 fi
 
 # If $DOCKER_IMAGE is not set, build it
 if [[ $DOCKER_IMAGE == "" ]]; then
     echo "Building docker image"
-    docker build -t jellyfin-ani-sync-build "$SCRIPT_PATH"
-    DOCKER_IMAGE="jellyfin-ani-sync-build"
+    docker build -t jellyfin-anidoki-build "$SCRIPT_PATH"
+    DOCKER_IMAGE="jellyfin-anidoki-build"
 fi
 
 docker run --rm -v "$DEST_PATH":/out $DOCKER_IMAGE

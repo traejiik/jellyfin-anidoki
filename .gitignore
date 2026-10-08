@@ -3,5 +3,10 @@ obj/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/
-jellyfin-ani-sync/builds/
+jellyfin-anidoki/builds/
 /.idea/
+
+# Local workflow verification outputs
+/dist/
+/test-results/
+__pycache__/

@@ -1,13 +1,7 @@
 name: Build Docker Container
 
+# Optional Docker publication; normal PRs and releases use ci.yml/release.yml.
 on:
-  push:
-    branches: ['**']
-    tags: ["v*.*"]
-  pull_request:
-    branches: ['master']
-  schedule:
-    - cron: '0 0 * * *' # Runs daily at 12 AM UTC (builds nightly)
   workflow_dispatch:
 
 env:
@@ -52,7 +46,6 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log into registry ${{ env.REGISTRY }}
-        if: ${{ !github.event.pull_request || github.event.pull_request.base.repo.full_name == github.event.pull_request.head.repo.full_name }}
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -76,16 +69,14 @@ jobs:
           platforms: ${{ matrix.platform }}
           provenance: true
           sbom: true
-          outputs: type=image,name=${{ needs.prepare.outputs.image_name }},push-by-digest=true,name-canonical=true,push=${{ !github.event.pull_request || github.event.pull_request.base.repo.full_name == github.event.pull_request.head.repo.full_name }}
+          outputs: type=image,name=${{ needs.prepare.outputs.image_name }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
-        if: ${{ !github.event.pull_request || github.event.pull_request.base.repo.full_name == github.event.pull_request.head.repo.full_name }}
         run: |
           mkdir -p /tmp/digests
           digest="${{ steps.build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
       - name: Upload digest
-        if: ${{ !github.event.pull_request || github.event.pull_request.base.repo.full_name == github.event.pull_request.head.repo.full_name }}
         uses: actions/upload-artifact@v7
         with:
           name: digest-${{ strategy.job-index }}
@@ -95,7 +86,6 @@ jobs:
 
   merge:
     runs-on: ubuntu-latest
-    if: ${{ !github.event.pull_request || github.event.pull_request.base.repo.full_name == github.event.pull_request.head.repo.full_name }}
     needs:
       - prepare
       - build
