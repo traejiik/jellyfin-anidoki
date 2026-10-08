@@ -67,5 +67,49 @@ class ReleaseTests(unittest.TestCase):
                 release.package(self.manifest, Path(directory), Path(directory) / 'out', 'v0.1.0', 'traejiik/jellyfin-anidoki')
 
 
+class FeedUpdateTests(unittest.TestCase):
+    def setUp(self):
+        self.current = json.loads((ROOT / 'manifest.json').read_text())
+        self.published = json.loads((ROOT / 'manifest.json').read_text())
+        self.published[0]['versions'][0].update({
+            'version': '0.1.0.0', 'checksum': 'a' * 32,
+            'sourceUrl': 'https://github.com/traejiik/jellyfin-anidoki/releases/download/v0.1.0/anidoki_0.1.0.0.zip',
+        })
+
+    def test_fill_in_published_release_without_mutating_input(self):
+        self.current[0]['versions'][0].update({'version': '0.1.0.0', 'checksum': '', 'sourceUrl': ''})
+        result = release.merge_feed(self.current, self.published)
+        self.assertEqual(result[0]['versions'][0]['checksum'], 'a' * 32)
+        self.assertEqual(self.current[0]['versions'][0]['checksum'], '')
+
+    def test_older_release_preserves_newer_template_and_metadata(self):
+        self.current[0]['versions'][0].update({'version': '0.2.0.0', 'checksum': '', 'sourceUrl': ''})
+        self.current[0]['description'] = 'New description on development'
+        result = release.merge_feed(self.current, self.published)
+        self.assertEqual([v['version'] for v in result[0]['versions']], ['0.2.0.0', '0.1.0.0'])
+        self.assertEqual(result[0]['description'], 'New description on development')
+        self.assertEqual(result[0]['versions'][0]['checksum'], '')
+
+    def test_same_version_different_abi_is_preserved(self):
+        self.current[0]['versions'][0]['version'] = '0.1.0.0'
+        self.current[0]['versions'][0]['targetAbi'] = '12.1.0.0'
+        result = release.merge_feed(self.current, self.published)
+        self.assertEqual(len(result[0]['versions']), 2)
+
+    def test_idempotent_update(self):
+        once = release.merge_feed(self.current, self.published)
+        self.assertEqual(release.merge_feed(once, self.published), once)
+
+    def test_wrong_plugin_identity_is_rejected(self):
+        self.published[0]['guid'] = '00000000-0000-0000-0000-000000000000'
+        with self.assertRaisesRegex(ValueError, 'identity'):
+            release.merge_feed(self.current, self.published)
+
+    def test_unpublished_release_is_rejected(self):
+        self.published[0]['versions'][0]['checksum'] = ''
+        with self.assertRaisesRegex(ValueError, 'published'):
+            release.merge_feed(self.current, self.published)
+
+
 if __name__ == '__main__':
     unittest.main()

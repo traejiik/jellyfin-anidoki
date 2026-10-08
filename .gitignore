@@ -10,3 +10,6 @@ jellyfin-anidoki/builds/
 /dist/
 /test-results/
 __pycache__/
+
+# Agent planning documents stay local
+/docs/superpowers/
