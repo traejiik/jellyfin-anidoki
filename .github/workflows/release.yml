@@ -1,0 +1,76 @@
+name: Release plugin
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Verify tag belongs to development history
+        run: |
+          git fetch origin development
+          git merge-base --is-ancestor HEAD origin/development
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - name: Validate release tag and metadata
+        run: python3 scripts/release.py check --tag "$RELEASE_TAG"
+      - name: Test release packaging
+        run: python3 -m unittest discover -s scripts/tests -v
+      - name: Restore dependencies
+        run: dotnet restore jellyfin-anidoki.sln
+      - name: Build solution
+        run: dotnet build jellyfin-anidoki.sln --configuration Release --no-restore
+      - name: Run unit tests
+        run: >-
+          dotnet test jellyfin-anidoki-unit-tests/jellyfin-anidoki-unit-tests.csproj
+          --configuration Release --no-build --logger trx
+          --results-directory test-results
+      - name: Publish plugin DLL
+        run: >-
+          dotnet publish jellyfin-anidoki/jellyfin-anidoki.csproj
+          --configuration Release --no-build --no-restore
+          --output "$RUNNER_TEMP/anidoki-publish"
+      - name: Package plugin and generate checksums and manifest
+        env:
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: >-
+          python3 scripts/release.py package --tag "$RELEASE_TAG"
+          --repository "$RELEASE_REPOSITORY"
+          --publish-dir "$RUNNER_TEMP/anidoki-publish" --output dist
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            dist/*.zip dist/*.md5 dist/*.sha256 dist/manifest.json \
+            --verify-tag --title "AniDoki $RELEASE_TAG" \
+            --notes-file dist/release-notes.md
+      - name: Upload test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-test-results
+          path: test-results/*.trx
+          if-no-files-found: ignore
