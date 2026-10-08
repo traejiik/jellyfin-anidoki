@@ -8,11 +8,11 @@
     "overview": "Synchronize anime watch status",
     "versions": [
       {
-        "checksum": "",
+        "checksum": "fc4303facf0bc2e84a3077232d3c70b8",
         "changelog": "Build for Jellyfin version 12.2.",
         "targetAbi": "12.2.0.0",
-        "sourceUrl": "",
-        "timestamp": "2026-09-08T00:00:00Z",
+        "sourceUrl": "https://github.com/traejiik/jellyfin-anidoki/releases/download/v0.1.0/anidoki_0.1.0.0.zip",
+        "timestamp": "2026-10-08T21:45:35Z",
         "version": "0.1.0.0"
       }
     ]
