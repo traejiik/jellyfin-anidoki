@@ -30,7 +30,7 @@ class ReleaseTests(unittest.TestCase):
             (publish / 'jellyfin-anidoki.dll').write_bytes(b'test assembly')
             (publish / 'Jellyfin.Model.dll').write_bytes(b'server dependency')
             output = Path(directory) / 'release'
-            assets = release.package(self.manifest, publish, output, 'v0.1.0', 'traejiik/jellyfin-anidoki')
+            assets = release.package(self.manifest, publish, output, 'v0.1.0', 'traejiik/jellyfin-anidoki', changelog='Automatically generated PR notes')
             archive = assets['zip']
             with zipfile.ZipFile(archive) as package:
                 self.assertEqual(set(package.namelist()), {'jellyfin-anidoki.dll', 'meta.json'})
@@ -41,6 +41,9 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(metadata['version'], version['version'])
             self.assertEqual(metadata['targetAbi'], version['targetAbi'])
             self.assertEqual(metadata['assemblies'], ['jellyfin-anidoki.dll'])
+            self.assertEqual(metadata['changelog'], 'Automatically generated PR notes')
+            self.assertEqual(version['changelog'], metadata['changelog'])
+            self.assertIn(metadata['changelog'], (output / 'release-notes.md').read_text())
             self.assertEqual(version['checksum'], hashlib.md5(archive.read_bytes()).hexdigest())
             self.assertEqual(version['sourceUrl'], f'https://github.com/traejiik/jellyfin-anidoki/releases/download/v0.1.0/{archive.name}')
             self.assertIn(hashlib.sha256(archive.read_bytes()).hexdigest(), assets['sha256'].read_text())
@@ -48,10 +51,18 @@ class ReleaseTests(unittest.TestCase):
             self.assertNotEqual(version['timestamp'], self.manifest[0]['versions'][0]['timestamp'])
             self.assertEqual(self.manifest[0]['versions'][0]['checksum'], '')
 
+    def test_package_rejects_missing_or_empty_generated_notes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            publish = Path(directory)
+            (publish / 'jellyfin-anidoki.dll').write_bytes(b'test assembly')
+            for notes in (None, '', '  \n'):
+                with self.subTest(notes=notes), self.assertRaisesRegex(ValueError, 'changelog'):
+                    release.package(self.manifest, publish, publish / 'out', 'v0.1.0', 'traejiik/jellyfin-anidoki', changelog=notes)
+
     def test_tag_must_match_manifest_version(self):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(ValueError, 'tag'):
-                release.package(self.manifest, Path(directory), Path(directory) / 'out', 'v9.0.0', 'traejiik/jellyfin-anidoki')
+                release.package(self.manifest, Path(directory), Path(directory) / 'out', 'v9.0.0', 'traejiik/jellyfin-anidoki', changelog='Automatically generated PR notes')
 
     def test_invalid_tag_is_rejected(self):
         for tag in ('main', 'v0.1.0;echo', 'v0.1.0-beta'):
@@ -64,7 +75,7 @@ class ReleaseTests(unittest.TestCase):
     def test_missing_plugin_dll_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(ValueError, 'DLL'):
-                release.package(self.manifest, Path(directory), Path(directory) / 'out', 'v0.1.0', 'traejiik/jellyfin-anidoki')
+                release.package(self.manifest, Path(directory), Path(directory) / 'out', 'v0.1.0', 'traejiik/jellyfin-anidoki', changelog='Automatically generated PR notes')
 
 
 class FeedUpdateTests(unittest.TestCase):

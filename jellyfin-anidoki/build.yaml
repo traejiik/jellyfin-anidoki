@@ -10,5 +10,3 @@ description: "Synchronize anime watch status between Jellyfin and anime tracking
 category: "Anime"
 artifacts:
   - "jellyfin-anidoki.dll"
-changelog: |1-
-  Build for Jellyfin version 12.2.
