@@ -1,7 +1,11 @@
+import base64
 import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -29,13 +33,20 @@ class ReleaseTests(unittest.TestCase):
             publish.mkdir()
             (publish / 'jellyfin-anidoki.dll').write_bytes(b'test assembly')
             (publish / 'Jellyfin.Model.dll').write_bytes(b'server dependency')
+            image = Path(directory) / 'card.png'
+            image_bytes = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=')
+            image.write_bytes(image_bytes)
+            self.manifest[0]['imageUrl'] = 'https://example.com/anidoki-card.png'
             output = Path(directory) / 'release'
-            assets = release.package(self.manifest, publish, output, 'v0.1.0', 'traejiik/jellyfin-anidoki', changelog='Automatically generated PR notes')
+            assets = release.package(self.manifest, publish, output, 'v0.1.0', 'traejiik/jellyfin-anidoki', changelog='Automatically generated PR notes', image_path=image)
             archive = assets['zip']
             with zipfile.ZipFile(archive) as package:
-                self.assertEqual(set(package.namelist()), {'jellyfin-anidoki.dll', 'meta.json'})
+                self.assertEqual(set(package.namelist()), {'jellyfin-anidoki.dll', 'meta.json', 'anidoki-card.png'})
+                self.assertEqual(package.read('anidoki-card.png'), image_bytes)
                 metadata = json.loads(package.read('meta.json'))
             entry = json.loads((output / 'manifest.json').read_text())[0]
+            self.assertEqual(entry['imageUrl'], self.manifest[0]['imageUrl'])
+            self.assertEqual(metadata['imagePath'], 'anidoki-card.png')
             version = entry['versions'][0]
             self.assertEqual(metadata['guid'], entry['guid'])
             self.assertEqual(metadata['version'], version['version'])
@@ -50,6 +61,45 @@ class ReleaseTests(unittest.TestCase):
             self.assertIn(version['checksum'], assets['md5'].read_text())
             self.assertNotEqual(version['timestamp'], self.manifest[0]['versions'][0]['timestamp'])
             self.assertEqual(self.manifest[0]['versions'][0]['checksum'], '')
+
+    def test_package_cli_uses_artwork_from_explicit_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'repository'
+            for name in ('manifest.json', 'jellyfin-anidoki/jellyfin-anidoki.csproj',
+                         'jellyfin-anidoki/build.yaml', 'jellyfin-anidoki/Plugin.cs',
+                         'jellyfin-anidoki/Configuration/ConfigPageJs.js'):
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(ROOT / name, target)
+            image = root / 'docs/assets/anidoki-card.png'
+            image.parent.mkdir(parents=True)
+            image_bytes = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=')
+            image.write_bytes(image_bytes)
+            publish = Path(directory) / 'publish'
+            publish.mkdir()
+            (publish / 'jellyfin-anidoki.dll').write_bytes(b'test assembly')
+            notes = Path(directory) / 'notes.md'
+            notes.write_text('Generated release notes')
+            output = Path(directory) / 'release'
+            result = subprocess.run([
+                sys.executable, str(ROOT / 'scripts/release.py'), 'package',
+                '--root', str(root), '--publish-dir', str(publish), '--output', str(output),
+                '--tag', 'v0.1.0', '--repository', 'traejiik/jellyfin-anidoki',
+                '--changelog-file', str(notes),
+            ], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            with zipfile.ZipFile(output / 'anidoki_0.1.0.0.zip') as archive:
+                self.assertEqual(archive.read('anidoki-card.png'), image_bytes)
+
+    def test_package_rejects_missing_card_artwork_without_creating_archive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            publish = Path(directory)
+            (publish / 'jellyfin-anidoki.dll').write_bytes(b'test assembly')
+            output = publish / 'out'
+            with self.assertRaisesRegex(ValueError, 'artwork'):
+                release.package(self.manifest, publish, output, 'v0.1.0', 'traejiik/jellyfin-anidoki',
+                                changelog='Automatically generated PR notes', image_path=publish / 'missing.png')
+            self.assertFalse(output.exists())
 
     def test_package_rejects_missing_or_empty_generated_notes(self):
         with tempfile.TemporaryDirectory() as directory:
