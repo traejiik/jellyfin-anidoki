@@ -58,13 +58,22 @@ jobs:
           dotnet publish jellyfin-anidoki/jellyfin-anidoki.csproj
           --configuration Release --no-build --no-restore
           --output "$RUNNER_TEMP/anidoki-publish"
+      - name: Generate changelog from merged pull requests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: >-
+          gh api --method POST "repos/$RELEASE_REPOSITORY/releases/generate-notes"
+          -f tag_name="$RELEASE_TAG" --jq '.body'
+          > "$RUNNER_TEMP/anidoki-changelog.md"
       - name: Package plugin and generate checksums and manifest
         env:
           RELEASE_REPOSITORY: ${{ github.repository }}
         run: >-
           python3 scripts/release.py package --tag "$RELEASE_TAG"
           --repository "$RELEASE_REPOSITORY"
-          --publish-dir "$RUNNER_TEMP/anidoki-publish" --output dist
+          --publish-dir "$RUNNER_TEMP/anidoki-publish"
+          --changelog-file "$RUNNER_TEMP/anidoki-changelog.md" --output dist
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

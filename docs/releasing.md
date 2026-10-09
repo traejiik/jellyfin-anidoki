@@ -4,7 +4,7 @@ Pull requests targeting `development` run the required **Build and test** check.
 
 ## Publish a release
 
-1. In a PR, update the first version in `manifest.json`, the version/ABI/changelog in `jellyfin-anidoki/build.yaml`, and `Version`, `AssemblyVersion`, and `FileVersion` in the plugin project. Match the Jellyfin package references to the target ABI. Preserve published versions when adding a new one. The new version's URL and checksum can remain blank until packaging.
+1. In a PR, update the first version in `manifest.json`, the version/ABI in `jellyfin-anidoki/build.yaml`, and `Version`, `AssemblyVersion`, and `FileVersion` in the plugin project. Match the Jellyfin package references to the target ABI. Preserve published versions when adding a new one. The new version's URL and checksum can remain blank until packaging.
 2. Merge the PR after **Build and test** passes.
 3. Tag the merged commit and push the tag. For version `0.1.0.0`, either `v0.1.0` or `v0.1.0.0` is accepted:
 
@@ -15,7 +15,7 @@ Pull requests targeting `development` run the required **Build and test** check.
    git push origin v0.1.0
    ```
 
-4. The **Release plugin** workflow confirms the tagged commit belongs to development history, verifies the version, builds and tests it, and publishes a GitHub release containing:
+4. The **Release plugin** workflow confirms the tagged commit belongs to development history, verifies the version, builds and tests it, generates release notes through GitHub, and publishes a GitHub release containing:
    - `anidoki_<version>.zip`: the plugin DLL and Jellyfin `meta.json`.
    - `.zip.md5`: the checksum used by Jellyfin's repository manifest.
    - `.zip.sha256`: an additional checksum for manual verification.
@@ -25,6 +25,12 @@ Pull requests targeting `development` run the required **Build and test** check.
 Normal changes to `development` still require a PR and successful CI. The feed job authenticates with the repository deploy key stored in the `RELEASE_FEED_SSH_KEY` Actions secret. Deploy keys bypass the PR/status-check ruleset; a separate ruleset still blocks branch deletion and force pushes. GitHub applies deploy-key bypass to all repository deploy keys, so additional write keys would receive the same exception. `upstream-master` remains locked against these pushes.
 
 Prerelease tag suffixes are not supported. If publication succeeds but the feed update fails, select **Release plugin → Run workflow**, enter the existing release tag, and run it from `development`. This updates the feed without rebuilding or replacing release assets. An already-current feed is a no-op.
+
+## Automatic changelog
+
+GitHub generates the changelog from merged pull requests since the previous release. The workflow uses the same generated text in the repository manifest, the ZIP's `meta.json`, and the GitHub release notes. You no longer maintain a changelog in `build.yaml`; a new manifest version's changelog can be omitted or left blank until release packaging. Existing published changelogs remain intact.
+
+Write descriptive PR titles: those titles become the changelog entries. Generation or empty-output errors stop publication rather than reusing old notes. Manual feed recovery keeps the changelog from the existing published release.
 
 ## Optional Docker image
 

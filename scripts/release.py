@@ -53,8 +53,6 @@ def validate_repository(root, tag=None):
         match = re.search(rf'^{key}: (.+)$', build, re.MULTILINE)
         if not match or json.loads(match[1]) != value:
             raise ValueError(f'build.yaml {key} must match manifest/project metadata')
-    if release['changelog'] not in build:
-        raise ValueError('build.yaml changelog must match the current manifest version')
     plugin_source = (root / 'jellyfin-anidoki/Plugin.cs').read_text()
     frontend = (root / 'jellyfin-anidoki/Configuration/ConfigPageJs.js').read_text()
     if f'Guid.Parse("{plugin["guid"]}")' not in plugin_source or f"pluginUniqueId: '{plugin['guid']}'" not in frontend:
@@ -65,11 +63,14 @@ def validate_repository(root, tag=None):
     return manifest
 
 
-def package(manifest, publish_dir, output_dir, tag, repository):
+def package(manifest, publish_dir, output_dir, tag, repository, changelog=None):
     result = copy.deepcopy(manifest)
     plugin = result[0]
     release = plugin['versions'][0]
     validate_tag(tag, release['version'])
+    if not isinstance(changelog, str) or not changelog.strip():
+        raise ValueError('Packaging requires a non-empty generated changelog')
+    release['changelog'] = changelog.strip()
     if not re.fullmatch(r'[\w.-]+/[\w.-]+', repository):
         raise ValueError('Repository must have the form owner/name')
     assembly = publish_dir / DLL
@@ -132,6 +133,7 @@ def main():
     parser.add_argument('--tag')
     parser.add_argument('--repository')
     parser.add_argument('--publish-dir', type=Path)
+    parser.add_argument('--changelog-file', type=Path)
     parser.add_argument('--output', type=Path, default=Path('dist'))
     args = parser.parse_args()
     try:
@@ -146,9 +148,9 @@ def main():
             return
         manifest = validate_repository(args.root, args.tag)
         if args.command == 'package':
-            if not all((args.tag, args.repository, args.publish_dir)):
-                parser.error('package requires --tag, --repository, and --publish-dir')
-            assets = package(manifest, args.publish_dir, args.output, args.tag, args.repository)
+            if not all((args.tag, args.repository, args.publish_dir, args.changelog_file)):
+                parser.error('package requires --tag, --repository, --publish-dir, and --changelog-file')
+            assets = package(manifest, args.publish_dir, args.output, args.tag, args.repository, changelog=args.changelog_file.read_text())
             print(f'Created {assets["zip"]}')
         else:
             print('Manifest, build metadata, plugin identity, and project versions match.')
