@@ -25,11 +25,11 @@ using ILoggerFactory = Microsoft.Extensions.Logging.ILoggerFactory;
 namespace jellyfin_anidoki_unit_tests.HelperTests;
 
 public class ApiCallHelperTests {
-    private List<int> uniqueIdList;
+    private int nextKitsuId;
 
     [SetUp]
     public void Setup() {
-        uniqueIdList = new List<int>();
+        nextKitsuId = 0;
     }
     
     [Test]
@@ -120,7 +120,6 @@ public class ApiCallHelperTests {
     [Test]
     public void KitsuConfirmRelatedAnimeExists() {
         List<KitsuSearch.KitsuAnime> mediaList = new List<KitsuSearch.KitsuAnime>();
-        List<int> idList = new List<int>();
         for (int i = 0; i < 10; i++) {
             mediaList.Add(GetKitsuAnime(true));
         }
@@ -129,29 +128,30 @@ public class ApiCallHelperTests {
         Assert.AreEqual(10, animeList.Count);
         // Assert that the anime list contains the expected anime objects
         foreach (var anime in animeList) {
+            var matchingAnime = mediaList.Single(item => item.Id == anime.Id);
+            Assert.AreEqual(matchingAnime.RelatedAnime.Count, anime.RelatedAnime.Count);
             Assert.IsNotEmpty(anime.RelatedAnime);
             foreach (RelatedAnime relatedAnime in anime.RelatedAnime) {
-                var matchingRelated = mediaList.FirstOrDefault(item => item.Id == anime.Id)?.RelatedAnime.FirstOrDefault(item => item.Id == relatedAnime.Anime.Id);
-                if (matchingRelated == null) continue;
+                var matchingRelated = matchingAnime.RelatedAnime.Single(item => item.Id == relatedAnime.Anime.Id);
                 switch (matchingRelated.RelationType) {
                     case KitsuMediaRelationship.RelationType.sequel:
-                        Assert.IsTrue(relatedAnime.RelationType == RelationType.Sequel);
+                        Assert.AreEqual(RelationType.Sequel, relatedAnime.RelationType, $"Kitsu relation {matchingRelated.RelationType}");
                         break;
                     case KitsuMediaRelationship.RelationType.side_story:
                     case KitsuMediaRelationship.RelationType.full_story:
                     case KitsuMediaRelationship.RelationType.parent_story:
-                        Assert.IsTrue(relatedAnime.RelationType == RelationType.Side_Story);
+                        Assert.AreEqual(RelationType.Side_Story, relatedAnime.RelationType, $"Kitsu relation {matchingRelated.RelationType}");
                         break;
                     case KitsuMediaRelationship.RelationType.alternative_setting:
                     case KitsuMediaRelationship.RelationType.alternative_version:
-                        Assert.IsTrue(relatedAnime.RelationType == RelationType.Alternative_Setting);
+                        Assert.AreEqual(RelationType.Alternative_Setting, relatedAnime.RelationType, $"Kitsu relation {matchingRelated.RelationType}");
                         break;
                     case KitsuMediaRelationship.RelationType.spinoff:
                     case KitsuMediaRelationship.RelationType.adaptation:
-                        Assert.IsTrue(relatedAnime.RelationType == RelationType.Spin_Off);
+                        Assert.AreEqual(RelationType.Spin_Off, relatedAnime.RelationType, $"Kitsu relation {matchingRelated.RelationType}");
                         break;
                     default:
-                        Assert.IsTrue(relatedAnime.RelationType == RelationType.Other);
+                        Assert.AreEqual(RelationType.Other, relatedAnime.RelationType, $"Kitsu relation {matchingRelated.RelationType}");
                         break;
                 }
                 
@@ -292,13 +292,12 @@ public class ApiCallHelperTests {
     }
 
     private KitsuSearch.KitsuAnime GetKitsuAnime(bool createRelations) {
-        Random random = new Random();
         KitsuSearch.MediaRelationships mediaRelationships = new KitsuSearch.MediaRelationships();
         if (createRelations) {
             mediaRelationships.Data = new List<KitsuSearch.KitsuAnime>();
-            for (int i = 0; i < random.Next(1, 5); i++) {
+            foreach (var relationType in Enum.GetValues<KitsuMediaRelationship.RelationType>()) {
                 KitsuSearch.KitsuAnime anime = GetKitsuAnime(false);
-                anime.RelationType = (KitsuMediaRelationship.RelationType?)random.Next(0, 12);
+                anime.RelationType = relationType;
                 mediaRelationships.Data.Add(anime);
             }
         }
@@ -307,9 +306,9 @@ public class ApiCallHelperTests {
             MediaRelationships = mediaRelationships
         };
         return new KitsuSearch.KitsuAnime {
-            Id = GetUniqueRandomNumber(random, 1, 100),
+            Id = ++nextKitsuId,
             Attributes = new KitsuSearch.Attributes {
-                EpisodeCount = random.Next(1, 200),
+                EpisodeCount = 24,
                 CanonicalTitle = "Title",
                 Titles = new KitsuSearch.Titles { English = "Title", EnJp = "Title", Japanese = "Title" },
                 AbbreviatedTitles = new List<string> { "Synonym1", "Synonym2" },
@@ -331,13 +330,4 @@ public class ApiCallHelperTests {
         };
     }
 
-    private int GetUniqueRandomNumber(Random random, int start, int end) {
-        while (true) {
-            int randomInt = random.Next(start, end);
-
-            if (!uniqueIdList.Contains(randomInt)) {
-                return randomInt;
-            }
-        }
-    }
 }
