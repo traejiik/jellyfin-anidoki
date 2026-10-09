@@ -40,10 +40,10 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
-      - name: Validate release tag and metadata
-        run: python3 scripts/release.py check --tag "$RELEASE_TAG"
       - name: Test release packaging
         run: python3 -m unittest discover -s scripts/tests -v
+      - name: Apply tag version to build metadata
+        run: python3 scripts/release.py prepare --tag "$RELEASE_TAG"
       - name: Restore dependencies
         run: dotnet restore jellyfin-anidoki.sln
       - name: Build solution

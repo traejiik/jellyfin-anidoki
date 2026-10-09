@@ -81,15 +81,25 @@ class ReleaseTests(unittest.TestCase):
             notes = Path(directory) / 'notes.md'
             notes.write_text('Generated release notes')
             output = Path(directory) / 'release'
+            prepared = subprocess.run([
+                sys.executable, str(ROOT / 'scripts/release.py'), 'prepare',
+                '--root', str(root), '--tag', 'v0.1.1',
+            ], capture_output=True, text=True)
+            self.assertEqual(prepared.returncode, 0, prepared.stderr)
             result = subprocess.run([
                 sys.executable, str(ROOT / 'scripts/release.py'), 'package',
                 '--root', str(root), '--publish-dir', str(publish), '--output', str(output),
-                '--tag', 'v0.1.0', '--repository', 'traejiik/jellyfin-anidoki',
+                '--tag', 'v0.1.1', '--repository', 'traejiik/jellyfin-anidoki',
                 '--changelog-file', str(notes),
             ], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            with zipfile.ZipFile(output / 'anidoki_0.1.0.0.zip') as archive:
+            with zipfile.ZipFile(output / 'anidoki_0.1.1.0.zip') as archive:
                 self.assertEqual(archive.read('anidoki-card.png'), image_bytes)
+                self.assertEqual(json.loads(archive.read('meta.json'))['version'], '0.1.1.0')
+            feed = json.loads((output / 'manifest.json').read_text())
+            self.assertEqual(len(feed[0]['versions']), 1)
+            self.assertEqual(feed[0]['versions'][0]['version'], '0.1.1.0')
+            self.assertEqual(len(feed[0]['versions'][0]['checksum']), 32)
 
     def test_package_rejects_missing_card_artwork_without_creating_archive(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -126,6 +136,62 @@ class ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(ValueError, 'DLL'):
                 release.package(self.manifest, Path(directory), Path(directory) / 'out', 'v0.1.0', 'traejiik/jellyfin-anidoki', changelog='Automatically generated PR notes')
+
+
+class TagDrivenReleaseTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        for name in ('manifest.json', 'jellyfin-anidoki/jellyfin-anidoki.csproj',
+                     'jellyfin-anidoki/build.yaml', 'jellyfin-anidoki/Plugin.cs',
+                     'jellyfin-anidoki/Configuration/ConfigPageJs.js'):
+            target = self.root / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / name, target)
+        self.original = (self.root / 'manifest.json').read_text()
+
+    def test_prepare_uses_tag_and_keeps_published_history_unchanged(self):
+        result = release.prepare_release(self.root, 'v0.1.1')
+        self.assertEqual(result[0]['versions'], [{'version': '0.1.1.0', 'targetAbi': '12.2.0.0'}])
+        self.assertEqual((self.root / 'manifest.json').read_text(), self.original)
+        project = release.ET.parse(self.root / 'jellyfin-anidoki/jellyfin-anidoki.csproj')
+        for field in ('Version', 'AssemblyVersion', 'FileVersion'):
+            self.assertEqual(project.findtext(f'.//{field}'), '0.1.1.0')
+        self.assertEqual(release.validate_repository(self.root, 'v0.1.1'), result)
+        # Ordinary CI must still pass after the feed publishes the new version.
+        (self.root / 'manifest.json').write_text(json.dumps(result))
+        release.validate_repository(self.root)
+
+    def test_empty_feed_can_release_using_configured_abi(self):
+        manifest = json.loads(self.original)
+        manifest[0]['versions'] = []
+        (self.root / 'manifest.json').write_text(json.dumps(manifest))
+        result = release.prepare_release(self.root, 'v1.2.3.4')
+        self.assertEqual(result[0]['versions'][0], {'version': '1.2.3.4', 'targetAbi': '12.2.0.0'})
+
+    def test_feed_version_and_abi_do_not_control_current_build(self):
+        manifest = json.loads(self.original)
+        manifest[0]['versions'][0].update(version='9.0.0.0', targetAbi='11.0.0.0')
+        (self.root / 'manifest.json').write_text(json.dumps(manifest))
+        release.validate_repository(self.root)
+        self.assertEqual(release.prepare_release(self.root, 'v0.2.0')[0]['versions'][0]['targetAbi'], '12.2.0.0')
+
+    def test_invalid_tag_does_not_modify_build_files(self):
+        project = self.root / 'jellyfin-anidoki/jellyfin-anidoki.csproj'
+        build = self.root / 'jellyfin-anidoki/build.yaml'
+        before = (project.read_text(), build.read_text())
+        with self.assertRaises(ValueError):
+            release.prepare_release(self.root, 'v1.2.3-beta')
+        self.assertEqual((project.read_text(), build.read_text()), before)
+
+    def test_new_release_feed_merge_preserves_old_release_exactly(self):
+        candidate = release.prepare_release(self.root, 'v0.1.1')
+        candidate[0]['versions'][0].update(checksum='b' * 32, sourceUrl='https://github.com/example/release.zip')
+        original = json.loads(self.original)
+        result = release.merge_feed(original, candidate)
+        self.assertEqual(result[0]['versions'][1:], original[0]['versions'])
+        self.assertEqual(result[0]['versions'][0]['version'], '0.1.1.0')
 
 
 class FeedUpdateTests(unittest.TestCase):

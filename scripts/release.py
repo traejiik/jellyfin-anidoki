@@ -16,21 +16,30 @@ DLL = 'jellyfin-anidoki.dll'
 CARD_IMAGE = 'anidoki-card.png'
 
 
-def validate_tag(tag, version):
+def version_from_tag(tag):
     if not re.fullmatch(r'v\d+\.\d+\.\d+(?:\.\d+)?', tag):
         raise ValueError('Release tag must be vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH.REVISION')
     parts = tag[1:].split('.')
-    normalized = '.'.join(parts + ['0'] * (4 - len(parts)))
-    if normalized != version:
+    return '.'.join(parts + ['0'] * (4 - len(parts)))
+
+
+def validate_tag(tag, version):
+    if version_from_tag(tag) != version:
         raise ValueError(f'Release tag {tag} does not match manifest version {version}')
 
 
 def validate_repository(root, tag=None):
     manifest = json.loads((root / 'manifest.json').read_text())
-    if len(manifest) != 1 or not manifest[0]['versions']:
-        raise ValueError('Manifest must describe one plugin and at least one version')
+    if len(manifest) != 1 or not isinstance(manifest[0].get('versions'), list):
+        raise ValueError('Manifest must describe one plugin with a versions list')
     plugin = manifest[0]
-    release = plugin['versions'][0]
+    build = (root / 'jellyfin-anidoki/build.yaml').read_text()
+    release = {}
+    for key in ('version', 'targetAbi'):
+        match = re.search(rf'^{key}: (.+)$', build, re.MULTILINE)
+        if not match:
+            raise ValueError(f'build.yaml must configure {key}')
+        release[key] = json.loads(match[1])
     uuid.UUID(plugin['guid'])
     for value in (release['version'], release['targetAbi']):
         if not re.fullmatch(r'\d+\.\d+\.\d+\.\d+', value):
@@ -40,20 +49,19 @@ def validate_repository(root, tag=None):
     project = ET.parse(root / 'jellyfin-anidoki/jellyfin-anidoki.csproj')
     for key in ('Version', 'AssemblyVersion', 'FileVersion'):
         if project.findtext(f'.//{key}') != release['version']:
-            raise ValueError(f'Project {key} must match manifest version')
+            raise ValueError(f'Project {key} must match build.yaml version')
     abi_parts = release['targetAbi'].split('.')
     package_version = '.'.join(abi_parts[:3]) if abi_parts[3] == '0' else release['targetAbi']
     for ref in project.findall('.//PackageReference'):
         if ref.attrib['Include'].startswith('Jellyfin.') and ref.attrib['Version'] != package_version:
             raise ValueError(f'{ref.attrib["Include"]} must match target ABI {release["targetAbi"]}')
-    build = (root / 'jellyfin-anidoki/build.yaml').read_text()
     expected = {key: plugin[key] for key in ('name', 'guid', 'owner', 'overview', 'description', 'category')}
     expected.update({key: release[key] for key in ('version', 'targetAbi')})
     expected['framework'] = project.findtext('.//TargetFramework')
     for key, value in expected.items():
         match = re.search(rf'^{key}: (.+)$', build, re.MULTILINE)
         if not match or json.loads(match[1]) != value:
-            raise ValueError(f'build.yaml {key} must match manifest/project metadata')
+            raise ValueError(f'build.yaml {key} must match plugin/project metadata')
     plugin_source = (root / 'jellyfin-anidoki/Plugin.cs').read_text()
     frontend = (root / 'jellyfin-anidoki/Configuration/ConfigPageJs.js').read_text()
     if f'Guid.Parse("{plugin["guid"]}")' not in plugin_source or f"pluginUniqueId: '{plugin['guid']}'" not in frontend:
@@ -61,7 +69,27 @@ def validate_repository(root, tag=None):
     for field, declaration in (('name', 'Name'), ('description', 'Description')):
         if f'{declaration} => "{plugin[field]}"' not in plugin_source:
             raise ValueError(f'Plugin {field} must match manifest')
+    if tag:
+        # Publish only this release; merge_feed preserves the live feed's history.
+        manifest[0]['versions'] = [release]
     return manifest
+
+
+def prepare_release(root, tag):
+    """Apply the tag version in the disposable build checkout, leaving the feed alone."""
+    version = version_from_tag(tag)
+    validate_repository(root)
+    project_path = root / 'jellyfin-anidoki/jellyfin-anidoki.csproj'
+    project = project_path.read_text()
+    for field in ('Version', 'AssemblyVersion', 'FileVersion'):
+        project = re.sub(rf'(<{field}>)[^<]+(</{field}>)',
+                         lambda match: match[1] + version + match[2], project)
+    build_path = root / 'jellyfin-anidoki/build.yaml'
+    build = re.sub(r'^version: .+$', 'version: ' + json.dumps(version),
+                   build_path.read_text(), flags=re.MULTILINE)
+    project_path.write_text(project)
+    build_path.write_text(build)
+    return validate_repository(root, tag)
 
 
 def package(manifest, publish_dir, output_dir, tag, repository, changelog=None, image_path=None):
@@ -132,7 +160,7 @@ def merge_feed(current, published):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('check', 'package', 'update-feed'))
+    parser.add_argument('command', choices=('check', 'prepare', 'package', 'update-feed'))
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument('--manifest', type=Path)
     parser.add_argument('--released', type=Path)
@@ -152,6 +180,12 @@ def main():
             args.manifest.write_text(json.dumps(result, indent=2) + '\n')
             print('Updated installation feed from the published release.')
             return
+        if args.command == 'prepare':
+            if not args.tag:
+                parser.error('prepare requires --tag')
+            prepare_release(args.root, args.tag)
+            print(f'Prepared build version {version_from_tag(args.tag)} from {args.tag}.')
+            return
         manifest = validate_repository(args.root, args.tag)
         if args.command == 'package':
             if not all((args.tag, args.repository, args.publish_dir, args.changelog_file)):
@@ -159,7 +193,7 @@ def main():
             assets = package(manifest, args.publish_dir, args.output, args.tag, args.repository, changelog=args.changelog_file.read_text(), image_path=args.root / 'docs/assets' / CARD_IMAGE)
             print(f'Created {assets["zip"]}')
         else:
-            print('Manifest, build metadata, plugin identity, and project versions match.')
+            print('Plugin identity, build metadata, and project versions match; feed history is independent.')
     except (ValueError, KeyError, OSError, ET.ParseError) as error:
         parser.exit(1, f'Release validation failed: {error}\n')
 

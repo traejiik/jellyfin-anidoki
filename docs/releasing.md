@@ -4,23 +4,24 @@ Pull requests targeting `development` run the required **Build and test** check.
 
 ## Publish a release
 
-1. In a PR, update the first version in `manifest.json`, the version/ABI in `jellyfin-anidoki/build.yaml`, and `Version`, `AssemblyVersion`, and `FileVersion` in the plugin project. Match the Jellyfin package references to the target ABI. Preserve published versions when adding a new one. The new version's URL and checksum can remain blank until packaging.
-2. Merge the PR after **Build and test** passes.
-3. Tag the merged commit and push the tag. For version `0.1.0.0`, either `v0.1.0` or `v0.1.0.0` is accepted:
+1. Merge your changes into `development` after **Build and test** passes. You do not need to add a manifest version or bump the versions in the project or `build.yaml`.
+2. Tag the merged commit with the desired release version and push the tag. For example, `v0.1.1` produces plugin version `0.1.1.0`; four-part tags such as `v0.1.1.1` are also accepted:
 
    ```sh
    git switch development
    git pull --ff-only origin development
-   git tag v0.1.0
-   git push origin v0.1.0
+   git tag v0.1.1
+   git push origin v0.1.1
    ```
 
-4. The **Release plugin** workflow confirms the tagged commit belongs to development history, verifies the version, builds and tests it, generates release notes through GitHub, and publishes a GitHub release containing:
-   - `anidoki_<version>.zip`: the plugin DLL and Jellyfin `meta.json`.
+3. The **Release plugin** workflow confirms the tagged commit belongs to development history, validates metadata, and applies the tag version to `Version`, `AssemblyVersion`, `FileVersion`, and `build.yaml` in its disposable build checkout. It builds and tests the plugin, generates release notes through GitHub, and publishes:
+   - `anidoki_<version>.zip`: the plugin DLL, Jellyfin `meta.json`, and card artwork.
    - `.zip.md5`: the checksum used by Jellyfin's repository manifest.
    - `.zip.sha256`: an additional checksum for manual verification.
-   - `manifest.json`: the generated feed with download URL, MD5 checksum, and release timestamp filled in.
-5. The **Update installation feed** job downloads the published manifest and commits its release entries directly to `development`. It preserves newer version entries and changes only `manifest.json`. Jellyfin can then install the release using the existing `development/manifest.json` URL; no follow-up PR is needed.
+   - `manifest.json`: the completed new release entry, including its version, ABI, changelog, download URL, checksum, and timestamp.
+4. The **Update installation feed** job merges that entry into `development/manifest.json` and commits it directly. Published history stays intact; no follow-up PR is needed. The project and `build.yaml` version changes exist only in the release build checkout.
+
+The manifest is published history, so its versions do not control future builds and its list may initially be empty. Keep existing published entries so Jellyfin can still install compatible older releases. The target ABI comes from `jellyfin-anidoki/build.yaml`, and its Jellyfin package references must match. Only change ABI/dependencies when changing the supported Jellyfin version. Local project version fields must remain consistent with the version in `build.yaml`; they do not need a bump for each release.
 
 Normal changes to `development` still require a PR and successful CI. The feed job authenticates with the repository deploy key stored in the `RELEASE_FEED_SSH_KEY` Actions secret. Deploy keys bypass the PR/status-check ruleset; a separate ruleset still blocks branch deletion and force pushes. GitHub applies deploy-key bypass to all repository deploy keys, so additional write keys would receive the same exception. `upstream-master` remains locked against these pushes.
 
@@ -28,7 +29,7 @@ Prerelease tag suffixes are not supported. If publication succeeds but the feed 
 
 ## Automatic changelog
 
-GitHub generates the changelog from merged pull requests since the previous release. The workflow uses the same generated text in the repository manifest, the ZIP's `meta.json`, and the GitHub release notes. You no longer maintain a changelog in `build.yaml`; a new manifest version's changelog can be omitted or left blank until release packaging. Existing published changelogs remain intact.
+GitHub generates the changelog from merged pull requests since the previous release. The workflow uses the same generated text in the repository manifest, the ZIP's `meta.json`, and the GitHub release notes. You do not maintain a changelog in `build.yaml` or prepare a new manifest entry. Existing published changelogs remain intact.
 
 Write descriptive PR titles: those titles become the changelog entries. Generation or empty-output errors stop publication rather than reusing old notes. Manual feed recovery keeps the changelog from the existing published release.
 
