@@ -12,4 +12,6 @@ jellyfin-anidoki/builds/
 __pycache__/
 
 # Agent planning documents stay local
+AGENTS.md
+CLAUDE.md
 /docs/superpowers/
