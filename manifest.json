@@ -6,6 +6,7 @@
     "description": "Synchronize anime watch status between Jellyfin and anime tracking sites.",
     "owner": "traejiik",
     "overview": "Synchronize anime watch status",
+    "imageUrl": "https://raw.githubusercontent.com/traejiik/jellyfin-anidoki/development/docs/assets/anidoki-card.png",
     "versions": [
       {
         "checksum": "fc4303facf0bc2e84a3077232d3c70b8",

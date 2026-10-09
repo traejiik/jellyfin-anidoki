@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 DLL = 'jellyfin-anidoki.dll'
+CARD_IMAGE = 'anidoki-card.png'
 
 
 def validate_tag(tag, version):
@@ -63,7 +64,7 @@ def validate_repository(root, tag=None):
     return manifest
 
 
-def package(manifest, publish_dir, output_dir, tag, repository, changelog=None):
+def package(manifest, publish_dir, output_dir, tag, repository, changelog=None, image_path=None):
     result = copy.deepcopy(manifest)
     plugin = result[0]
     release = plugin['versions'][0]
@@ -76,15 +77,20 @@ def package(manifest, publish_dir, output_dir, tag, repository, changelog=None):
     assembly = publish_dir / DLL
     if not assembly.is_file():
         raise ValueError(f'Published plugin DLL is missing: {assembly}')
+    image_path = image_path if image_path is not None else Path(__file__).resolve().parents[1] / 'docs/assets' / CARD_IMAGE
+    if not image_path.is_file():
+        raise ValueError(f'Plugin card artwork is missing: {image_path}')
+    image_bytes = image_path.read_bytes()
     release['timestamp'] = datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
     metadata = {key: plugin[key] for key in ('category', 'guid', 'name', 'description', 'owner', 'overview')}
     metadata.update({key: release[key] for key in ('version', 'targetAbi', 'timestamp', 'changelog')})
-    metadata.update({'status': 'Active', 'autoUpdate': True, 'assemblies': [DLL]})
+    metadata.update({'status': 'Active', 'autoUpdate': True, 'assemblies': [DLL], 'imagePath': CARD_IMAGE})
     output_dir.mkdir(parents=True, exist_ok=True)
     archive = output_dir / f'anidoki_{release["version"]}.zip'
     with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED) as bundle:
         bundle.write(assembly, DLL)
         bundle.writestr('meta.json', json.dumps(metadata, indent=2) + '\n')
+        bundle.writestr(CARD_IMAGE, image_bytes)
     data = archive.read_bytes()
     md5 = hashlib.md5(data).hexdigest()  # Jellyfin repository checksum format.
     sha256 = hashlib.sha256(data).hexdigest()
@@ -96,7 +102,7 @@ def package(manifest, publish_dir, output_dir, tag, repository, changelog=None):
     (output_dir / 'manifest.json').write_text(json.dumps(result, indent=2) + '\n')
     (output_dir / 'release-notes.md').write_text(
         f'{release["changelog"]}\n\nRequires Jellyfin {release["targetAbi"]}.\n\n'
-        'The ZIP contains the plugin DLL and meta.json. Verify it with the attached checksum files.\n\n'
+        'The ZIP contains the plugin DLL, meta.json, and card artwork. Copy all three files when installing manually. Verify it with the attached checksum files.\n\n'
         'The release workflow automatically updates the development installation feed.\n'
     )
     return assets
@@ -150,7 +156,7 @@ def main():
         if args.command == 'package':
             if not all((args.tag, args.repository, args.publish_dir, args.changelog_file)):
                 parser.error('package requires --tag, --repository, --publish-dir, and --changelog-file')
-            assets = package(manifest, args.publish_dir, args.output, args.tag, args.repository, changelog=args.changelog_file.read_text())
+            assets = package(manifest, args.publish_dir, args.output, args.tag, args.repository, changelog=args.changelog_file.read_text(), image_path=args.root / 'docs/assets' / CARD_IMAGE)
             print(f'Created {assets["zip"]}')
         else:
             print('Manifest, build metadata, plugin identity, and project versions match.')

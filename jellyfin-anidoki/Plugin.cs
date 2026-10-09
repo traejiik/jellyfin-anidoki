@@ -10,6 +10,7 @@ using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Configuration;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.IO;
@@ -18,12 +19,26 @@ using System.Linq;
 
 namespace jellyfin_anidoki {
     public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages {
-        public Plugin(IApplicationPaths applicationPaths, IServerConfigurationManager serverConfigurationManager, IXmlSerializer xmlSerializer) : base(applicationPaths, xmlSerializer) {
+        private readonly ILogger<Plugin> _logger;
+
+        public Plugin(IApplicationPaths applicationPaths,
+            IServerConfigurationManager serverConfigurationManager,
+            IXmlSerializer xmlSerializer,
+            ILogger<Plugin> logger) : base(applicationPaths, xmlSerializer)
+        {
+            _logger = logger;
             Instance = this;
-            if (PluginConfiguration.enableUserPages)
-                CheckPluginPages(applicationPaths, serverConfigurationManager);
-            else
-                RemovePluginPages(applicationPaths);
+            try
+            {
+                if (PluginConfiguration.enableUserPages)
+                    CheckPluginPages(applicationPaths, serverConfigurationManager);
+                else
+                    RemovePluginPages(applicationPaths);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+            {
+                _logger.LogWarning(error, "Could not initialize AniDoki user-page registration");
+            }
         }
 
         public override string Name => "AniDoki";
@@ -53,11 +68,25 @@ namespace jellyfin_anidoki {
                 config.Add("pages", new JArray());
             }
 
+            if (config["pages"] is not JArray pages || pages.Any(page =>
+                page is not JObject entry ||
+                (entry["Id"] != null && entry["Id"]!.Type != JTokenType.String)))
+            {
+                throw new JsonException("Plugin Pages configuration contains an invalid pages collection or page ID.");
+            }
+
             JObject? hssPageConfig = config.Value<JArray>("pages")!.FirstOrDefault(x =>
                 x.Value<string>("Id") == typeof(Plugin).Namespace) as JObject;
 
             if (hssPageConfig != null)
             {
+                var version = hssPageConfig["Version"];
+                if (version != null && version.Type != JTokenType.Null &&
+                    !int.TryParse(version.ToString(), out _))
+                {
+                    throw new JsonException("AniDoki's Plugin Pages registration contains an invalid version.");
+                }
+
                 if ((hssPageConfig.Value<int?>("Version") ?? 0) < pluginPageConfigVersion)
                 {
                     config.Value<JArray>("pages")!.Remove(hssPageConfig);
@@ -92,31 +121,16 @@ namespace jellyfin_anidoki {
 
         public void RemovePluginPages(IApplicationPaths applicationPaths)
         {
-            string pluginPagesConfig = Path.Combine(applicationPaths.PluginConfigurationsPath, "Jellyfin.Plugin.PluginPages", "config.json");
-            if (!File.Exists(pluginPagesConfig))
-            {
-                return;
-            }
+            string path = Path.Combine(applicationPaths.PluginConfigurationsPath,
+                "Jellyfin.Plugin.PluginPages", "config.json");
+            PluginPagesCleanup.Remove(path, typeof(Plugin).Namespace!, _logger,
+                PluginPagesRuntime.RemovePage);
+        }
 
-            JObject config = JObject.Parse(File.ReadAllText(pluginPagesConfig));
-            if (!config.ContainsKey("pages"))
-            {
-                return;
-            }
-
-            JArray pages = config.Value<JArray>("pages")!;
-            List<JToken> toRemove = pages.Where(x => x.Value<string>("Id") == typeof(Plugin).Namespace).ToList();
-            if (toRemove.Count == 0)
-            {
-                return;
-            }
-
-            foreach (JToken entry in toRemove)
-            {
-                pages.Remove(entry);
-            }
-
-            File.WriteAllText(pluginPagesConfig, config.ToString(Formatting.Indented));
+        public override void OnUninstalling()
+        {
+            RemovePluginPages(ApplicationPaths);
+            base.OnUninstalling();
         }
 
         public IEnumerable<PluginPageInfo> GetPages() {
@@ -125,6 +139,9 @@ namespace jellyfin_anidoki {
                 new PluginPageInfo
                 {
                     Name = Name,
+                    DisplayName = "AniDōki",
+                    EnableInMainMenu = true,
+                    MenuIcon = "sync",
                     EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.ConfigPage.html"
                 },
                 new PluginPageInfo {
