@@ -16,9 +16,20 @@ SPEC.loader.exec_module(release)
 ROOT = Path(__file__).parents[2]
 
 
+def fixture_manifest():
+    manifest = json.loads((ROOT / 'manifest.json').read_text())
+    manifest[0]['versions'] = [{
+        'version': '0.1.0.0', 'targetAbi': '12.2.0.0',
+        'checksum': 'a' * 32,
+        'sourceUrl': 'https://github.com/traejiik/jellyfin-anidoki/releases/download/v0.1.0/anidoki_0.1.0.0.zip',
+        'changelog': 'Previous published release', 'timestamp': '2000-01-01T00:00:00Z',
+    }]
+    return manifest
+
+
 class ReleaseTests(unittest.TestCase):
     def setUp(self):
-        self.manifest = json.loads((ROOT / 'manifest.json').read_text())
+        self.manifest = fixture_manifest()
         self.manifest[0]['versions'][0].update({
             'version': '0.1.0.0', 'checksum': '', 'sourceUrl': '',
             'timestamp': '2000-01-01T00:00:00Z',
@@ -149,7 +160,8 @@ class TagDrivenReleaseTests(unittest.TestCase):
             target = self.root / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / name, target)
-        self.original = (self.root / 'manifest.json').read_text()
+        self.original = json.dumps(fixture_manifest())
+        (self.root / 'manifest.json').write_text(self.original)
 
     def test_prepare_uses_tag_and_keeps_published_history_unchanged(self):
         result = release.prepare_release(self.root, 'v0.1.1')
@@ -196,8 +208,8 @@ class TagDrivenReleaseTests(unittest.TestCase):
 
 class FeedUpdateTests(unittest.TestCase):
     def setUp(self):
-        self.current = json.loads((ROOT / 'manifest.json').read_text())
-        self.published = json.loads((ROOT / 'manifest.json').read_text())
+        self.current = fixture_manifest()
+        self.published = fixture_manifest()
         self.published[0]['versions'][0].update({
             'version': '0.1.0.0', 'checksum': 'a' * 32,
             'sourceUrl': 'https://github.com/traejiik/jellyfin-anidoki/releases/download/v0.1.0/anidoki_0.1.0.0.zip',
