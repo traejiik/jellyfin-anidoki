@@ -1,4 +1,4 @@
-<h1>AniDōki Jellyfin Plugin</h1>
+<h1 style="text-align: center">AniDōki Jellyfin Plugin</h1>
 
 <p><img src="docs/assets/anidoki-logo.png" width="240" alt="AniDōki logo: interwoven A and D with synchronization arrows"></p>
 
