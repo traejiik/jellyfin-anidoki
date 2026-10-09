@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/traejiik/jellyfin-anidoki/development/docs/assets/anidoki-card.png",
     "versions": [
       {
+        "version": "0.5.0.0",
+        "targetAbi": "12.2.0.0",
+        "changelog": "## What's Changed\n* fix: update version details in manifest.json by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/2\n* Automate release feed updates and stop tracking agent docs by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/3\n* Generate release changelogs automatically from merged PRs by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/4\n* Fix intermittent Kitsu relation test failures by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/5\n* Feat/anidoki integration branding by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/6\n* Automate release versions and manifest entries from tags by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/7\n\n\n**Full Changelog**: https://github.com/traejiik/jellyfin-anidoki/compare/v0.1.0...v0.5.0",
+        "timestamp": "2026-10-09T03:23:25Z",
+        "checksum": "dd1592afb68d1c739f400dc4cbc84384",
+        "sourceUrl": "https://github.com/traejiik/jellyfin-anidoki/releases/download/v0.5.0/anidoki_0.5.0.0.zip"
+      },
+      {
         "checksum": "fc4303facf0bc2e84a3077232d3c70b8",
         "changelog": "Build for Jellyfin version 12.2.",
         "targetAbi": "12.2.0.0",
