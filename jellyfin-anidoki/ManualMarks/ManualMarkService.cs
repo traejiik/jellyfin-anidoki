@@ -19,7 +19,7 @@ namespace jellyfin_anidoki.ManualMarks;
 
 public sealed class ManualMarkService(ManualMarkStore store, IUserManager users, ILibraryManager library,
     IUserDataManager data, ILoggerFactory loggers, IHttpContextAccessor context, IServerApplicationHost host,
-    IHttpClientFactory clients, IApplicationPaths paths, IMemoryCache cache)
+    IHttpClientFactory clients, IApplicationPaths paths, IMemoryCache cache, Notifications.Discord.DiscordNotificationDispatcher discord)
 {
     public async Task Execute(Guid operationId, CancellationToken cancellation)
     {
@@ -27,10 +27,11 @@ public sealed class ManualMarkService(ManualMarkStore store, IUserManager users,
         using var gate = await SyncExecutionGate.Shared.Enter(queued.UserId, cancellation);
         if (!store.TryBegin(operationId, out var request) || request == null) return;
         var collector = new PlaybackOutcomeCollector();
+        Episode? sourceItem = null;
         try
         {
             var user = users.GetUserById(request.UserId);
-            var item = library.GetItemById(request.SourceItemId) as Episode;
+            var item = sourceItem = library.GetItemById(request.SourceItemId) as Episode;
             var configuration = Plugin.Instance?.PluginConfiguration;
             var preferences = configuration?.UserConfig?.FirstOrDefault(c => c.UserId == request.UserId);
             if (user == null || item == null || !item.IsVisible(user, false) || !data.GetUserData(user, item).Played ||
@@ -43,6 +44,7 @@ public sealed class ManualMarkService(ManualMarkStore store, IUserManager users,
             cancellation.ThrowIfCancellationRequested();
             var updater = new UpdateProviderStatus(library, loggers, context, host, clients, paths, cache, new Delayer());
             await updater.UpdateInsideGate(item, request.UserId, true, collector, SyncUpdateSource.ConfirmedManual);
+            discord.Enqueue(SyncOperationSummary.Capture(item, request.UserId, operationId, SyncNotificationTrigger.ConfirmedManual, collector));
             var outcomes = collector.Outcomes;
             var hasChange = collector.HasConfirmedChange;
             var state = hasChange ? outcomes.Any(o => o.Kind is OutcomeKind.Failed or OutcomeKind.Unconfirmed or OutcomeKind.Unresolved) ? ManualMarkState.Partial : ManualMarkState.Confirmed :
@@ -63,6 +65,7 @@ public sealed class ManualMarkService(ManualMarkStore store, IUserManager users,
         }
         catch (Exception)
         {
+            if (collector.HasConfirmedChange && sourceItem != null) discord.Enqueue(SyncOperationSummary.Capture(sourceItem, request.UserId, operationId, SyncNotificationTrigger.ConfirmedManual, collector));
             var outcomes = PublicNotificationEvent.From(new(Guid.NewGuid(), operationId, 0, request.CreatedUtc,
                 request.UserId, "", request.SourceItemId, request.SourceTitle, request.SourceEpisode, false, collector.Outcomes)).Outcomes;
             store.Complete(operationId, collector.HasConfirmedChange ? ManualMarkState.Partial : ManualMarkState.Unconfirmed,

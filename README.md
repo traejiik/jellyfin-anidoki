@@ -37,6 +37,14 @@ When an administrator enables watched-checkbox tracker updates, a compatible web
 
 Pending confirmations do not auto-dismiss. They expire after two minutes and are not replayed after a server restart. Marking the episode unwatched cancels a pending or queued update; once sending has started, it cannot undo a tracker write. Confirmed manual marks only move progress forward and do not restart completed or active rewatches. Bulk marks, movies and another user's marks in an enrolled request require manual sync. Manual sync does not produce these notifications.
 
+### Discord notifications
+
+Each user can enable Discord updates and save their own incoming **Webhook link** in tracking settings. Use a webhook for a normal Discord text channel ([Discord webhook documentation](https://docs.discord.com/developers/resources/webhook)). AniDoki's name and avatar are fixed. **Preview** shows an accessible library example without sending a message; **Send test** explicitly sends a connectivity test after the settings are saved.
+
+An administrator must set the server **Public address** so the bold show title links back to Jellyfin. Notifications include the episode number and title, a processed poster when available, and confirmed tracker results. Partial results show the other outcomes too. Only meaningful confirmed updates from playback or watched marks are sent; pending prompts, dismissed changes, manual sync and failed-only operations stay silent.
+
+Webhook credentials are stored in the server configuration and are not returned to clients. Delivery is bounded and best effort: only explicit Discord rate limits are retried, at most twice. An ambiguous network response is not resent. A rejected webhook pauses that saved revision until it is replaced or a test succeeds.
+
 ### Services/providers
 
 The following services are currently supported:

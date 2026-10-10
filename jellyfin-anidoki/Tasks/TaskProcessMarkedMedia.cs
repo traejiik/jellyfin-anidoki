@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Notifications;
+using jellyfin_anidoki.Notifications.Discord;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
@@ -27,8 +28,9 @@ public class TaskProcessMarkedMedia {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IApplicationPaths _applicationPaths;
     private readonly IAsyncDelayer _delayer;
+    private readonly DiscordNotificationDispatcher _discord;
 
-    public TaskProcessMarkedMedia(ILoggerFactory loggerFactory, ILibraryManager libraryManager, IMemoryCache memoryCache, IHttpContextAccessor httpContextAccessor, IServerApplicationHost serverApplicationHost, IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths, IAsyncDelayer delayer) {
+    public TaskProcessMarkedMedia(ILoggerFactory loggerFactory, ILibraryManager libraryManager, IMemoryCache memoryCache, IHttpContextAccessor httpContextAccessor, IServerApplicationHost serverApplicationHost, IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths, IAsyncDelayer delayer, DiscordNotificationDispatcher discord = null) {
         _loggerFactory = loggerFactory;
         _libraryManager = libraryManager;
         _memoryCache = memoryCache;
@@ -38,6 +40,7 @@ public class TaskProcessMarkedMedia {
         _applicationPaths = applicationPaths;
         _logger = loggerFactory.CreateLogger<TaskProcessMarkedMedia>();
         _delayer = delayer;
+        _discord = discord;
     }
 
     public void AddToUpdateList((Guid userId, Guid? seasonId, Video baseItem) itemToAdd) {
@@ -95,7 +98,8 @@ public class TaskProcessMarkedMedia {
                     _logger.LogDebug($"(Sync) Ignoring {item.baseItem.Name}; ignore tag detected on all paired episodes");
                 } else {
                     var collector = new PlaybackOutcomeCollector();
-                    await updateProviderStatus.Update(highestNonIgnoredItem.baseItem, highestNonIgnoredItem.userId, true, collector, SyncUpdateSource.LegacyManual);
+                    try { await updateProviderStatus.Update(highestNonIgnoredItem.baseItem, highestNonIgnoredItem.userId, true, collector, SyncUpdateSource.LegacyManual); }
+                    finally { _discord?.Enqueue(SyncOperationSummary.Capture(highestNonIgnoredItem.baseItem, highestNonIgnoredItem.userId, Guid.NewGuid(), SyncNotificationTrigger.LegacyManual, collector)); }
                 }
             }
 

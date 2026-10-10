@@ -30,6 +30,7 @@ namespace jellyfin_anidoki {
         private readonly NotificationEventStore _notifications;
         private bool _started;
         private readonly ManualMarkStore _manualMarks;
+        private readonly Notifications.Discord.DiscordNotificationDispatcher _discord;
 
 
         private readonly ILibraryManager _libraryManager;
@@ -37,7 +38,7 @@ namespace jellyfin_anidoki {
         public SessionServerEntry(ISessionManager sessionManager, ILoggerFactory loggerFactory,
             IHttpClientFactory httpClientFactory, ILibraryManager libraryManager,
             IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor,
-            IApplicationPaths applicationPaths, IMemoryCache memoryCache, NotificationEventStore notifications, ManualMarkStore manualMarks = null) {
+            IApplicationPaths applicationPaths, IMemoryCache memoryCache, NotificationEventStore notifications, ManualMarkStore manualMarks = null, Notifications.Discord.DiscordNotificationDispatcher discord = null) {
             _httpClientFactory = httpClientFactory;
             _serverApplicationHost = serverApplicationHost;
             _httpContextAccessor = httpContextAccessor;
@@ -50,6 +51,7 @@ namespace jellyfin_anidoki {
             _delayer = new Delayer();
             _notifications = notifications;
             _manualMarks = manualMarks;
+            _discord = discord;
         }
 
         public Task StartAsync(CancellationToken cancellationToken) {
@@ -79,6 +81,7 @@ namespace jellyfin_anidoki {
 
                     finally {
                         if (e.PlayedToCompletion && collector.HasConfirmedChange) _manualMarks?.Supersede(user.Id, e.Item.Id);
+                        _discord?.Enqueue(SyncOperationSummary.Capture(e.Item, user.Id, Guid.NewGuid(), SyncNotificationTrigger.Playback, collector));
                         PlaybackNotificationPublisher.Publish(collector, context, user.Id, _notifications, _logger);
                     }
                 }
