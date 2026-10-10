@@ -159,7 +159,9 @@ public class Kitsu {
                         }
                     }
                 })
-            }
+            },
+            new() { RequestMethod = HttpMethod.Patch, ResponseCode = HttpStatusCode.OK,
+                ResponseContent = "{\"data\":{\"id\":\"1\",\"type\":\"libraryEntries\",\"attributes\":{\"progress\":1,\"status\":\"current\"}}}" }
         });
         var result = await _kitsuApiCalls.UpdateAnimeStatus(1,
             1,
@@ -205,7 +207,9 @@ public class Kitsu {
                         }
                     }
                 })
-            }
+            },
+            new() { RequestMethod = HttpMethod.Patch, ResponseCode = HttpStatusCode.OK,
+                ResponseContent = "{\"data\":{\"id\":\"1\",\"type\":\"libraryEntries\",\"attributes\":{\"progress\":1,\"status\":\"current\"}}}" }
         });
 
         var result = await _kitsuApiCalls.UpdateAnimeStatus(1,
@@ -255,5 +259,19 @@ public class Kitsu {
         var result = await _kitsuApiCalls.GetRelatedAnime(1);
         
         Assert.IsNotNull(result);
+    }
+
+    [TestCase("")]
+    [TestCase("{")]
+    [TestCase("{}")]
+    [TestCase("{\"errors\":[{\"message\":\"rejected\"}]}")]
+    [TestCase("{\"data\":{\"id\":\"1\",\"type\":\"libraryEntries\",\"attributes\":{\"progress\":1,\"status\":\"current\"}}}", HttpStatusCode.BadRequest)]
+    public async Task UpdateRejectsMissingOrErrorAcknowledgement(string body, HttpStatusCode responseCode = HttpStatusCode.OK) {
+        Setup(new List<Helpers.HttpCall> {
+            new() { RequestMethod = HttpMethod.Get, ResponseCode = HttpStatusCode.OK, ResponseContent = "{\"data\":[]}" },
+            new() { RequestMethod = HttpMethod.Post, ResponseCode = responseCode, ResponseContent = body },
+            new() { RequestMethod = HttpMethod.Patch, ResponseCode = responseCode, ResponseContent = body }
+        });
+        Assert.That(await _kitsuApiCalls.UpdateAnimeStatus(1, 1, KitsuUpdate.Status.current), Is.False);
     }
 }

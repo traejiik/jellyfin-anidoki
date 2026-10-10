@@ -126,12 +126,27 @@ public class Annict {
             new()  {
                 RequestMethod = HttpMethod.Post,
                 ResponseCode = HttpStatusCode.OK,
-                ResponseContent = String.Empty
+                ResponseContent = "{\"data\":{\"updateStatus\":{\"clientMutationId\":null}}}"
             }
         });
         
         var result = await _annictApiCalls.UpdateAnime("V29yay02Njg=", AnnictSearch.AnnictMediaStatus.Watched);
         
         Assert.IsTrue(result);
+    }
+
+    [TestCase("")]
+    [TestCase("{")]
+    [TestCase("{}")]
+    [TestCase("{\"errors\":[{\"message\":\"rejected\"}]}")]
+    [TestCase("{\"data\":{\"updateStatus\":null}}")]
+    [TestCase("{\"data\":{\"updateStatus\":{\"id\":1,\"clientMutationId\":null}},\"errors\":[{\"message\":\"rejected\"}]}")]
+    [TestCase("{\"data\":{\"updateStatus\":{\"clientMutationId\":null}}}", HttpStatusCode.BadRequest)]
+    public async Task UpdateRejectsMissingOrErrorAcknowledgement(string body, HttpStatusCode responseCode = HttpStatusCode.OK) {
+        Setup(new List<Helpers.HttpCall> {
+            new() { RequestMethod = HttpMethod.Post, ResponseCode = responseCode, ResponseContent = body },
+            new() { RequestMethod = HttpMethod.Patch, ResponseCode = responseCode, ResponseContent = body }
+        });
+        Assert.That(await _annictApiCalls.UpdateAnime("work", AnnictSearch.AnnictMediaStatus.Watched), Is.False);
     }
 }

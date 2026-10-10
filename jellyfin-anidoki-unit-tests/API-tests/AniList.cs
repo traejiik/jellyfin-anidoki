@@ -5,8 +5,10 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Api.Anilist;
 using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Models.Mal;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -100,7 +102,7 @@ public class AniList {
                 RequestMethod = HttpMethod.Post,
                 RequestUrlMatch = url => url.Contains("anilist"),
                 ResponseCode = HttpStatusCode.OK,
-                ResponseContent = String.Empty
+                ResponseContent = "{\"data\":{\"SaveMediaListEntry\":{\"id\":123,\"progress\":1,\"status\":\"CURRENT\",\"repeat\":1}}}"
             }
         });
         var result = await _aniListApiCalls.UpdateAnime(1,
@@ -160,5 +162,35 @@ public class AniList {
         var result = await _aniListApiCalls.GetAnime(1);
 
         Assert.IsNotNull(result.Id);
+    }
+
+    [TestCase("")]
+    [TestCase("{")]
+    [TestCase("{}")]
+    [TestCase("{\"data\":{\"SaveMediaListEntry\":{\"id\":123}}}")]
+    [TestCase("{\"errors\":[{\"message\":\"rejected\"}]}")]
+    [TestCase("{\"data\":{\"SaveMediaListEntry\":null}}")]
+    [TestCase("{\"data\":{\"SaveMediaListEntry\":{\"id\":1,\"clientMutationId\":null}},\"errors\":[{\"message\":\"rejected\"}]}")]
+    [TestCase("{\"data\":{\"SaveMediaListEntry\":{\"id\":123}}}", HttpStatusCode.BadRequest)]
+    public async Task UpdateRejectsMissingOrErrorAcknowledgement(string body, HttpStatusCode responseCode = HttpStatusCode.OK) {
+        Setup(new List<Helpers.HttpCall> {
+            new() { RequestMethod = HttpMethod.Post, ResponseCode = responseCode, ResponseContent = body },
+            new() { RequestMethod = HttpMethod.Patch, ResponseCode = responseCode, ResponseContent = body }
+        });
+        Assert.That(await _aniListApiCalls.UpdateAnime(1, AniListSearch.MediaListStatus.Current, 1), Is.False);
+    }
+
+    [Test]
+    public async Task ReceiptUsesReturnedStatusAndRepeatInsteadOfRequestedValues() {
+        Setup(new List<Helpers.HttpCall> {
+            new() { RequestMethod = HttpMethod.Post, ResponseCode = HttpStatusCode.OK,
+                ResponseContent = "{\"data\":{\"SaveMediaListEntry\":{\"id\":123,\"status\":\"CURRENT\",\"progress\":4,\"repeat\":1}}}" }
+        });
+        var result = await new ApiCallHelpers(aniListApiCalls: _aniListApiCalls).UpdateAnime(1, 5, Status.Completed,
+            isRewatching: true, numberOfTimesRewatched: 2);
+        Assert.That(result.AcknowledgedProgress, Is.EqualTo(4));
+        Assert.That(result.AcknowledgedStatus, Is.EqualTo(Status.Watching));
+        Assert.That(result.AcknowledgedRewatching, Is.False);
+        Assert.That(result.AcknowledgedRewatchCount, Is.EqualTo(1));
     }
 }

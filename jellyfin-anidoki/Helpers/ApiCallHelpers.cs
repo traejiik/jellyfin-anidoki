@@ -283,9 +283,7 @@ namespace jellyfin_anidoki.Helpers {
                         break;
                 }
 
-                if (await _aniListApiCalls.UpdateAnime(animeId, anilistStatus, numberOfWatchedEpisodes, numberOfTimesRewatched, startDate, endDate)) {
-                    return new UpdateAnimeStatusResponse();
-                }
+                return await _aniListApiCalls.UpdateAnimeReceipt(animeId, anilistStatus, numberOfWatchedEpisodes, numberOfTimesRewatched, startDate, endDate);
             }
 
             if (_kitsuApiCalls != null) {
@@ -314,7 +312,8 @@ namespace jellyfin_anidoki.Helpers {
                 }
 
                 if (await _kitsuApiCalls.UpdateAnimeStatus(animeId, numberOfWatchedEpisodes, kitsuStatus, isRewatching, numberOfTimesRewatched, startDate, endDate)) {
-                    return new UpdateAnimeStatusResponse();
+                    return new UpdateAnimeStatusResponse { UsesAcknowledgementFields = true, AcknowledgedProgress = numberOfWatchedEpisodes,
+                        AcknowledgedStatus = kitsuStatus == KitsuUpdate.Status.current ? Status.Watching : status == Status.Rewatching ? Status.Completed : status };
                 }
             }
 
@@ -344,7 +343,7 @@ namespace jellyfin_anidoki.Helpers {
                 }
 
                 if (await _annictApiCalls.UpdateAnime(alternativeId, annictMediaStatus))
-                    return new UpdateAnimeStatusResponse();
+                    return new UpdateAnimeStatusResponse { UsesAcknowledgementFields = true, AcknowledgedStatus = status == Status.Rewatching ? Status.Completed : status };
             }
 
             if (_shikimoriApiCalls != null && alternativeId != null) {
@@ -375,7 +374,7 @@ namespace jellyfin_anidoki.Helpers {
                 }
 
                 if (await _shikimoriApiCalls.UpdateAnime(alternativeId, shikimoriUpdateStatus, numberOfWatchedEpisodes, numberOfTimesRewatched)) {
-                    return new UpdateAnimeStatusResponse();
+                    return new UpdateAnimeStatusResponse { UsesAcknowledgementFields = true, AcknowledgedProgress = numberOfWatchedEpisodes, AcknowledgedStatus = status };
                 }
             }
 
@@ -400,9 +399,7 @@ namespace jellyfin_anidoki.Helpers {
                         break;
                 }
 
-                if (await _simklApiCalls.UpdateAnime(animeId, simklStatus, isShow.Value, ids, numberOfWatchedEpisodes)) {
-                    return new UpdateAnimeStatusResponse();
-                }
+                return await _simklApiCalls.UpdateAnimeReceipt(animeId, simklStatus, isShow.Value, ids, numberOfWatchedEpisodes);
             }
 
             return null;

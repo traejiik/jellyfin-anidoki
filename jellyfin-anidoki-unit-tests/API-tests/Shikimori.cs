@@ -191,7 +191,7 @@ public class Shikimori {
                 RequestMethod = HttpMethod.Post,
                 RequestUrlMatch = url => url.EndsWith("/user_rates"),
                 ResponseCode = HttpStatusCode.OK,
-                ResponseContent = String.Empty
+                ResponseContent = "{\"id\":123,\"target_id\":1,\"target_type\":\"Anime\",\"episodes\":1,\"status\":\"watching\"}"
             }
         });
         var result = await _shikimoriApiCalls.UpdateAnime(1.ToString(), ShikimoriUserRate.StatusEnum.watching, 1, 1);
@@ -230,5 +230,19 @@ public class Shikimori {
         var result = await _shikimoriApiCalls.GetUserAnimeList();
 
         Assert.IsNotNull(result);
+    }
+
+    [TestCase("")]
+    [TestCase("{")]
+    [TestCase("{}")]
+    [TestCase("{\"errors\":[{\"message\":\"rejected\"}]}")]
+    [TestCase("{\"id\":123,\"target_id\":1,\"target_type\":\"Anime\",\"episodes\":1,\"status\":\"watching\"}", HttpStatusCode.BadRequest)]
+    public async Task UpdateRejectsMissingOrErrorAcknowledgement(string body, HttpStatusCode responseCode = HttpStatusCode.OK) {
+        Setup(new List<Helpers.HttpCall> {
+            new() { RequestMethod = HttpMethod.Get, ResponseCode = HttpStatusCode.OK, ResponseContent = "{\"id\":1}" },
+            new() { RequestMethod = HttpMethod.Post, ResponseCode = responseCode, ResponseContent = body },
+            new() { RequestMethod = HttpMethod.Patch, ResponseCode = responseCode, ResponseContent = body }
+        });
+        Assert.That(await _shikimoriApiCalls.UpdateAnime("1", ShikimoriUserRate.StatusEnum.watching, 1), Is.False);
     }
 }

@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Api.Kitsu;
+using jellyfin_anidoki.Api.Shikimori;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
@@ -217,6 +218,38 @@ public class ApiCallHelperTests {
         Assert.IsTrue(convertedResult.IsRewatching == expectedReconsuming);
         Assert.IsTrue(convertedResult.RewatchCount == expectedReconsumeCount);
         Assert.IsTrue(convertedResult.Status == expectedStatus);
+    }
+
+    [TestCase(ApiName.Kitsu)]
+    [TestCase(ApiName.Shikimori)]
+    public async Task MutationReceiptDoesNotInventUnreturnedRewatchFields(ApiName provider) {
+        IHttpClientFactory factory = null!;
+        Helpers.MockHttpCalls(new List<Helpers.HttpCall> {
+            new() { RequestMethod = HttpMethod.Get, ResponseCode = HttpStatusCode.OK, ResponseContent = "{\"data\":[]}" },
+            new() { RequestMethod = HttpMethod.Post, ResponseCode = HttpStatusCode.OK, ResponseContent = provider == ApiName.Kitsu
+                ? "{\"data\":{\"id\":\"9\",\"type\":\"libraryEntries\",\"attributes\":{\"progress\":5,\"status\":\"current\"}}}"
+                : "{\"id\":9,\"target_id\":1,\"target_type\":\"Anime\",\"episodes\":5,\"status\":\"watching\"}" }
+        }, ref factory);
+        var config = new UserConfig {
+            UserApiAuth = [new UserApiAuth { Name = provider, AccessToken = "test" }],
+            KeyPairs = [new KeyPairs { Key = provider + "UserId", Value = "1" }]
+        };
+        var loggers = new NullLoggerFactory();
+        var host = new Mock<IServerApplicationHost>().Object;
+        var context = new Mock<IHttpContextAccessor>().Object;
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var delay = new Mock<IAsyncDelayer>().Object;
+        var helpers = provider == ApiName.Kitsu
+            ? new ApiCallHelpers(kitsuApiCalls: new KitsuApiCalls(factory, loggers, host, context, cache, delay, config))
+            : new ApiCallHelpers(shikimoriApiCalls: new ShikimoriApiCalls(factory, loggers, host, context, cache, delay,
+                new Dictionary<string, string>(), config));
+        var result = await helpers.UpdateAnime(1, 5, Status.Watching, isRewatching: true,
+            numberOfTimesRewatched: 2, alternativeId: "1");
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.AcknowledgedProgress, Is.EqualTo(5));
+        Assert.That(result.AcknowledgedStatus, Is.EqualTo(Status.Watching));
+        Assert.That(result.AcknowledgedRewatching, Is.Null);
+        Assert.That(result.AcknowledgedRewatchCount, Is.Null);
     }
     
     private ShikimoriAnime GetShikimoriAnime(bool createRelations) {

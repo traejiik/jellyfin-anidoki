@@ -96,7 +96,10 @@ namespace jellyfin_anidoki.Api.Annict {
             };
 
             var response = await GraphQlHelper.AuthenticatedRequest(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig, query, ApiName.Annict, variables);
-            return response != null;
+            return await MutationAcknowledgement.Validate(response, root =>
+                MutationAcknowledgement.Object(root, "data", out var data) &&
+                MutationAcknowledgement.Object(data, "updateStatus", out var entry) &&
+                entry.TryGetProperty("clientMutationId", out var clientMutationId) && (clientMutationId.ValueKind == JsonValueKind.Null || clientMutationId.ValueKind == JsonValueKind.String));
         }
 
         /// <summary>

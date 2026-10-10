@@ -233,12 +233,27 @@ namespace jellyfin_anidoki.Api {
             try {
                 var apiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Mal, AuthApiCall.CallType.PUT, builtUrl, new FormUrlEncodedContent(body.ToArray()));
 
-                if (apiCall != null) {
+                if (await MutationAcknowledgement.Validate(apiCall, root =>
+                    MutationAcknowledgement.Number(root, "num_episodes_watched", out var progress) && progress >= 0 &&
+                    root.TryGetProperty("status", out var statusField) && statusField.ValueKind == JsonValueKind.String &&
+                    Enum.TryParse<Status>(statusField.GetString(), true, out var returnedStatus) && Enum.IsDefined(returnedStatus))) {
                     StreamReader streamReader = new StreamReader(await apiCall.Content.ReadAsStreamAsync());
                     var options = new JsonSerializerOptions();
                     options.Converters.Add(new JsonStringEnumConverter());
                     _logger.LogInformation($"Updating anime status (PUT {builtUrl})...");
-                    updateResponse = JsonSerializer.Deserialize<UpdateAnimeStatusResponse>(await streamReader.ReadToEndAsync(), options);
+                    var responseBody = await streamReader.ReadToEndAsync();
+                    updateResponse = JsonSerializer.Deserialize<UpdateAnimeStatusResponse>(responseBody, options);
+                    if (updateResponse != null) {
+                        using var document = JsonDocument.Parse(responseBody);
+                        var root = document.RootElement;
+                        updateResponse.UsesAcknowledgementFields = true;
+                        updateResponse.AcknowledgedProgress = updateResponse.NumEpisodesWatched;
+                        updateResponse.AcknowledgedStatus = updateResponse.Status;
+                        if (root.TryGetProperty("is_rewatching", out var rewatching) && rewatching.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                            updateResponse.AcknowledgedRewatching = rewatching.GetBoolean();
+                        if (MutationAcknowledgement.Number(root, "num_times_rewatched", out var rewatchCount))
+                            updateResponse.AcknowledgedRewatchCount = rewatchCount;
+                    }
                     _logger.LogInformation("Update complete");
                 } else {
                     updateResponse = null;

@@ -3,6 +3,13 @@ using System.Text.Json.Serialization;
 
 namespace jellyfin_anidoki.Models.Mal {
     public class UpdateAnimeStatusResponse : ListStatus {
+        // JSON-ignored receipt capabilities for providers whose mutation returns a bool.
+        [JsonIgnore] public bool UsesAcknowledgementFields { get; set; }
+        [JsonIgnore] public int? AcknowledgedProgress { get; set; }
+        [JsonIgnore] public Status? AcknowledgedStatus { get; set; }
+        [JsonIgnore] public bool? AcknowledgedRewatching { get; set; }
+        [JsonIgnore] public int? AcknowledgedRewatchCount { get; set; }
+
         [JsonPropertyName("finish_date")] public string FinishDate { get; set; }
         [JsonPropertyName("priority")] public int Priority { get; set; }
 

@@ -150,7 +150,7 @@ public class Simkl {
                 RequestMethod = HttpMethod.Post,
                 RequestUrlMatch = url => url.EndsWith("/sync/history"),
                 ResponseCode = HttpStatusCode.OK,
-                ResponseContent = String.Empty
+                ResponseContent = "{\"added\":{\"shows\":0,\"movies\":0,\"episodes\":1,\"statuses\":[{\"request\":{\"ids\":{\"simkl\":45006}},\"response\":{\"status\":\"watching\"}}]},\"not_found\":{\"shows\":[],\"movies\":[],\"episodes\":[]}}"
             }
         });
         
@@ -159,5 +159,39 @@ public class Simkl {
         }, 10);
 
         Assert.IsTrue(result);
+    }
+
+    [TestCase("")]
+    [TestCase("{")]
+    [TestCase("{}")]
+    [TestCase("{\"errors\":[{\"message\":\"rejected\"}]}")]
+    [TestCase("{\"added\":{\"shows\":0,\"movies\":0,\"episodes\":1,\"statuses\":[{\"request\":{\"ids\":{\"simkl\":45006}},\"response\":{\"status\":\"watching\"}}]},\"not_found\":{\"shows\":[],\"movies\":[],\"episodes\":[]}}", HttpStatusCode.BadRequest)]
+    public async Task UpdateRejectsMissingOrErrorAcknowledgement(string body, HttpStatusCode responseCode = HttpStatusCode.OK) {
+        Setup(new List<Helpers.HttpCall> {
+            new() { RequestMethod = HttpMethod.Post, ResponseCode = responseCode, ResponseContent = body },
+            new() { RequestMethod = HttpMethod.Patch, ResponseCode = responseCode, ResponseContent = body }
+        });
+        Assert.That(await _simklApiCalls.UpdateAnime(45006, SimklStatus.watching, true, new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), 1), Is.False);
+    }
+
+    [TestCase(0, "[]", false)]
+    [TestCase(1, "[]", true)]
+    [TestCase(1, "[{\"ids\":{\"simkl\":45006}}]", false)]
+    public async Task HistoryAcknowledgementRequiresAnActualAdditionAndNoUnresolvedTitle(int episodes, string notFoundShows, bool expected) {
+        Setup(new List<Helpers.HttpCall> {
+            new() { RequestMethod = HttpMethod.Post, ResponseCode = HttpStatusCode.OK,
+                ResponseContent = "{\"added\":{\"shows\":0,\"movies\":0,\"episodes\":" + episodes + ",\"statuses\":[{\"request\":{\"ids\":{\"simkl\":45006}},\"response\":{\"status\":\"watching\"}}]},\"not_found\":{\"shows\":" + notFoundShows + ",\"movies\":[],\"episodes\":[]}}" }
+        });
+        Assert.That(await _simklApiCalls.UpdateAnime(45006, SimklStatus.watching, true, new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), 1), Is.EqualTo(expected));
+    }
+
+    [TestCase(45006, true)]
+    [TestCase(99999, false)]
+    public async Task HistoryReceiptMustAcknowledgeSubmittedTitle(int acknowledgedId, bool expected) {
+        Setup(new List<Helpers.HttpCall> {
+            new() { RequestMethod = HttpMethod.Post, ResponseCode = HttpStatusCode.OK,
+                ResponseContent = "{\"added\":{\"shows\":0,\"movies\":0,\"episodes\":1,\"statuses\":[{\"request\":{\"ids\":{\"simkl\":" + acknowledgedId + "}},\"response\":{\"status\":\"watching\"}}]},\"not_found\":{\"shows\":[],\"movies\":[],\"episodes\":[]}}" }
+        });
+        Assert.That(await _simklApiCalls.UpdateAnime(45006, SimklStatus.watching, true, new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), 1), Is.EqualTo(expected));
     }
 }

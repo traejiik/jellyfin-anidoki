@@ -12,6 +12,7 @@ using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Simkl;
+using jellyfin_anidoki.Models.Mal;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -223,7 +224,10 @@ public class SimklApiCalls {
         }
     }
 
-    public async Task<bool> UpdateAnime(int animeId, SimklStatus updateStatus, bool isShow, AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, int numberOfWatchedEpisodes) {
+    public async Task<bool> UpdateAnime(int animeId, SimklStatus updateStatus, bool isShow, AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, int numberOfWatchedEpisodes) =>
+        await UpdateAnimeReceipt(animeId, updateStatus, isShow, ids, numberOfWatchedEpisodes) != null;
+
+    internal async Task<UpdateAnimeStatusResponse?> UpdateAnimeReceipt(int animeId, SimklStatus updateStatus, bool isShow, AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, int numberOfWatchedEpisodes) {
         UrlBuilder url = new UrlBuilder {
             Base = $"{ApiBaseUrl}/sync/history"
         };
@@ -231,7 +235,7 @@ public class SimklApiCalls {
         if (_requestHeaders.TryGetValue("simkl-api-key", out string? clientId)) {
             url.Parameters.Add(new KeyValuePair<string, string>("client_id", clientId));
         } else {
-            return false;
+            return null;
         }
 
         SimklExtendedIds convertedIds = new SimklExtendedIds {
@@ -289,10 +293,35 @@ public class SimklApiCalls {
         var stringContent = new StringContent(JsonSerializer.Serialize(updateBody), Encoding.UTF8, "application/json");
 
         HttpResponseMessage? response = await _authApiCall.AuthenticatedApiCall(ApiName.Simkl, AuthApiCall.CallType.POST, url.Build(), stringContent: stringContent, requestHeaders: _requestHeaders);
-        if (response != null) {
-            return response.IsSuccessStatusCode;
+        Status? confirmedStatus = null;
+        if (await MutationAcknowledgement.Validate(response, root => {
+                if (!MutationAcknowledgement.Object(root, "added", out var added) ||
+                    !MutationAcknowledgement.Object(root, "not_found", out var notFound)) return false;
+                // Only one title is submitted. Any unresolved title/episode makes this receipt ambiguous.
+                foreach (var category in new[] { "shows", "movies", "episodes" }) {
+                    if (!notFound.TryGetProperty(category, out var missing) ||
+                        missing.ValueKind != JsonValueKind.Array || missing.GetArrayLength() != 0) return false;
+                }
+                if (!added.TryGetProperty("statuses", out var statuses) || statuses.ValueKind != JsonValueKind.Array || statuses.GetArrayLength() != 1)
+                    return false;
+                var acknowledgement = statuses[0];
+                if (!MutationAcknowledgement.Object(acknowledgement, "request", out var request) ||
+                    !MutationAcknowledgement.Object(request, "ids", out var acknowledgedIds) ||
+                    !MutationAcknowledgement.Number(acknowledgedIds, "simkl", out var acknowledgedId) || acknowledgedId != animeId ||
+                    !MutationAcknowledgement.Object(acknowledgement, "response", out var result) ||
+                    !result.TryGetProperty("status", out var status) || status.ValueKind != JsonValueKind.String)
+                    return false;
+                confirmedStatus = status.GetString() switch {
+                    "watching" => Status.Watching, "completed" => Status.Completed,
+                    "plantowatch" => Status.Plan_to_watch, "hold" => Status.On_hold, "dropped" => Status.Dropped, _ => null
+                };
+                return confirmedStatus.HasValue && MutationAcknowledgement.Number(added, isShow ? "episodes" : "movies", out var count) &&
+                       (isShow ? count > 0 : count == 1);
+            })) {
+            return new UpdateAnimeStatusResponse { UsesAcknowledgementFields = true,
+                AcknowledgedProgress = numberOfWatchedEpisodes, AcknowledgedStatus = confirmedStatus };
         }
 
-        return false;
+        return null;
     }
 }

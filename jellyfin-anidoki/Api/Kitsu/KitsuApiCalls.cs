@@ -215,7 +215,12 @@ namespace jellyfin_anidoki.Api.Kitsu {
                 HttpResponseMessage? apiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Kitsu, libraryStatus != null ? AuthApiCall.CallType.PATCH : AuthApiCall.CallType.POST, url.Build(), stringContent: stringContent);
 
                 if (apiCall != null) {
-                    return apiCall.IsSuccessStatusCode;
+                    return await MutationAcknowledgement.Validate(apiCall, root =>
+                        MutationAcknowledgement.Object(root, "data", out var entry) &&
+                        MutationAcknowledgement.Id(entry) && MutationAcknowledgement.Text(entry, "type", "libraryEntries") &&
+                        MutationAcknowledgement.Object(entry, "attributes", out var attributes) &&
+                        MutationAcknowledgement.Number(attributes, "progress", out var progress) && progress == numberOfWatchedEpisodes &&
+                        MutationAcknowledgement.Text(attributes, "status", status.ToString()));
                 }
             }
 

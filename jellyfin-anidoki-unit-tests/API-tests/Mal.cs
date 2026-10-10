@@ -112,7 +112,7 @@ public class Mal {
                 RequestMethod = HttpMethod.Put,
                 RequestUrlMatch = url => url.EndsWith("my_list_status"),
                 ResponseCode = HttpStatusCode.OK,
-                ResponseContent = JsonSerializer.Serialize(new UpdateAnimeStatusResponse())
+                ResponseContent = "{\"status\":\"completed\",\"num_episodes_watched\":1,\"num_times_rewatched\":1}"
             }
         });
 
@@ -131,4 +131,16 @@ public class Mal {
     [TestCase("Kono Subarashii Sekai ni Shukufuku wo! 2: Kono Subarashii Geijutsu ni Shukufuku wo! ", "KonoSubarashiiSekainiShukufukuwo!2:KonoSubarashiiGeijutsuniShuku")]
     public void TruncateStringAndRemoveSpaces(string input, string expected) =>
         Assert.IsTrue(MalHelper.TruncateQuery(input) == expected);*/
+
+    [TestCase("")]
+    [TestCase("{")]
+    [TestCase("{}")]
+    [TestCase("{\"error\":\"rejected\"}")]
+    [TestCase("{\"status\":\"watching\",\"num_episodes_watched\":1}", HttpStatusCode.BadRequest)]
+    public async Task UpdateRejectsMissingOrErrorAcknowledgement(string body, HttpStatusCode responseCode = HttpStatusCode.OK) {
+        Setup(new List<Helpers.HttpCall> {
+            new() { RequestMethod = HttpMethod.Put, ResponseCode = responseCode, ResponseContent = body }
+        });
+        Assert.That(await _malApiCalls.UpdateAnimeStatus(1, 1, Status.Watching), Is.Null);
+    }
 }

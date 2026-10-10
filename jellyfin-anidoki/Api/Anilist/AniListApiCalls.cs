@@ -10,6 +10,7 @@ using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Models.Mal;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
@@ -199,6 +200,10 @@ namespace jellyfin_anidoki.Api.Anilist {
         }
 
         public async Task<bool> UpdateAnime(int id, AniListSearch.MediaListStatus status, int progress, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null) {
+            return await UpdateAnimeReceipt(id, status, progress, numberOfTimesRewatched, startDate, endDate) != null;
+        }
+
+        internal async Task<UpdateAnimeStatusResponse> UpdateAnimeReceipt(int id, AniListSearch.MediaListStatus status, int progress, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null) {
             string query = @"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int" +
                            (numberOfTimesRewatched != null ? ", $repeat: Int" : "") +
                            (startDate != null ? ",$startDay: Int, $startMonth: Int, $startYear: Int" : "") +
@@ -210,6 +215,9 @@ namespace jellyfin_anidoki.Api.Anilist {
                            (endDate != null ? @", completedAt: {day: $endDay, month: $endMonth, year: $endYear}" : "") +
                            @") {
             id
+            progress
+            status
+            repeat
           }
         }";
 
@@ -236,7 +244,34 @@ namespace jellyfin_anidoki.Api.Anilist {
             }
 
             var response = await GraphQlHelper.AuthenticatedRequest(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig, query, ApiName.AniList, variables);
-            return response != null;
+            UpdateAnimeStatusResponse receipt = null;
+            bool acknowledged = await MutationAcknowledgement.Validate(response, root => {
+                if (!MutationAcknowledgement.Object(root, "data", out var data) ||
+                    !MutationAcknowledgement.Object(data, "SaveMediaListEntry", out var entry) ||
+                    !MutationAcknowledgement.Id(entry)) return false;
+                int? returnedProgress = MutationAcknowledgement.Number(entry, "progress", out var actualProgress) && actualProgress >= 0
+                    ? actualProgress : null;
+                Status? returnedStatus = entry.TryGetProperty("status", out var statusField) && statusField.ValueKind == JsonValueKind.String
+                    ? statusField.GetString() switch {
+                        "CURRENT" => Status.Watching,
+                        "PLANNING" => Status.Plan_to_watch,
+                        "COMPLETED" => Status.Completed,
+                        "DROPPED" => Status.Dropped,
+                        "PAUSED" => Status.On_hold,
+                        "REPEATING" => Status.Rewatching,
+                        _ => null
+                    } : null;
+                if (!returnedProgress.HasValue && !returnedStatus.HasValue) return false;
+                receipt = new UpdateAnimeStatusResponse {
+                    UsesAcknowledgementFields = true,
+                    AcknowledgedProgress = returnedProgress,
+                    AcknowledgedStatus = returnedStatus,
+                    AcknowledgedRewatching = returnedStatus.HasValue ? returnedStatus == Status.Rewatching : null,
+                    AcknowledgedRewatchCount = MutationAcknowledgement.Number(entry, "repeat", out var repeat) && repeat >= 0 ? repeat : null
+                };
+                return true;
+            });
+            return acknowledged ? receipt : null;
         }
 
         public async Task<List<AniListMediaList.Entries>> GetAnimeList(int userId, AniListSearch.MediaListStatus status) {
