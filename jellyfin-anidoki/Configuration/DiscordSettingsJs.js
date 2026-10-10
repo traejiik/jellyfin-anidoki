@@ -5,12 +5,15 @@ export default async function mountDiscord(root, common, cache, signal, isHostBu
     const find = id => root.querySelector(`#${id}`), api = globalThis.ApiClient;
     let saved = await common.json('AniDoki/user/discord/settings', { signal });
     if (signal.aborted) return;
+    const webhook = find('discordWebhook');
+    find('discordWebhookControl').replaceChildren(common.secretInput(webhook, 'Discord webhook', signal));
     const draft = cache.discordDraft ??= createDiscordDraft(saved);
     cache.discordDirty = () => discordDirty(draft, saved);
     let busy = false, objectUrl, previewGeneration = 0;
     const status = (text, kind) => common.status(find('discordStatus'), text, kind);
     function render() {
-        find('discordEnabled').checked = draft.enabled; find('discordWebhook').value = draft.webhook;
+        find('discordEnabled').checked = draft.enabled;
+        if (webhook.value !== draft.webhook) webhook.value = draft.webhook;
         find('discordWebhook').placeholder = saved.hasWebhook ? 'Webhook saved · leave blank to keep it' : 'https://discord.com/api/webhooks/…';
         find('discordHelp').textContent = saved.publicAddressReady ? 'AniDoki uses its own name and avatar. Your webhook is stored in the server configuration.' : 'Ask your administrator to set the server Public address. AniDoki uses its own name and avatar.';
         for (const id of ['discordEnabled','discordWebhook','saveDiscord','clearDiscord','testDiscord']) find(id).disabled = busy;
