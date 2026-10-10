@@ -3,13 +3,17 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using jellyfin_anidoki;
 using jellyfin_anidoki.Api.Anilist;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Notifications;
+using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
+using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -178,6 +182,37 @@ public class AniList {
             new() { RequestMethod = HttpMethod.Patch, ResponseCode = responseCode, ResponseContent = body }
         });
         Assert.That(await _aniListApiCalls.UpdateAnime(1, AniListSearch.MediaListStatus.Current, 1), Is.False);
+    }
+
+    [TestCase(0)]
+    [TestCase(null)]
+    public async Task RewatchFirstReceiptAndFailedSecondWriteOnlyConfirmReturnedFields(int? returnedProgress) {
+        int requests = 0;
+        Setup(new List<Helpers.HttpCall> {
+            new() { RequestMethod = HttpMethod.Post, RequestUrlMatch = _ => ++requests == 1,
+                ResponseCode = HttpStatusCode.OK,
+                ResponseContent = "{\"data\":{\"SaveMediaListEntry\":{\"id\":123,\"status\":\"REPEATING\",\"progress\":" +
+                    (returnedProgress?.ToString() ?? "null") + "}}}" },
+            new() { RequestMethod = HttpMethod.Post, ResponseCode = HttpStatusCode.OK,
+                ResponseContent = "{\"data\":{\"SaveMediaListEntry\":null},\"errors\":[{\"message\":\"rejected\"}]}" }
+        });
+        var updater = new UpdateProviderStatus(new Mock<ILibraryManager>().Object, _loggerFactory,
+            _httpContextAccessor.Object, _serverApplicationHost.Object, _httpClientFactory,
+            new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object) {
+            ApiName = ApiName.AniList, ApiCallHelpers = new ApiCallHelpers(aniListApiCalls: _aniListApiCalls)
+        };
+        var collector = new PlaybackOutcomeCollector();
+        await updater.UpdateAnimeStatus(new Anime { Id = 1, Title = "Rewatch", NumEpisodes = 12,
+            MyListStatus = new MyListStatus { NumEpisodesWatched = 12, Status = Status.Completed } },
+            1, setRewatching: true, collector: collector);
+
+        Assert.That(requests, Is.EqualTo(2));
+        Assert.That(collector.Outcomes, Has.Length.EqualTo(2));
+        Assert.That(collector.Outcomes[0].Kind, Is.EqualTo(OutcomeKind.Confirmed));
+        Assert.That(collector.Outcomes[0].ConfirmedStatus, Is.EqualTo(Status.Rewatching));
+        Assert.That(collector.Outcomes[0].ConfirmedProgress, Is.EqualTo(returnedProgress));
+        Assert.That(collector.Outcomes[1].Kind, Is.EqualTo(OutcomeKind.Unconfirmed));
+        Assert.That(collector.Outcomes[1].ConfirmedProgress, Is.Null);
     }
 
     [Test]
