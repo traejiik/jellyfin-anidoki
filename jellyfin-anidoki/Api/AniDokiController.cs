@@ -116,15 +116,20 @@ namespace jellyfin_anidoki.Api {
                 return BadRequest("A Jellyfin user and an Annict token are required");
             var jellyfinUser = _userManager.GetUser(User, user);
             if (jellyfinUser == null) return Forbid();
-            var configuration = GetOrCreateUserConfiguration(jellyfinUser.Id);
-            if (configuration == null) return StatusCode(500, "Plugin configuration not loaded");
-            var auth = configuration.UserApiAuth?.FirstOrDefault(auth => auth.Name == ApiName.Annict);
-            if (auth == null)
-                configuration.AddUserApiAuth(new UserApiAuth { Name = ApiName.Annict, AccessToken = request.Token });
-            else
-                auth.AccessToken = request.Token;
-            Plugin.Instance!.SaveConfiguration();
-            return Ok();
+            lock (Plugin.Instance!.PluginConfiguration)
+            {
+                var configuration = GetOrCreateUserConfiguration(jellyfinUser.Id);
+                if (configuration == null) return StatusCode(500, "Plugin configuration not loaded");
+                var auth = configuration.UserApiAuth?.FirstOrDefault(auth => auth.Name == ApiName.Annict);
+                if (auth == null)
+                    configuration.AddUserApiAuth(new UserApiAuth { Name = ApiName.Annict, AccessToken = request.Token, ConnectionGeneration = Guid.NewGuid() });
+                else {
+                    auth.ConnectionGeneration = Guid.NewGuid();
+                    auth.AccessToken = request.Token;
+                }
+                Plugin.Instance!.SaveConfiguration();
+                return Ok();
+            }
         }
 
         [AllowAnonymous]
@@ -135,6 +140,7 @@ namespace jellyfin_anidoki.Api {
                 "styles.css" => "Anidoki.css",
                 "notifications.js" => "NotificationsJs.js",
                 "notification-state.js" => "NotificationStateJs.js",
+                "manual-mark-state.js" => "ManualMarkStateJs.js",
                 "common.js" => "CommonJs.js",
                 "config-state.js" => "ConfigStateJs.js",
                 "user-settings.js" => "ConfigPageUserJs.js",
@@ -332,17 +338,19 @@ namespace jellyfin_anidoki.Api {
         [Authorize(Policy = Policies.RequiresElevation)]
         [HttpPost]
         [Route("sync")]
-        public Task Sync(ApiName provider, string userId, SyncHelper.Status status, SyncAction syncAction) {
+        public async Task Sync(ApiName provider, string userId, SyncHelper.Status status, SyncAction syncAction) {
             switch (syncAction) {
                 case SyncAction.UpdateProvider:
                     SyncProviderFromLocal syncProviderFromLocal = new SyncProviderFromLocal(_userManager, _libraryManager, _loggerFactory, _httpClientFactory, _applicationPaths, _memoryCache, _delayer, userId);
-                    return syncProviderFromLocal.SyncFromLocal();
+                    await syncProviderFromLocal.SyncFromLocal();
+                    return;
                 case SyncAction.UpdateJellyfin:
                     Sync sync = new Sync(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _userManager, _libraryManager, _applicationPaths, _userDataManager, _memoryCache, _delayer, provider, status);
-                    return sync.SyncFromProvider(userId);
+                    await sync.SyncFromProvider(userId);
+                    return;
             }
 
-            return Task.CompletedTask;
+            return;
         }
 
         [Authorize(Policy = Policies.RequiresElevation)]
@@ -421,50 +429,52 @@ namespace jellyfin_anidoki.Api {
             if (plugin?.PluginConfiguration == null)
                 return StatusCode(500, "Plugin configuration not loaded");
 
-            var config = plugin.PluginConfiguration;
-            config.UserConfig ??= Array.Empty<UserConfig>();
+            lock (plugin.PluginConfiguration) {
+                var config = plugin.PluginConfiguration;
+                config.UserConfig ??= Array.Empty<UserConfig>();
 
-            var userConfig = config.UserConfig
-                .FirstOrDefault(x => x.UserId == jellyfinUser.Id);
+                var userConfig = config.UserConfig
+                    .FirstOrDefault(x => x.UserId == jellyfinUser.Id);
 
-            var libraries = dto.LibraryToCheck ?? Array.Empty<string>();
-            HashSet<Guid> libraryIds = [];
-            foreach (var library in libraries) {
-                if (!Guid.TryParse(library, out var libraryId) || libraryId == Guid.Empty)
-                    return BadRequest("Library IDs must be valid, non-empty GUIDs");
-                libraryIds.Add(libraryId);
+                var libraries = dto.LibraryToCheck ?? Array.Empty<string>();
+                HashSet<Guid> libraryIds = [];
+                foreach (var library in libraries) {
+                    if (!Guid.TryParse(library, out var libraryId) || libraryId == Guid.Empty)
+                        return BadRequest("Library IDs must be valid, non-empty GUIDs");
+                    libraryIds.Add(libraryId);
+                }
+
+                if (!_libraryManager.UserHasAccessToLibraries(libraryIds, jellyfinUser)) {
+                    _logger.LogError($"User {jellyfinUser.Id} does not have access to requested libraries ({String.Join(", ", libraries)})");
+                    return Forbid();
+                }
+
+                if (userConfig == null)
+                {
+                    userConfig = new UserConfig {
+                        UserId = jellyfinUser.Id,
+                        PlanToWatchOnly = dto.PlanToWatchOnly,
+                        RewatchCompleted = dto.RewatchCompleted,
+                        ShowLogNotifications = dto.ShowLogNotifications,
+                        LibraryToCheck = libraries
+                    };
+
+                    config.UserConfig = config.UserConfig
+                        .Append(userConfig)
+                        .ToArray();
+                }
+                else
+                {
+                    userConfig.PlanToWatchOnly = dto.PlanToWatchOnly;
+                    userConfig.RewatchCompleted = dto.RewatchCompleted;
+                    userConfig.ShowLogNotifications = dto.ShowLogNotifications;
+                    userConfig.LibraryToCheck = libraries;
+                }
+
+                plugin.SaveConfiguration();
+
+                return Ok(new UserConfigurationResponse(userConfig));
             }
-
-            if (!_libraryManager.UserHasAccessToLibraries(libraryIds, jellyfinUser)) {
-                _logger.LogError($"User {jellyfinUser.Id} does not have access to requested libraries ({String.Join(", ", libraries)})");
-                return Forbid();
-            }
-
-            if (userConfig == null)
-            {
-                userConfig = new UserConfig {
-                    UserId = jellyfinUser.Id,
-                    PlanToWatchOnly = dto.PlanToWatchOnly,
-                    RewatchCompleted = dto.RewatchCompleted,
-                    ShowLogNotifications = dto.ShowLogNotifications,
-                    LibraryToCheck = libraries
-                };
-
-                config.UserConfig = config.UserConfig
-                    .Append(userConfig)
-                    .ToArray();
-            }
-            else
-            {
-                userConfig.PlanToWatchOnly = dto.PlanToWatchOnly;
-                userConfig.RewatchCompleted = dto.RewatchCompleted;
-                userConfig.ShowLogNotifications = dto.ShowLogNotifications;
-                userConfig.LibraryToCheck = libraries;
-            }
-
-            plugin.SaveConfiguration();
-
-            return Ok(new UserConfigurationResponse(userConfig));
         }
 
         [Authorize]
@@ -665,13 +675,15 @@ namespace jellyfin_anidoki.Api {
             var plugin = Plugin.Instance;
             if (plugin == null) return null;
             var configuration = plugin.PluginConfiguration;
-            configuration.UserConfig ??= Array.Empty<UserConfig>();
-            var existing = configuration.UserConfig.FirstOrDefault(config => config.UserId == userId);
-            if (existing != null) return existing;
-            var created = new UserConfig { UserId = userId, LibraryToCheck = Array.Empty<string>() };
-            configuration.UserConfig = configuration.UserConfig.Append(created).ToArray();
-            plugin.SaveConfiguration();
-            return created;
+            lock (configuration) {
+                configuration.UserConfig ??= Array.Empty<UserConfig>();
+                var existing = configuration.UserConfig.FirstOrDefault(config => config.UserId == userId);
+                if (existing != null) return existing;
+                var created = new UserConfig { UserId = userId, LibraryToCheck = Array.Empty<string>() };
+                configuration.UserConfig = configuration.UserConfig.Append(created).ToArray();
+                plugin.SaveConfiguration();
+                return created;
+            }
         }
 
         private IActionResult DeauthenticateProvidedUser(Guid user, ApiName apiName) {

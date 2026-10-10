@@ -52,7 +52,7 @@ public class NotificationFlowTests
         var users = new Mock<IUserManager>(); users.Setup(u => u.GetUserById(_user)).Returns(user);
         var session = new SessionInfo(_sessions.Object, NullLogger.Instance) { Id = "session", UserId = _user, DeviceId = "device" };
         _sessions.Setup(s => s.GetSessionByAuthenticationToken("private-fixture-token", null!, It.IsAny<string>())).ReturnsAsync(session);
-        _controller = new(_store, authorization.Object, _sessions.Object, users.Object) { ControllerContext = new() { HttpContext = new DefaultHttpContext() } };
+        _controller = new(_store, new AuthenticatedSessionResolver(authorization.Object, _sessions.Object, users.Object)) { ControllerContext = new() { HttpContext = new DefaultHttpContext() } };
     }
     [TearDown] public void Cleanup() => Directory.Delete(_directory, true);
     private PlaybackNotificationContext Context() => new(Guid.NewGuid(), _user, "session", Guid.NewGuid(), "Anime", 3, false);

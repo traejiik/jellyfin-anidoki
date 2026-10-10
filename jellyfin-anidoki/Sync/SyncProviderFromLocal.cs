@@ -33,6 +33,7 @@ public class SyncProviderFromLocal (
     private IHttpContextAccessor _httpContextAccessor;
 
     public async Task SyncFromLocal() {
+        using var lease = await SyncExecutionGate.Shared.Enter(_userId);
         var jellyfinLibrary = SyncHelper.GetUsersJellyfinLibrary(_userId, userManager, libraryManager);
         List<Series> userSeriesList = jellyfinLibrary.OfType<Series>().Select(baseItem => baseItem).ToList();
         await GetSeasonDetails(userSeriesList);

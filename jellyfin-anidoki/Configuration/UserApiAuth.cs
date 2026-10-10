@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace jellyfin_anidoki.Configuration {
@@ -21,6 +22,7 @@ namespace jellyfin_anidoki.Configuration {
         /// Name of the API provider.
         /// </summary>
         public ApiName Name { get; set; }
+        public Guid ConnectionGeneration { get; set; }
         /// <summary>
         /// Access token of the authenticated instance.
         /// </summary>

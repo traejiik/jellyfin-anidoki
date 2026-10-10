@@ -226,3 +226,11 @@
 @media (prefers-reduced-motion: reduce) {
     .anidoki .ad-toast-countdown-fill { transform: none !important; opacity: .5; }
 }
+
+.anidoki .ad-manual-toast:is([data-state="Pending"], [data-state="Queued"], [data-state="Sending"]) .ad-toast-label { color: var(--ad-accent); }
+.anidoki .ad-manual-toast[data-state="Dismissed"] .ad-toast-label { color: var(--jf-palette-error-light, #ffb4ab); }
+.anidoki .ad-manual-toast[data-state="Dismissed"] .ad-toast-countdown-fill { background: var(--jf-palette-error-light, #ffb4ab); }
+.anidoki.ad-notification-host .ad-toast-actions { display: flex; gap: .65rem; margin-top: 1rem; flex-wrap: wrap; }
+.anidoki.ad-notification-host .ad-update-spinner { display: inline-block; width: .85em; height: .85em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; margin-right: .6em; animation: ad-tracker-spin 900ms linear infinite; }
+@keyframes ad-tracker-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .anidoki.ad-notification-host .ad-update-spinner { animation: none; } }
