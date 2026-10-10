@@ -135,6 +135,7 @@ namespace jellyfin_anidoki.Api {
                 "styles.css" => "Anidoki.css",
                 "common.js" => "CommonJs.js",
                 "config-state.js" => "ConfigStateJs.js",
+                "user-settings.js" => "ConfigPageUserJs.js",
                 "provider-anilist.svg" => "Images.provider-anilist.svg",
                 "provider-mal.svg" => "Images.provider-mal.svg",
                 "provider-kitsu.svg" => "Images.provider-kitsu.svg",

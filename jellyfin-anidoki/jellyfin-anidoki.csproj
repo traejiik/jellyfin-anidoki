@@ -30,6 +30,8 @@
         <EmbeddedResource Include="Configuration\Anidoki.css"/>
         <None Remove="Configuration\ConfigStateJs.js"/>
         <EmbeddedResource Include="Configuration\ConfigStateJs.js"/>
+        <None Remove="Configuration\ConfigPageUserJs.js"/>
+        <EmbeddedResource Include="Configuration\ConfigPageUserJs.js"/>
         <None Remove="Configuration\ConfigPage.html"/>
         <EmbeddedResource Include="Configuration\ConfigPage.html"/>
         <None Remove="Configuration\ConfigPageJs.js"/>

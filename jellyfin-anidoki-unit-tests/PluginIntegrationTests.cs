@@ -4,6 +4,7 @@ using System.Linq;
 using jellyfin_anidoki;
 using jellyfin_anidoki.Configuration;
 using MediaBrowser.Common.Configuration;
+using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Model.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -40,7 +41,7 @@ public class PluginIntegrationTests
         var xml = new Mock<IXmlSerializer>();
         xml.Setup(s => s.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>()))
             .Returns(new PluginConfiguration { enableUserPages = enableUserPages });
-        return new Plugin(_paths.Object, new Mock<IServerConfigurationManager>().Object,
+        return new Plugin(_paths.Object, CreateServerConfiguration(),
             xml.Object, NullLogger<Plugin>.Instance);
     }
 
@@ -94,6 +95,38 @@ public class PluginIntegrationTests
         CreatePlugin();
         Assert.That((string)JObject.Parse(File.ReadAllText(_pagesPath))["pages"]![0]!["Id"]!,
             Is.EqualTo("other.plugin"));
+    }
+
+    [Test]
+    public void EnablingUserPagesUpgradesOwnedMenuMetadataAndPreservesOtherPages()
+    {
+        var seed = CreatePlugin();
+        File.WriteAllText(seed.ConfigurationFilePath, "fixture");
+        File.WriteAllText(_pagesPath, """
+        {"pages":[{"Id":"jellyfin_anidoki","DisplayText":"AniDoki Configuration","Icon":"build","Version":1},{"Id":"other.plugin","Icon":"star"}],"keep":true}
+        """);
+
+        var plugin = CreatePlugin(true);
+        var result = JObject.Parse(File.ReadAllText(_pagesPath));
+        var pages = (JArray)result["pages"]!;
+        var owned = pages.Single(page => (string?)page["Id"] == "jellyfin_anidoki");
+        Assert.Multiple(() => {
+            Assert.That((string?)owned["DisplayText"], Is.EqualTo("AniDōki"));
+            Assert.That((string?)owned["Icon"], Is.EqualTo("sync"));
+            Assert.That((string?)owned["Url"], Is.EqualTo("/jellyfin/AniDoki/settings"));
+            Assert.That((string?)pages.Single(page => (string?)page["Id"] == "other.plugin")["Icon"], Is.EqualTo("star"));
+            Assert.That((bool)result["keep"]!, Is.True);
+        });
+        plugin.CheckPluginPages(_paths.Object, CreateServerConfiguration());
+        Assert.That((JArray)JObject.Parse(File.ReadAllText(_pagesPath))["pages"]!, Has.Count.EqualTo(2));
+    }
+
+    private static IServerConfigurationManager CreateServerConfiguration()
+    {
+        var manager = new Mock<IServerConfigurationManager>();
+        manager.Setup(configuration => configuration.GetConfiguration("network"))
+            .Returns(new NetworkConfiguration { BaseUrl = "/jellyfin" });
+        return manager.Object;
     }
 
     [Test]

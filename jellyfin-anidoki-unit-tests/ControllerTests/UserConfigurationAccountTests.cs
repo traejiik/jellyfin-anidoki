@@ -242,6 +242,7 @@ public partial class UserConfigurationTests
     [TestCase("styles.css", "text/css")]
     [TestCase("common.js", "application/javascript")]
     [TestCase("config-state.js", "application/javascript")]
+    [TestCase("user-settings.js", "application/javascript")]
     public async Task PublicStaticAssetsRemainAvailableWhenUserPagesAreDisabled(string asset, string contentType)
     {
         _plugin.Configuration.enableUserPages = false;
