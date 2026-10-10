@@ -14,6 +14,17 @@
                     <label class="ad-check"><input class="ad-switch" type="checkbox" role="switch" id="RewatchCompleted"><span><strong>Rewatch completed anime</strong><span class="ad-help" id="rewatchHelp">Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.</span></span></label>
                 </section>
                 <section class="ad-panel"><h2>Notifications</h2><p class="ad-help">Feedback after your tracker updates.</p><label class="ad-check"><input class="ad-switch" type="checkbox" role="switch" id="ShowLogNotifications"><span><strong>Show tracker update toasts</strong><span class="ad-help">Show confirmed updates after playback stops in this Jellyfin web session. Requires compatible File Transformation and a web refresh.</span></span></label></section>
+                <section class="ad-panel ad-discord-settings"><h2>Discord notifications</h2>
+                    <label class="ad-check"><input id="discordEnabled" class="ad-switch" type="checkbox" role="switch"><span><strong>Send updates to Discord</strong></span></label>
+                    <div class="ad-field"><label for="discordWebhook">Webhook link</label><div class="ad-discord-webhook-row"><input id="discordWebhook" class="ad-input" type="password" autocomplete="off" spellcheck="false"><button type="button" id="clearDiscord" class="ad-button">Remove webhook</button></div></div>
+                    <p id="discordHelp" class="ad-help">AniDoki uses its own name and avatar. Your webhook is stored in the server configuration.</p>
+                    <details id="discordPreviewToggle" class="ad-discord-preview-section">
+                        <summary>Preview<span class="ad-discord-preview-chevron" aria-hidden="true"></span></summary>
+                        <div id="discordPreview" class="ad-discord-preview" hidden></div>
+                    </details>
+                    <div class="ad-actions"><button type="button" id="saveDiscord" class="ad-button">Save Discord settings</button><button type="button" id="testDiscord" class="ad-button">Send test</button></div>
+                    <p id="discordStatus" class="ad-status" role="status"></p>
+                </section>
                 <section class="ad-panel"><h2>Libraries</h2><p class="ad-help">Choose which Jellyfin libraries AniDōki monitors for you.</p><div id="libraries"></div></section>
             </main>
             <div class="ad-save-bar" hidden><p class="ad-status" id="saveStatus" role="status">Unsaved changes</p><button type="button" id="discardChanges" class="ad-button">Discard</button><button type="submit" class="ad-button ad-button-primary">Save changes</button></div>

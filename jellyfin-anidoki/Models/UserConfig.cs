@@ -15,6 +15,9 @@ namespace jellyfin_anidoki.Models {
         /// ID of the user.
         /// </summary>
         public Guid UserId { get; set; }
+        public bool DiscordNotificationsEnabled { get; set; }
+        public string DiscordWebhookUrl { get; set; }
+        public long DiscordNotificationRevision { get; set; }
 
         /// <summary>
         /// API authentication details of the user.

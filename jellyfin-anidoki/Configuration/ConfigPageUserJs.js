@@ -36,7 +36,7 @@ export default function (view, host = view) {
         if (signal.aborted) return;
         common.ensureStyles(); common.prepareStickyShell(root, signal);
         const userId = ApiClient.getCurrentUserId();
-        if (cache.userId && cache.userId !== userId) { cache.saved = null; cache.baseline = null; cache.draft = null; cache.libraryChoice = {}; }
+        if (cache.userId && cache.userId !== userId) { cache.saved = null; cache.baseline = null; cache.draft = null; cache.libraryChoice = {}; cache.discordDraft = null; cache.discordDirty = null; }
         cache.userId = userId;
         if (!cache.saved) {
             const result = await Promise.all([common.json(`AniDoki/user/configuration?user=${cache.userId}`, { signal }), common.json('AniDoki/user/parameters', { signal })]);
@@ -56,7 +56,9 @@ export default function (view, host = view) {
                 if (!signal.aborted) common.status(find('#accountsStatus'), message, 'error');
             }
         }, { signal });
-        common.observeSaveBar(root, signal); common.bindDraftWarning(view, dirty, signal); setBusy(cache.busy);
+        common.observeSaveBar(root, signal); common.bindDraftWarning(view, () => dirty() || cache.discordDirty?.(), signal); setBusy(cache.busy);
+        const discord = await import(ApiClient.getUrl('AniDoki/assets/discord-settings.js'));
+        if (!signal.aborted) await discord.default(root, common, cache, signal, () => cache.busy);
     }
     function render(signal) {
         for (const field of ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications']) find(`#${field}`).checked = cache.draft[field];

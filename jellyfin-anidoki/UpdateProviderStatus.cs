@@ -17,6 +17,7 @@ using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Notifications;
+using jellyfin_anidoki.ManualMarks;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller;
@@ -29,6 +30,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace jellyfin_anidoki {
+    public enum SyncUpdateSource { Playback, LegacyManual, ConfirmedManual }
     public class UpdateProviderStatus {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IApplicationPaths _applicationPaths;
@@ -42,6 +44,7 @@ namespace jellyfin_anidoki {
         internal IApiCallHelpers ApiCallHelpers;
         private UserConfig? _userConfig;
         private PlaybackOutcomeCollector? _outcomeCollector;
+        private SyncUpdateSource _source;
         private Type _animeType;
         private readonly ILibraryManager _libraryManager;
 
@@ -69,13 +72,15 @@ namespace jellyfin_anidoki {
         }
 
 
-        public async Task Update(BaseItem e, Guid userId, bool playedToCompletion, PlaybackOutcomeCollector? collector = null) {
-            _outcomeCollector = collector;
-            try {
-                await UpdateCore(e, userId, playedToCompletion);
-            } finally {
-                _outcomeCollector = null;
-            }
+        public async Task Update(BaseItem e, Guid userId, bool playedToCompletion, PlaybackOutcomeCollector? collector = null, SyncUpdateSource source = SyncUpdateSource.Playback) {
+            using var lease = await SyncExecutionGate.Shared.Enter(userId);
+            await UpdateInsideGate(e, userId, playedToCompletion, collector, source);
+        }
+
+        internal async Task UpdateInsideGate(BaseItem e, Guid userId, bool playedToCompletion, PlaybackOutcomeCollector? collector, SyncUpdateSource source) {
+            _outcomeCollector = collector; _source = source;
+            try { await UpdateCore(e, userId, playedToCompletion); }
+            finally { _outcomeCollector = null; _source = SyncUpdateSource.Playback; }
         }
 
         private async Task UpdateCore(BaseItem e, Guid userId, bool playedToCompletion) {
@@ -510,6 +515,9 @@ namespace jellyfin_anidoki {
 
         private async Task CheckUserListAnimeStatusBase(Anime detectedAnime, int episodeNumber, bool overrideCheckRewatch, string? alternativeId = null) {
             if (detectedAnime == null) return;
+            if (_source == SyncUpdateSource.ConfirmedManual && !ManualMarkProgressRules.Allows(detectedAnime, episodeNumber, ApiName == ApiName.Annict)) {
+                RecordDecision(_outcomeCollector, detectedAnime, OutcomeKind.NoChange, "manual-forward-only"); return;
+            }
             if (detectedAnime.MyListStatus != null &&
                 (detectedAnime.MyListStatus.Status == Status.Watching || detectedAnime.MyListStatus.Status == Status.Rewatching) &&
                 ApiName != ApiName.Annict) {
@@ -836,6 +844,12 @@ namespace jellyfin_anidoki {
             int numberOfWatchedEpisodes, Status status, bool? isRewatching = null, int? numberOfTimesRewatched = null,
             DateTime? startDate = null, DateTime? endDate = null, string? alternativeId = null,
             AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? ids = null, bool? isShow = null) {
+            if (_source == SyncUpdateSource.ConfirmedManual &&
+                (!ManualMarkProgressRules.Allows(target, numberOfWatchedEpisodes, ApiName == ApiName.Annict) ||
+                 isRewatching == true || numberOfTimesRewatched.HasValue)) {
+                RecordDecision(collector, target, OutcomeKind.NoChange, "manual-forward-only");
+                return Task.FromResult<UpdateAnimeStatusResponse?>(null);
+            }
             Task<UpdateAnimeStatusResponse?> Write() => ApiCallHelpers.UpdateAnime(target.Id, numberOfWatchedEpisodes,
                 status, isRewatching, numberOfTimesRewatched, startDate, endDate, alternativeId, ids, isShow);
             if (collector == null) return Write();

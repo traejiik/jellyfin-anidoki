@@ -161,34 +161,39 @@ namespace jellyfin_anidoki.Api {
                 if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.access_token))
                     throw new AuthenticationException($"{_provider} did not return an access token");
 
-                UserConfig? pluginConfig = Plugin.Instance.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == userId);
+                lock (Plugin.Instance.PluginConfiguration)
+                {
+                    UserConfig? pluginConfig = Plugin.Instance.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == userId);
 
-                if (pluginConfig != null) {
-                    var apiAuth = pluginConfig.UserApiAuth?.FirstOrDefault(item => item.Name == _provider);
+                    if (pluginConfig != null) {
+                        var apiAuth = pluginConfig.UserApiAuth?.FirstOrDefault(item => item.Name == _provider);
 
-                    UserApiAuth newUserApiAuth = new UserApiAuth {
-                        Name = _provider,
-                        AccessToken = tokenResponse.access_token
-                    };
+                        UserApiAuth newUserApiAuth = new UserApiAuth {
+                            Name = _provider,
+                            ConnectionGeneration = !string.IsNullOrEmpty(refreshToken) && apiAuth?.ConnectionGeneration != Guid.Empty && apiAuth != null ? apiAuth.ConnectionGeneration : Guid.NewGuid(),
+                            AccessToken = tokenResponse.access_token
+                        };
 
-                    if (_provider is ApiName.Mal or ApiName.Kitsu or ApiName.Shikimori) {
-                        newUserApiAuth.RefreshToken = tokenResponse.refresh_token;
-                    }
-
-                    if (apiAuth != null) {
-                        apiAuth.AccessToken = tokenResponse.access_token;
                         if (_provider is ApiName.Mal or ApiName.Kitsu or ApiName.Shikimori) {
-                            apiAuth.RefreshToken = tokenResponse.refresh_token;
+                            newUserApiAuth.RefreshToken = tokenResponse.refresh_token;
                         }
-                    } else {
-                        pluginConfig.AddUserApiAuth(newUserApiAuth);
+
+                        if (apiAuth != null) {
+                            apiAuth.ConnectionGeneration = newUserApiAuth.ConnectionGeneration;
+                            apiAuth.AccessToken = tokenResponse.access_token;
+                            if (_provider is ApiName.Mal or ApiName.Kitsu or ApiName.Shikimori) {
+                                apiAuth.RefreshToken = tokenResponse.refresh_token;
+                            }
+                        } else {
+                            pluginConfig.AddUserApiAuth(newUserApiAuth);
+                        }
+
+                        Plugin.Instance.SaveConfiguration();
+                        return newUserApiAuth;
                     }
 
-                    Plugin.Instance.SaveConfiguration();
-                    return newUserApiAuth;
+                    throw new NullReferenceException("The user you are attempting to authenticate does not exist in the plugins config file");
                 }
-
-                throw new NullReferenceException("The user you are attempting to authenticate does not exist in the plugins config file");
             }
 
             throw new AuthenticationException($"Could not retrieve {_provider} token: " + response.StatusCode + " - " + await response.Content.ReadAsStringAsync());

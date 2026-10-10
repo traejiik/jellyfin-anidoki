@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.ManualMarks;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Notifications;
 using Jellyfin.Database.Implementations.Entities;
@@ -28,6 +29,8 @@ namespace jellyfin_anidoki {
         private readonly IAsyncDelayer _delayer;
         private readonly NotificationEventStore _notifications;
         private bool _started;
+        private readonly ManualMarkStore _manualMarks;
+        private readonly Notifications.Discord.DiscordNotificationDispatcher _discord;
 
 
         private readonly ILibraryManager _libraryManager;
@@ -35,7 +38,7 @@ namespace jellyfin_anidoki {
         public SessionServerEntry(ISessionManager sessionManager, ILoggerFactory loggerFactory,
             IHttpClientFactory httpClientFactory, ILibraryManager libraryManager,
             IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor,
-            IApplicationPaths applicationPaths, IMemoryCache memoryCache, NotificationEventStore notifications) {
+            IApplicationPaths applicationPaths, IMemoryCache memoryCache, NotificationEventStore notifications, ManualMarkStore manualMarks = null, Notifications.Discord.DiscordNotificationDispatcher discord = null) {
             _httpClientFactory = httpClientFactory;
             _serverApplicationHost = serverApplicationHost;
             _httpContextAccessor = httpContextAccessor;
@@ -47,6 +50,8 @@ namespace jellyfin_anidoki {
             _memoryCache = memoryCache;
             _delayer = new Delayer();
             _notifications = notifications;
+            _manualMarks = manualMarks;
+            _discord = discord;
         }
 
         public Task StartAsync(CancellationToken cancellationToken) {
@@ -71,8 +76,14 @@ namespace jellyfin_anidoki {
                 foreach (User user in e.Users) {
                     var collector = new PlaybackOutcomeCollector();
                     var updateProviderStatus = new UpdateProviderStatus(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
-                    try { await updateProviderStatus.Update(e.Item, user.Id, e.PlayedToCompletion, collector); }
-                    finally { PlaybackNotificationPublisher.Publish(collector, context, user.Id, _notifications, _logger); }
+                    using var gate = await SyncExecutionGate.Shared.Enter(user.Id);
+                    try { await updateProviderStatus.UpdateInsideGate(e.Item, user.Id, e.PlayedToCompletion, collector, SyncUpdateSource.Playback); }
+
+                    finally {
+                        if (e.PlayedToCompletion && collector.HasConfirmedChange) _manualMarks?.Supersede(user.Id, e.Item.Id);
+                        _discord?.Enqueue(SyncOperationSummary.Capture(e.Item, user.Id, Guid.NewGuid(), SyncNotificationTrigger.Playback, collector));
+                        PlaybackNotificationPublisher.Publish(collector, context, user.Id, _notifications, _logger);
+                    }
                 }
             } catch (Exception exception) {
                 _logger.LogError($"Fatal error occured during anime sync job: {exception}");

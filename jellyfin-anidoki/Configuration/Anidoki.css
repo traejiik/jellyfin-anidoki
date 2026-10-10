@@ -226,3 +226,47 @@
 @media (prefers-reduced-motion: reduce) {
     .anidoki .ad-toast-countdown-fill { transform: none !important; opacity: .5; }
 }
+
+.anidoki .ad-manual-toast:is([data-state="Pending"], [data-state="Queued"], [data-state="Sending"]) .ad-toast-label { color: var(--ad-accent); }
+.anidoki .ad-manual-toast[data-state="Dismissed"] .ad-toast-label { color: var(--jf-palette-error-light, #ffb4ab); }
+.anidoki .ad-manual-toast[data-state="Dismissed"] .ad-toast-countdown-fill { background: var(--jf-palette-error-light, #ffb4ab); }
+.anidoki.ad-notification-host .ad-toast-actions { display: flex; gap: .65rem; margin-top: 1rem; flex-wrap: wrap; }
+.anidoki.ad-notification-host .ad-update-spinner { display: inline-block; width: .85em; height: .85em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; margin-right: .6em; animation: ad-tracker-spin 900ms linear infinite; }
+@keyframes ad-tracker-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .anidoki.ad-notification-host .ad-update-spinner { animation: none; } }
+.anidoki .ad-discord-settings .ad-actions { margin-top: 1.25rem; }
+.anidoki .ad-discord-webhook-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.anidoki .ad-discord-webhook-row > input { flex: 1 1 180px; min-width: 0; width: auto; }
+.anidoki .ad-discord-webhook-row > button { flex: 0 0 auto; }
+.anidoki .ad-discord-preview-section { margin-top: 24px; border: 1px solid var(--ad-edge); border-radius: 14px; background: var(--ad-ground); min-width: 0; }
+.anidoki .ad-discord-preview-section > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px; font-weight: 700; cursor: pointer; list-style: none; }
+.anidoki .ad-discord-preview-section > summary::-webkit-details-marker { display: none; }
+.anidoki .ad-discord-preview-section > summary:focus-visible { outline: 2px solid var(--ad-accent); outline-offset: -4px; border-radius: 14px; }
+.anidoki .ad-discord-preview-chevron { width: 8px; height: 8px; flex: 0 0 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+.anidoki .ad-discord-preview-section[open] .ad-discord-preview-chevron { transform: rotate(225deg); }
+.anidoki .ad-discord-preview { padding: 16px; margin: 0 16px 16px; border-radius: 10px; background: #313338; color: #dbdee1; font-size: .925rem; min-width: 0; }
+.anidoki .ad-discord-preview-header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.anidoki .ad-discord-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.anidoki .ad-discord-name { color: #f2f3f5; font-weight: 700; }
+.anidoki .ad-discord-app { border-radius: 3px; padding: 2px 5px; background: #5865f2; color: #fff; font-size: .65rem; font-weight: 700; }
+.anidoki .ad-discord-time { color: #949ba4; font-size: .75rem; }
+.anidoki .ad-discord-preview-body { display: flex; gap: 16px; align-items: flex-start; padding: 14px; margin-left: 44px; border-left: 4px solid #8d5cc7; border-radius: 0 5px 5px 0; background: #2b2d31; }
+.anidoki .ad-discord-preview-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.anidoki .ad-discord-preview-text > strong { display: block; line-height: 1.35; font-weight: 700; }
+.anidoki .ad-discord-preview-text a { color: #00a8fc; text-decoration: none; }
+.anidoki .ad-discord-preview-text a:hover { text-decoration: underline; }
+.anidoki .ad-discord-episode { margin-block: 6px 12px; color: #dbdee1; line-height: 1.45; }
+.anidoki .ad-discord-poster { flex: 0 0 80px; width: 80px; max-height: 120px; object-fit: contain; border-radius: 4px; }
+.anidoki .ad-discord-poster-fallback { flex: 0 0 80px; width: 80px; color: #949ba4; font-size: .75rem; }
+.anidoki .ad-discord-footer { display: flex; align-items: center; gap: 6px; color: #949ba4; font-size: .75rem; margin-top: 12px; }
+.anidoki .ad-discord-footer-avatar { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; }
+.anidoki .ad-discord-result { margin-block: 12px; }
+.anidoki .ad-discord-result > p { margin-block: 4px 0; white-space: pre-line; }
+.anidoki .ad-discord-example-note { margin: 12px 0 0; color: #b5bac1; font-size: .75rem; }
+@media (max-width: 600px) {
+    .anidoki .ad-discord-preview-section > summary { padding: 16px; }
+    .anidoki .ad-discord-preview-section .ad-discord-preview { margin-inline: 12px; margin-bottom: 12px; }
+    .anidoki .ad-discord-preview { padding: 12px; }
+    .anidoki .ad-discord-preview-body { margin-left: 0; padding: 12px; gap: 10px; }
+    .anidoki .ad-discord-poster, .anidoki .ad-discord-poster-fallback { flex-basis: 60px; width: 60px; max-height: 90px; }
+}
