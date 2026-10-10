@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/traejiik/jellyfin-anidoki/development/docs/assets/anidoki-card.png",
     "versions": [
       {
+        "version": "1.1.0.0",
+        "targetAbi": "12.2.0.0",
+        "changelog": "## What's Changed\n* feat/manual watched confirmation by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/9\n\n\n**Full Changelog**: https://github.com/traejiik/jellyfin-anidoki/compare/v1.0.0...v1.1.0",
+        "timestamp": "2026-10-10T21:52:33Z",
+        "checksum": "46bab3601bd5d131f9d9aff2393b71ed",
+        "sourceUrl": "https://github.com/traejiik/jellyfin-anidoki/releases/download/v1.1.0/anidoki_1.1.0.0.zip"
+      },
+      {
         "version": "1.0.0.0",
         "targetAbi": "12.2.0.0",
         "changelog": "## What's Changed\n* feat/settings and notifications by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/8\n\n\n**Full Changelog**: https://github.com/traejiik/jellyfin-anidoki/compare/v0.5.0...v1.0.0",
