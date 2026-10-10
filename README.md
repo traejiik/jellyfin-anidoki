@@ -38,6 +38,14 @@ To let users connect their own tracking accounts, install Plugin Pages and its F
 
 Uninstalling AniDōki through Jellyfin removes its Plugin Pages registration. Restart Jellyfin and refresh open clients as required by the plugin lifecycle. Other plugins' pages and AniDōki's saved settings are preserved. Manually deleting the plugin binaries does not run the uninstall callback.
 
+### Playback update notifications
+
+After playback stops, AniDōki can show an informational toast for confirmed tracker changes in the web session that played the item. Turn **Show tracker update toasts** on or off in your tracking settings. It is enabled by default.
+
+Web notifications require compatible File Transformation and a web refresh after installation. Plugin Pages is needed for the personal settings page, but is independent of toast delivery. Core synchronization works without either frontend integration.
+
+Toasts show confirmed progress or status, including provider details when results differ. Annict reports status only. They stay visible for six seconds, pause while hovered or focused, and can be dismissed. Container fullscreen is supported; video-only fullscreen suppresses the overlay. Native clients do not display these web toasts.
+
 ## Build
 
 1. To build this plugin you will need [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).

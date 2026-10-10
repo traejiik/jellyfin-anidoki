@@ -45,7 +45,7 @@ export default function (view, host = view) {
         }
         if (signal.aborted) return;
         find('#TemplateConfigForm').hidden = false; common.status(find('[data-page-status]'), ''); render(signal);
-        for (const field of ['PlanToWatchOnly', 'RewatchCompleted']) find(`#${field}`).addEventListener('change', event => { cache.draft[field] = event.target.checked; updateDirty(); }, { signal });
+        for (const field of ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications']) find(`#${field}`).addEventListener('change', event => { cache.draft[field] = event.target.checked; updateDirty(); }, { signal });
         find('#TemplateConfigForm').addEventListener('submit', event => { event.preventDefault(); save(signal); }, { signal });
         find('#discardChanges').addEventListener('click', () => { cache.draft = state.userPreferences(cache.baseline); cache.libraryChoice = {}; render(signal); }, { signal });
         find('#refreshAccounts').addEventListener('click', async () => {
@@ -59,7 +59,7 @@ export default function (view, host = view) {
         common.observeSaveBar(root, signal); common.bindDraftWarning(view, dirty, signal); setBusy(cache.busy);
     }
     function render(signal) {
-        for (const field of ['PlanToWatchOnly', 'RewatchCompleted']) find(`#${field}`).checked = cache.draft[field];
+        for (const field of ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications']) find(`#${field}`).checked = cache.draft[field];
         renderAccounts(signal);
         cache.libraryChoice ??= {};
         validLibraries = common.renderLibraries(find('#libraries'), cache.draft, cache.parameters.libraries ?? [], signal, updateDirty, cache.libraryChoice);

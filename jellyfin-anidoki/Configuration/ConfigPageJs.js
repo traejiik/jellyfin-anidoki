@@ -232,7 +232,7 @@ export default function (view) {
         common.renderAccounts(find('#userAccounts'), { linked: connected(user.Id), visible: common.providers.map(item => item.key), admin: true, userName: user.Name,
             action: (kind, provider, credentials) => accountAction(user.Id, kind, provider, credentials, signal) }, signal);
         find('#userPreferences').replaceChildren();
-        for (const [field, title, help] of [['PlanToWatchOnly', 'Only update anime on Plan to watch', 'Limit changes to titles already on the user’s plan-to-watch list.'], ['RewatchCompleted', 'Rewatch completed anime', 'Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.']]) {
+        for (const [field, title, help] of [['PlanToWatchOnly', 'Only update anime on Plan to watch', 'Limit changes to titles already on the user’s plan-to-watch list.'], ['RewatchCompleted', 'Rewatch completed anime', 'Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.'], ['ShowLogNotifications', 'Show tracker update toasts', 'Show confirmed updates after playback stops in the originating Jellyfin web session. Requires compatible File Transformation and a web refresh.']]) {
             const label = common.element('label', 'ad-check'); const input = common.element('input', 'ad-switch'); input.type = 'checkbox'; input.setAttribute('role', 'switch'); input.checked = prefs[field];
             input.addEventListener('change', () => { prefs[field] = input.checked; updateDirty(); }, { signal });
             const text = common.element('span'); text.append(common.element('strong', '', title), common.element('span', 'ad-help', help)); label.append(input, text); find('#userPreferences').append(label);
