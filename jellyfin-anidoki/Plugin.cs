@@ -49,7 +49,7 @@ namespace jellyfin_anidoki {
 
         public void CheckPluginPages(IApplicationPaths applicationPaths, IServerConfigurationManager serverConfigurationManager)
         {
-            int pluginPageConfigVersion = 1;
+            int pluginPageConfigVersion = 2;
             string pluginPagesConfig = Path.Combine(applicationPaths.PluginConfigurationsPath, "Jellyfin.Plugin.PluginPages", "config.json");
         
             JObject config = new JObject();
@@ -110,8 +110,8 @@ namespace jellyfin_anidoki {
                 {
                     { "Id", typeof(Plugin).Namespace },
                     { "Url", $"{(supportsSubUrls ? "" : rootUrl)}/AniDoki/settings" },
-                    { "DisplayText", "AniDoki Configuration" },
-                    { "Icon", "build" },
+                    { "DisplayText", "AniDōki" },
+                    { "Icon", "sync" },
                     { "Version", pluginPageConfigVersion }
                 });
         
@@ -130,6 +130,8 @@ namespace jellyfin_anidoki {
         public override void OnUninstalling()
         {
             RemovePluginPages(ApplicationPaths);
+            try { Notifications.NotificationWebIntegration.Remove(); }
+            catch (Exception) { _logger.LogWarning("Could not remove AniDoki notification bootstrap on uninstall."); }
             base.OnUninstalling();
         }
 
@@ -151,6 +153,18 @@ namespace jellyfin_anidoki {
                 new PluginPageInfo {
                     Name = "AniDoki_CommonJs",
                     EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.CommonJs.js"
+                },
+                new PluginPageInfo {
+                    Name = "AniDoki_Styles",
+                    EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.Anidoki.css"
+                },
+                new PluginPageInfo {
+                    Name = "AniDoki_ConfigStateJs",
+                    EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.ConfigStateJs.js"
+                },
+                new PluginPageInfo {
+                    Name = "AniDoki_ConfigPageUserJs",
+                    EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.ConfigPageUserJs.js"
                 },
                 new PluginPageInfo {
                     Name = "AniDoki_ManualSync",

@@ -33,7 +33,7 @@ namespace jellyfin_anidoki.Extensions {
 
             if (!userId.Equals(currentUserId) && !isAdministrator) return null;
 
-            return currentUser;
+            return userManager.GetUserById(userId.Value);
         }
 
         private static string? GetClaimValue(ClaimsPrincipal user, string name)

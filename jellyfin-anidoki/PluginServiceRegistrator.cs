@@ -8,6 +8,8 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
 {
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
+        serviceCollection.AddSingleton<Notifications.NotificationEventStore>();
+        serviceCollection.AddHostedService<Notifications.NotificationDeliveryService>();
         serviceCollection.AddHostedService<SessionServerEntry>();
         serviceCollection.AddHostedService<UserDataServerEntry>();
     }

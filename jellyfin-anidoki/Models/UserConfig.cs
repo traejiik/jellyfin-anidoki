@@ -47,6 +47,8 @@ namespace jellyfin_anidoki.Models {
         /// Gets or sets a value indicating whether the plugin should automatically set completed shows as re-watching.
         /// </summary>
         public bool RewatchCompleted { get; set; }
+
+        public bool ShowLogNotifications { get; set; } = true;
         
         public string[] LibraryToCheck { get; set; }
     }

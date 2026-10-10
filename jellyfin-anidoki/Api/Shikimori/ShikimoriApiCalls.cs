@@ -285,7 +285,12 @@ public class ShikimoriApiCalls {
         var stringContent = new StringContent(JsonSerializer.Serialize(updateBody, jsonSerializerOptions), Encoding.UTF8, "application/json");
         var apiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Shikimori, AuthApiCall.CallType.POST, url.Build(), stringContent: stringContent, requestHeaders: _requestHeaders);
         if (apiCall != null) {
-            return apiCall.IsSuccessStatusCode;
+            return await MutationAcknowledgement.Validate(apiCall, rate =>
+                MutationAcknowledgement.Id(rate) &&
+                MutationAcknowledgement.Number(rate, "target_id", out var targetId) && targetId.ToString() == id &&
+                MutationAcknowledgement.Text(rate, "target_type", "Anime") &&
+                MutationAcknowledgement.Number(rate, "episodes", out var episodes) && episodes == progress &&
+                MutationAcknowledgement.Text(rate, "status", updateStatus.ToString()));
         }
 
         return false;

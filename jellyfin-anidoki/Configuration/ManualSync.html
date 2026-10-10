@@ -1,52 +1,30 @@
-<div id="ManualSyncConfigPage" data-role="page" class="page type-interior pluginConfigurationPage withTabs"
-     data-require="emby-input,emby-button,emby-select,emby-checkbox" data-controller="__plugin/AniDoki_ManualSyncJs">
-    <div data-role="content">
-        <div class="content-primary">
-            <div id="navigationTabs" data-role="controlgroup" data-type="horizontal" class="localnav"></div>
-
-            <form id="ManualSyncConfigForm">
-                <p><b>Warning: this feature is in alpha, and bugs are probably present. In its current state it may disrupt your Jellyfin or provider library.</b></p>
-                <p>At the moment this functionality requires the AniList and/or AniDb metadata providers installed.</p>
-                <p>Here you can synchronize the selected users Jellyfin library and their provider list(s).</p>
-                <p>Updating the provider library with the users Jellyfin library will update all providers that the user is authenticated with.</p>
-                <p>This functionality is also loyal to the users configuration options (only update plan to watch, set as rewatching)</p>
-                <div class="inputContainer">
-                    <div class="selectContainer">
-                        <select is="emby-select" id="selectAction" name="selectAction" label="Select Action">
-                            <option value="UpdateJellyfin">Update Jellyfin with provider progress</option>
-                            <option value="UpdateProvider">Update provider with Jellyfin progress</option>
-                        </select>
-                    </div>
+<div id="ManualSyncConfigPage" data-role="page" class="page type-interior pluginConfigurationPage withTabs" data-controller="__plugin/AniDoki_ManualSyncJs">
+    <div data-role="content"><div class="anidoki ad-sync-page">
+        <header class="ad-header"><div><h1>AniDōki</h1><p class="ad-help">Run the existing sync rules for a selected user.</p></div></header>
+        <nav id="navigationTabs" class="ad-tabs" aria-label="Plugin pages"></nav>
+        <p class="ad-status" data-page-status role="status">Loading users and linked trackers…</p>
+        <form id="ManualSyncConfigForm" hidden><section class="ad-panel">
+            <h2>Choose a direction</h2><p class="ad-help">Sync changes Jellyfin or tracker lists immediately. Matching uses your installed metadata providers and AniDōki’s current tracking rules.</p>
+            <div class="ad-direction">
+                <label><input type="radio" name="syncAction" value="UpdateJellyfin" checked><span><strong>Tracker → Jellyfin</strong><span class="ad-help">Bring watched progress from one linked tracker into Jellyfin.</span></span></label>
+                <label><input type="radio" name="syncAction" value="UpdateProvider"><span><strong>Jellyfin → Trackers</strong><span class="ad-help">Send Jellyfin’s watched progress to linked trackers.</span></span></label>
+            </div>
+            <div class="ad-stack">
+                <div class="ad-field"><label for="selectSyncUser">Jellyfin user</label><select class="ad-input" id="selectSyncUser"></select></div>
+                <div id="inboundOptions" class="ad-stack">
+                    <div class="ad-field"><label for="selectSyncProvider">Linked tracker</label><select class="ad-input" id="selectSyncProvider"></select></div>
+                    <fieldset><legend>Import these statuses</legend><div class="ad-actions"><label class="ad-filter-choice"><input class="ad-choice-checkbox" id="completedStatus" type="checkbox" checked><span>Completed</span></label><label class="ad-filter-choice"><input class="ad-choice-checkbox" id="watchingStatus" type="checkbox" checked><span>Watching</span></label></div></fieldset>
                 </div>
-                <div class="inputContainer">
-                    <div class="selectContainer">
-                        <select is="emby-select" id="selectSyncUser" name="selectUser" label="User"></select>
-                        <div class="fieldDescription">The user you would like to organize the library for. Only used when updating Jellyfin.</div>
-                    </div>
+                <p class="ad-help" id="outboundScope" hidden>Runs for this user’s linked trackers using their current tracking rules.</p>
+            </div>
+            <div class="ad-sync-footer">
+                <p class="ad-status" id="formStatus" role="status"></p>
+                <div class="ad-actions">
+                    <a class="ad-button" id="settingsLink" href="#/configurationpage?name=AniDoki">Link accounts in Settings</a>
+                    <button class="ad-button ad-button-primary" id="runSync" type="submit" disabled>Run sync</button>
                 </div>
-                <div class="inputContainer">
-                    <div class="selectContainer">
-                        <select is="emby-select" id="selectSyncProvider" name="selectProvider" label="Provider"></select>
-                        <div class="fieldDescription">Provider to sync the anime list from. Only used when updating Jellyfin.</div>
-                    </div>
-                </div>
-                <div class="inputContainer">
-                    <div class="selectContainer">
-                        <select is="emby-select" id="status" name="status" label="Status">
-                            <option value="Completed">Completed (only fully completed shows and movies will be updated)</option>
-                            <option value="Watching">Watching (only currently being watched shows and movies will be updated)</option>
-                            <option value="Both">Completed and Watching (both watching and completed will be updated)</option>
-                        </select>
-                        <div class="fieldDescription">Status of the show on the users watch list you want to sync.</div>
-                    </div>
-                </div>
-                <div>
-                    <p>This will run in the background. Please check the Jellyfin logs for operation progress.</p>
-                    <button is="emby-button" type="button" id="run" class="raised button-submit block emby-button">
-                        <span>Run</span>
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+                <p class="ad-status" id="runStatus" role="status"></p>
+            </div>
+        </section></form>
+    </div></div>
 </div>

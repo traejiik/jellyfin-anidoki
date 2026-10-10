@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
+using jellyfin_anidoki.Notifications;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
@@ -25,6 +26,8 @@ namespace jellyfin_anidoki {
         private readonly ILogger<SessionServerEntry> _logger;
         private readonly IMemoryCache _memoryCache;
         private readonly IAsyncDelayer _delayer;
+        private readonly NotificationEventStore _notifications;
+        private bool _started;
 
 
         private readonly ILibraryManager _libraryManager;
@@ -32,7 +35,7 @@ namespace jellyfin_anidoki {
         public SessionServerEntry(ISessionManager sessionManager, ILoggerFactory loggerFactory,
             IHttpClientFactory httpClientFactory, ILibraryManager libraryManager,
             IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor,
-            IApplicationPaths applicationPaths, IMemoryCache memoryCache) {
+            IApplicationPaths applicationPaths, IMemoryCache memoryCache, NotificationEventStore notifications) {
             _httpClientFactory = httpClientFactory;
             _serverApplicationHost = serverApplicationHost;
             _httpContextAccessor = httpContextAccessor;
@@ -43,15 +46,18 @@ namespace jellyfin_anidoki {
             _libraryManager = libraryManager;
             _memoryCache = memoryCache;
             _delayer = new Delayer();
+            _notifications = notifications;
         }
 
         public Task StartAsync(CancellationToken cancellationToken) {
-            _sessionManager.PlaybackStopped += PlaybackStopped;
+            if (!_started) _sessionManager.PlaybackStopped += PlaybackStopped;
+            _started = true;
             return Task.CompletedTask;
         }
 
         public Task StopAsync(CancellationToken cancellationToken) {
-            _sessionManager.PlaybackStopped -= PlaybackStopped;
+            if (_started) _sessionManager.PlaybackStopped -= PlaybackStopped;
+            _started = false;
             return Task.CompletedTask;
         }
 
@@ -61,9 +67,12 @@ namespace jellyfin_anidoki {
                     _logger.LogDebug($"(Sync) Ignoring {e.Item.Name}; ignore tag detected");
                     return;
                 }
-                UpdateProviderStatus updateProviderStatus = new UpdateProviderStatus(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
+                var context = PlaybackNotificationContext.Capture(e.Item, e.Session);
                 foreach (User user in e.Users) {
-                    await updateProviderStatus.Update(e.Item, user.Id, e.PlayedToCompletion);
+                    var collector = new PlaybackOutcomeCollector();
+                    var updateProviderStatus = new UpdateProviderStatus(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
+                    try { await updateProviderStatus.Update(e.Item, user.Id, e.PlayedToCompletion, collector); }
+                    finally { PlaybackNotificationPublisher.Publish(collector, context, user.Id, _notifications, _logger); }
                 }
             } catch (Exception exception) {
                 _logger.LogError($"Fatal error occured during anime sync job: {exception}");

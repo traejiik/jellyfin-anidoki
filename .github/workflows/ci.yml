@@ -30,6 +30,12 @@ jobs:
         run: python3 scripts/release.py check
       - name: Test release packaging
         run: python3 -m unittest discover -s scripts/tests -v
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Test UI state preservation
+        run: node --test scripts/tests/ui/*.test.mjs
       - name: Restore dependencies
         run: dotnet restore jellyfin-anidoki.sln
       - name: Build solution
