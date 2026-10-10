@@ -235,8 +235,9 @@
 @keyframes ad-tracker-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .anidoki.ad-notification-host .ad-update-spinner { animation: none; } }
 .anidoki .ad-discord-settings .ad-actions { margin-top: 1.25rem; }
+.anidoki .ad-discord-settings #discordStatus:not(:empty) { margin-top: 12px; line-height: 1.5; }
 .anidoki .ad-discord-webhook-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.anidoki .ad-discord-webhook-row > input { flex: 1 1 180px; min-width: 0; width: auto; }
+.anidoki .ad-discord-webhook-input { flex: 1 1 180px; min-width: 0; width: auto; }
 .anidoki .ad-discord-webhook-row > button { flex: 0 0 auto; }
 .anidoki .ad-discord-preview-section { margin-top: 24px; border: 1px solid var(--ad-edge); border-radius: 14px; background: var(--ad-ground); min-width: 0; }
 .anidoki .ad-discord-preview-section > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px; font-weight: 700; cursor: pointer; list-style: none; }

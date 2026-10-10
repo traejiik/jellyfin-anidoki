@@ -66,6 +66,8 @@ The following are needed for the plugin to run:
 - [File Transformation plugin](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation)
 - [Plugin Pages plugin](https://github.com/IAmParadox27/jellyfin-plugin-pages)
 
+KefinTweaks is an optional appearance integration; AniDōki does not require it. The themed Jellyfin 12.2 setup was tested with [KefinTweaks experimental revision `4e93fcc`](https://github.com/ranaldsgift/KefinTweaks/tree/4e93fcc284c3ab85e70b6d791f62a9312239e83b).
+
 ### Automatic (recommended)
 
 1. Navigate to Settings > Admin Dashboard > Plugins > Repositories
