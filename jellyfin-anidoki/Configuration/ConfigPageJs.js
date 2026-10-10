@@ -1,459 +1,290 @@
-var PluginConfig = {
-    pluginUniqueId: 'dceb799c-238e-4a33-aa5e-14fc0b1efe9d'
-};
+export default function (view) {
+    let lifetime, saved, baseline, draft, users, parameters, selectedUser, busy = false;
+    let common, state, previewGeneration = 0, previewTimer;
+    const libraryValidators = new Map();
+    const libraryChoices = new Map();
+    const root = view.querySelector('.anidoki');
+    const find = selector => view.querySelector(selector);
+    const connected = userId => (saved.UserConfig?.find(user => user.UserId === userId)?.UserApiAuth ?? []).map(auth => auth.Name);
+    const dirty = () => baseline && (state.changedValues(baseline, draft).length > 0 || [...libraryChoices.values()].some(choice => choice.mode === 'selected' && !choice.selected.length));
+    const updateDirty = () => {
+        const changed = dirty(); find('.ad-save-bar').hidden = !changed;
+        if (changed && !busy) common.status(find('#saveStatus'), 'Unsaved changes');
+    };
+    const setBusy = value => {
+        busy = value;
+        view.querySelectorAll('button, input, select').forEach(node => node.disabled = value);
+        if (!value) find('#copyCallback').disabled = !find('#generalCallbackUrlInput').value;
+    };
+    const guard = async action => {
+        if (busy) throw new Error('Wait for the current action to finish.');
+        setBusy(true);
+        try { return await action(); } finally { setBusy(false); }
+    };
 
-export default function (view, params) {
-    view.addEventListener('viewshow', async function () {
-        var generalFunctionsUrl = ApiClient.getUrl("web/ConfigurationPage", { name: "AniDoki_CommonJs" });
-        import(generalFunctionsUrl).then(async (generalFunctions) => await initialLoad(generalFunctions))
-    });
-}
-
-async function initialLoad(common) {
-    const page = document;
-    common.setTabs(common.TabGeneral, common.getTabs);
-    Dashboard.showLoadingMsg();
-
-    ApiClient.getUsers()
-        .then(function (users) {
-            common.populateUserList(page, users, '#selectUser');
-            loadUserConfiguration(page.querySelector('#selectUser').value);
-            setUserAddress(page);
-        })
-        .catch(error => console.log("Could not populate users list: " + error));
-
-    await setParameters(common, page);
-    loadProviderConfiguration(page);
-    Dashboard.hideLoadingMsg();
-
-
-    page.querySelector('#selectUser')
-        .addEventListener('change', function () {
-            loadUserConfiguration(page.querySelector('#selectUser').value);
-            page.querySelector('#authorizeLink').innerHTML = '';
+    view.addEventListener('viewhide', () => { lifetime?.abort(); clearTimeout(previewTimer); });
+    view.addEventListener('viewshow', () => {
+        lifetime?.abort(); lifetime = new AbortController();
+        const signal = lifetime.signal;
+        start(signal).catch(async error => {
+            const message = common ? await common.errorMessage(error) : 'Could not load AniDōki resources. Reload to try again.';
+            if (!signal.aborted) find('[data-page-status]').textContent = message;
         });
-
-    page.querySelector('#selectProvider')
-        .addEventListener('change', function () {
-            loadProviderConfiguration(page);
-        });
-
-    page.querySelector('#TemplateConfigForm')
-        .addEventListener('submit', function (e) {
-            saveUserConfig(common);
-            e.preventDefault();
-            return false;
-        });
-
-    const toggleButton = document.getElementById('toggleUserSection');
-    const userSection = document.getElementById('userSection');
-
-    toggleButton.addEventListener('click', () => {
-        if (userSection.style.display === 'none') {
-            userSection.style.display = 'block';
-            toggleButton.textContent = 'Hide user section';
-        } else {
-            userSection.style.display = 'none';
-            toggleButton.textContent = 'Manual connect a user';
-        }
     });
 
-    page.querySelector('#testAnimeListSaveLocation').onclick = await runTestAnimeListSaveLocation;
-    page.querySelector('#generateCallbackUrlButton').onclick = generateCallbackUrl;
-    page.querySelector('#authorizeDevice').onclick = (async () => await onAuthorizeButtonClick(common));
-    page.querySelector('#testAuthentication').onclick = (() => getUser(common));
-    page.querySelector('#deauthenticate').onclick = deauthenticateUser;
-
-    async function runTestAnimeListSaveLocation() {
-        document.querySelector('#testAnimeListSaveLocationResponse').innerHTML = "Testing anime list save location..."
-        var location = document.querySelector('#animeListSaveLocation').value;
-        if (!location) {
-            document.querySelector('#testAnimeListSaveLocationResponse').innerHTML = "Error: Save location is empty";
-            return;
+    async function start(signal) {
+        [common, state] = await Promise.all([
+            import(ApiClient.getUrl('AniDoki/assets/common.js')),
+            import(ApiClient.getUrl('AniDoki/assets/config-state.js'))
+        ]);
+        if (signal.aborted) return;
+        common.ensureStyles(); common.prepareStickyShell(root, signal); common.setTabs(common.TabGeneral, common.getTabs, view);
+        common.status(find('[data-page-status]'), 'Loading settings…');
+        if (!saved) {
+            const result = await Promise.all([ApiClient.getPluginConfiguration(common.pluginId), ApiClient.getUsers(), common.json('AniDoki/parameters', { signal })]);
+            if (signal.aborted) return;
+            [saved, users, parameters] = result;
+            const editable = structuredClone(saved);
+            editable.ProviderApiAuth ??= [];
+            for (const provider of common.providers) if (!editable.ProviderApiAuth.some(item => item.Name === provider.key)) editable.ProviderApiAuth.push({ Name: provider.key, ClientId: '', ClientSecret: '' });
+            editable.UserConfig ??= [];
+            for (const user of users) if (!editable.UserConfig.some(item => item.UserId === user.Id)) editable.UserConfig.push({ UserId: user.Id, ...state.userPreferences() });
+            baseline = state.createDraft(editable); draft = state.createDraft(baseline);
         }
-
-        var url = ApiClient.getUrl("/AniDoki/testAnimeListSaveLocation?saveLocation=" + encodeURIComponent(location));
-        await ApiClient.ajax({
-            type: 'GET',
-            url
-        })
-            .then((response) => response.json())
-            .then((result) => {
-                if (result === "") {
-                    document.querySelector('#testAnimeListSaveLocationResponse').innerHTML = "Anime list save location is valid! Please remember to save."
-                } else {
-                    document.querySelector('#testAnimeListSaveLocationResponse').innerHTML = "Error: " + result;
-                }
-            })
-            .catch((error) => {
-                Promise.resolve(error).then(async (resolvedError) => {
-                    if (typeof (resolvedError) === "string") {
-                        return resolvedError;
-                    } else {
-                        await resolvedError.text().then(error => {
-                            document.querySelector('#testAnimeListSaveLocationResponse').innerHTML = "Error: " +  error;
-                        });
-                    }
+        if (signal.aborted) return;
+        find('#TemplateConfigForm').hidden = false; common.status(find('[data-page-status]'), '');
+        render(signal);
+        root.addEventListener('input', event => {
+            const field = event.target.dataset.field;
+            if (field) {
+                draft[field] = event.target.type === 'checkbox' ? event.target.checked : event.target.type === 'number' ? Number(event.target.value) : event.target.value;
+                if (field === 'callbackUrl') schedulePreview(signal);
+                updateDirty();
+            }
+        }, { signal });
+        find('#TemplateConfigForm').addEventListener('submit', event => { event.preventDefault(); save(signal); }, { signal });
+        find('#discardChanges').addEventListener('click', () => { draft = state.createDraft(baseline); libraryValidators.clear(); libraryChoices.clear(); render(signal); }, { signal });
+        find('#closeUserPanel').addEventListener('click', () => {
+            const userId = selectedUser;
+            selectedUser = undefined; find('#userPanel').hidden = true;
+            const button = [...find('#userRows').querySelectorAll('button')].find(button => button.dataset.userId === userId);
+            button?.setAttribute('aria-expanded', 'false'); button?.focus();
+        }, { signal });
+        find('#refreshAccounts').addEventListener('click', async () => {
+            common.refreshFeedback(find('#accountsRefreshStatus'), false); common.status(find('#accountsStatus'), '');
+            try {
+                await guard(async () => {
+                    saved = await ApiClient.getPluginConfiguration(common.pluginId);
+                    if (!signal.aborted) { renderUsers(signal); if (selectedUser) renderUser(signal); common.refreshFeedback(find('#accountsRefreshStatus'), true); }
                 });
-
-                // reset save file path so the user doesn't accidentally save an invalid path
-                ApiClient.getPluginConfiguration(PluginConfig.pluginUniqueId).then(function (config) {
-                     document.querySelector('#animeListSaveLocation').value = config.animeListSaveLocation ?? '';
+            } catch (error) {
+                const message = await common.errorMessage(error);
+                if (!signal.aborted) common.status(find('#accountsStatus'), message, 'error');
+            }
+        }, { signal });
+        find('#useCurrent').addEventListener('click', () => fillAddress(ApiClient.serverAddress(), signal), { signal });
+        find('#useLocal').addEventListener('click', async () => {
+            const generation = ++previewGeneration;
+            try { const result = await common.json('AniDoki/callbackPreview', { signal }); if (!signal.aborted && generation === previewGeneration) fillAddress(result.baseAddress, signal); }
+            catch (error) {
+                const message = await common.errorMessage(error);
+                if (!signal.aborted && generation === previewGeneration) common.status(find('#addressStatus'), message, 'error');
+            }
+        }, { signal });
+        find('#copyCallback').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(find('#generalCallbackUrlInput').value);
+                if (!signal.aborted) common.status(find('#addressStatus'), 'Callback copied.', 'success');
+            } catch {
+                if (!signal.aborted) common.status(find('#addressStatus'), 'Could not copy. Select the callback and copy it manually.', 'error');
+            }
+        }, { signal });
+        find('#testAnimeListSaveLocation').addEventListener('click', async () => {
+            const location = draft.animeListSaveLocation ?? '';
+            if (!location.trim()) { common.status(find('#folderStatus'), 'Enter a folder first.', 'error'); return; }
+            common.status(find('#folderStatus'), 'Testing folder…');
+            try {
+                await guard(async () => {
+                    const result = await common.json(`AniDoki/testAnimeListSaveLocation?saveLocation=${encodeURIComponent(location)}`, { signal });
+                    if (!signal.aborted) common.status(find('#folderStatus'), result || 'Folder is writable. Save changes to use it.', result ? 'error' : 'success');
                 });
-            })
+            } catch (error) {
+                const message = await common.errorMessage(error);
+                if (!signal.aborted) common.status(find('#folderStatus'), message, 'error');
+            }
+        }, { signal });
+        common.bindNavigation(root, signal); common.observeSaveBar(root, signal); common.bindDraftWarning(view, dirty, signal);
+        setBusy(busy);
     }
 
-
-    function generateCallbackUrl() {
-        const userApiUrl = document.querySelector('#apiUrl').value;
-        if (userApiUrl) {
-            document.querySelector('#generalCallbackUrlInput').value = userApiUrl + "/AniDoki/authCallback"
-        } else {
-            document.querySelector('#generalCallbackUrlInput').value = PluginConfig.localApiUrl + "/AniDoki/authCallback"
-        }
+    function fillAddress(address, signal) {
+        draft.callbackUrl = address; find('#apiUrl').value = address; updateDirty(); schedulePreview(signal);
     }
-
-
-    async function onAuthorizeButtonClick(common) {
-        document.querySelector('#authorizeClientIdError').innerHTML = "";
-        document.querySelector('#authorizeClientSecretError').innerHTML = "";
-
-        var kitsuAuth = document.querySelector('#selectProvider').value === "Kitsu";
-        var clientId = document.querySelector('#clientId').value;
-        var clientSecret = document.querySelector('#clientSecret').value;
-        if (!clientId || !clientSecret) {
-            if (!clientId)
-                document.querySelector('#authorizeClientIdError').innerHTML = `Error: ${kitsuAuth ? "Username" : "Client ID"} is empty.`;
-
-            if (!clientSecret)
-                document.querySelector('#authorizeClientSecretError').innerHTML = `Error: ${kitsuAuth ? "Username" : "Client Secret"} is empty.`;
-
-            return
-        }
-
-        // users are unlikely to save after setting client id and secret, so we do it for them
-        saveUserConfig(common, true);
-        if (kitsuAuth) {
-            var url = ApiClient.getUrl("/AniDoki/passwordGrant?provider=Kitsu&userId=" + encodeURIComponent(document.querySelector('#selectUser').value) +
-                "&username=" + encodeURIComponent(clientId) +
-                "&password=" + encodeURIComponent(clientSecret));
-            await ApiClient.ajax({
-                type: "GET",
-                url
-            })
-                .then((_) => document.querySelector('#authorizeLinkGenerationNotification').innerHTML = "Authentication successful.")
-                .catch((error) => error.text().then(errorText => document.querySelector('#authorizeLinkGenerationNotification').innerHTML = "Error: " + errorText));
-        } else {
-            var url = ApiClient.getUrl("/AniDoki/buildAuthorizeRequestUrl?provider=" + document.querySelector('#selectProvider').value + "&clientId=" + encodeURIComponent(clientId) +
-                "&clientSecret=" + encodeURIComponent(clientSecret) +
-                "&url=" + encodeURIComponent((document.querySelector('#apiUrl').value ? document.querySelector('#apiUrl').value : "local")) + 
-                "&user=" + document.querySelector('#selectUser').value);
-            await ApiClient.ajax({
-                type: "GET",
-                url
-            })
-                .then((response) => response.json())
-                .catch((_) => document.querySelector('#authorizeLinkGenerationNotification').innerHTML = "Error: Could not generate authorize link. Check the logs for more information.")
-                .then((json) => document.querySelector('#authorizeLink').innerHTML = json);
-        }
-    }
-
-    async function getUser(common) {
-        document.querySelector('#getUserResponse').innerHTML = "Testing authentication.. this can take some time."
-        if (document.querySelector('#selectProvider').value === "Annict")
-            saveUserConfig(common, false);
-        var url = ApiClient.getUrl("/AniDoki/user?apiName=" + document.querySelector('#selectProvider').value +
-            "&userId=" + encodeURIComponent(document.querySelector('#selectUser').value));
-        await ApiClient.ajax({
-            type: "GET",
-            url
-        })
-            .then(function (response) {
-                if (response.ok) {
-                    return response.json()
-                        .then(function (json) {
-                            var userResponseElement = document.querySelector('#getUserResponse');
-                            if (json.name) {
-                                return userResponseElement.innerHTML = "Thank you for authenticating " + json.name + ".";
-                            } else {
-                                return userResponseElement.innerHTML = "Thank you for authenticating."
-                            }
-                        });
-                } else {
-                    document.querySelector('#getUserResponse').innerHTML = "Test returned an error - try authenticating again or check the logs for a detailed error reason."
+    function schedulePreview(signal) {
+        clearTimeout(previewTimer); const generation = ++previewGeneration;
+        find('#generalCallbackUrlInput').value = ''; find('#copyCallback').disabled = true; find('#addressCheck').hidden = true;
+        previewTimer = setTimeout(async () => {
+            try {
+                const result = await common.json(`AniDoki/callbackPreview?address=${encodeURIComponent(draft.callbackUrl ?? '')}`, { signal });
+                if (signal.aborted || generation !== previewGeneration) return;
+                find('#apiUrl').setAttribute('aria-invalid', 'false');
+                find('#generalCallbackUrlInput').value = result.callbackUrl;
+                find('#copyCallback').disabled = busy;
+                const marker = new URL(common.safeExternalUrl(result.baseAddress)); marker.pathname = marker.pathname.replace(/\/$/, '') + '/AniDoki/apiUrlTest';
+                find('#addressCheck').href = marker.href; find('#addressCheck').hidden = false;
+                common.status(find('#addressStatus'), 'Callback preview ready.');
+            } catch (error) {
+                const message = await common.errorMessage(error);
+                if (!signal.aborted && generation === previewGeneration) {
+                    find('#apiUrl').setAttribute('aria-invalid', 'true');
+                    common.status(find('#addressStatus'), message, 'error');
                 }
-            }).catch(function (error) {
-                error.text().then(errorText => document.querySelector('#getUserResponse').innerHTML = "Test returned an error: " + errorText + "; try authenticating again or check the logs for a detailed error reason.")
-            });
+            }
+        }, 250);
+        signal.addEventListener('abort', () => clearTimeout(previewTimer), { once: true });
     }
 
-    async function setParameters(common, page) {
-        var url = ApiClient.getUrl("/AniDoki/parameters");
-        await ApiClient.ajax({type: 'GET', url})
-            .then(function (response) {
-                if (response.ok) {
-                    return response.json()
-                        .then(function (json) {
-                            setLocalApiUrl(page, json.https, json.localIpAddress, json.localPort);
-                            common.setProviderSelection(page, json.providerList, '#selectProvider');
-                            setCallbackRedirectUrlInputDescription(json.localIpAddress, json.localPort);
-                        });
-                } else {
-                    page.querySelector('#localApiUrl').innerHTML = "Could not fetch local URL.";
-                }
-            });
+    function render(signal) {
+        view.querySelectorAll('[data-field]').forEach(input => {
+            const value = draft[input.dataset.field];
+            if (input.type === 'checkbox') input.checked = value ?? false;
+            else input.value = input.dataset.field === 'authenticationLinkExpireTimeMinutes' ? value || 1440 : value ?? '';
+        });
+        renderProviders(signal); renderUsers(signal); if (selectedUser) renderUser(signal);
+        updateDirty(); schedulePreview(signal);
     }
-
-    async function deauthenticateUser() {
-        var url = ApiClient.getUrl(`/AniDoki/deauthenticate?user=${encodeURIComponent(document.querySelector('#selectUser').value)}&apiName=${encodeURIComponent(document.querySelector('#selectProvider').value)}`);
-        await ApiClient.ajax({ type: "GET", url })
-            .then((response) => {
-                if (response.ok) {
-                    page.querySelector('#deauthenticateResponse').innerHTML = "Successfully deauthenticated user.";
-                } else {
-                    page.querySelector('#deauthenticateResponse').innerHTML = "Could not deauthenticate user. Check logs for more information.";
-                }
-            })
-    }
-
-    function setLocalApiUrl(page, https, localIpAddress, localPort) {
-        var localApiUrl = (https ? "https://" : "http://") + localIpAddress + ":" + localPort;
-        PluginConfig.localApiUrl = localApiUrl;
-        page.querySelector('#localApiUrl').innerHTML = "Local (server) URL: <b>" + localApiUrl + "</b>";
-    }
-
-    function setCallbackRedirectUrlInputDescription(localIpAddress, localPort) {
-        page.querySelector("#callbackRedirectUrlDescription").innerHTML = "Redirect the user to this URL on successful authentication.<br></br>Variables: \"{{LocalIpAddress}}\" will be converted to the detected local IP address (" + localIpAddress + "), \"{{LocalPort}}\" will be converted to the detected Jellyfin port (" + localPort + ")."
-    }
-
-    function setUserAddress(page) {
-        page.querySelector('#userAddress').innerHTML = "User URL: <b>" + ApiClient.serverAddress() + "</b>";
-    }
-
-    function loadUserConfiguration(userId) {
-        ApiClient.getPluginConfiguration(PluginConfig.pluginUniqueId).then(function (config) {
-            let currentUser;
-            if (config.UserConfig != null && config.UserConfig.length > 0) {
-                currentUser = config.UserConfig.filter(function (item) {
-                    return item.UserId === userId;
-                })[0];
+    function renderProviders(signal) {
+        const container = find('#providerCards'); container.replaceChildren();
+        for (const provider of common.providers) {
+            const record = draft.ProviderApiAuth.find(item => item.Name === provider.key);
+            const savedRecord = baseline.ProviderApiAuth.find(item => item.Name === provider.key);
+            const row = common.element('details', 'ad-provider');
+            const summary = common.element('summary');
+            const badge = common.element('span', 'ad-badge');
+            const refreshBadge = () => {
+                const unsaved = ['ClientId', 'ClientSecret'].some(field => record[field] !== savedRecord?.[field]) || provider.key === 'Shikimori' && ['shikimoriAppName', 'shikimoriDomain'].some(field => draft[field] !== baseline[field]);
+                const readiness = provider.key === 'Kitsu' ? 'Per-user sign-in' : provider.key === 'Annict' ? 'Personal token under Users' : !record.ClientId ? 'Missing client ID' : !record.ClientSecret ? 'Missing secret' : provider.key === 'Shikimori' && !draft.shikimoriAppName?.trim() ? 'Missing app name' : 'Configured';
+                badge.textContent = unsaved ? `${readiness} · Unsaved` : readiness;
+            };
+            refreshBadge();
+            summary.append(common.providerIcon(provider), common.element('span', 'ad-provider-title', provider.name), badge); row.append(summary);
+            const body = common.element('div', 'ad-provider-body');
+            if (['Kitsu', 'Annict'].includes(provider.key)) {
+                body.append(common.element('p', 'ad-help', provider.key === 'Kitsu' ? 'Kitsu does not need a server-wide OAuth app. Select a user below to sign in with their username and password.' : 'Annict uses a personal access token. Select the intended user below to link it; tokens are never copied to another user.'));
             } else {
-                currentUser = null;
-            }
-
-            if (!currentUser) {
-                // user does not have an existing configuration setup so use default values.
-                currentUser = {};
-                currentUser.LibraryToCheck = [];
-                currentUser.PlanToWatchOnly = true;
-                currentUser.RewatchCompleted = true;
-            }
-
-            PluginConfig.LibraryToCheck = currentUser.LibraryToCheck || [];
-            document.querySelector('#PlanToWatchOnly').checked = currentUser.PlanToWatchOnly;
-            document.querySelector('#RewatchCompleted').checked = currentUser.RewatchCompleted;
-            Dashboard.hideLoadingMsg();
-
-            ApiClient.getVirtualFolders(PluginConfig.pluginUniqueId).then(function (result) {
-                var html = '';
-                html += '<div data-role="controlgroup">';
-                for (var x = 0; x < result.length; x++) {
-                    html += '<label><input ';
-                    if (PluginConfig.LibraryToCheck.includes(result[x].ItemId)) {
-                        html += 'checked="true" ';
+                const grid = common.element('div', 'ad-grid');
+                for (const [field, title, type] of [['ClientId', 'Client ID', 'text'], ['ClientSecret', 'Client secret', 'password']]) {
+                    const fieldRoot = common.element('div', 'ad-field'); const label = common.element('label', '', title);
+                    const input = common.element('input', 'ad-input ad-mono'); input.type = type; input.value = record[field]; input.autocomplete = 'off'; input.id = `ad-${provider.key}-${field}`; label.htmlFor = input.id;
+                    let clear;
+                    input.addEventListener('input', () => { record[field] = input.value; if (clear) clear.hidden = !input.value; refreshBadge(); updateDirty(); }, { signal });
+                    fieldRoot.append(label, type === 'password' ? common.secretInput(input, provider.name, signal) : input);
+                    if (type === 'password') {
+                        const footer = common.element('div', 'ad-field-footer');
+                        clear = common.element('button', 'ad-button ad-button-quiet', 'Clear secret'); clear.type = 'button'; clear.hidden = !input.value; clear.setAttribute('aria-label', `Clear ${provider.name} secret`);
+                        const confirmation = common.element('div', 'ad-clear-confirm'); confirmation.hidden = true; confirmation.id = `ad-${provider.key}-clear-confirm`;
+                        clear.setAttribute('aria-controls', confirmation.id); clear.setAttribute('aria-expanded', 'false');
+                        confirmation.append(common.element('p', 'ad-help', `Clear the ${provider.name} secret when you save changes?`));
+                        const actions = common.element('div', 'ad-actions');
+                        const confirm = common.element('button', 'ad-button', 'Confirm clear'); confirm.type = 'button'; confirm.setAttribute('aria-label', `Confirm clear ${provider.name} secret`);
+                        confirm.addEventListener('click', () => { input.value = ''; record[field] = ''; clear.hidden = true; confirmation.hidden = true; clear.setAttribute('aria-expanded', 'false'); refreshBadge(); updateDirty(); input.focus(); }, { signal });
+                        const keep = common.element('button', 'ad-button', 'Keep secret'); keep.type = 'button'; keep.addEventListener('click', () => { confirmation.hidden = true; clear.setAttribute('aria-expanded', 'false'); clear.focus(); }, { signal });
+                        actions.append(confirm, keep); confirmation.append(actions);
+                        clear.addEventListener('click', () => { confirmation.hidden = false; clear.setAttribute('aria-expanded', 'true'); keep.focus(); }, { signal });
+                        footer.append(clear); fieldRoot.append(footer, confirmation);
                     }
-                    html += 'is="emby-checkbox" class="library" type="checkbox" data-mini="true" id="' + result[x].ItemId + '" name="' + result[x].Name + '"/><span>' + result[x].Name + '</span></label>';
+                    grid.append(fieldRoot);
                 }
-                html += '</div>';
-                document.querySelector('#libraries').innerHTML = html;
-            });
-        });
-    }
-
-    function loadProviderConfiguration(page) {
-        const providerName = page.querySelector('#selectProvider').value;
-        Dashboard.showLoadingMsg();
-        ApiClient.getPluginConfiguration(PluginConfig.pluginUniqueId).then(function (config) {
-            let provider;
-            if (config.ProviderApiAuth != null && config.ProviderApiAuth.length > 0) {
-                provider = config.ProviderApiAuth.filter(function (item) {
-                    return item.Name === providerName;
-                })[0];
-            } else {
-                provider = null;
-            }
-
-            if (!provider) {
-                provider = {};
-                provider.Name = providerName;
-                provider.ClientId = "";
-                provider.ClientSecret = "";
-            }
-
-            page.querySelector('#clientId').value = provider.ClientId;
-            page.querySelector('#clientSecret').value = provider.ClientSecret;
-            if (config.animeListSaveLocation)
-                page.querySelector('#animeListSaveLocation').value = config.animeListSaveLocation;
-            if (config.enableUserPages)
-                page.querySelector('#enableUserPages').checked = config.enableUserPages;
-            if (config.watchedTickboxUpdatesProvider)
-                page.querySelector('#watchedTickboxUpdatesProvider').checked = config.watchedTickboxUpdatesProvider;
-            if (config.callbackRedirectUrl)
-                page.querySelector('#callbackRedirectUrlInput').value = config.callbackRedirectUrl;
-            if (config.shikimoriAppName)
-                page.querySelector('#shikimoriAppName').value = config.shikimoriAppName;
-            if (config.shikimoriDomain)
-                page.querySelector('#shikimoriDomain').value = config.shikimoriDomain;
-            if (config.simklUpdateAll)
-                page.querySelector('#simklUpdateAll').checked = config.simklUpdateAll;
-            if (config.updateNsfw)
-                page.querySelector('#UpdateNsfw').checked = config.updateNsfw;
-            page.querySelector('#linkTimeExpire').value = config.authenticationLinkExpireTimeMinutes && config.authenticationLinkExpireTimeMinutes !== 0 ? config.authenticationLinkExpireTimeMinutes : 1440;
-
-            page.querySelector('#clientSecretLabel').style.display = "block";
-            page.querySelector('#clientSecret').style.display = "block";
-            page.querySelector('#clientSecretDescription').style.display = "block";
-            page.querySelector('#authorizeDevice').style.display = "block";
-            page.querySelector('#authorizeDeviceDescription').style.display = "block";
-            page.querySelector('#shikimoriDetails').style.display = "none";
-            page.querySelector('#simklUpdateAllContainer').style.display = "none";
-            page.querySelector('#testAuthenticationDescription').innerHTML = "Once you have authenticated your user, click the below button to test the authentication:";
-            page.querySelector('#clientIdLabel').innerHTML = "Client ID";
-            page.querySelector('#clientIdDescription').innerHTML = "The client ID from your provider application.";
-            page.querySelector('#clientSecretLabel').innerHTML = "Client Secret";
-            page.querySelector('#clientSecretDescription').innerHTML = "The client secret from your provider application.<b>This value will be stored in plain text in the plugin config. Make sure no untrusted users have access to the file.</b>";
-            if (providerName === "Kitsu") {
-                page.querySelector('#clientIdLabel').innerHTML = "Username";
-                page.querySelector('#clientIdDescription').innerHTML = "The username used to login to the provider application.";
-                page.querySelector('#clientSecretLabel').innerHTML = "Password";
-                page.querySelector('#clientSecretDescription').innerHTML = "The password used to login to the provider application.<b>This value will be stored in plain text in the plugin config. Make sure no untrusted users have access to the file.</b>";
-            } else if (providerName === "Annict") {
-                page.querySelector('#clientIdLabel').innerHTML = "Personal Access Token";
-                page.querySelector('#clientIdDescription').innerHTML = "The personal access token from your provider application.<b>This value will be stored in plain text in the plugin config. Make sure no untrusted users have access to the file.</b>"
-                page.querySelector('#clientSecret').style.display = "none";
-                page.querySelector('#clientSecretLabel').style.display = "none";
-                page.querySelector('#clientSecretDescription').style.display = "none";
-                page.querySelector('#authorizeDevice').style.display = "none";
-                page.querySelector('#authorizeDeviceDescription').style.display = "none";
-                page.querySelector('#testAuthenticationDescription').innerHTML = "Click the below button to test the authentication:";
-            } else if (providerName === "Shikimori") {
-                page.querySelector('#shikimoriDetails').style.display = "block";
-            } else if (providerName === "Simkl") {
-                page.querySelector('#simklUpdateAllContainer').style.display = "block";
-            }
-
-            if (config.callbackUrl)
-                page.querySelector('#apiUrl').value = config.callbackUrl;
-            if (config.armServerBaseUrl)
-                page.querySelector('#armServerBaseUrlInput').value = config.armServerBaseUrl;
-            Dashboard.hideLoadingMsg();
-        });
-    }
-
-    function setProviderApiAuthConfig(config) {
-        const name = document.querySelector('#selectProvider').value;
-        const clientId = document.querySelector('#clientId').value;
-        const clientSecret = document.querySelector('#clientSecret').value;
-        const apiUrl = document.querySelector('#apiUrl').value;
-        if (config.ProviderApiAuth != null && config.ProviderApiAuth.length > 0) {
-            let authConfig = config.ProviderApiAuth.filter(function (item) {
-                return item.Name === name
-            })[0];
-
-            if (!authConfig && clientId && clientSecret) {
-                authConfig = {
-                    Name: name,
-                    ClientId: clientId,
-                    clientSecret: clientSecret
-                };
-
-                config.ProviderApiAuth.push(authConfig);
-            }
-
-            if (clientId && clientSecret && name !== "Kitsu") {
-                authConfig.ClientId = clientId;
-                authConfig.ClientSecret = clientSecret;
-            } else {
-                config.ProviderApiAuth.splice(config.ProviderApiAuth.indexOf(authConfig), 1);
-            }
-        } else {
-            config.ProviderApiAuth = [];
-            config.ProviderApiAuth.push({
-                Name: name,
-                ClientId: document.querySelector('#clientId').value,
-                ClientSecret: document.querySelector('#clientSecret').value
-            });
-        }
-
-        if (apiUrl) {
-            config.callbackUrl = apiUrl;
-        } else {
-            delete config.callbackUrl;
-        }
-    }
-
-    function saveUserConfig(common) {
-        ApiClient.getPluginConfiguration(PluginConfig.pluginUniqueId).then(function (config) {
-            var userId = document.querySelector('#selectUser').value;
-
-            let userConfig;
-            if (config.UserConfig != null && config.UserConfig.length > 0) {
-                userConfig = config.UserConfig.filter(function (item) {
-                    return item.UserId == userId;
-                })[0];
-            } else {
-                config.UserConfig = [];
-                userConfig = null;
-            }
-
-            if (!userConfig) {
-                userConfig = {};
-                config.UserConfig.push(userConfig);
-            }
-            setProviderApiAuthConfig(config);
-            config.animeListSaveLocation = document.querySelector('#animeListSaveLocation').value;
-            config.enableUserPages = document.querySelector('#enableUserPages').checked;
-            config.watchedTickboxUpdatesProvider = document.querySelector('#watchedTickboxUpdatesProvider').checked;
-            config.callbackRedirectUrl = document.querySelector('#callbackRedirectUrlInput').value;
-            config.shikimoriAppName = document.querySelector('#shikimoriAppName').value;
-            config.shikimoriDomain = document.querySelector('#shikimoriDomain').value;
-            config.simklUpdateAll = document.querySelector('#simklUpdateAll').checked;
-            config.updateNsfw = document.querySelector('#UpdateNsfw').checked;
-            config.authenticationLinkExpireTimeMinutes = document.querySelector('#linkTimeExpire').value;
-            config.armServerBaseUrl = document.querySelector('#armServerBaseUrlInput').value;
-
-            userConfig.LibraryToCheck = Array.prototype.map.call(document.querySelectorAll('.library:checked'), element => {
-                return element.getAttribute('id');
-            });
-            userConfig.UserId = userId;
-            userConfig.PlanToWatchOnly = document.querySelector('#PlanToWatchOnly').checked;
-            userConfig.RewatchCompleted = document.querySelector('#RewatchCompleted').checked;
-
-            if (document.querySelector('#selectProvider').value === "Annict") {
-                // just save the details directly
-                if (!userConfig.UserApiAuth)
-                    userConfig.UserApiAuth = [];
-                var existingConfig = userConfig.UserApiAuth.filter(i => i.Name === "Annict");
-                if (existingConfig.length > 0) {
-                    existingConfig[0].AccessToken = document.querySelector('#clientId').value.toString();
-                } else {
-                    userConfig.UserApiAuth.push({
-                        "Name": "Annict",
-                        "AccessToken": document.querySelector('#clientId').value.toString()
-                    })
+                body.append(grid);
+                if (provider.key === 'Shikimori') {
+                    for (const [field, title] of [['shikimoriAppName', 'App name (User-Agent)'], ['shikimoriDomain', 'Shikimori domain']]) {
+                        const label = common.element('label', 'ad-field', title); const input = common.element('input', 'ad-input'); input.dataset.field = field; input.value = draft[field] ?? ''; label.append(input); body.append(label);
+                        input.addEventListener('input', () => { draft[field] = input.value; refreshBadge(); }, { signal });
+                    }
+                }
+                if (provider.key === 'Simkl') {
+                    const label = common.element('label', 'ad-check'); const input = common.element('input', 'ad-switch'); input.type = 'checkbox'; input.setAttribute('role', 'switch'); input.dataset.field = 'simklUpdateAll'; input.checked = draft.simklUpdateAll ?? false; label.append(input, common.element('span', '', 'Update all Simkl episodes up to the current point')); body.append(label);
                 }
             }
-
-            ApiClient.updatePluginConfiguration(PluginConfig.pluginUniqueId, config).then(function (result) {
-                Dashboard.processPluginConfigurationUpdateResult(result);
-                ApiClient.getUsers()
-                    .then(function (users) {
-                        common.populateUserList(users, '#selectUser');
-                        document.querySelector('#selectUser').value = userId;
-                        loadUserConfiguration(userId);
-                    })
-                    .catch(error => console.log("Could not populate users list: " + error));
-            });
+            row.append(body); container.append(row);
+            row.addEventListener('toggle', () => { if (row.open) container.querySelectorAll('details').forEach(item => { if (item !== row) item.open = false; }); }, { signal });
+        }
+    }
+    function renderUsers(signal) {
+        find('#userRows').replaceChildren();
+        const count = users.filter(user => connected(user.Id).length).length;
+        find('#configurationSummary').replaceChildren(common.element('span', 'ad-badge', `${count} ${count === 1 ? 'user' : 'users'} linked`));
+        if (!users.length) { const row = common.element('tr'); const cell = common.element('td', 'ad-help', 'No Jellyfin users found.'); cell.colSpan = 3; row.append(cell); find('#userRows').append(row); }
+        for (const user of users) {
+            const row = common.element('tr'); const title = common.element('td'); title.append(common.element('strong', '', user.Name));
+            const linked = common.element('td', 'ad-muted', connected(user.Id).map(common.providerName).join(', ') || 'No linked accounts');
+            const actions = common.element('td');
+            const button = common.element('button', 'ad-button ad-icon-button'); button.append(common.icon('pencil')); button.type = 'button'; button.dataset.userId = user.Id; button.title = `Edit ${user.Name} tracking settings`; button.setAttribute('aria-label', `Manage ${user.Name}`); button.setAttribute('aria-controls', 'userPanel'); button.setAttribute('aria-expanded', String(selectedUser === user.Id));
+            button.addEventListener('click', () => { selectedUser = user.Id; renderUser(signal); find('#userPanel').scrollIntoView({ block: 'start' }); find('#selectedUserName').focus({ preventScroll: true }); }, { signal });
+            actions.append(button); row.append(title, linked, actions); find('#userRows').append(row);
+        }
+    }
+    function renderUser(signal) {
+        const user = users.find(item => item.Id === selectedUser); if (!user) return;
+        const prefs = draft.UserConfig.find(item => item.UserId === selectedUser);
+        find('#userPanel').hidden = false; find('#selectedUserName').textContent = user.Name;
+        find('#userRows').querySelectorAll('button').forEach(button => button.setAttribute('aria-expanded', String(button.dataset.userId === selectedUser)));
+        common.renderAccounts(find('#userAccounts'), { linked: connected(user.Id), visible: common.providers.map(item => item.key), admin: true, userName: user.Name,
+            action: (kind, provider, credentials) => accountAction(user.Id, kind, provider, credentials, signal) }, signal);
+        find('#userPreferences').replaceChildren();
+        for (const [field, title, help] of [['PlanToWatchOnly', 'Only update anime on Plan to watch', 'Limit changes to titles already on the user’s plan-to-watch list.'], ['RewatchCompleted', 'Rewatch completed anime', 'Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.']]) {
+            const label = common.element('label', 'ad-check'); const input = common.element('input', 'ad-switch'); input.type = 'checkbox'; input.setAttribute('role', 'switch'); input.checked = prefs[field];
+            input.addEventListener('change', () => { prefs[field] = input.checked; updateDirty(); }, { signal });
+            const text = common.element('span'); text.append(common.element('strong', '', title), common.element('span', 'ad-help', help)); label.append(input, text); find('#userPreferences').append(label);
+        }
+        if (!libraryChoices.has(user.Id)) libraryChoices.set(user.Id, {});
+        libraryValidators.set(user.Id, common.renderLibraries(find('#userLibraries'), prefs, parameters.libraries ?? [], signal, updateDirty, libraryChoices.get(user.Id)));
+    }
+    async function accountAction(userId, kind, provider, credentials, signal) {
+        return guard(async () => {
+            let response;
+            if (kind === 'test') {
+                response = await common.json(`AniDoki/user?apiName=${provider}&user=${userId}`, { signal });
+                return { message: response?.name || response?.Name ? `Connection verified for ${response.name ?? response.Name}.` : 'Connection verified.' };
+            }
+            if (kind === 'disconnect') await common.request(`AniDoki/deauthenticate?apiName=${provider}&user=${userId}`, { signal });
+            else if (provider === 'Kitsu') await common.request('AniDoki/passwordGrant', { method: 'POST', body: { Provider: provider, User: userId, ...credentials }, signal });
+            else if (provider === 'Annict') await common.request(`AniDoki/annictToken?user=${userId}`, { method: 'POST', body: credentials, signal });
+            else {
+                const changed = state.changedValues(baseline, draft).some(change => change.group === 'provider' && change.id === provider || provider === 'Shikimori' && ['shikimoriAppName', 'shikimoriDomain'].includes(change.field) || change.field === 'callbackUrl');
+                if (changed) throw new Error('Save the provider app and callback address changes before linking. Other edits are not saved by Link.');
+                response = await common.json(`AniDoki/authorize?provider=${provider}&user=${userId}`, { signal });
+                return { authorizationUrl: response };
+            }
+            saved = await ApiClient.getPluginConfiguration(common.pluginId);
+            const message = kind === 'disconnect' ? `${common.providerName(provider)} disconnected.` : 'Account linked. Preference drafts are still unsaved.';
+            if (!signal.aborted) { renderUsers(signal); renderUser(signal); common.status(find('#accountsStatus'), message, 'success'); }
+            return { message };
         });
+    }
+    async function save(signal) {
+        if (busy || !dirty()) return;
+        try {
+            for (const [id, valid] of libraryValidators) if (!valid()) throw new Error(`Pick at least one library for ${users.find(user => user.Id === id)?.Name}, or choose All libraries.`);
+            const expiry = draft.authenticationLinkExpireTimeMinutes;
+            if (expiry !== baseline.authenticationLinkExpireTimeMinutes && (!Number.isSafeInteger(expiry) || expiry < 1)) throw new Error('Authentication expiry must be a positive whole number of minutes.');
+            await guard(async () => {
+                await common.json(`AniDoki/callbackPreview?address=${encodeURIComponent(draft.callbackUrl ?? '')}`, { signal });
+                const latest = await ApiClient.getPluginConfiguration(common.pluginId);
+                const merged = state.mergeChanges(latest, baseline, draft);
+                if (merged.conflicts.length) throw new Error(`Changed on the server: ${merged.conflicts.join(', ')}. Your edits are retained. Reload to review the current values before saving.`);
+                common.status(find('#saveStatus'), 'Saving…');
+                await ApiClient.updatePluginConfiguration(common.pluginId, merged.value);
+                saved = merged.value; baseline = state.createDraft(merged.value);
+                // Retain zero-field drafts for users/providers that have never been saved.
+                for (const item of draft.ProviderApiAuth) if (!baseline.ProviderApiAuth.some(p => p.Name === item.Name)) baseline.ProviderApiAuth.push(structuredClone(item));
+                for (const item of draft.UserConfig) if (!baseline.UserConfig.some(u => u.UserId === item.UserId)) baseline.UserConfig.push(structuredClone(item));
+                draft = state.createDraft(baseline); libraryValidators.clear(); libraryChoices.clear();
+                if (!signal.aborted) { render(signal); common.status(find('[data-page-status]'), 'Settings saved.', 'success'); }
+            });
+        } catch (error) {
+            const message = await common.errorMessage(error);
+            if (!signal.aborted) common.status(find('#saveStatus'), message, 'error');
+        }
     }
 }
