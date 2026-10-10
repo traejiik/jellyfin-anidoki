@@ -83,6 +83,28 @@ namespace jellyfin_anidoki.Api {
             return new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer, new ProviderApiAuth { ClientId = clientId, ClientSecret = clientSecret }, url).BuildAuthorizeRequestUrl(user);
         }
 
+        [AllowAnonymous]
+        [HttpGet("assets/{asset}")]
+        public IActionResult GetAsset([FromRoute] string asset)
+        {
+            string? resource = asset switch {
+                "styles.css" => "Anidoki.css",
+                "common.js" => "CommonJs.js",
+                "config-state.js" => "ConfigStateJs.js",
+                "provider-anilist.svg" => "Images.provider-anilist.svg",
+                "provider-mal.svg" => "Images.provider-mal.svg",
+                "provider-kitsu.svg" => "Images.provider-kitsu.svg",
+                "provider-annict.png" => "Images.provider-annict.png",
+                "provider-shikimori.svg" => "Images.provider-shikimori.svg",
+                "provider-simkl.svg" => "Images.provider-simkl.svg",
+                _ => null
+            };
+            if (resource == null) return NotFound();
+            var stream = typeof(Plugin).Assembly.GetManifestResourceStream($"{typeof(Plugin).Namespace}.Configuration.{resource}");
+            if (stream == null) return NotFound();
+            return File(stream, MimeTypes.GetMimeType(resource));
+        }
+
         [Authorize(Policy = Policies.RequiresElevation)]
         [HttpGet]
         [Route("testAnimeListSaveLocation")]

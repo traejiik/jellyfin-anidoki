@@ -63,8 +63,8 @@ def validate_repository(root, tag=None):
         if not match or json.loads(match[1]) != value:
             raise ValueError(f'build.yaml {key} must match plugin/project metadata')
     plugin_source = (root / 'jellyfin-anidoki/Plugin.cs').read_text()
-    frontend = (root / 'jellyfin-anidoki/Configuration/ConfigPageJs.js').read_text()
-    if f'Guid.Parse("{plugin["guid"]}")' not in plugin_source or f"pluginUniqueId: '{plugin['guid']}'" not in frontend:
+    frontend = (root / 'jellyfin-anidoki/Configuration/CommonJs.js').read_text()
+    if f'Guid.Parse("{plugin["guid"]}")' not in plugin_source or f"export const pluginId = '{plugin['guid']}'" not in frontend:
         raise ValueError('Plugin and configuration page GUIDs must match the manifest')
     for field, declaration in (('name', 'Name'), ('description', 'Description')):
         if f'{declaration} => "{plugin[field]}"' not in plugin_source:

@@ -26,6 +26,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <None Remove="Configuration\Anidoki.css"/>
+        <EmbeddedResource Include="Configuration\Anidoki.css"/>
+        <None Remove="Configuration\ConfigStateJs.js"/>
+        <EmbeddedResource Include="Configuration\ConfigStateJs.js"/>
         <None Remove="Configuration\ConfigPage.html"/>
         <EmbeddedResource Include="Configuration\ConfigPage.html"/>
         <None Remove="Configuration\ConfigPageJs.js"/>
@@ -38,6 +42,21 @@
         <EmbeddedResource Include="Configuration\ManualSync.html"/>
         <None Remove="Configuration\ManualSyncJs.js"/>
         <EmbeddedResource Include="Configuration\ManualSyncJs.js"/>
+        <None Remove="Configuration\Images\provider-anilist.svg"/>
+        <EmbeddedResource Include="Configuration\Images\provider-anilist.svg" LogicalName="jellyfin_anidoki.Configuration.Images.provider-anilist.svg"/>
+        <None Remove="Configuration\Images\provider-mal.svg"/>
+        <EmbeddedResource Include="Configuration\Images\provider-mal.svg" LogicalName="jellyfin_anidoki.Configuration.Images.provider-mal.svg"/>
+        <None Remove="Configuration\Images\provider-kitsu.svg"/>
+        <EmbeddedResource Include="Configuration\Images\provider-kitsu.svg" LogicalName="jellyfin_anidoki.Configuration.Images.provider-kitsu.svg"/>
+        <None Remove="Configuration\Images\provider-annict.png"/>
+        <EmbeddedResource Include="Configuration\Images\provider-annict.png" LogicalName="jellyfin_anidoki.Configuration.Images.provider-annict.png"/>
+        <None Remove="Configuration\Images\provider-shikimori.svg"/>
+        <EmbeddedResource Include="Configuration\Images\provider-shikimori.svg" LogicalName="jellyfin_anidoki.Configuration.Images.provider-shikimori.svg"/>
+        <None Remove="Configuration\Images\provider-simkl.svg"/>
+        <EmbeddedResource Include="Configuration\Images\provider-simkl.svg" LogicalName="jellyfin_anidoki.Configuration.Images.provider-simkl.svg"/>
+        <EmbeddedResource Include="Configuration\Images\PROVIDER-ASSETS.md" LogicalName="jellyfin_anidoki.Configuration.Images.PROVIDER-ASSETS.md"/>
+        <EmbeddedResource Include="Configuration\Images\LICENSE-Simple-Icons.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Simple-Icons.txt"/>
+        <EmbeddedResource Include="Configuration\Images\LICENSE-Annict.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Annict.txt"/>
     </ItemGroup>
 
     <ItemGroup>
