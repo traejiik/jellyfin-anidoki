@@ -26,6 +26,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <None Remove="Configuration\NotificationsJs.js"/>
+        <EmbeddedResource Include="Configuration\NotificationsJs.js"/>
+        <None Remove="Configuration\NotificationStateJs.js"/>
+        <EmbeddedResource Include="Configuration\NotificationStateJs.js"/>
         <None Remove="Configuration\Anidoki.css"/>
         <EmbeddedResource Include="Configuration\Anidoki.css"/>
         <None Remove="Configuration\ConfigStateJs.js"/>

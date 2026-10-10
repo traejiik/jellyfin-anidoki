@@ -10,6 +10,21 @@ namespace jellyfin_anidoki_unit_tests.ControllerTests;
 
 public partial class UserConfigurationTests
 {
+    [TestCase("notifications.js")]
+    [TestCase("notification-state.js")]
+    public void PublicNotificationModulesAreEmbeddedAndUncachedWithoutPluginPages(string asset)
+    {
+        _plugin.Configuration.enableUserPages = false;
+        var file = (FileStreamResult)_controller.GetAsset(asset);
+        using var stream = file.FileStream;
+        using var reader = new StreamReader(stream);
+        var source = reader.ReadToEnd();
+        Assert.That(file.ContentType, Does.Contain("javascript"));
+        Assert.That(source, Does.Contain("export function"));
+        Assert.That(source, Does.Not.Contain("fixture-secret").And.Not.Contain("fixture-client"));
+        Assert.That(_controller.Response.Headers.CacheControl.ToString(), Is.EqualTo("no-store"));
+    }
+
     [TestCase("provider-anilist.svg")]
     [TestCase("provider-mal.svg")]
     [TestCase("provider-kitsu.svg")]

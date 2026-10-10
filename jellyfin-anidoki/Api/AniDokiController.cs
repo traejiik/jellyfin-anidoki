@@ -133,6 +133,8 @@ namespace jellyfin_anidoki.Api {
         {
             string? resource = asset switch {
                 "styles.css" => "Anidoki.css",
+                "notifications.js" => "NotificationsJs.js",
+                "notification-state.js" => "NotificationStateJs.js",
                 "common.js" => "CommonJs.js",
                 "config-state.js" => "ConfigStateJs.js",
                 "user-settings.js" => "ConfigPageUserJs.js",
@@ -147,6 +149,7 @@ namespace jellyfin_anidoki.Api {
             if (resource == null) return NotFound();
             var stream = typeof(Plugin).Assembly.GetManifestResourceStream($"{typeof(Plugin).Namespace}.Configuration.{resource}");
             if (stream == null) return NotFound();
+            Response.Headers.CacheControl = "no-store";
             return File(stream, MimeTypes.GetMimeType(resource));
         }
 

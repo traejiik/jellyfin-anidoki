@@ -130,6 +130,8 @@ namespace jellyfin_anidoki {
         public override void OnUninstalling()
         {
             RemovePluginPages(ApplicationPaths);
+            try { Notifications.NotificationWebIntegration.Remove(); }
+            catch (Exception) { _logger.LogWarning("Could not remove AniDoki notification bootstrap on uninstall."); }
             base.OnUninstalling();
         }
 

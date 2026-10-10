@@ -195,3 +195,34 @@
     .anidoki .ad-user-row > .ad-button { width: 100%; }
 }
 @media (prefers-reduced-motion: no-preference) { .anidoki .ad-button { transition: border-color .12s; } }
+
+/* Independent web overlay: below Modern dialogs/drawers, above page/player content. */
+.anidoki.ad-notification-host {
+    position: fixed; top: max(72px, calc(env(safe-area-inset-top) + 24px));
+    right: max(24px, env(safe-area-inset-right)); width: min(392px, calc(100vw - 48px));
+    max-width: none; padding: 0; margin: 0; z-index: 1090; pointer-events: none;
+    display: flex; flex-direction: column; gap: 12px; font-size: 14px;
+}
+.anidoki.ad-notification-host[hidden] { display: none !important; }
+.anidoki.ad-notification-host[data-fullscreen="true"] { top: max(24px, env(safe-area-inset-top)); }
+.anidoki .ad-toast {
+    position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 44px;
+    gap: 12px; padding: 16px 10px 20px 16px; overflow: hidden;
+    border-radius: 16px; border: 1px solid var(--ad-edge); background: var(--ad-solid-surface);
+    box-shadow: 0 10px 32px #0003; pointer-events: auto; min-width: 0;
+}
+.anidoki .ad-toast-content { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.anidoki .ad-toast-label { color: var(--jf-palette-success-light, #a2d9ae); font-size: .875em; font-weight: 700; overflow-wrap: anywhere; }
+.anidoki .ad-toast-title { font-size: 1.05em; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+.anidoki .ad-toast-detail { color: var(--ad-muted); font-size: .925em; overflow-wrap: anywhere; }
+.anidoki .ad-toast-warning { color: var(--jf-palette-warning-light, #e5b96c); font-size: .875em; overflow-wrap: anywhere; }
+.anidoki .ad-toast-close { padding: 0; min-width: 44px; width: 44px; min-height: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: var(--ad-muted); font-size: 24px; cursor: pointer; }
+.anidoki .ad-toast-close:hover { background: var(--ad-pill); color: var(--ad-text); }
+.anidoki .ad-toast-countdown { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--ad-pill); }
+.anidoki .ad-toast-countdown-fill { height: 100%; background: var(--ad-accent); transform-origin: left; }
+@media (max-width: 600px) {
+    .anidoki.ad-notification-host { right: max(16px, env(safe-area-inset-right)); width: min(392px, calc(100vw - 32px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .anidoki .ad-toast-countdown-fill { transform: none !important; opacity: .5; }
+}
