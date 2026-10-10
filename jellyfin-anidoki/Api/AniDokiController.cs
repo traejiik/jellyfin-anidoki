@@ -83,6 +83,50 @@ namespace jellyfin_anidoki.Api {
             return new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer, new ProviderApiAuth { ClientId = clientId, ClientSecret = clientSecret }, url).BuildAuthorizeRequestUrl(user);
         }
 
+        [Authorize(Policy = Policies.RequiresElevation)]
+        [HttpGet("callbackPreview")]
+        public IActionResult CallbackPreview([FromQuery] string? address = null)
+        {
+            try {
+                string baseAddress = string.IsNullOrWhiteSpace(address)
+                    ? CallbackUrlHelper.GetLocalBaseAddress(_serverApplicationHost, _httpContextAccessor.HttpContext)
+                    : address;
+                string callbackUrl = CallbackUrlHelper.Build(baseAddress);
+                return Ok(new { baseAddress, callbackUrl });
+            } catch (ArgumentException error) {
+                return BadRequest(error.Message);
+            }
+        }
+
+        [Authorize(Policy = Policies.RequiresElevation)]
+        [HttpGet("authorize")]
+        public ActionResult AuthorizeProvider([FromQuery] ApiName provider, [FromQuery] Guid user) =>
+            AuthorizeSavedProvider(provider, user);
+
+        [Authorize(Policy = Policies.RequiresElevation)]
+        [HttpPost("passwordGrant")]
+        public Task<IActionResult> PasswordGrantAuthenticationBody([FromBody] PasswordGrantRequest? request) =>
+            PasswordGrantFromBody(request);
+
+        [Authorize(Policy = Policies.RequiresElevation)]
+        [HttpPost("annictToken")]
+        public IActionResult SetAnnictToken([FromQuery] Guid user, [FromBody] AnnictTokenRequest? request)
+        {
+            if (user == Guid.Empty || string.IsNullOrWhiteSpace(request?.Token))
+                return BadRequest("A Jellyfin user and an Annict token are required");
+            var jellyfinUser = _userManager.GetUser(User, user);
+            if (jellyfinUser == null) return Forbid();
+            var configuration = GetOrCreateUserConfiguration(jellyfinUser.Id);
+            if (configuration == null) return StatusCode(500, "Plugin configuration not loaded");
+            var auth = configuration.UserApiAuth?.FirstOrDefault(auth => auth.Name == ApiName.Annict);
+            if (auth == null)
+                configuration.AddUserApiAuth(new UserApiAuth { Name = ApiName.Annict, AccessToken = request.Token });
+            else
+                auth.AccessToken = request.Token;
+            Plugin.Instance!.SaveConfiguration();
+            return Ok();
+        }
+
         [AllowAnonymous]
         [HttpGet("assets/{asset}")]
         public IActionResult GetAsset([FromRoute] string asset)
@@ -133,7 +177,9 @@ namespace jellyfin_anidoki.Api {
         [Route("passwordGrant")]
         public async Task<IActionResult> PasswordGrantAuthentication(ApiName provider, string userId, string username, string password) {
             try {
-                new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer, new ProviderApiAuth { ClientId = username, ClientSecret = password }).GetToken(Guid.Parse(userId));
+                var token = await new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer, new ProviderApiAuth { ClientId = username, ClientSecret = password }).GetToken(Guid.Parse(userId));
+                if (token == null)
+                    return StatusCode(500, "Could not authenticate");
             } catch (Exception e) {
                 return StatusCode(500, $"Could not authenticate; {e.Message}");
             }
@@ -146,6 +192,7 @@ namespace jellyfin_anidoki.Api {
                     var kitsuUserConfig = await kitsuApiCalls.GetUserInformation();
                     if (kitsuUserConfig == null)
                         return StatusCode(500, "Could not authenticate");
+                    userConfig.KeyPairs ??= new List<KeyPairs>();
                     var existingKeyPair = userConfig.KeyPairs.FirstOrDefault(item => item.Key == "KitsuUserId");
                     if (existingKeyPair != null) {
                         existingKeyPair.Value = kitsuUserConfig.Id.ToString();
@@ -163,9 +210,18 @@ namespace jellyfin_anidoki.Api {
         [Authorize(Policy = Policies.RequiresElevation)]
         [HttpGet]
         [Route("user")]
-        // this only works for mal atm, needs to work for anilist as well
-        public async Task<ActionResult> GetUser(ApiName apiName, string userId) {
-            UserConfig? userConfig = Plugin.Instance?.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == Guid.Parse(userId));
+        public async Task<ActionResult> GetUser(ApiName apiName, string? userId = null, [FromQuery] Guid? user = null) {
+            Guid? targetId = user;
+            if (!string.IsNullOrWhiteSpace(userId)) {
+                if (!Guid.TryParse(userId, out var legacyId) || (targetId.HasValue && targetId.Value != legacyId))
+                    return BadRequest("Select one valid Jellyfin user");
+                targetId = legacyId;
+            }
+            if (!targetId.HasValue || targetId.Value == Guid.Empty)
+                return BadRequest("A Jellyfin user is required");
+            var jellyfinUser = _userManager.GetUser(User, targetId);
+            if (jellyfinUser == null) return Forbid();
+            UserConfig? userConfig = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(item => item.UserId == jellyfinUser.Id);
             if (userConfig == null) {
                 _logger.LogError("User not found in config");
                 return StatusCode(500, "User not found in config");
@@ -180,13 +236,13 @@ namespace jellyfin_anidoki.Api {
                 case ApiName.AniList:
                     AniListApiCalls aniListApiCalls = new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, userConfig);
 
-                    AniListViewer.Viewer? user = await aniListApiCalls.GetCurrentUser();
-                    if (user == null) {
+                    AniListViewer.Viewer? viewer = await aniListApiCalls.GetCurrentUser();
+                    if (viewer == null) {
                         return StatusCode(500, "Authentication failed");
                     }
 
                     return new OkObjectResult(new MalApiCalls.User {
-                        Name = user.Name
+                        Name = viewer.Name
                     });
                 case ApiName.Kitsu:
                     KitsuApiCalls kitsuApiCalls;
@@ -300,23 +356,15 @@ namespace jellyfin_anidoki.Api {
         [Route("user/buildAuthorizeRequestUrl")]
         public ActionResult BuildAuthorizeRequestUrlUser(ApiName provider, Guid user) {
             if (!UserPagesEnabled()) return NotFound();
-            var jellyfinUser = _userManager.GetUser(User, user);
-            if (jellyfinUser == null) return Forbid();
+            return AuthorizeSavedProvider(provider, user);
+        }
 
-            var providerApiAuth = Plugin.Instance?.PluginConfiguration.ProviderApiAuth?
-                .FirstOrDefault(providerApiAuth => providerApiAuth.Name == provider);
-
-            if (providerApiAuth == null) {
-                _logger.LogError($"User {jellyfinUser.Id} failed to build authorize request URL: Provider not configured.");
-                return Forbid();
-            }
-
-            var clientId = providerApiAuth.ClientId;
-            var clientSecret = providerApiAuth.ClientSecret;
-
-            string url = !string.IsNullOrEmpty(Plugin.Instance?.PluginConfiguration.callbackUrl) ? Plugin.Instance.PluginConfiguration.callbackUrl : "local";
-
-            return Ok(BuildAuthorizeRequestUrl(provider, clientId, clientSecret, url, jellyfinUser.Id));
+        [Authorize]
+        [HttpPost("user/passwordGrant")]
+        public Task<IActionResult> PasswordGrantAuthenticationUserBody([FromBody] PasswordGrantRequest? request)
+        {
+            if (!UserPagesEnabled()) return Task.FromResult<IActionResult>(NotFound());
+            return PasswordGrantFromBody(request);
         }
 
         [Authorize]
@@ -349,13 +397,8 @@ namespace jellyfin_anidoki.Api {
             var jellyfinUser = _userManager.GetUser(User, user);
             if (jellyfinUser == null) return Forbid();
 
-            var userConfig = Plugin.Instance?.PluginConfiguration.UserConfig.FirstOrDefault(userConfig => userConfig.UserId == jellyfinUser.Id);
-            if (userConfig == null) {
-                _logger.LogTrace("User not found in config, first time?");
-                return Ok(new {});
-            }
-
-            return Ok(userConfig);
+            var userConfig = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(userConfig => userConfig.UserId == jellyfinUser.Id);
+            return Ok(new UserConfigurationResponse(userConfig));
         }
 
         [Authorize]
@@ -380,15 +423,16 @@ namespace jellyfin_anidoki.Api {
             var userConfig = config.UserConfig
                 .FirstOrDefault(x => x.UserId == jellyfinUser.Id);
 
+            var libraries = dto.LibraryToCheck ?? Array.Empty<string>();
             HashSet<Guid> libraryIds = [];
-            foreach (var library in dto.LibraryToCheck) {
-                if (Guid.TryParse(library, out var libraryId)) {
-                    libraryIds.Add(libraryId);
-                }
+            foreach (var library in libraries) {
+                if (!Guid.TryParse(library, out var libraryId) || libraryId == Guid.Empty)
+                    return BadRequest("Library IDs must be valid, non-empty GUIDs");
+                libraryIds.Add(libraryId);
             }
 
             if (!_libraryManager.UserHasAccessToLibraries(libraryIds, jellyfinUser)) {
-                _logger.LogError($"User {jellyfinUser.Id} does not have access to requested libraries ({String.Join(", ", dto.LibraryToCheck)})");
+                _logger.LogError($"User {jellyfinUser.Id} does not have access to requested libraries ({String.Join(", ", libraries)})");
                 return Forbid();
             }
 
@@ -398,7 +442,8 @@ namespace jellyfin_anidoki.Api {
                     UserId = jellyfinUser.Id,
                     PlanToWatchOnly = dto.PlanToWatchOnly,
                     RewatchCompleted = dto.RewatchCompleted,
-                    LibraryToCheck = dto.LibraryToCheck
+                    ShowLogNotifications = dto.ShowLogNotifications,
+                    LibraryToCheck = libraries
                 };
 
                 config.UserConfig = config.UserConfig
@@ -409,12 +454,13 @@ namespace jellyfin_anidoki.Api {
             {
                 userConfig.PlanToWatchOnly = dto.PlanToWatchOnly;
                 userConfig.RewatchCompleted = dto.RewatchCompleted;
-                userConfig.LibraryToCheck = dto.LibraryToCheck;
+                userConfig.ShowLogNotifications = dto.ShowLogNotifications;
+                userConfig.LibraryToCheck = libraries;
             }
 
             plugin.SaveConfiguration();
 
-            return Ok(userConfig);
+            return Ok(new UserConfigurationResponse(userConfig));
         }
 
         [Authorize]
@@ -477,11 +523,16 @@ namespace jellyfin_anidoki.Api {
         [AllowAnonymous]
         [HttpGet]
         [Route("authCallback")]
-        public IActionResult AuthCallback(string code, string? state) {
+        public async Task<IActionResult> AuthCallback(string code, string? state) {
             if (state == null) return BadRequest("State is empty");
             StoredState? storedState = MemoryCacheHelper.ConsumeState(_memoryCache, state);
             if (storedState == null) return BadRequest("User not found or link already used/expired, try again");
-            new ApiAuthentication(storedState.ApiName, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer).GetToken(storedState.UserId, code);
+            try {
+                var token = await new ApiAuthentication(storedState.ApiName, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer).GetToken(storedState.UserId, code);
+                if (token == null) return StatusCode(500, "Could not authenticate");
+            } catch (Exception error) {
+                return StatusCode(500, $"Could not authenticate; {error.Message}");
+            }
             if (!string.IsNullOrEmpty(Plugin.Instance?.PluginConfiguration.callbackRedirectUrl)) {
                 string replacedCallbackRedirectUrl = Plugin.Instance.PluginConfiguration.callbackRedirectUrl.Replace("{{LocalIpAddress}}", Request.HttpContext.Connection.LocalIpAddress != null ? Request.HttpContext.Connection.LocalIpAddress.ToString() : "localhost")
                     .Replace("{{LocalPort}}", _serverApplicationHost.ListenWithHttps ? _serverApplicationHost.HttpsPort.ToString() : _serverApplicationHost.HttpPort.ToString());
@@ -508,23 +559,11 @@ namespace jellyfin_anidoki.Api {
 
             if (includes == null || includes.Contains(ParameterInclude.ProviderList))
             {
-                var configured = Plugin.Instance?
-                    .PluginConfiguration.ProviderApiAuth?
-                    .Where(x => !string.IsNullOrWhiteSpace(x.ClientId))
-                    .Select(x => x.Name)
-                    .ToHashSet();
-
-                if (configured != null) {
-                    configured.Add(ApiName.Kitsu);
-                } else {
-                    configured = [ApiName.Kitsu];
-                }
-
                 toReturn.providerList = new List<ExpandoObject>();
 
                 foreach (ApiName apiName in Enum.GetValues<ApiName>())
                 {
-                    if (onlyConfiguredProviders && (configured == null || !configured.Contains(apiName)))
+                    if (onlyConfiguredProviders && apiName != ApiName.Kitsu && GetConfiguredOAuthProvider(apiName) == null)
                         continue;
 
                     dynamic provider = new ExpandoObject();
@@ -572,6 +611,63 @@ namespace jellyfin_anidoki.Api {
             }
 
             return toReturn;
+        }
+
+        private static ProviderApiAuth? GetConfiguredOAuthProvider(ApiName provider)
+        {
+            if (provider is not (ApiName.Mal or ApiName.AniList or ApiName.Shikimori or ApiName.Simkl))
+                return null;
+            var configuration = Plugin.Instance?.PluginConfiguration;
+            var auth = configuration?.ProviderApiAuth?.FirstOrDefault(auth => auth.Name == provider);
+            if (string.IsNullOrWhiteSpace(auth?.ClientId) || string.IsNullOrWhiteSpace(auth.ClientSecret) ||
+                (provider == ApiName.Shikimori && string.IsNullOrWhiteSpace(configuration?.shikimoriAppName)))
+                return null;
+            return auth;
+        }
+
+        private ActionResult AuthorizeSavedProvider(ApiName provider, Guid user)
+        {
+            if (user == Guid.Empty) return BadRequest("A Jellyfin user is required");
+            var jellyfinUser = _userManager.GetUser(User, user);
+            if (jellyfinUser == null) return Forbid();
+            var auth = GetConfiguredOAuthProvider(provider);
+            if (auth == null) return BadRequest("Provider does not support OAuth or its saved app settings are incomplete");
+            try {
+                var authentication = new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost,
+                    _httpContextAccessor, _loggerFactory, _memoryCache, _delayer, auth);
+                string url = authentication.BuildAuthorizeRequestUrl(jellyfinUser.Id);
+                if (GetOrCreateUserConfiguration(jellyfinUser.Id) == null)
+                    return StatusCode(500, "Plugin configuration not loaded");
+                return Ok(url);
+            } catch (ArgumentException error) {
+                return BadRequest(error.Message);
+            }
+        }
+
+        private async Task<IActionResult> PasswordGrantFromBody(PasswordGrantRequest? request)
+        {
+            if (request == null || request.Provider != ApiName.Kitsu || request.User == Guid.Empty ||
+                string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+                return BadRequest("Kitsu provider, a Jellyfin user, a username, and a password are required");
+            var jellyfinUser = _userManager.GetUser(User, request.User);
+            if (jellyfinUser == null) return Forbid();
+            if (GetOrCreateUserConfiguration(jellyfinUser.Id) == null)
+                return StatusCode(500, "Plugin configuration not loaded");
+            return await PasswordGrantAuthentication(request.Provider, jellyfinUser.Id.ToString(), request.Username, request.Password);
+        }
+
+        private static UserConfig? GetOrCreateUserConfiguration(Guid userId)
+        {
+            var plugin = Plugin.Instance;
+            if (plugin == null) return null;
+            var configuration = plugin.PluginConfiguration;
+            configuration.UserConfig ??= Array.Empty<UserConfig>();
+            var existing = configuration.UserConfig.FirstOrDefault(config => config.UserId == userId);
+            if (existing != null) return existing;
+            var created = new UserConfig { UserId = userId, LibraryToCheck = Array.Empty<string>() };
+            configuration.UserConfig = configuration.UserConfig.Append(created).ToArray();
+            plugin.SaveConfiguration();
+            return created;
         }
 
         private IActionResult DeauthenticateProvidedUser(Guid user, ApiName apiName) {

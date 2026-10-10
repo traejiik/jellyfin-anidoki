@@ -24,7 +24,7 @@ namespace jellyfin_anidoki.Api {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<ApiAuthentication> _logger;
         private readonly string _authApiUrl;
-        private readonly string _redirectUrl;
+        private readonly string _redirectBaseAddress;
         private readonly ProviderApiAuth _providerApiAuth;
         private readonly IMemoryCache  _memoryCache;
         private readonly IAsyncDelayer _delayer;
@@ -63,31 +63,28 @@ namespace jellyfin_anidoki.Api {
                 _providerApiAuth = Plugin.Instance?.PluginConfiguration.ProviderApiAuth?.FirstOrDefault(item => item.Name == _provider) ?? throw new NullReferenceException($"No {provider} provider API auth in plugin config");
             }
 
-            var userCallbackUrl = Plugin.Instance.PluginConfiguration.callbackUrl;
-            if (overrideRedirectUrl != null && overrideRedirectUrl != "local") {
-                _redirectUrl = overrideRedirectUrl + "/AniDoki/authCallback";
-            } else {
-                if (overrideRedirectUrl is "local" && httpContextAccessor.HttpContext != null) {
-                    _redirectUrl = serverApplicationHost.ListenWithHttps ? $"https://{httpContextAccessor.HttpContext.Connection.LocalIpAddress}:{serverApplicationHost.HttpsPort}/AniDoki/authCallback" : $"http://{httpContextAccessor.HttpContext.Connection.LocalIpAddress}:{serverApplicationHost.HttpPort}/AniDoki/authCallback";
-                } else {
-                    if (userCallbackUrl != null) {
-                        _redirectUrl = userCallbackUrl + "/AniDoki/authCallback";
-                    } else if (httpContextAccessor.HttpContext != null) {
-                        _redirectUrl = serverApplicationHost.ListenWithHttps ? $"https://{httpContextAccessor.HttpContext.Connection.LocalIpAddress}:{serverApplicationHost.HttpsPort}/AniDoki/authCallback" : $"http://{httpContextAccessor.HttpContext.Connection.LocalIpAddress}:{serverApplicationHost.HttpPort}/AniDoki/authCallback";
-                    }
-                }
-            }
+            var userCallbackUrl = Plugin.Instance?.PluginConfiguration.callbackUrl;
+            var baseAddress = overrideRedirectUrl switch {
+                "local" when httpContextAccessor.HttpContext != null =>
+                    CallbackUrlHelper.GetLocalBaseAddress(serverApplicationHost, httpContextAccessor.HttpContext),
+                null or "local" => userCallbackUrl,
+                _ => overrideRedirectUrl
+            };
+            if (string.IsNullOrWhiteSpace(baseAddress))
+                baseAddress = CallbackUrlHelper.GetLocalBaseAddress(serverApplicationHost, httpContextAccessor.HttpContext);
+            _redirectBaseAddress = baseAddress;
         }
 
         public string BuildAuthorizeRequestUrl(Guid userId) {
+            string redirectUrl = Uri.EscapeDataString(CallbackUrlHelper.Build(_redirectBaseAddress));
             string state = MemoryCacheHelper.GenerateState(_memoryCache, userId, _provider);
             switch (_provider) {
                 case ApiName.Mal:
-                    return $"{_authApiUrl}/authorize?response_type=code&client_id={_providerApiAuth.ClientId}&code_challenge={_codeChallenge}&redirect_uri={_redirectUrl}&state={state}";
+                    return $"{_authApiUrl}/authorize?response_type=code&client_id={_providerApiAuth.ClientId}&code_challenge={_codeChallenge}&redirect_uri={redirectUrl}&state={state}";
                 case ApiName.AniList:
                 case ApiName.Shikimori:
                 case ApiName.Simkl:
-                    return $"{_authApiUrl}/authorize?response_type=code&client_id={_providerApiAuth.ClientId}&redirect_uri={_redirectUrl}&state={state}";
+                    return $"{_authApiUrl}/authorize?response_type=code&client_id={_providerApiAuth.ClientId}&redirect_uri={redirectUrl}&state={state}";
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -131,7 +128,7 @@ namespace jellyfin_anidoki.Api {
                         new KeyValuePair<string, string>("client_secret", _providerApiAuth.ClientSecret),
                         new KeyValuePair<string, string>("code", code),
                         new KeyValuePair<string, string>("grant_type", "authorization_code"),
-                        new KeyValuePair<string, string>("redirect_uri", _redirectUrl)
+                        new KeyValuePair<string, string>("redirect_uri", CallbackUrlHelper.Build(_redirectBaseAddress))
                     };
                     if (_provider == ApiName.Mal) {
                         content.Add(new KeyValuePair<string, string>("code_verifier", _codeChallenge));
@@ -160,7 +157,9 @@ namespace jellyfin_anidoki.Api {
 
                 StreamReader streamReader = new StreamReader(content);
 
-                TokenResponse tokenResponse = JsonSerializer.Deserialize<TokenResponse>(streamReader.ReadToEnd());
+                TokenResponse? tokenResponse = JsonSerializer.Deserialize<TokenResponse>(streamReader.ReadToEnd());
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.access_token))
+                    throw new AuthenticationException($"{_provider} did not return an access token");
 
                 UserConfig? pluginConfig = Plugin.Instance.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == userId);
 
