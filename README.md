@@ -4,8 +4,8 @@
 <p align="center"><img src="docs/assets/anidoki-banner.svg" width="100%" height="240" alt="AniDōki logo: interwoven A and D with synchronization arrows"></p>
 
 > [!IMPORTANT]
-> Credit  
-> The original code and concept for this plugin came from [vosmiic/jellyfin-ani-sync](https://github.com/vosmiic/jellyfin-ani-sync) and AniDōki is a fork that builds on the upstream project as its own evolution.
+> ***Credit:***  
+> *The original code and concept for this plugin came from [vosmiic/jellyfin-ani-sync](https://github.com/vosmiic/jellyfin-ani-sync) and AniDōki is a fork that builds on the upstream project as its own evolution.*
 
 ## About
 
