@@ -45,12 +45,14 @@ namespace jellyfin_anidoki {
         private UserConfig? _userConfig;
         private PlaybackOutcomeCollector? _outcomeCollector;
         private SyncUpdateSource _source;
-        private Type _animeType;
+        private Type? _animeType;
         private readonly ILibraryManager _libraryManager;
 
         internal ApiName ApiName;
         private readonly ILoggerFactory _loggerFactory;
         private AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse _apiIds = new ();
+
+        internal AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ResolvedIds => _apiIds;
 
         public UpdateProviderStatus(ILibraryManager libraryManager,
             ILoggerFactory loggerFactory,
@@ -84,6 +86,12 @@ namespace jellyfin_anidoki {
         }
 
         private async Task UpdateCore(BaseItem e, Guid userId, bool playedToCompletion) {
+            // SyncProviderFromLocal reuses one instance across series, so anything resolved
+            // for the previous item must not leak into this one. Without this, an item that
+            // resolves no IDs would be written to the previous item's tracker entry.
+            _apiIds = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse();
+            _animeType = null;
+
             var video = e as Video;
             Episode episode = video as Episode;
             Movie movie = video as Movie;
