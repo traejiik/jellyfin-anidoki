@@ -247,12 +247,13 @@ namespace jellyfin_anidoki {
                             break;
                         case ApiName.Shikimori:
                             string? shikimoriAppName = ConfigHelper.GetShikimoriAppName(_logger);
-                            if (shikimoriAppName == null) return;
+                            // continue, not return: a missing app name must not skip the providers after it
+                            if (string.IsNullOrEmpty(shikimoriAppName)) continue;
                             ApiCallHelpers = new ApiCallHelpers(shikimoriApiCalls: new ShikimoriApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, new Dictionary<string, string> { { "User-Agent", shikimoriAppName } }, _userConfig));
                             break;
                         case ApiName.Simkl:
                             string? simklClientId = ConfigHelper.GetSimklClientId(_logger);
-                            if (simklClientId == null) return;
+                            if (string.IsNullOrEmpty(simklClientId)) continue;
                             ApiCallHelpers = new ApiCallHelpers(simklApiCalls: new SimklApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, new Dictionary<string, string> { { "simkl-api-key", simklClientId } }, _userConfig));
                             if (((_apiIds.MyAnimeList != null && _apiIds.MyAnimeList != 0) ||
                                  (_apiIds.Anilist != null && _apiIds.Anilist != 0) ||

@@ -11,6 +11,7 @@ using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Notifications;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Configuration;
@@ -122,5 +123,23 @@ public class UpdateProviderStatusStateTests {
         Assert.That(_updateProviderStatus.ResolvedIds.MyAnimeList, Is.Null);
         Assert.That(_updateProviderStatus.ResolvedIds.Kitsu, Is.Null);
         Assert.That(_updateProviderStatus.ResolvedIds.AniDb, Is.Null);
+    }
+
+    /// <summary>
+    /// A provider that is missing its server-side configuration must be skipped on its own, not end the loop for
+    /// every provider configured after it.
+    /// </summary>
+    [TestCase(ApiName.Shikimori)]
+    [TestCase(ApiName.Simkl)]
+    public async Task UnconfiguredProviderDoesNotSkipLaterProviders(ApiName unconfiguredProvider) {
+        ConfigureUser(unconfiguredProvider, ApiName.AniList);
+        var collector = new PlaybackOutcomeCollector();
+
+        await _updateProviderStatus.UpdateInsideGate(
+            MovieWithIds("Unknown Movie", new Dictionary<string, string>()),
+            _user, true, collector, SyncUpdateSource.Playback);
+
+        Assert.That(collector.Outcomes.Select(outcome => outcome.Provider), Does.Contain(ApiName.AniList));
+        Assert.That(collector.Outcomes.Select(outcome => outcome.Provider), Does.Not.Contain(unconfiguredProvider));
     }
 }
