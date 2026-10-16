@@ -103,12 +103,12 @@ namespace jellyfin_anidoki {
 
             _userConfig = Plugin.Instance?.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == userId);
             if (_userConfig == null) {
-                _logger.LogWarning($"The user {userId} does not exist in the plugins config file. Skipping");
+                _logger.LogWarning("The user {UserId} does not exist in the plugins config file. Skipping", userId);
                 return;
             }
 
             if (_userConfig.UserApiAuth == null) {
-                _logger.LogWarning($"The user {userId} is not authenticated. Skipping");
+                _logger.LogWarning("The user {UserId} is not authenticated. Skipping", userId);
                 return;
             }
 
@@ -124,16 +124,16 @@ namespace jellyfin_anidoki {
                 // each level, plus the season count that drives the absolute-episode path.
                 // Logged at Debug: this runs on every played episode, and the information
                 // is only useful when investigating a mis-resolution. The IsEnabled guard
-                // keeps the interpolated strings from being built when Debug is off.
+                // keeps the provider-ID dumps from being built when Debug is off.
                 if (_animeType == typeof(Episode) && _logger.IsEnabled(LogLevel.Debug)) {
                     string Dump(Dictionary<string, string> ids) => ids == null || ids.Count == 0
                         ? "<none>"
                         : string.Join(", ", ids.Select(kv => $"{kv.Key}={kv.Value}"));
-                    _logger.LogDebug($"[anidoki-diag] Series '{episode.Series?.Name}' providers: {Dump(episode.Series?.ProviderIds)}");
-                    _logger.LogDebug($"[anidoki-diag] Season {episode.Season?.IndexNumber} providers: {Dump(episode.Season?.ProviderIds)}");
-                    _logger.LogDebug($"[anidoki-diag] Episode {episode.IndexNumber} '{episode.Name}' providers: {Dump(episode.ProviderIds)}");
-                    _logger.LogDebug($"[anidoki-diag] Series contains {episode.Series?.Children.OfType<Season>().Count()} season(s)");
-                    _logger.LogDebug($"[anidoki-diag] Titles -> name: '{episode.SeriesName}', originalTitle: '{episode.Series?.OriginalTitle ?? "<none>"}'");
+                    _logger.LogDebug("[anidoki-diag] Series '{SeriesName}' providers: {SeriesProviderIds}", episode.Series?.Name, Dump(episode.Series?.ProviderIds));
+                    _logger.LogDebug("[anidoki-diag] Season {SeasonIndexNumber} providers: {SeasonProviderIds}", episode.Season?.IndexNumber, Dump(episode.Season?.ProviderIds));
+                    _logger.LogDebug("[anidoki-diag] Episode {EpisodeIndexNumber} '{EpisodeName}' providers: {EpisodeProviderIds}", episode.IndexNumber, episode.Name, Dump(episode.ProviderIds));
+                    _logger.LogDebug("[anidoki-diag] Series contains {SeasonCount} season(s)", episode.Series?.Children.OfType<Season>().Count());
+                    _logger.LogDebug("[anidoki-diag] Titles -> name: '{EpisodeSeriesName}', originalTitle: '{SeriesOriginalTitle}'", episode.SeriesName, episode.Series?.OriginalTitle ?? "<none>");
                 }
 
                 (int? aniDbId, int? episodeOffset) aniDbId = (null, null);
@@ -166,7 +166,7 @@ namespace jellyfin_anidoki {
                         ? await AnimeListHelpers.GetAniDbId(_logger, episode, episode.IndexNumber.Value, episode.Season.IndexNumber.Value, animeListXml)
                         : await AnimeListHelpers.GetAniDbId(_logger, movie, movie.IndexNumber.Value, 1, animeListXml);
                     if (aniDbId.aniDbId != null) {
-                        _logger.LogInformation($"Retrieving provider IDs from offline database for AniDb ID {aniDbId.aniDbId.Value}...");
+                        _logger.LogInformation("Retrieving provider IDs from offline database for AniDb ID {AniDbId}...", aniDbId.aniDbId.Value);
                         _apiIds = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(_httpClientFactory.CreateClient(NamedClient.Default), _logger, aniDbId.aniDbId.Value, AnimeOfflineDatabaseHelpers.Source.Anidb);
                         if (_apiIds is null) {
                             _apiIds = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
@@ -179,7 +179,7 @@ namespace jellyfin_anidoki {
                             // fallback; reporting both as success would make the fallback look
                             // like a bug in ID resolution rather than a gap in the database.
                             if (_apiIds.Anilist is null or 0 && _apiIds.MyAnimeList is null or 0 && _apiIds.Kitsu is null or 0) {
-                                _logger.LogWarning($"ARM server has a record for AniDb ID {aniDbId.aniDbId.Value} but no tracker IDs; falling back to title search");
+                                _logger.LogWarning("ARM server has a record for AniDb ID {AniDbId} but no tracker IDs; falling back to title search", aniDbId.aniDbId.Value);
                             } else {
                                 _logger.LogInformation("Retrieved provider IDs");
                             }
@@ -189,7 +189,7 @@ namespace jellyfin_anidoki {
 
                 foreach (UserApiAuth userApiAuth in _userConfig.UserApiAuth) {
                     ApiName = userApiAuth.Name;
-                    _logger.LogInformation($"Using provider {userApiAuth.Name}...");
+                    _logger.LogInformation("Using provider {ApiName}...", userApiAuth.Name);
                     switch (userApiAuth.Name) {
                         case ApiName.Mal:
                             ApiCallHelpers = new ApiCallHelpers(malApiCalls: new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig));
@@ -275,7 +275,7 @@ namespace jellyfin_anidoki {
 
                     var animeType = _animeType == typeof(Episode) ? "series" : "movie";
                     var searchTitle = _animeType == typeof(Episode) ? episode.SeriesName : video.Name;
-                    _logger.LogInformation($"({ApiName}) Searching for {animeType}: {searchTitle}");
+                    _logger.LogInformation("({ApiName}) Searching for {AnimeType}: {SearchTitle}", ApiName, animeType, searchTitle);
                     List<Anime> animeList = await ApiCallHelpers.SearchAnime(_animeType == typeof(Episode) ? episode.SeriesName : video.Name);
                     bool found = false;
                     if (animeList != null) {
@@ -284,7 +284,7 @@ namespace jellyfin_anidoki {
                                 ApiName == ApiName.Shikimori && _apiIds.MyAnimeList != null && anime.Id > 0;
                             if (checkMalId && _apiIds.MyAnimeList != null && anime.Id == _apiIds.MyAnimeList ||
                                 !checkMalId && TitleCheck(anime, episode, movie)) {
-                                _logger.LogInformation($"({ApiName}) Found matching {animeType}: {GetAnimeTitle(anime)}");
+                                _logger.LogInformation("({ApiName}) Found matching {AnimeType}: {Title}", ApiName, animeType, GetAnimeTitle(anime));
                                 Anime matchingAnime = anime;
                                 if (_animeType == typeof(Episode)) {
                                     var episodeOffset = aniDbId.episodeOffset ?? 0;
@@ -298,17 +298,17 @@ namespace jellyfin_anidoki {
                                             // if this is not the first season, then we need to lookup the related season.
                                             matchingAnime = await GetDifferentSeasonAnime(anime.Id, episode.Season.IndexNumber.Value, alternativeId: anime.AlternativeId);
                                             if (matchingAnime == null) {
-                                                _logger.LogWarning($"({ApiName}) Could not find next season");
+                                                _logger.LogWarning("({ApiName}) Could not find next season", ApiName);
                                                 found = true;
                                                 break;
                                             }
 
-                                            _logger.LogInformation($"({ApiName}) Season being watched is {GetAnimeTitle(matchingAnime)}");
+                                            _logger.LogInformation("({ApiName}) Season being watched is {Title}", ApiName, GetAnimeTitle(matchingAnime));
                                         } else if (episode?.Season.IndexNumber == 0) {
                                             // the episode is an ova or special
                                             matchingAnime = await GetOva(anime.Id, episode.Name, alternativeId: anime.AlternativeId);
                                             if (matchingAnime == null) {
-                                                _logger.LogWarning($"({ApiName}) Could not find OVA");
+                                                _logger.LogWarning("({ApiName}) Could not find OVA", ApiName);
                                                 found = true;
                                                 break;
                                             }
@@ -327,7 +327,7 @@ namespace jellyfin_anidoki {
                                             // sent to the sequel. The arithmetic requires a known
                                             // length, so an entry of unknown length is written as the
                                             // first cour without walking.
-                                            _logger.LogInformation($"({ApiName}) Watched episode passes total episodes in season! Checking for additional seasons/cours...");
+                                            _logger.LogInformation("({ApiName}) Watched episode passes total episodes in season! Checking for additional seasons/cours...", ApiName);
                                             // either we have found the wrong series (highly unlikely) or it is a multi cour series/Jellyfin has grouped next season into the current.
                                             int episodeCount = episode.IndexNumber.Value;
                                             var (season, totalEpisodesWatched) = await WalkCours(matchingAnime, episodeCount);
@@ -360,7 +360,7 @@ namespace jellyfin_anidoki {
                     if (!found) {
                         _outcomeCollector?.Record(new ProviderWriteOutcome(ApiName, "", searchTitle ?? "", OutcomeKind.Unresolved,
                             null, null, ApiName == ApiName.Annict, "resolve", false));
-                        _logger.LogWarning($"({ApiName}) Series not found");
+                        _logger.LogWarning("({ApiName}) Series not found", ApiName);
                     }
                 }
             }
@@ -473,7 +473,7 @@ namespace jellyfin_anidoki {
                 logger.LogInformation("Item is in a folder the user does not want to be monitored; ignoring");
                 return false;
             } catch (Exception e) {
-                logger.LogInformation($"Library check ran into an issue: {e.Message}");
+                logger.LogInformation("Library check ran into an issue: {ErrorMessage}", e.Message);
                 return false;
             }
         }
@@ -501,18 +501,18 @@ namespace jellyfin_anidoki {
 
         private async Task CheckUserListAnimeStatusBase(Anime detectedAnime, int episodeNumber, bool overrideCheckRewatch, string? alternativeId = null) {
             if (detectedAnime == null) {
-                _logger.LogInformation($"({ApiName}) Could not retrieve the matched anime from the provider; not updating");
+                _logger.LogInformation("({ApiName}) Could not retrieve the matched anime from the provider; not updating", ApiName);
                 return;
             }
             if (_source == SyncUpdateSource.ConfirmedManual && !ManualMarkProgressRules.Allows(detectedAnime, episodeNumber, ApiName == ApiName.Annict)) {
                 RecordDecision(_outcomeCollector, detectedAnime, OutcomeKind.NoChange, "manual-forward-only");
-                _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) is already at or past episode {episodeNumber}, completed or rewatching; manual marks only move progress forward. Skipping");
+                _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) is already at or past episode {EpisodeNumber}, completed or rewatching; manual marks only move progress forward. Skipping", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime), episodeNumber);
                 return;
             }
             if (detectedAnime.MyListStatus != null &&
                 (detectedAnime.MyListStatus.Status == Status.Watching || detectedAnime.MyListStatus.Status == Status.Rewatching) &&
                 ApiName != ApiName.Annict) {
-                _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) found on {detectedAnime.MyListStatus.Status} list");
+                _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) found on {ListStatus} list", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime), detectedAnime.MyListStatus.Status);
                 await UpdateAnimeStatus(detectedAnime, episodeNumber);
                 return;
             }
@@ -521,7 +521,7 @@ namespace jellyfin_anidoki {
             if (_userConfig.PlanToWatchOnly) {
                 bool updated = false;
                 if (detectedAnime.MyListStatus != null && detectedAnime.MyListStatus.Status == Status.Plan_to_watch) {
-                    _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) found on plan to watch list");
+                    _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) found on plan to watch list", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
                     if (ApiName == ApiName.Annict) {
                         updated = true;
                         await UpdateAnnictStatus(detectedAnime, episodeNumber);
@@ -531,14 +531,14 @@ namespace jellyfin_anidoki {
                     }
                 } else if (ApiName != ApiName.Annict) {
                     // also check if rewatch completed is checked
-                    _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) not found in plan to watch list{(_userConfig.RewatchCompleted ? ", checking completed list.." : null)}");
+                    _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) not found in plan to watch list{CompletedListNote}", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime), (_userConfig.RewatchCompleted ? ", checking completed list.." : null));
                     updated = true;
                     await CheckIfRewatchCompleted(detectedAnime, episodeNumber, overrideCheckRewatch);
                 }
 
                 if (!updated) {
                     RecordDecision(_outcomeCollector, detectedAnime, OutcomeKind.Skipped, "plan-to-watch-only");
-                    _logger.LogInformation($"({ApiName}) Could not update.");
+                    _logger.LogInformation("({ApiName}) Could not update.", ApiName);
                 }
 
                 return;
@@ -556,15 +556,15 @@ namespace jellyfin_anidoki {
             // everything else
             if (detectedAnime.MyListStatus != null) {
                 // anime is on user list
-                _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) found on {detectedAnime.MyListStatus.Status} list");
+                _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) found on {ListStatus} list", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime), detectedAnime.MyListStatus.Status);
                 if (detectedAnime.MyListStatus.Status == Status.Completed) {
                     RecordDecision(_outcomeCollector, detectedAnime, OutcomeKind.Skipped, "rewatch-disabled");
                     if (ApiName != ApiName.Annict)
-                        _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) found on Completed list, but user does not want to automatically set as rewatching. Skipping");
+                        _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) found on Completed list, but user does not want to automatically set as rewatching. Skipping", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
                     return;
                 }
             } else {
-                _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) not on user list");
+                _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) not on user list", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
             }
 
             if (ApiName == ApiName.Annict) {
@@ -583,22 +583,22 @@ namespace jellyfin_anidoki {
             }
             if (_userConfig?.PlanToWatchOnly == true && detectedAnime.MyListStatus is null) {
                 RecordDecision(collector, detectedAnime, OutcomeKind.Skipped, "plan-to-watch-only");
-                _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) found, but not on plan to watch list");
+                _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) found, but not on plan to watch list", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
                 return;
             }
 
             if (detectedAnime.NumEpisodes == episodeNumber) {
-                _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) complete, marking anime as complete");
+                _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) complete, marking anime as complete", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
                 await ObserveAnimeWrite(collector, detectedAnime, 1, Status.Completed, alternativeId: detectedAnime.AlternativeId, ids: _apiIds);
                 return;
             }
 
             if (detectedAnime.NumEpisodes > episodeNumber && detectedAnime.MyListStatus?.Status != Status.Watching) {
-                _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) being marked as watching");
+                _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) being marked as watching", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
                 await ObserveAnimeWrite(collector, detectedAnime, 1, Status.Watching, alternativeId: detectedAnime.AlternativeId, ids: _apiIds);
             } else {
                 RecordDecision(collector, detectedAnime, OutcomeKind.NoChange, "status");
-                _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) already set to watching, not updating again");
+                _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) already set to watching, not updating again", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
             }
         }
 
@@ -608,27 +608,27 @@ namespace jellyfin_anidoki {
                 detectedAnime.MyListStatus is { Status: Status.Rewatching } && detectedAnime.MyListStatus.NumEpisodesWatched < indexNumber) {
                 if (ApiName == ApiName.Simkl) {
                     RecordDecision(_outcomeCollector, detectedAnime, OutcomeKind.Skipped, "rewatch-unsupported");
-                    _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) found on completed list, but {ApiName} does not support re-watching. Skipping");
+                    _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) found on completed list, but {ApiName} does not support re-watching. Skipping", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime), ApiName);
                     return true;
                 }
                 if (_userConfig.RewatchCompleted) {
                     if (detectedAnime.MyListStatus != null && detectedAnime.MyListStatus.Status == Status.Completed) {
-                        _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) found on completed list, setting as re-watching");
+                        _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) found on completed list, setting as re-watching", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
                         await UpdateAnimeStatus(detectedAnime, indexNumber, true, detectedAnime.MyListStatus.RewatchCount, true);
                         return true;
                     }
                 } else {
                     RecordDecision(_outcomeCollector, detectedAnime, OutcomeKind.Skipped, "rewatch-disabled");
-                    _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) found on Completed list, but user does not want to automatically set as rewatching. Skipping");
+                    _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) found on Completed list, but user does not want to automatically set as rewatching. Skipping", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
                     return true;
                 }
             } else if (detectedAnime.MyListStatus != null && detectedAnime.MyListStatus.NumEpisodesWatched >= indexNumber) {
                 RecordDecision(_outcomeCollector, detectedAnime, OutcomeKind.NoChange, "already-watched");
-                _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) found, but provider reports episode already watched. Skipping");
+                _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) found, but provider reports episode already watched. Skipping", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
                 return true;
             } else if (_userConfig.PlanToWatchOnly) {
                 RecordDecision(_outcomeCollector, detectedAnime, OutcomeKind.Skipped, "plan-to-watch-only");
-                _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) found, but not on completed or plan to watch list. Skipping");
+                _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) found, but not on completed or plan to watch list. Skipping", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
                 return true;
             }
 
@@ -703,11 +703,11 @@ namespace jellyfin_anidoki {
                                     isShow: _animeType == typeof(Episode));
                             }
 
-                            _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) complete, marking anime as complete{(ApiName != ApiName.Mal && (setRewatching != null && setRewatching.Value) ? ", increasing re-watch count by 1" : "")}");
+                            _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) complete, marking anime as complete{RewatchNote}", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime), (ApiName != ApiName.Mal && (setRewatching != null && setRewatching.Value) ? ", increasing re-watch count by 1" : ""));
                             if ((detectedAnime.MyListStatus.IsRewatching || (detectedAnime.NumEpisodes == 1 && detectedAnime.MyListStatus.Status == Status.Completed) || (setRewatching != null && setRewatching.Value)) && ApiName == ApiName.Mal && response != null) {
                                 // also increase number of times re-watched by 1
                                 // only way to get the number of times re-watched is by doing the update and capturing the response, and then re-updating for MAL :/
-                                _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) has also been re-watched, increasing re-watch count by 1");
+                                _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) has also been re-watched, increasing re-watch count by 1", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
                                 response = await ObserveAnimeWrite(collector, detectedAnime,
                                     episodeNumber.Value,
                                     Status.Completed,
@@ -720,7 +720,7 @@ namespace jellyfin_anidoki {
                         } else {
                             if (detectedAnime.MyListStatus.IsRewatching && ApiName == ApiName.Mal) {
                                 // MAL likes to mark re-watching shows as completed, instead of watching. I guess technically both are correct
-                                _logger.LogInformation($"({ApiName}) User is re-watching {(_animeType == typeof(Episode) ? "series" : "movie")} ({GetAnimeTitle(detectedAnime)}), set as completed but update re-watch progress");
+                                _logger.LogInformation("({ApiName}) User is re-watching {MediaKind} ({Title}), set as completed but update re-watch progress", ApiName, (_animeType == typeof(Episode) ? "series" : "movie"), GetAnimeTitle(detectedAnime));
                                 response = await ObserveAnimeWrite(collector, detectedAnime,
                                     episodeNumber.Value,
                                     Status.Completed,
@@ -742,7 +742,7 @@ namespace jellyfin_anidoki {
                                         ids: _apiIds,
                                         isShow: _animeType == typeof(Episode));
                                 } else {
-                                    _logger.LogInformation($"({ApiName}) Setting new {(_animeType == typeof(Episode) ? "series" : "movie")} ({GetAnimeTitle(detectedAnime)}) as {watchingStatus}.");
+                                    _logger.LogInformation("({ApiName}) Setting new {MediaKind} ({Title}) as {WatchingStatus}.", ApiName, (_animeType == typeof(Episode) ? "series" : "movie"), GetAnimeTitle(detectedAnime), watchingStatus);
                                     response = await ObserveAnimeWrite(collector, detectedAnime,
                                         episodeNumber.Value,
                                         watchingStatus,
@@ -755,13 +755,13 @@ namespace jellyfin_anidoki {
                         }
 
                         if (response != null) {
-                            _logger.LogInformation($"({ApiName}) Updated {(_animeType == typeof(Episode) ? "series" : "movie")} ({GetAnimeTitle(detectedAnime)}) progress to {episodeNumber.Value}");
+                            _logger.LogInformation("({ApiName}) Updated {MediaKind} ({Title}) progress to {EpisodeNumber}", ApiName, (_animeType == typeof(Episode) ? "series" : "movie"), GetAnimeTitle(detectedAnime), episodeNumber.Value);
                         } else {
-                            _logger.LogError($"({ApiName}) Could not update anime status");
+                            _logger.LogError("({ApiName}) Could not update anime status", ApiName);
                         }
                     } else {
                         if (setRewatching != null && setRewatching.Value) {
-                            _logger.LogInformation($"({ApiName}) Series ({GetAnimeTitle(detectedAnime)}) has already been watched, marking anime as re-watching; progress of {episodeNumber.Value}");
+                            _logger.LogInformation("({ApiName}) Series ({Title}) has already been watched, marking anime as re-watching; progress of {EpisodeNumber}", ApiName, GetAnimeTitle(detectedAnime), episodeNumber.Value);
                             if (ApiName == ApiName.Kitsu && firstTimeRewatch) {
                                 response = await ObserveAnimeWrite(collector, detectedAnime,
                                     episodeNumber.Value,
@@ -791,14 +791,14 @@ namespace jellyfin_anidoki {
                         } else {
                             response = null;
                             RecordDecision(collector, detectedAnime, OutcomeKind.NoChange, "already-watched");
-                            _logger.LogInformation($"({ApiName}) Provider reports episode already watched; not updating");
+                            _logger.LogInformation("({ApiName}) Provider reports episode already watched; not updating", ApiName);
                         }
                     }
                 } else {
                     // status is not set, must be a new anime
                     if (episodeNumber.Value == detectedAnime.NumEpisodes) {
                         // anime completed all at once or user has watched last episode
-                        _logger.LogInformation($"({ApiName}) Adding new {(_animeType == typeof(Episode) ? "series" : "movie")} ({GetAnimeTitle(detectedAnime)}) to user list as completed with a progress of {episodeNumber.Value}");
+                        _logger.LogInformation("({ApiName}) Adding new {MediaKind} ({Title}) to user list as completed with a progress of {EpisodeNumber}", ApiName, (_animeType == typeof(Episode) ? "series" : "movie"), GetAnimeTitle(detectedAnime), episodeNumber.Value);
                         response = await ObserveAnimeWrite(collector, detectedAnime,
                             episodeNumber.Value,
                             Status.Completed,
@@ -809,7 +809,7 @@ namespace jellyfin_anidoki {
                             isShow: _animeType == typeof(Episode));
                     } else {
                         // not on last episodes so must still be watching
-                        _logger.LogInformation($"({ApiName}) Adding new {(_animeType == typeof(Episode) ? "series" : "movie")} ({GetAnimeTitle(detectedAnime)}) to user list as watching with a progress of {episodeNumber.Value}");
+                        _logger.LogInformation("({ApiName}) Adding new {MediaKind} ({Title}) to user list as watching with a progress of {EpisodeNumber}", ApiName, (_animeType == typeof(Episode) ? "series" : "movie"), GetAnimeTitle(detectedAnime), episodeNumber.Value);
                         response = await ObserveAnimeWrite(collector, detectedAnime,
                             episodeNumber.Value,
                             Status.Watching,
@@ -821,7 +821,7 @@ namespace jellyfin_anidoki {
                 }
 
                 if (response == null) {
-                    _logger.LogError($"({ApiName}) Could not update anime status");
+                    _logger.LogError("({ApiName}) Could not update anime status", ApiName);
                 }
             }
         }
@@ -861,7 +861,7 @@ namespace jellyfin_anidoki {
         /// <param name="seasonNumber">Index of the season to get.</param>
         /// <returns>The different seasons anime or null if unable to retrieve the relations.</returns>
         internal async Task<Anime?> GetDifferentSeasonAnime(int animeId, int seasonNumber, string? alternativeId = null) {
-            _logger.LogInformation($"({ApiName}) Attempting to get season {seasonNumber}...");
+            _logger.LogInformation("({ApiName}) Attempting to get season {SeasonNumber}...", ApiName, seasonNumber);
             Anime retrievedSeason = await ApiCallHelpers.GetAnime(animeId, getRelated: true, alternativeId: alternativeId);
 
             if (retrievedSeason != null) {
@@ -869,18 +869,18 @@ namespace jellyfin_anidoki {
                 while (i != seasonNumber) {
                     RelatedAnime? initialSeasonRelatedAnime = retrievedSeason.RelatedAnime?.FirstOrDefault(item => item.RelationType == RelationType.Sequel);
                     if (initialSeasonRelatedAnime != null) {
-                        _logger.LogInformation($"({ApiName}) Attempting to get season {i + 1}...");
+                        _logger.LogInformation("({ApiName}) Attempting to get season {SeasonNumber}...", ApiName, i + 1);
                         Anime nextSeason = await ApiCallHelpers.GetAnime(initialSeasonRelatedAnime.Anime.Id, getRelated: true, alternativeId: initialSeasonRelatedAnime.Anime.AlternativeId);
 
                         if (nextSeason == null) {
                             // returning the season we already have would write progress to the wrong entry
-                            _logger.LogInformation($"({ApiName}) Could not retrieve season {i + 1}");
+                            _logger.LogInformation("({ApiName}) Could not retrieve season {SeasonNumber}", ApiName, i + 1);
                             return null;
                         }
 
                         retrievedSeason = nextSeason;
                     } else {
-                        _logger.LogInformation($"({ApiName}) Could not find any related anime sequel");
+                        _logger.LogInformation("({ApiName}) Could not find any related anime sequel", ApiName);
                         return null;
                     }
 
@@ -911,7 +911,7 @@ namespace jellyfin_anidoki {
                 var nextSeason = await GetDifferentSeasonAnime(season.Id, 2, alternativeId: season.AlternativeId);
                 if (nextSeason == null) {
                     // the episode lies past every cour we could reach; writing it to the last one would exceed its length
-                    _logger.LogWarning($"({ApiName}) Could not find a cour covering episode {episodeCount}; not updating");
+                    _logger.LogWarning("({ApiName}) Could not find a cour covering episode {EpisodeCount}; not updating", ApiName, episodeCount);
                     return (null, totalEpisodesWatched);
                 }
 

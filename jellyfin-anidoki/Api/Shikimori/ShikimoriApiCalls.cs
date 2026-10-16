@@ -359,13 +359,13 @@ public class ShikimoriApiCalls {
             StreamReader streamReader = new StreamReader(await apiCall.Content.ReadAsStreamAsync());
             response = JsonSerializer.Deserialize<GraphqlResponse<T>>(await streamReader.ReadToEndAsync());
         } catch (Exception e) {
-            _logger.LogError($"Could not deserialize GraphQL response, reason: {e.Message}");
+            _logger.LogError("Could not deserialize GraphQL response, reason: {ErrorMessage}", e.Message);
             return null;
         }
 
         if (response.Errors != null && response.Errors.Any()) {
             foreach (GraphqlError error in response.Errors) {
-                _logger.LogError($"GraphQL error: {error.Message}");
+                _logger.LogError("GraphQL error: {ErrorMessage}", error.Message);
             }
             return null;
         }

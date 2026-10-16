@@ -77,7 +77,7 @@ public class TaskProcessMarkedMedia {
             List<(Guid userId, Guid? seasonId, Video baseItem)> pairedItems = new List<(Guid userId, Guid? seasonId, Video baseItem)>();
             if (aniDokiConfigUser != null && UpdateProviderStatus.LibraryCheck(aniDokiConfigUser, _libraryManager, _logger, item.baseItem)) {
                 if (SyncHelper.MediaShouldBeIgnored(item.baseItem)) {
-                    _logger.LogDebug($"(Sync) Ignoring {item.baseItem.Name}; ignore tag detected");
+                    _logger.LogDebug("(Sync) Ignoring {BaseItemName}; ignore tag detected", item.baseItem.Name);
                     RemoveFromUpdateList(item);
                     continue;
                 }
@@ -98,7 +98,7 @@ public class TaskProcessMarkedMedia {
                 }
                 var highestNonIgnoredItem = pairedItems.Where(pairedItem => !SyncHelper.MediaShouldBeIgnored(pairedItem.baseItem)).MaxBy(pairedItem => pairedItem.baseItem.IndexNumber);
                 if (highestNonIgnoredItem.Equals(default)) {
-                    _logger.LogDebug($"(Sync) Ignoring {item.baseItem.Name}; ignore tag detected on all paired episodes");
+                    _logger.LogDebug("(Sync) Ignoring {BaseItemName}; ignore tag detected on all paired episodes", item.baseItem.Name);
                 } else {
                     var collector = new PlaybackOutcomeCollector();
                     try { await updateProviderStatus.Update(highestNonIgnoredItem.baseItem, highestNonIgnoredItem.userId, true, collector, SyncUpdateSource.LegacyManual); } finally { _discord?.Enqueue(SyncOperationSummary.Capture(highestNonIgnoredItem.baseItem, highestNonIgnoredItem.userId, Guid.NewGuid(), SyncNotificationTrigger.LegacyManual, collector)); }

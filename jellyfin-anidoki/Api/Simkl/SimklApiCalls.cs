@@ -73,7 +73,7 @@ public class SimklApiCalls {
             StreamReader streamReader = new StreamReader(await apiCall.Content.ReadAsStreamAsync());
             result = JsonSerializer.Deserialize<List<SimklMedia>>(await streamReader.ReadToEndAsync());
         } catch (Exception e) {
-            _logger.LogError($"Could not deserialize result, reason: {e.Message}");
+            _logger.LogError("Could not deserialize result, reason: {ErrorMessage}", e.Message);
             return null;
         }
 
@@ -100,7 +100,7 @@ public class SimklApiCalls {
                 StreamReader streamReader = new StreamReader(await pageApiCall.Content.ReadAsStreamAsync());
                 nextPageResult = JsonSerializer.Deserialize<List<SimklMedia>>(await streamReader.ReadToEndAsync());
             } catch (Exception e) {
-                _logger.LogWarning($"Could not retrieve next result page, reason: {e.Message}");
+                _logger.LogWarning("Could not retrieve next result page, reason: {ErrorMessage}", e.Message);
                 break;
             }
 
@@ -138,7 +138,7 @@ public class SimklApiCalls {
             StreamReader streamReader = new StreamReader(await apiCall.Content.ReadAsStreamAsync());
             return JsonSerializer.Deserialize<SimklExtendedMedia>(await streamReader.ReadToEndAsync());
         } catch (Exception e) {
-            _logger.LogError($"Could not deserialize anime, reason: {e.Message}");
+            _logger.LogError("Could not deserialize anime, reason: {ErrorMessage}", e.Message);
             return null;
         }
     }
@@ -189,7 +189,7 @@ public class SimklApiCalls {
                 }
             }
         } catch (Exception e) {
-            _logger.LogError($"Could not deserialize anime list, reason: {e.Message}");
+            _logger.LogError("Could not deserialize anime list, reason: {ErrorMessage}", e.Message);
             return null;
         }
 
@@ -220,7 +220,7 @@ public class SimklApiCalls {
                 return null;
             }
         } catch (Exception e) {
-            _logger.LogError($"Could not deserialize user anime list, reason: {e.Message}");
+            _logger.LogError("Could not deserialize user anime list, reason: {ErrorMessage}", e.Message);
             return null;
         }
     }

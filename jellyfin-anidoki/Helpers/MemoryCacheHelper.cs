@@ -43,7 +43,7 @@ public class MemoryCacheHelper {
     public static async Task CheckRateLimiting(ApiName provider, ILogger logger, IMemoryCache memoryCache, IAsyncDelayer delayer) {
         DateTime lastCallDateTime = memoryCache.Get<DateTime>(GetLastCallDateTimeKey(provider));
         if (lastCallDateTime != default) {
-            logger.LogDebug($"({provider}) Delaying API call to prevent 429 (too many requests)...");
+            logger.LogDebug("({Provider}) Delaying API call to prevent 429 (too many requests)...", provider);
             await delayer.Delay(DateTime.UtcNow.Subtract(lastCallDateTime));
         }
     }
@@ -75,7 +75,7 @@ public class MemoryCacheHelper {
         if (responseMessage.Headers.TryGetValues(XRateLimitResetHeader, out IEnumerable<string> resetValues)) {
             if (DateTimeOffset.TryParse(resetValues.First(), out DateTimeOffset resetTime) && resetTime > DateTimeOffset.UtcNow) {
                 TimeSpan delay = resetTime - DateTimeOffset.UtcNow;
-                logger.LogDebug($"({provider}) Rate limit until {resetTime}. Waiting {delay.TotalSeconds} seconds.");
+                logger.LogDebug("({Provider}) Rate limit until {ResetTime}. Waiting {DelayTotalSeconds} seconds.", provider, resetTime, delay.TotalSeconds);
                 SetRateLimitingForProvider(provider, memoryCache, delay);
             }
         }

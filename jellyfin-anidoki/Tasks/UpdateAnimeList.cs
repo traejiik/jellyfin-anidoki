@@ -47,7 +47,7 @@ namespace jellyfin_anidoki {
                     await GetLatestAnimeList(client, formattedResponse.DownloadUrl);
                 }
             } else {
-                _logger.LogError($"Could not update anime list; {response.StatusCode} from repo");
+                _logger.LogError("Could not update anime list; {StatusCode} from repo", response.StatusCode);
             }
 
             return true;
@@ -80,7 +80,7 @@ namespace jellyfin_anidoki {
                     }
                 }
             } catch (Exception e) {
-                _logger.LogError($"Could not update anime list; {e.Message}");
+                _logger.LogError("Could not update anime list; {ErrorMessage}", e.Message);
             }
         }
 

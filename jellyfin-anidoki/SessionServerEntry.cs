@@ -72,7 +72,7 @@ namespace jellyfin_anidoki {
         public async void PlaybackStopped(object sender, PlaybackStopEventArgs e) {
             try {
                 if (SyncHelper.MediaShouldBeIgnored(e.Item)) {
-                    _logger.LogDebug($"(Sync) Ignoring {e.Item.Name}; ignore tag detected");
+                    _logger.LogDebug("(Sync) Ignoring {ItemName}; ignore tag detected", e.Item.Name);
                     return;
                 }
                 var context = PlaybackNotificationContext.Capture(e.Item, e.Session);
@@ -88,7 +88,7 @@ namespace jellyfin_anidoki {
                     }
                 }
             } catch (Exception exception) {
-                _logger.LogError($"Fatal error occured during anime sync job: {exception}");
+                _logger.LogError("Fatal error occured during anime sync job: {Exception}", exception);
             }
         }
     }

@@ -145,12 +145,12 @@ public class Sync {
         var userLibrary = SyncHelper.GetUsersJellyfinLibrary(Guid.Parse(userId), _userManager, _libraryManager);
         var user = _userManager.GetUserById(Guid.Parse(userId));
         if (user == null) {
-            _logger.LogError($"(Sync) User with ID of {userId} not found");
+            _logger.LogError("(Sync) User with ID of {UserId} not found", userId);
             return;
         }
         foreach (BaseItem baseItem in userLibrary) {
             if (SyncHelper.MediaShouldBeIgnored(baseItem)) {
-                _logger.LogDebug($"(Sync) Ignoring {baseItem.Name}; ignore tag detected");
+                _logger.LogDebug("(Sync) Ignoring {BaseItemName}; ignore tag detected", baseItem.Name);
             } else if (baseItem is Series series) {
                 (AnimeOfflineDatabaseHelpers.Source? source, int? providerId) = SyncHelper.GetSeriesProviderId(series);
 
@@ -167,7 +167,7 @@ public class Sync {
                     foreach ((Season season, DateTime? completedAt, int episodesWatched) seasonsTuple in seasonsToMarkAsPlayed) {
                         if (seasonsTuple.season != null) {
                             if (SyncHelper.MediaShouldBeIgnored(seasonsTuple.season)) {
-                                _logger.LogDebug($"(Sync) Ignoring {seasonsTuple.season.Name}; ignore tag detected");
+                                _logger.LogDebug("(Sync) Ignoring {SeasonName}; ignore tag detected", seasonsTuple.season.Name);
                                 continue;
                             }
 
@@ -181,11 +181,11 @@ public class Sync {
                                 if (seasonChild is Episode episode) {
                                     // Season and series ignore tags were already checked above; only the episode's own tag matters here.
                                     if (SyncHelper.HasIgnoreTag(seasonChild)) {
-                                        _logger.LogDebug($"(Sync) Ignoring {seasonChild.Name}; ignore tag detected");
+                                        _logger.LogDebug("(Sync) Ignoring {ItemName}; ignore tag detected", seasonChild.Name);
                                         anyEpisodeIgnored = true;
                                         continue;
                                     }
-                                    _logger.LogInformation($"(Sync) Setting {episode.Series.Name} season {episode.Season.IndexNumber} episode {episode.IndexNumber} for user {userId} as played...");
+                                    _logger.LogInformation("(Sync) Setting {SeriesName} season {SeasonIndexNumber} episode {EpisodeIndexNumber} for user {UserId} as played...", episode.Series.Name, episode.Season.IndexNumber, episode.IndexNumber, userId);
 
                                     if (seasonsTuple.completedAt != null) {
                                         _userDataManager.SaveUserData(user, seasonChild, SetUserData(user, episode, seasonsTuple.completedAt), UserDataSaveReason.UpdateUserData, CancellationToken.None);
@@ -196,7 +196,7 @@ public class Sync {
                             }
 
                             if (anyEpisodeIgnored) {
-                                _logger.LogDebug($"(Sync) Not marking season {seasonsTuple.season.Name} as played; one or more episodes carry the ignore tag");
+                                _logger.LogDebug("(Sync) Not marking season {SeasonName} as played; one or more episodes carry the ignore tag", seasonsTuple.season.Name);
                             } else {
                                 // this could fail because show has ovas, hard to detect. todo warn users
                                 _userDataManager.SaveUserData(user, seasonsTuple.season, SetUserData(user, seasonsTuple.season, seasonsTuple.completedAt), UserDataSaveReason.UpdateUserData, CancellationToken.None);
@@ -236,7 +236,7 @@ public class Sync {
     private async Task<List<SyncAnimeMetadata>> GetMetadataIdsFromAnime(List<Anime> animeList) {
         List<SyncAnimeMetadata> animeIdProgress = new List<SyncAnimeMetadata>();
         for (var i = 0; i < animeList.Count; i++) {
-            _logger.LogInformation($"(Sync) Fetching IDs for anime with an ID of {animeList[i].Id}...");
+            _logger.LogInformation("(Sync) Fetching IDs for anime with an ID of {AnimeListId}...", animeList[i].Id);
             var ids = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(_httpClientFactory.CreateClient(NamedClient.Default), _logger, animeList[i].Id, AnimeOfflineDatabaseHelpers.MapFromApiName(_apiName));
             if (ids?.AniDb == null) {
                 _logger.LogError("(Sync) Could not retrieve AniDb ID; skipping item...");

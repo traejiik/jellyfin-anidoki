@@ -41,7 +41,7 @@ namespace jellyfin_anidoki.Api.Kitsu {
             }
 
             string builtUrl = url.Build();
-            _logger.LogInformation($"(Kitsu) Starting search for anime (GET {builtUrl})...");
+            _logger.LogInformation("(Kitsu) Starting search for anime (GET {Url})...", builtUrl);
             var apiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Kitsu, AuthApiCall.CallType.GET, builtUrl);
             if (apiCall != null) {
                 StreamReader streamReader = new StreamReader(await apiCall.Content.ReadAsStreamAsync());
@@ -76,7 +76,7 @@ namespace jellyfin_anidoki.Api.Kitsu {
                 }
             };
 
-            _logger.LogInformation($"(Kitsu) Retrieving user information...");
+            _logger.LogInformation("(Kitsu) Retrieving user information...");
             var apiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Kitsu, AuthApiCall.CallType.GET, url.Build());
             if (apiCall != null) {
                 var xd = await apiCall.Content.ReadAsStringAsync();
@@ -96,7 +96,7 @@ namespace jellyfin_anidoki.Api.Kitsu {
             };
 
             string builtUrl = url.Build();
-            _logger.LogInformation($"(Kitsu) Retrieving an anime from Kitsu (GET {builtUrl})...");
+            _logger.LogInformation("(Kitsu) Retrieving an anime from Kitsu (GET {Url})...", builtUrl);
             try {
                 var apiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Kitsu, AuthApiCall.CallType.GET, builtUrl);
                 if (apiCall != null) {
@@ -111,7 +111,7 @@ namespace jellyfin_anidoki.Api.Kitsu {
                     return anime;
                 }
             } catch (Exception e) {
-                _logger.LogError(e.Message);
+                _logger.LogError("{ErrorMessage}", e.Message);
             }
 
             return null;
@@ -147,7 +147,7 @@ namespace jellyfin_anidoki.Api.Kitsu {
                     }
                 }
             } catch (Exception e) {
-                _logger.LogError(e.Message);
+                _logger.LogError("{ErrorMessage}", e.Message);
             }
 
             return null;
@@ -155,7 +155,7 @@ namespace jellyfin_anidoki.Api.Kitsu {
 
         public async Task<bool> UpdateAnimeStatus(int animeId, int numberOfWatchedEpisodes, KitsuUpdate.Status status,
             bool? isRewatching = null, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null) {
-            _logger.LogInformation($"(Kitsu) Preparing to update anime {animeId} status...");
+            _logger.LogInformation("(Kitsu) Preparing to update anime {AnimeId} status...", animeId);
             int? userId = await GetUserId();
 
             if (userId != null) {
@@ -259,7 +259,7 @@ namespace jellyfin_anidoki.Api.Kitsu {
                     return library;
                 }
             } catch (Exception e) {
-                _logger.LogError(e.Message);
+                _logger.LogError("{ErrorMessage}", e.Message);
             }
 
             return null;

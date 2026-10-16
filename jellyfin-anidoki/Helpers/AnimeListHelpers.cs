@@ -87,18 +87,18 @@ namespace jellyfin_anidoki.Helpers {
                     mergedSeason = false;
                 } else if (!haveSeasonShoko) {
                     // Episode level shoko tag but no season level tag; not entirely sure how this can happen but we should treat this as a merge just to be safe
-                    logger.LogWarning($"({aniDbKey}) Season {seasonNumber} has no 'Shoko Series' tag but episode {episodeShokoSeries} does; cannot confirm whether the season is merged, treating it as merged just to be safe");
+                    logger.LogWarning("({AniDbKey}) Season {SeasonNumber} has no 'Shoko Series' tag but episode {EpisodeShokoSeries} does; cannot confirm whether the season is merged, treating it as merged just to be safe", aniDbKey, seasonNumber, episodeShokoSeries);
                     mergedSeason = true;
                 } else {
                     mergedSeason = !string.Equals(seasonShokoSeries, episodeShokoSeries, StringComparison.OrdinalIgnoreCase);
                 }
 
                 if (!mergedSeason) {
-                    logger.LogInformation($"({aniDbKey}) Season {seasonNumber} carries its own {aniDbKey} ID ({seasonAniDbId}); using it directly with no episode offset");
+                    logger.LogInformation("({AniDbKey}) Season {SeasonNumber} carries its own {AniDbKey} ID ({SeasonAniDbId}); using it directly with no episode offset", aniDbKey, seasonNumber, aniDbKey, seasonAniDbId);
                     return (seasonAniDbId, null);
                 }
 
-                logger.LogInformation($"({aniDbKey}) Season {seasonNumber} is merged (season Shoko Series {seasonShokoSeries}, episode Shoko Series {episodeShokoSeries}); resolving the correct entry from the anime list XML");
+                logger.LogInformation("({AniDbKey}) Season {SeasonNumber} is merged (season Shoko Series {SeasonShokoSeries}, episode Shoko Series {EpisodeShokoSeries}); resolving the correct entry from the anime list XML", aniDbKey, seasonNumber, seasonShokoSeries, episodeShokoSeries);
 
                 if (animeListXml?.Anime != null) {
                     // Derive the TVDB season from the season's own AniDB row rather than
@@ -109,15 +109,15 @@ namespace jellyfin_anidoki.Helpers {
                         var relatedRows = animeListXml.Anime.Where(a => a.Tvdbid == seasonRow.Tvdbid).ToList();
                         var resolved = GetAniDbByEpisodeOffset(logger, GetAbsoluteEpisodeNumber(episodeWithSeasonAniDbId), tvdbSeason, episodeNumber, relatedRows);
                         if (resolved.aniDbId != null) {
-                            logger.LogInformation($"({aniDbKey}) Merged season resolved to AniDb ID {resolved.aniDbId} with offset {(resolved.episodeOffset.HasValue ? resolved.episodeOffset.Value.ToString() : "<none>")} (tvdb season {tvdbSeason})");
+                            logger.LogInformation("({AniDbKey}) Merged season resolved to AniDb ID {ResolvedAniDbId} with offset {EpisodeOffset} (tvdb season {TvdbSeason})", aniDbKey, resolved.aniDbId, (resolved.episodeOffset.HasValue ? resolved.episodeOffset.Value.ToString() : "<none>"), tvdbSeason);
                             return resolved;
                         }
                     } else {
-                        logger.LogWarning($"({aniDbKey}) {aniDbKey} ID {seasonAniDbId} has no usable anime list XML row; cannot resolve merged season");
+                        logger.LogWarning("({AniDbKey}) {AniDbKey} ID {SeasonAniDbId} has no usable anime list XML row; cannot resolve merged season", aniDbKey, aniDbKey, seasonAniDbId);
                     }
                 }
 
-                logger.LogWarning($"({aniDbKey}) Could not resolve merged season from the XML; falling back to the season {aniDbKey} ID ({seasonAniDbId}). Episode numbers past the first merged part will be wrong.");
+                logger.LogWarning("({AniDbKey}) Could not resolve merged season from the XML; falling back to the season {AniDbKey} ID ({SeasonAniDbId}). Episode numbers past the first merged part will be wrong.", aniDbKey, aniDbKey, seasonAniDbId);
                 return (seasonAniDbId, null);
             }
 
@@ -136,7 +136,7 @@ namespace jellyfin_anidoki.Helpers {
             }
 
             if (TryGetProviderId(providers, aniDbKey, out string aniDbProviderId)) {
-                logger.LogInformation($"({aniDbKey}) Anime already has AniDb ID; no need to look it up");
+                logger.LogInformation("({AniDbKey}) Anime already has AniDb ID; no need to look it up", aniDbKey);
                 if (!int.TryParse(aniDbProviderId, out aniDbId))
                     return (null, null);
                 var foundAnime = animeListXml.Anime.Where(anime => int.TryParse(anime.Anidbid, out int xmlAniDbId) &&
@@ -153,22 +153,22 @@ namespace jellyfin_anidoki.Helpers {
                         var related = animeListXml.Anime.Where(anime => anime.Tvdbid == foundAnime.First().Tvdbid).ToList();
                         if (video is Episode episode && episode.Series.Children.OfType<Season>().Count() > 1 && related.Count > 1) {
                             // contains more than 1 season, need to do a lookup
-                            logger.LogInformation($"({aniDbKey}) Anime {episode.Series.Name} found in anime XML file");
-                            logger.LogInformation($"({aniDbKey}) Looking up anime {episode.Series.Name} in the anime XML file by absolute episode number...");
+                            logger.LogInformation("({AniDbKey}) Anime {SeriesName} found in anime XML file", aniDbKey, episode.Series.Name);
+                            logger.LogInformation("({AniDbKey}) Looking up anime {SeriesName} in the anime XML file by absolute episode number...", aniDbKey, episode.Series.Name);
                             var (aniDb, episodeOffset) = GetAniDbByEpisodeOffset(logger, GetAbsoluteEpisodeNumber(episode), seasonNumber, episodeNumber, related);
                             if (aniDb != null) {
-                                logger.LogInformation($"({aniDbKey}) Anime {episode.Series.Name} found in anime XML file, detected AniDB ID {aniDb}");
+                                logger.LogInformation("({AniDbKey}) Anime {SeriesName} found in anime XML file, detected AniDB ID {AniDb}", aniDbKey, episode.Series.Name, aniDb);
                                 return (aniDb, episodeOffset);
                             } else {
-                                logger.LogInformation($"({aniDbKey}) Anime {episode.Series.Name} could not found in anime XML file; falling back to other metadata providers if available...");
+                                logger.LogInformation("({AniDbKey}) Anime {SeriesName} could not found in anime XML file; falling back to other metadata providers if available...", aniDbKey, episode.Series.Name);
                             }
                         } else {
                             if (video is Episode episodeWithMultipleSeasons && episodeWithMultipleSeasons.Season.IndexNumber > 1) {
                                 // user doesnt have full series; have to do season lookup
-                                logger.LogInformation($"({aniDbKey}) Anime {episodeWithMultipleSeasons.Series.Name} found in anime XML file");
+                                logger.LogInformation("({AniDbKey}) Anime {SeriesName} found in anime XML file", aniDbKey, episodeWithMultipleSeasons.Series.Name);
                                 return SeasonLookup(logger, seasonNumber, episodeNumber, related);
                             } else {
-                                logger.LogInformation($"({aniDbKey}) Anime {video.Name} found in anime XML file");
+                                logger.LogInformation("({AniDbKey}) Anime {VideoName} found in anime XML file", aniDbKey, video.Name);
                                 // is movie / only has one season / no related; just return the only result
                                 return int.TryParse(related.First().Anidbid, out aniDbId) ? (aniDbId, null) : (null, null);
                             }
@@ -177,10 +177,10 @@ namespace jellyfin_anidoki.Helpers {
                         break;
                     case > 1:
                         // here
-                        logger.LogWarning($"({aniDbKey}) More than one result found; possibly an issue with the XML. Falling back to other metadata providers if available...");
+                        logger.LogWarning("({AniDbKey}) More than one result found; possibly an issue with the XML. Falling back to other metadata providers if available...", aniDbKey);
                         break;
                     case 0:
-                        logger.LogWarning($"({aniDbKey}) Anime not found in anime list XML; falling back to other metadata providers if available...");
+                        logger.LogWarning("({AniDbKey}) Anime not found in anime list XML; falling back to other metadata providers if available...", aniDbKey);
                         break;
                 }
             }
@@ -200,11 +200,11 @@ namespace jellyfin_anidoki.Helpers {
                 var related = animeListXml.Anime.Where(anime => int.TryParse(anime.Tvdbid, out int xmlTvDbId) && xmlTvDbId == tvDbId).ToList();
 
                 if (!related.Any()) {
-                    logger.LogWarning($"({tvDbKey}) Anime not found in anime list XML; querying the appropriate providers API");
+                    logger.LogWarning("({TvDbKey}) Anime not found in anime list XML; querying the appropriate providers API", tvDbKey);
                     return (null, null);
                 }
 
-                logger.LogInformation($"({tvDbKey}) Anime reference found in anime list XML");
+                logger.LogInformation("({TvDbKey}) Anime reference found in anime list XML", tvDbKey);
 
                 var first = related.First();
                 if (related.Count() == 1) {
@@ -217,18 +217,18 @@ namespace jellyfin_anidoki.Helpers {
                 if (video is Episode episode && episode.Series.Children.OfType<Season>().Count() > 1) {
                     var (aniDb, episodeOffset) = GetAniDbByEpisodeOffset(logger, GetAbsoluteEpisodeNumber(episode), seasonNumber, episodeNumber, related);
                     if (aniDb != null) {
-                        logger.LogInformation($"({tvDbKey}) Anime {episode.Series.Name} found in anime XML file, detected AniDB ID {aniDb}");
+                        logger.LogInformation("({TvDbKey}) Anime {SeriesName} found in anime XML file, detected AniDB ID {AniDb}", tvDbKey, episode.Series.Name, aniDb);
                         return (aniDb.Value, episodeOffset);
                     } else {
-                        logger.LogInformation($"({tvDbKey}) Anime {episode.Series.Name} could not found in anime XML file; falling back to other metadata providers if available...");
+                        logger.LogInformation("({TvDbKey}) Anime {SeriesName} could not found in anime XML file; falling back to other metadata providers if available...", tvDbKey, episode.Series.Name);
                     }
                 } else {
                     if (video is Episode episodeWithMultipleSeasons && episodeWithMultipleSeasons.Season.IndexNumber > 1) {
                         // user doesnt have full series; have to do season lookup
-                        logger.LogInformation($"({tvDbKey}) Anime {episodeWithMultipleSeasons.Name} found in anime XML file");
+                        logger.LogInformation("({TvDbKey}) Anime {SeriesName} found in anime XML file", tvDbKey, episodeWithMultipleSeasons.Name);
                         return SeasonLookup(logger, seasonNumber, episodeNumber, related);
                     } else {
-                        logger.LogInformation($"({tvDbKey}) Anime {video.Name} found in anime XML file");
+                        logger.LogInformation("({TvDbKey}) Anime {VideoName} found in anime XML file", tvDbKey, video.Name);
                         // is movie / only has one season / no related; just return the only result
                         return (
                             int.TryParse(first.Anidbid, out aniDbId) ? aniDbId : null,
@@ -272,10 +272,10 @@ namespace jellyfin_anidoki.Helpers {
                 }
 
                 if (foundMapping != null) {
-                    logger.LogInformation($"(AniDb) Absolute episode {absoluteEpisodeNumber} matched AniDB ID {foundMapping.Anidbid} (tvdbseason {seasonNumber}, range {foundRange.Start}-{foundRange.End}, offset {foundRange.Offset})");
+                    logger.LogInformation("(AniDb) Absolute episode {AbsoluteEpisodeNumber} matched AniDB ID {AniDbId} (tvdbseason {SeasonNumber}, range {RangeStart}-{RangeEnd}, offset {Offset})", absoluteEpisodeNumber, foundMapping.Anidbid, seasonNumber, foundRange.Start, foundRange.End, foundRange.Offset);
                     return (int.TryParse(foundMapping.Anidbid, out var aniDbId) ? aniDbId : null, foundRange.Offset);
                 } else {
-                    logger.LogWarning($"(AniDb) Could not lookup using absolute episode number {absoluteEpisodeNumber} (reason: no mapping covers that episode within tvdbseason {seasonNumber})");
+                    logger.LogWarning("(AniDb) Could not lookup using absolute episode number {AbsoluteEpisodeNumber} (reason: no mapping covers that episode within tvdbseason {SeasonNumber})", absoluteEpisodeNumber, seasonNumber);
                     return SeasonLookup(logger, seasonNumber, episodeNumber, related);
                 }
             } else {
@@ -328,7 +328,7 @@ namespace jellyfin_anidoki.Helpers {
             // are TVDB season numbers. If the metadata provider does not number
             // seasons the way TVDB does, this lookup picks the wrong entry - which is
             // why a season that carries its own AniDB ID skips it entirely.
-            logger.LogInformation($"(AniDb) Season lookup for tvdb season {seasonNumber}, episode {episodeNumber} resolved to AniDB ID {foundMapping?.Anidbid ?? "<none>"} ({foundMapping?.Name ?? "<none>"}) with offset {(resolvedOffset.HasValue ? resolvedOffset.Value.ToString() : "<none>")}");
+            logger.LogInformation("(AniDb) Season lookup for tvdb season {SeasonNumber}, episode {EpisodeNumber} resolved to AniDB ID {AniDbId} ({MappingName}) with offset {EpisodeOffset}", seasonNumber, episodeNumber, foundMapping?.Anidbid ?? "<none>", foundMapping?.Name ?? "<none>", (resolvedOffset.HasValue ? resolvedOffset.Value.ToString() : "<none>"));
 
             return (
                 int.TryParse(foundMapping?.Anidbid, out var aniDbId) ? aniDbId : null,
@@ -403,7 +403,7 @@ namespace jellyfin_anidoki.Helpers {
                     return (AnimeListXml)serializer.Deserialize(stream);
                 }
             } catch (Exception e) {
-                logger.LogError($"Could not deserialize anime list XML; {e.Message}. Try forcibly redownloading the XML file");
+                logger.LogError("Could not deserialize anime list XML; {ErrorMessage}. Try forcibly redownloading the XML file", e.Message);
                 return null;
             }
         }
