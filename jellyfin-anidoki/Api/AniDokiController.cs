@@ -354,7 +354,7 @@ namespace jellyfin_anidoki.Api {
         }
 
         [Authorize(Policy = Policies.RequiresElevation)]
-        [HttpGet]
+        [HttpPost]
         [Route("deauthenticate")]
         public IActionResult Deauthenticate([FromQuery] Guid user, [FromQuery] ApiName apiName) =>
             DeauthenticateProvidedUser(user, apiName);
@@ -475,7 +475,7 @@ namespace jellyfin_anidoki.Api {
         }
 
         [Authorize]
-        [HttpGet]
+        [HttpPost]
         [Route("user/deauthenticate")]
         public IActionResult DeauthenticateUser([FromQuery] Guid user, [FromQuery] ApiName apiName) {
             if (!UserPagesEnabled()) return NotFound();

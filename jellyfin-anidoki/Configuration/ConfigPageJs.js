@@ -247,7 +247,7 @@ export default function (view) {
                 response = await common.json(`AniDoki/user?apiName=${provider}&user=${userId}`, { signal });
                 return { message: response?.name || response?.Name ? `Connection verified for ${response.name ?? response.Name}.` : 'Connection verified.' };
             }
-            if (kind === 'disconnect') await common.request(`AniDoki/deauthenticate?apiName=${provider}&user=${userId}`, { signal });
+            if (kind === 'disconnect') await common.request(`AniDoki/deauthenticate?apiName=${provider}&user=${userId}`, { method: 'POST', signal });
             else if (provider === 'Kitsu') await common.request('AniDoki/passwordGrant', { method: 'POST', body: { Provider: provider, User: userId, ...credentials }, signal });
             else if (provider === 'Annict') await common.request(`AniDoki/annictToken?user=${userId}`, { method: 'POST', body: credentials, signal });
             else {
