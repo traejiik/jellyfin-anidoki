@@ -18,6 +18,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <!-- Only for the File Transformation plugin interop (NotificationWebIntegration). -->
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageReference Include="Jellyfin.Controller" Version="12.2.0" />
         <PackageReference Include="Jellyfin.Model" Version="12.2.0" />

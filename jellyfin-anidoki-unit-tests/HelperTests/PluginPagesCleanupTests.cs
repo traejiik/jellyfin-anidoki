@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using jellyfin_anidoki.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.HelperTests;
@@ -38,12 +38,12 @@ public class PluginPagesCleanupTests {
 
         Remove();
 
-        var result = JObject.Parse(File.ReadAllText(_path));
-        var pages = (JArray)result["pages"]!;
-        Assert.That((int)result["otherSetting"]!, Is.EqualTo(42));
+        var result = JsonNode.Parse(File.ReadAllText(_path))!;
+        var pages = result["pages"]!.AsArray();
+        Assert.That(result["otherSetting"]!.GetValue<int>(), Is.EqualTo(42));
         Assert.That(pages.Count, Is.EqualTo(1));
-        Assert.That((string)pages[0]["Id"]!, Is.EqualTo("other.plugin"));
-        Assert.That((bool)pages[0]["custom"]!, Is.True);
+        Assert.That(pages[0]!["Id"]!.GetValue<string>(), Is.EqualTo("other.plugin"));
+        Assert.That(pages[0]!["custom"]!.GetValue<bool>(), Is.True);
     }
 
     [TestCase("not json")]
@@ -52,6 +52,9 @@ public class PluginPagesCleanupTests {
     [TestCase("{\"pages\":[{\"Id\":\"other.plugin\"}],\"keep\":true}")]
     [TestCase("{\"pages\":[{\"Id\":{\"nested\":true}},{\"id\":[\"jellyfin_anidoki\"]}],\"keep\":true}")]
     [TestCase("{\"pages\":[{\"Id\":\"jellyfin_anidoki.other\"}],\"keep\":true}")]
+    [TestCase("{\"pages\":null,\"keep\":true}")]
+    [TestCase("{\"pages\":[],\"pages\":[{\"Id\":\"jellyfin_anidoki\"}]}")]
+    [TestCase("[{\"Id\":\"jellyfin_anidoki\"}]")]
     public void DoesNotRewriteMalformedOrUnrelatedConfiguration(string original) {
         File.WriteAllText(_path, original);
         Assert.DoesNotThrow(() => Remove());
@@ -68,7 +71,7 @@ public class PluginPagesCleanupTests {
     public void RuntimeFailureDoesNotPreventStoredCleanup() {
         File.WriteAllText(_path, "{\"pages\":[{\"Id\":\"jellyfin_anidoki\"}]}");
         Remove(_ => throw new InvalidOperationException("Runtime integration unavailable"));
-        Assert.That(((JArray)JObject.Parse(File.ReadAllText(_path))["pages"]!).Count,
+        Assert.That(JsonNode.Parse(File.ReadAllText(_path))!["pages"]!.AsArray().Count,
             Is.EqualTo(0));
     }
 
@@ -79,6 +82,23 @@ public class PluginPagesCleanupTests {
         Remove(id => removed = id);
         Assert.That(removed, Is.EqualTo(Owner));
         Assert.That(File.ReadAllText(_path), Is.EqualTo("not json"));
+    }
+
+    [Test]
+    public void ToleratesCommentsAndTrailingCommasAndKeepsTextReadable() {
+        File.WriteAllText(_path, """
+        {
+          // written by hand
+          "pages": [
+            {"Id":"jellyfin_anidoki"},
+            {"Id":"other.plugin","DisplayText":"Ōtaku <Pages> & more"},
+          ],
+        }
+        """);
+        Remove();
+        string written = File.ReadAllText(_path);
+        Assert.That(written, Does.Contain("\"Ōtaku <Pages> & more\""));
+        Assert.That(JsonNode.Parse(written)!["pages"]!.AsArray().Count, Is.EqualTo(1));
     }
 
     [Test]

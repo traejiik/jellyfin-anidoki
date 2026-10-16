@@ -10,10 +10,10 @@ using MediaBrowser.Model.Serialization;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Configuration;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 
 namespace jellyfin_anidoki {
@@ -46,40 +46,37 @@ namespace jellyfin_anidoki {
             int pluginPageConfigVersion = 2;
             string pluginPagesConfig = Path.Combine(applicationPaths.PluginConfigurationsPath, "Jellyfin.Plugin.PluginPages", "config.json");
 
-            JObject config = new JObject();
+            JsonObject config = new JsonObject();
             if (!File.Exists(pluginPagesConfig)) {
                 FileInfo info = new FileInfo(pluginPagesConfig);
                 info.Directory?.Create();
             } else {
-                config = JObject.Parse(File.ReadAllText(pluginPagesConfig));
+                config = PluginPagesJson.Parse(File.ReadAllText(pluginPagesConfig));
             }
 
             if (!config.ContainsKey("pages")) {
-                config.Add("pages", new JArray());
+                config.Add("pages", new JsonArray());
             }
 
-            if (config["pages"] is not JArray pages || pages.Any(page =>
-                page is not JObject entry ||
-                (entry["Id"] != null && entry["Id"]!.Type != JTokenType.String))) {
+            if (config["pages"] is not JsonArray pages || pages.Any(page =>
+                page is not JsonObject entry ||
+                (entry.ContainsKey("Id") && !PluginPagesJson.IsString(entry["Id"], out _)))) {
                 throw new JsonException("Plugin Pages configuration contains an invalid pages collection or page ID.");
             }
 
-            JObject? hssPageConfig = config.Value<JArray>("pages")!.FirstOrDefault(x =>
-                x.Value<string>("Id") == typeof(Plugin).Namespace) as JObject;
+            JsonObject? hssPageConfig = pages.OfType<JsonObject>().FirstOrDefault(IsOwnPage);
 
             if (hssPageConfig != null) {
-                var version = hssPageConfig["Version"];
-                if (version != null && version.Type != JTokenType.Null &&
-                    !int.TryParse(version.ToString(), out _)) {
+                if (!TryReadVersion(hssPageConfig["Version"], out int? version)) {
                     throw new JsonException("AniDoki's Plugin Pages registration contains an invalid version.");
                 }
 
-                if ((hssPageConfig.Value<int?>("Version") ?? 0) < pluginPageConfigVersion) {
-                    config.Value<JArray>("pages")!.Remove(hssPageConfig);
+                if ((version ?? 0) < pluginPageConfigVersion) {
+                    pages.Remove(hssPageConfig);
                 }
             }
 
-            if (!config.Value<JArray>("pages")!.Any(x => x.Value<string>("Id") == typeof(Plugin).Namespace)) {
+            if (!pages.OfType<JsonObject>().Any(IsOwnPage)) {
                 Assembly? pluginPagesAssembly = AssemblyLoadContext.All.SelectMany(x => x.Assemblies).FirstOrDefault(x => x.FullName?.Contains("Jellyfin.Plugin.PluginPages") ?? false);
 
                 Version earliestVersionWithSubUrls = new Version("2.4.1.0");
@@ -90,17 +87,35 @@ namespace jellyfin_anidoki {
                     rootUrl = $"/{rootUrl}";
                 }
 
-                config.Value<JArray>("pages")!.Add(new JObject
-                {
-                    { "Id", typeof(Plugin).Namespace },
-                    { "Url", $"{(supportsSubUrls ? "" : rootUrl)}/AniDoki/settings" },
-                    { "DisplayText", "AniDōki" },
-                    { "Icon", "sync" },
-                    { "Version", pluginPageConfigVersion }
+                pages.Add(new JsonObject {
+                    ["Id"] = typeof(Plugin).Namespace,
+                    ["Url"] = $"{(supportsSubUrls ? "" : rootUrl)}/AniDoki/settings",
+                    ["DisplayText"] = "AniDōki",
+                    ["Icon"] = "sync",
+                    ["Version"] = pluginPageConfigVersion
                 });
 
-                File.WriteAllText(pluginPagesConfig, config.ToString(Formatting.Indented));
+                File.WriteAllText(pluginPagesConfig, PluginPagesJson.Serialize(config));
             }
+        }
+
+        private static bool IsOwnPage(JsonObject page) =>
+            PluginPagesJson.IsString(page["Id"], out var id) && id == typeof(Plugin).Namespace;
+
+        // Plugin Pages has stored the version as both a number and a numeric string.
+        private static bool TryReadVersion(JsonNode? node, out int? version) {
+            version = null;
+            if (node == null)
+                return true;
+            if (node is JsonValue value && value.GetValueKind() == JsonValueKind.Number && value.TryGetValue(out int number)) {
+                version = number;
+                return true;
+            }
+            if (PluginPagesJson.IsString(node, out var text) && int.TryParse(text, out number)) {
+                version = number;
+                return true;
+            }
+            return false;
         }
 
         public void RemovePluginPages(IApplicationPaths applicationPaths) {
