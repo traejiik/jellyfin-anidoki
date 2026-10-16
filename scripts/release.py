@@ -7,6 +7,9 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import shutil
+import subprocess
+import tempfile
 from urllib.parse import quote
 import uuid
 import xml.etree.ElementTree as ET
@@ -28,11 +31,32 @@ def validate_tag(tag, version):
         raise ValueError(f'Release tag {tag} does not match manifest version {version}')
 
 
-def validate_repository(root, tag=None):
-    manifest = json.loads((root / 'manifest.json').read_text())
-    if len(manifest) != 1 or not isinstance(manifest[0].get('versions'), list):
-        raise ValueError('Manifest must describe one plugin with a versions list')
-    plugin = manifest[0]
+def parse_describe(describe):
+    """Turn `git describe --long --dirty` output into (numeric, informational) versions."""
+    match = re.fullmatch(r'v(\d+\.\d+\.\d+)(\.\d+)?-(\d+)-g([0-9a-f]+)(-dirty)?', describe.strip())
+    if not match:
+        raise ValueError(f'Unrecognised git describe output: {describe.strip()}')
+    base, revision, commits, sha, dirty = match.groups()
+    # A three-part tag leaves the revision free to count commits since the release.
+    numeric = base + (revision or f'.{commits}')
+    informational = f'{base}{revision or ""}+{commits}.g{sha}' + ('.dirty' if dirty else '')
+    return numeric, informational
+
+
+def dev_version(root):
+    """Version a local build from the latest release tag, or fall back to build.yaml."""
+    try:
+        result = subprocess.run(['git', '-C', str(root), 'describe', '--tags', '--long', '--dirty', '--match', 'v[0-9]*'],
+                                capture_output=True, text=True)
+        if result.returncode == 0:
+            return parse_describe(result.stdout)
+    except (OSError, ValueError):
+        pass
+    version = read_build_metadata(root)['version']
+    return version, f'{version}+unknown'
+
+
+def read_build_metadata(root):
     build = (root / 'jellyfin-anidoki/build.yaml').read_text()
     release = {}
     for key in ('version', 'targetAbi'):
@@ -40,6 +64,16 @@ def validate_repository(root, tag=None):
         if not match:
             raise ValueError(f'build.yaml must configure {key}')
         release[key] = json.loads(match[1])
+    return release
+
+
+def validate_repository(root, tag=None):
+    manifest = json.loads((root / 'manifest.json').read_text())
+    if len(manifest) != 1 or not isinstance(manifest[0].get('versions'), list):
+        raise ValueError('Manifest must describe one plugin with a versions list')
+    plugin = manifest[0]
+    build = (root / 'jellyfin-anidoki/build.yaml').read_text()
+    release = read_build_metadata(root)
     uuid.UUID(plugin['guid'])
     for value in (release['version'], release['targetAbi']):
         if not re.fullmatch(r'\d+\.\d+\.\d+\.\d+', value):
@@ -92,6 +126,47 @@ def prepare_release(root, tag):
     return validate_repository(root, tag)
 
 
+def utc_timestamp():
+    return datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
+
+
+def plugin_metadata(plugin, release):
+    """The meta.json Jellyfin reads from an installed plugin folder."""
+    metadata = {key: plugin[key] for key in ('category', 'guid', 'name', 'description', 'owner', 'overview')}
+    metadata.update({key: release[key] for key in ('version', 'targetAbi', 'timestamp', 'changelog')})
+    metadata.update({'status': 'Active', 'autoUpdate': True, 'assemblies': [DLL], 'imagePath': CARD_IMAGE})
+    return metadata
+
+
+def local_package(root, output_dir, publish_dir=None):
+    """Build an installable plugin folder (DLL, meta.json, card) for a development build."""
+    plugin = validate_repository(root)[0]
+    version, informational = dev_version(root)
+    image_path = root / 'docs/assets' / CARD_IMAGE
+    if not image_path.is_file():
+        raise ValueError(f'Plugin card artwork is missing: {image_path}')
+    with tempfile.TemporaryDirectory() as temporary:
+        if publish_dir is None:
+            publish_dir = Path(temporary)
+            subprocess.run([
+                'dotnet', 'publish', str(root / 'jellyfin-anidoki/jellyfin-anidoki.csproj'),
+                '--configuration', 'Release', '--output', str(publish_dir),
+                f'-p:Version={version}', f'-p:AssemblyVersion={version}', f'-p:FileVersion={version}',
+                f'-p:InformationalVersion={informational}',
+                '-p:IncludeSourceRevisionInInformationalVersion=false',
+            ], check=True)
+        assembly = publish_dir / DLL
+        if not assembly.is_file():
+            raise ValueError(f'Published plugin DLL is missing: {assembly}')
+        release = {'version': version, 'targetAbi': read_build_metadata(root)['targetAbi'],
+                   'timestamp': utc_timestamp(), 'changelog': f'Development build {informational}'}
+        output_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(assembly, output_dir / DLL)
+    (output_dir / 'meta.json').write_text(json.dumps(plugin_metadata(plugin, release), indent=2) + '\n')
+    shutil.copyfile(image_path, output_dir / CARD_IMAGE)
+    return version, informational
+
+
 def package(manifest, publish_dir, output_dir, tag, repository, changelog=None, image_path=None):
     result = copy.deepcopy(manifest)
     plugin = result[0]
@@ -109,10 +184,8 @@ def package(manifest, publish_dir, output_dir, tag, repository, changelog=None, 
     if not image_path.is_file():
         raise ValueError(f'Plugin card artwork is missing: {image_path}')
     image_bytes = image_path.read_bytes()
-    release['timestamp'] = datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
-    metadata = {key: plugin[key] for key in ('category', 'guid', 'name', 'description', 'owner', 'overview')}
-    metadata.update({key: release[key] for key in ('version', 'targetAbi', 'timestamp', 'changelog')})
-    metadata.update({'status': 'Active', 'autoUpdate': True, 'assemblies': [DLL], 'imagePath': CARD_IMAGE})
+    release['timestamp'] = utc_timestamp()
+    metadata = plugin_metadata(plugin, release)
     output_dir.mkdir(parents=True, exist_ok=True)
     archive = output_dir / f'anidoki_{release["version"]}.zip'
     with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED) as bundle:
@@ -160,7 +233,7 @@ def merge_feed(current, published):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('check', 'prepare', 'package', 'update-feed'))
+    parser.add_argument('command', choices=('check', 'prepare', 'package', 'update-feed', 'local'))
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument('--manifest', type=Path)
     parser.add_argument('--released', type=Path)
@@ -168,7 +241,7 @@ def main():
     parser.add_argument('--repository')
     parser.add_argument('--publish-dir', type=Path)
     parser.add_argument('--changelog-file', type=Path)
-    parser.add_argument('--output', type=Path, default=Path('dist'))
+    parser.add_argument('--output', type=Path, help='Output folder (default: dist, or bin/anidoki for local)')
     args = parser.parse_args()
     try:
         if args.command == 'update-feed':
@@ -180,6 +253,11 @@ def main():
             args.manifest.write_text(json.dumps(result, indent=2) + '\n')
             print('Updated installation feed from the published release.')
             return
+        if args.command == 'local':
+            output = args.output or args.root / 'bin/anidoki'
+            version, informational = local_package(args.root, output, args.publish_dir)
+            print(f'Built development version {version} ({informational}) into {output}')
+            return
         if args.command == 'prepare':
             if not args.tag:
                 parser.error('prepare requires --tag')
@@ -190,11 +268,11 @@ def main():
         if args.command == 'package':
             if not all((args.tag, args.repository, args.publish_dir, args.changelog_file)):
                 parser.error('package requires --tag, --repository, --publish-dir, and --changelog-file')
-            assets = package(manifest, args.publish_dir, args.output, args.tag, args.repository, changelog=args.changelog_file.read_text(), image_path=args.root / 'docs/assets' / CARD_IMAGE)
+            assets = package(manifest, args.publish_dir, args.output or Path('dist'), args.tag, args.repository, changelog=args.changelog_file.read_text(), image_path=args.root / 'docs/assets' / CARD_IMAGE)
             print(f'Created {assets["zip"]}')
         else:
             print('Plugin identity, build metadata, and project versions match; feed history is independent.')
-    except (ValueError, KeyError, OSError, ET.ParseError) as error:
+    except (ValueError, KeyError, OSError, ET.ParseError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'Release validation failed: {error}\n')
 
 

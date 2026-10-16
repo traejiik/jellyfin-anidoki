@@ -1,0 +1,7 @@
+# .git stays in the context: release.py derives the build version from git describe.
+**/bin/
+**/obj/
+dist/
+test-results/
+**/__pycache__/
+.idea/
