@@ -514,9 +514,14 @@ namespace jellyfin_anidoki {
         }
 
         private async Task CheckUserListAnimeStatusBase(Anime detectedAnime, int episodeNumber, bool overrideCheckRewatch, string? alternativeId = null) {
-            if (detectedAnime == null) return;
+            if (detectedAnime == null) {
+                _logger.LogInformation($"({ApiName}) Could not retrieve the matched anime from the provider; not updating");
+                return;
+            }
             if (_source == SyncUpdateSource.ConfirmedManual && !ManualMarkProgressRules.Allows(detectedAnime, episodeNumber, ApiName == ApiName.Annict)) {
-                RecordDecision(_outcomeCollector, detectedAnime, OutcomeKind.NoChange, "manual-forward-only"); return;
+                RecordDecision(_outcomeCollector, detectedAnime, OutcomeKind.NoChange, "manual-forward-only");
+                _logger.LogInformation($"({ApiName}) {(_animeType == typeof(Episode) ? "Series" : "Movie")} ({GetAnimeTitle(detectedAnime)}) is already at or past episode {episodeNumber}, completed or rewatching; manual marks only move progress forward. Skipping");
+                return;
             }
             if (detectedAnime.MyListStatus != null &&
                 (detectedAnime.MyListStatus.Status == Status.Watching || detectedAnime.MyListStatus.Status == Status.Rewatching) &&
