@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/traejiik/jellyfin-anidoki/development/docs/assets/anidoki-card.png",
     "versions": [
       {
+        "version": "1.2.0.0",
+        "targetAbi": "12.2.0.0",
+        "changelog": "## What's Changed\n* doc: format credit section in README.md by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/11\n* chore: update .gitignore by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/12\n* fix: skip manual-mark prompts outside tracked libraries by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/13\n* fix: stop sync writing to the wrong entry or skipping providers by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/14\n* fix: advance one sequel per cour in the multi-cour walk by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/15\n* fix: stop the cour walk writing past the last cour by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/16\n* fix: stop treating failed tracker requests as successful by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/17\n* fix: harden tracker sign-in by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/18\n* Build versioned local plugin folders and complete Docker packaging by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/19\n* Add editorconfig formatting and enforce it in CI by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/20\n* Tidy legacy code: nullable checks, Plugin Pages JSON, comments and packages by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/21\n* Use structured log templates and quieter information-level logging by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/22\n\n\n**Full Changelog**: https://github.com/traejiik/jellyfin-anidoki/compare/v1.1.1...v1.2.0",
+        "timestamp": "2026-10-16T17:47:01Z",
+        "checksum": "17f9966d340118a95ebfe2d5c4a758c7",
+        "sourceUrl": "https://github.com/traejiik/jellyfin-anidoki/releases/download/v1.2.0/anidoki_1.2.0.0.zip"
+      },
+      {
         "version": "1.1.1.0",
         "targetAbi": "12.2.0.0",
         "changelog": "## What's Changed\n* fix/webhook controls by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/10\n\n\n**Full Changelog**: https://github.com/traejiik/jellyfin-anidoki/compare/v1.1.0...v1.1.1",
