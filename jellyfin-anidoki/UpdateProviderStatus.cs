@@ -893,9 +893,13 @@ namespace jellyfin_anidoki {
                         _logger.LogInformation($"({ApiName}) Attempting to get season {i + 1}...");
                         Anime nextSeason = await ApiCallHelpers.GetAnime(initialSeasonRelatedAnime.Anime.Id, getRelated: true, alternativeId: initialSeasonRelatedAnime.Anime.AlternativeId);
 
-                        if (nextSeason != null) {
-                            retrievedSeason = nextSeason;
+                        if (nextSeason == null) {
+                            // returning the season we already have would write progress to the wrong entry
+                            _logger.LogInformation($"({ApiName}) Could not retrieve season {i + 1}");
+                            return null;
                         }
+
+                        retrievedSeason = nextSeason;
                     } else {
                         _logger.LogInformation($"({ApiName}) Could not find any related anime sequel");
                         return null;

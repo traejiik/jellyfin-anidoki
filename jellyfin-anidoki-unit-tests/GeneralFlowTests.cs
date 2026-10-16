@@ -378,7 +378,36 @@ public class GeneralFlowTests {
         }));
 
         Anime? result = await _updateProviderStatus.GetDifferentSeasonAnime(animeId, seasonNumber);
-        
+
+        Assert.IsNull(result);
+    }
+
+    /// <summary>
+    /// A sequel relation exists but fetching it fails. The previous season must not be returned in its place,
+    /// otherwise the caller writes the episode to the wrong entry.
+    /// </summary>
+    [Test]
+    public async Task FailToGetSpecificSeasonWhenSequelFetchFails() {
+        int animeId = 1;
+        int secondSeasonAnimeId = 2;
+        int seasonNumber = 2;
+
+        _mockApiCallHelpers.Setup(s => s.GetAnime(animeId, It.IsAny<string>(), true)).Returns(Task.FromResult(new Anime {
+            Id = animeId,
+            RelatedAnime = new List<RelatedAnime> {
+                new RelatedAnime {
+                    Anime = new Anime {
+                        Id = secondSeasonAnimeId
+                    },
+                    RelationType = RelationType.Sequel
+                }
+            }
+        }));
+
+        _mockApiCallHelpers.Setup(s => s.GetAnime(secondSeasonAnimeId, It.IsAny<string>(), true)).Returns(Task.FromResult<Anime>(null));
+
+        Anime? result = await _updateProviderStatus.GetDifferentSeasonAnime(animeId, seasonNumber);
+
         Assert.IsNull(result);
     }
 
