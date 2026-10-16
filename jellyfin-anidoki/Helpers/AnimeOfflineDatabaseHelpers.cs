@@ -18,7 +18,7 @@ namespace jellyfin_anidoki.Helpers {
                 if (Uri.TryCreate(customArmServerBaseUrl, UriKind.Absolute, out Uri baseUri) && (baseUri.Scheme == Uri.UriSchemeHttp || baseUri.Scheme == Uri.UriSchemeHttps)) {
                     baseUrl = baseUri.AbsoluteUri.TrimEnd('/');
                 } else {
-                    logger.LogWarning($"ARM server base URL ({customArmServerBaseUrl}) could not be parsed. Confirm the URL is valid. Falling back to public API...");
+                    logger.LogWarning("ARM server base URL ({CustomArmServerBaseUrl}) could not be parsed. Confirm the URL is valid. Falling back to public API...", customArmServerBaseUrl);
                 }
             }
 
@@ -37,9 +37,9 @@ namespace jellyfin_anidoki.Helpers {
             // object when the offline database has the entry but not yet the
             // cross-references. Those are very different situations, so the raw
             // response is logged and each case is reported separately below.
-            logger.LogDebug($"[anidoki-diag] ARM {(int)response.StatusCode} for {source.ToString().ToLower()}={metadataId}, body: {(streamText.Length > 400 ? streamText.Substring(0, 400) + "..." : streamText)}");
+            logger.LogDebug("[anidoki-diag] ARM {StatusCode} for {Source}={MetadataId}, body: {Body}", (int)response.StatusCode, source.ToString().ToLower(), metadataId, (streamText.Length > 400 ? streamText.Substring(0, 400) + "..." : streamText));
             if (!response.IsSuccessStatusCode) {
-                logger.LogWarning($"ARM server returned {(int)response.StatusCode}; treating as no result");
+                logger.LogWarning("ARM server returned {StatusCode}; treating as no result", (int)response.StatusCode);
                 return null;
             }
 
@@ -47,14 +47,14 @@ namespace jellyfin_anidoki.Helpers {
             try {
                 deserializedResponse = JsonSerializer.Deserialize<OfflineDatabaseResponse>(streamText);
             } catch (JsonException e) {
-                logger.LogError($"Could not parse ARM server response: {e.Message}");
+                logger.LogError("Could not parse ARM server response: {ErrorMessage}", e.Message);
                 return null;
             }
 
             if (deserializedResponse == null)
                 return null;
 
-            logger.LogDebug($"[anidoki-diag] ARM parsed -> anidb={Fmt(deserializedResponse.AniDb)}, anilist={Fmt(deserializedResponse.Anilist)}, myanimelist={Fmt(deserializedResponse.MyAnimeList)}, kitsu={Fmt(deserializedResponse.Kitsu)}");
+            logger.LogDebug("[anidoki-diag] ARM parsed -> anidb={AniDb}, anilist={AniList}, myanimelist={MyAnimeList}, kitsu={Kitsu}", Fmt(deserializedResponse.AniDb), Fmt(deserializedResponse.Anilist), Fmt(deserializedResponse.MyAnimeList), Fmt(deserializedResponse.Kitsu));
 
             return deserializedResponse;
         }

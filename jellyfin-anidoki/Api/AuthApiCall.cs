@@ -101,7 +101,7 @@ namespace jellyfin_anidoki.Api {
                     }
                 } catch (Exception e) {
                     // no response arrived, so the call can't be treated as a success; a write may still have landed
-                    _logger.LogError($"({provider}) {callType} {url} failed before a response arrived: {e.Message}");
+                    _logger.LogError("({Provider}) {CallType} {Url} failed before a response arrived: {ErrorMessage}", provider, callType, url, e.Message);
                     return null;
                 }
 
@@ -117,7 +117,7 @@ namespace jellyfin_anidoki.Api {
                             try {
                                 newAuth = await new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer).GetToken(UserConfig.UserId, refreshToken: auth.RefreshToken);
                             } catch (Exception e) {
-                                _logger.LogError($"Could not re-authenticate: {e.Message}, please manually re-authenticate the user via the AniDoki configuration page");
+                                _logger.LogError("Could not re-authenticate: {ErrorMessage}, please manually re-authenticate the user via the AniDoki configuration page", e.Message);
                                 return null;
                             }
 
@@ -126,13 +126,13 @@ namespace jellyfin_anidoki.Api {
                             attempts++;
                             break;
                         case HttpStatusCode.TooManyRequests:
-                            _logger.LogWarning($"({provider}) API rate limit exceeded, retrying the API call again in {timeoutSeconds} seconds...");
+                            _logger.LogWarning("({Provider}) API rate limit exceeded, retrying the API call again in {TimeoutSeconds} seconds...", provider, timeoutSeconds);
                             MemoryCacheHelper.SetRateLimitingForProvider(provider, _memoryCache, TimeSpan.FromSeconds(timeoutSeconds));
                             timeoutSeconds *= TimeoutIncrementMultiplier;
                             attempts++;
                             continue;
                         default:
-                            _logger.LogError($"Unable to complete {provider} API call ({callType.ToString()} {url}), reason: {responseMessage.StatusCode}, content: \n{await responseMessage.Content.ReadAsStringAsync()}");
+                            _logger.LogError("Unable to complete {Provider} API call ({CallType} {Url}), reason: {StatusCode}, content: \n{ResponseBody}", provider, callType.ToString(), url, responseMessage.StatusCode, await responseMessage.Content.ReadAsStringAsync());
                             return null;
                     }
                 }

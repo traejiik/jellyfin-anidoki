@@ -437,7 +437,7 @@ namespace jellyfin_anidoki.Api {
                 }
 
                 if (!_libraryManager.UserHasAccessToLibraries(libraryIds, jellyfinUser)) {
-                    _logger.LogError($"User {jellyfinUser.Id} does not have access to requested libraries ({String.Join(", ", libraries)})");
+                    _logger.LogError("User {JellyfinUserId} does not have access to requested libraries ({Libraries})", jellyfinUser.Id, String.Join(", ", libraries));
                     return Forbid();
                 }
 
@@ -536,7 +536,7 @@ namespace jellyfin_anidoki.Api {
                     return StatusCode(500, "Could not authenticate");
             } catch (Exception error) {
                 // this endpoint is anonymous; provider responses stay in the server log
-                _logger.LogError($"({storedState.ApiName}) Could not complete sign-in: {error.Message}");
+                _logger.LogError("({ApiName}) Could not complete sign-in: {ErrorMessage}", storedState.ApiName, error.Message);
                 return StatusCode(500, "Could not authenticate; check the Jellyfin log for details");
             }
             if (!string.IsNullOrEmpty(Plugin.Instance?.PluginConfiguration.callbackRedirectUrl)) {
@@ -546,7 +546,7 @@ namespace jellyfin_anidoki.Api {
                 if (Uri.TryCreate(replacedCallbackRedirectUrl, UriKind.Absolute, out _)) {
                     return Redirect(replacedCallbackRedirectUrl);
                 } else {
-                    _logger.LogWarning($"Invalid redirect URL ({replacedCallbackRedirectUrl}), skipping redirect.");
+                    _logger.LogWarning("Invalid redirect URL ({RedirectUrl}), skipping redirect.", replacedCallbackRedirectUrl);
                 }
             }
 
@@ -685,7 +685,7 @@ namespace jellyfin_anidoki.Api {
             if (deauthenticateUser.success) {
                 return Ok();
             } else {
-                _logger.LogError($"Error while deauthenticating user {jellyfinUser.Id}: {deauthenticateUser.reason}");
+                _logger.LogError("Error while deauthenticating user {JellyfinUserId}: {Reason}", jellyfinUser.Id, deauthenticateUser.reason);
                 return StatusCode(500);
             }
         }

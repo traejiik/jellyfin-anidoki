@@ -87,7 +87,7 @@ namespace jellyfin_anidoki.Api {
             }
 
             string builtUrl = url.Build();
-            _logger.LogInformation($"Starting search for anime (GET {builtUrl})...");
+            _logger.LogDebug("Starting search for anime (GET {Url})...", builtUrl);
             var apiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Mal, AuthApiCall.CallType.GET, builtUrl);
             if (apiCall != null) {
                 StreamReader streamReader = new StreamReader(await apiCall.Content.ReadAsStreamAsync());
@@ -114,7 +114,7 @@ namespace jellyfin_anidoki.Api {
             }
 
             string builtUrl = url.Build();
-            _logger.LogInformation($"Retrieving an anime from MAL (GET {builtUrl})...");
+            _logger.LogDebug("Retrieving an anime from MAL (GET {Url})...", builtUrl);
             try {
                 var apiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Mal, AuthApiCall.CallType.GET, builtUrl);
                 if (apiCall != null) {
@@ -128,7 +128,7 @@ namespace jellyfin_anidoki.Api {
                     return null;
                 }
             } catch (Exception e) {
-                _logger.LogError(e.Message);
+                _logger.LogError("{ErrorMessage}", e.Message);
                 return null;
             }
         }
@@ -159,7 +159,7 @@ namespace jellyfin_anidoki.Api {
             string builtUrl = url.Build();
             UserAnimeList userAnimeList = new UserAnimeList { Data = new List<UserAnimeListData>() };
             while (builtUrl != null) {
-                _logger.LogInformation($"Getting user anime list (GET {builtUrl})...");
+                _logger.LogDebug("Getting user anime list (GET {Url})...", builtUrl);
                 var apiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Mal, AuthApiCall.CallType.GET, builtUrl);
                 if (apiCall != null) {
                     StreamReader streamReader = new StreamReader(await apiCall.Content.ReadAsStreamAsync());
@@ -179,7 +179,7 @@ namespace jellyfin_anidoki.Api {
 
                         if (userAnimeListPage.Paging.Next != null) {
                             builtUrl = userAnimeListPage.Paging.Next;
-                            _logger.LogInformation($"Additional pages found; waiting 2 seconds before calling again...");
+                            _logger.LogDebug("Additional pages found; waiting 2 seconds before calling again...");
                             Thread.Sleep(2000);
                         } else {
                             builtUrl = null;
@@ -241,7 +241,7 @@ namespace jellyfin_anidoki.Api {
                     StreamReader streamReader = new StreamReader(await apiCall.Content.ReadAsStreamAsync());
                     var options = new JsonSerializerOptions();
                     options.Converters.Add(new JsonStringEnumConverter());
-                    _logger.LogInformation($"Updating anime status (PUT {builtUrl})...");
+                    _logger.LogDebug("Updating anime status (PUT {Url})...", builtUrl);
                     var responseBody = await streamReader.ReadToEndAsync();
                     updateResponse = JsonSerializer.Deserialize<UpdateAnimeStatusResponse>(responseBody, options);
                     if (updateResponse != null) {
@@ -260,7 +260,7 @@ namespace jellyfin_anidoki.Api {
                     updateResponse = null;
                 }
             } catch (Exception e) {
-                _logger.LogError(e.Message);
+                _logger.LogError("{ErrorMessage}", e.Message);
                 updateResponse = null;
             }
 
