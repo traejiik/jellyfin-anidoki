@@ -330,38 +330,15 @@ namespace jellyfin_anidoki {
                                             // entry happens to have a Sequel relation.
                                             _logger.LogInformation($"({ApiName}) Watched episode passes total episodes in season! Checking for additional seasons/cours...");
                                             // either we have found the wrong series (highly unlikely) or it is a multi cour series/Jellyfin has grouped next season into the current.
-                                            int seasonEpisodeCounter = matchingAnime.NumEpisodes;
-                                            int totalEpisodesWatched = 0;
-                                            int seasonCounter = episode.Season.IndexNumber.Value;
                                             int episodeCount = episode.IndexNumber.Value;
-                                            Anime season = matchingAnime;
-                                            bool isRootSeason = false;
-                                            while (seasonEpisodeCounter < episodeCount) {
-                                                var nextSeason = await GetDifferentSeasonAnime(season.Id, seasonCounter + 1, alternativeId: season.AlternativeId);
-                                                if (nextSeason == null) {
-                                                    _logger.LogWarning($"({ApiName}) Could not find next season");
-                                                    if (matchingAnime.Status == AiringStatus.currently_airing && matchingAnime.NumEpisodes == 0) {
-                                                        _logger.LogWarning($"({ApiName}) Show is currently airing and API reports 0 episodes, going to use first season");
-                                                        isRootSeason = true;
-                                                    }
-
-                                                    found = true;
-                                                    break;
-                                                }
-
-                                                seasonEpisodeCounter += nextSeason.NumEpisodes;
-                                                seasonCounter++;
-                                                // complete the current season; we have surpassed it onto the next season/cour
-                                                totalEpisodesWatched += season.NumEpisodes;
-                                                await CheckUserListAnimeStatus(season.Id, season.NumEpisodes, overrideCheckRewatch: false, alternativeId: matchingAnime.AlternativeId);
-                                                season = nextSeason;
-                                            }
+                                            var (season, totalEpisodesWatched, isRootSeason) = await WalkCours(matchingAnime, episodeCount);
 
                                             if (!isRootSeason) {
                                                 if (season.Id != matchingAnime.Id) {
                                                     matchingAnime = season;
                                                     episodeNumber = episodeCount - totalEpisodesWatched;
                                                 } else {
+                                                    found = true;
                                                     break;
                                                 }
                                             }
@@ -913,6 +890,39 @@ namespace jellyfin_anidoki {
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Walk the sequel chain from the first cour until the cours cover the watched episode, completing each cour passed on the way.
+        /// </summary>
+        /// <param name="firstCour">The first cour of the series.</param>
+        /// <param name="episodeCount">The episode number as Jellyfin numbers it, counted across all cours.</param>
+        /// <returns>The cour reached, the episodes in the cours before it, and whether to fall back to the first cour.</returns>
+        internal async Task<(Anime season, int totalEpisodesWatched, bool isRootSeason)> WalkCours(Anime firstCour, int episodeCount) {
+            int seasonEpisodeCounter = firstCour.NumEpisodes;
+            int totalEpisodesWatched = 0;
+            Anime season = firstCour;
+            while (seasonEpisodeCounter < episodeCount) {
+                // season is already the current cour, so its sequel is always exactly one hop away
+                var nextSeason = await GetDifferentSeasonAnime(season.Id, 2, alternativeId: season.AlternativeId);
+                if (nextSeason == null) {
+                    _logger.LogWarning($"({ApiName}) Could not find next season");
+                    if (firstCour.Status == AiringStatus.currently_airing && firstCour.NumEpisodes == 0) {
+                        _logger.LogWarning($"({ApiName}) Show is currently airing and API reports 0 episodes, going to use first season");
+                        return (season, totalEpisodesWatched, true);
+                    }
+
+                    break;
+                }
+
+                seasonEpisodeCounter += nextSeason.NumEpisodes;
+                // complete the current season; we have surpassed it onto the next season/cour
+                totalEpisodesWatched += season.NumEpisodes;
+                await CheckUserListAnimeStatus(season.Id, season.NumEpisodes, overrideCheckRewatch: false, alternativeId: firstCour.AlternativeId);
+                season = nextSeason;
+            }
+
+            return (season, totalEpisodesWatched, false);
         }
 
         private async Task<Anime> GetOva(int animeId, string episodeName, string? alternativeId = null) {

@@ -411,6 +411,48 @@ public class GeneralFlowTests {
         Assert.IsNull(result);
     }
 
+    /// <summary>
+    /// A multi-cour series grouped into one Jellyfin season must advance one sequel per cour. Episode 30 of four
+    /// 12-episode cours belongs to cour 3; overshooting to cour 4 writes progress to the wrong entry.
+    /// </summary>
+    [Test]
+    public async Task WalkCoursAdvancesOneSequelPerCour() {
+        const int coursEpisodes = 12;
+        var cours = new List<Anime>();
+        for (int courId = 1; courId <= 4; courId++) {
+            int id = courId;
+            var cour = new Anime {
+                Id = id,
+                Title = $"cour {id}",
+                NumEpisodes = coursEpisodes,
+                MyListStatus = new MyListStatus { Status = Status.Watching },
+                RelatedAnime = id < 4
+                    ? new List<RelatedAnime> { new RelatedAnime { Anime = new Anime { Id = id + 1 }, RelationType = RelationType.Sequel } }
+                    : new List<RelatedAnime>()
+            };
+            cours.Add(cour);
+            _mockApiCallHelpers.Setup(s => s.GetAnime(id, It.IsAny<string>(), It.IsAny<bool>())).ReturnsAsync(cour);
+        }
+
+        _mockApiCallHelpers.Setup(s => s.UpdateAnime(It.IsAny<int>(), It.IsAny<int>(),
+            It.IsAny<Status>(), It.IsAny<bool?>(), It.IsAny<int?>(),
+            It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string>(),
+            It.IsAny<AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse>(), It.IsAny<bool?>())).ReturnsAsync(new UpdateAnimeStatusResponse());
+
+        var (season, totalEpisodesWatched, isRootSeason) = await _updateProviderStatus.WalkCours(cours[0], 30);
+
+        Assert.That(season.Id, Is.EqualTo(3));
+        Assert.That(totalEpisodesWatched, Is.EqualTo(2 * coursEpisodes));
+        Assert.That(isRootSeason, Is.False);
+        foreach (var completedCour in new[] { 1, 2 }) {
+            _mockApiCallHelpers.Verify(s => s.UpdateAnime(completedCour, coursEpisodes,
+                Status.Completed, It.IsAny<bool?>(), It.IsAny<int?>(),
+                It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string>(),
+                It.IsAny<AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse>(), It.IsAny<bool?>()), Times.Once);
+        }
+        _mockApiCallHelpers.Verify(s => s.GetAnime(4, It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+    }
+
     [TestCase(false, false, 1)]
     [TestCase(true, false, 2)]
     [TestCase(true, true, 2)]
