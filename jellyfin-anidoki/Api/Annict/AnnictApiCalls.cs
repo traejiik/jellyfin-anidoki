@@ -167,7 +167,7 @@ namespace jellyfin_anidoki.Api.Annict {
 
             return null;
         }
-        
+
         /// <summary>
         /// Get a singular anime.
         /// </summary>

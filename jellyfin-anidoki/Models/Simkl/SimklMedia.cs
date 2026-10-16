@@ -62,8 +62,7 @@ public class Relation : Show {
     [JsonPropertyName("is_direct")] public bool IsDirect { get; set; }
 }
 
-public class Show
-{
+public class Show {
     [JsonPropertyName("title")]
     public string Title { get; set; }
     [JsonPropertyName("ids")]
@@ -74,8 +73,7 @@ public class SimklIdLookupMedia : SimklBaseMedia {
     [JsonPropertyName("ids")] public SimklBaseExtendedIds Ids { get; set; }
 }
 
-public class SimklUpdateBody
-{
+public class SimklUpdateBody {
     [JsonPropertyName("movies")]
     public List<UpdateBodyShow>? Movies { get; set; }
 
@@ -83,8 +81,7 @@ public class SimklUpdateBody
     public List<UpdateBodyShow>? Shows { get; set; }
 }
 
-public class UpdateBodyShow : Show
-{
+public class UpdateBodyShow : Show {
     [JsonPropertyName("episodes")]
     public List<UpdateEpisode> Episodes { get; set; }
 }

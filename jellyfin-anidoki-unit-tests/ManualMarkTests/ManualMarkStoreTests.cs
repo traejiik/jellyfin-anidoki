@@ -7,10 +7,8 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests.ManualMarkTests;
 
 [TestFixture]
-public class ManualMarkStoreTests
-{
-    private sealed class Clock : TimeProvider
-    {
+public class ManualMarkStoreTests {
+    private sealed class Clock : TimeProvider {
         public DateTimeOffset Now = DateTimeOffset.UtcNow;
         public override DateTimeOffset GetUtcNow() => Now;
     }
@@ -18,15 +16,14 @@ public class ManualMarkStoreTests
     private ManualMarkStore _store = null!;
     private ManualMarkRequest _request = null!;
     [SetUp]
-    public void Setup()
-    {
-        _clock = new(); _store = new(_clock);
+    public void Setup() {
+        _clock = new();
+        _store = new(_clock);
         _request = new(Guid.NewGuid(), Guid.NewGuid(), "fixture-identity", Guid.NewGuid(),
             "Fixture series", 12, "Fixture episode", _clock.Now, "fixture-account");
     }
     [Test]
-    public void TerminalCompletionKeepsImmutableRecoveryStateAndCannotBeClaimedAgain()
-    {
+    public void TerminalCompletionKeepsImmutableRecoveryStateAndCannotBeClaimedAgain() {
         var pending = _store.CreateOrGet(_request)!;
         _store.TryQueue(_request.UserId, _request.AuthenticationKey, pending.OperationId, pending.Revision);
         _store.TryBegin(pending.OperationId, out _);
@@ -43,15 +40,13 @@ public class ManualMarkStoreTests
         Assert.That(_store.Read(_request.UserId, _request.AuthenticationKey), Is.Empty);
     }
     [Test]
-    public void GlobalCapacityDoesNotLoseExistingPendingOperations()
-    {
+    public void GlobalCapacityDoesNotLoseExistingPendingOperations() {
         for (var i = 0; i < 1000; i++)
             Assert.That(_store.CreateOrGet(_request with { OperationId = Guid.NewGuid(), UserId = Guid.NewGuid() }), Is.Not.Null);
         Assert.That(_store.CreateOrGet(_request), Is.Null);
     }
     [Test]
-    public void DisableCancelsPendingAndQueuedButDoesNotClaimToUndoSending()
-    {
+    public void DisableCancelsPendingAndQueuedButDoesNotClaimToUndoSending() {
         var pending = _store.CreateOrGet(_request)!;
         var other = _store.CreateOrGet(_request with { OperationId = Guid.NewGuid(), SourceItemId = Guid.NewGuid() })!;
         _store.TryQueue(_request.UserId, _request.AuthenticationKey, other.OperationId, other.Revision);
@@ -61,8 +56,7 @@ public class ManualMarkStoreTests
         Assert.That(_store.Read(_request.UserId, _request.AuthenticationKey, other.OperationId)!.State, Is.EqualTo(ManualMarkState.Sending));
     }
     [Test]
-    public void RejectedQueueReservationRestoresPendingAndPlaybackSupersedesQueuedWork()
-    {
+    public void RejectedQueueReservationRestoresPendingAndPlaybackSupersedesQueuedWork() {
         var pending = _store.CreateOrGet(_request)!;
         _store.TryQueue(_request.UserId, _request.AuthenticationKey, pending.OperationId, pending.Revision);
         _store.RestorePending(pending.OperationId);
@@ -74,23 +68,20 @@ public class ManualMarkStoreTests
         Assert.That(_store.TryBegin(restored.OperationId, out _), Is.False);
     }
     [Test]
-    public void UnsupportedMarkNoticeIsTerminalAndNeverQueuesAWrite()
-    {
+    public void UnsupportedMarkNoticeIsTerminalAndNeverQueuesAWrite() {
         var notice = _store.RecordSuppressed(_request, "Use manual sync.");
         Assert.That(notice!.State, Is.EqualTo(ManualMarkState.Skipped));
         Assert.That(_store.TryQueue(_request.UserId, _request.AuthenticationKey, notice.OperationId, notice.Revision), Is.False);
     }
     [Test]
-    public void RepeatedConfirmQueuesOnlyOnce()
-    {
+    public void RepeatedConfirmQueuesOnlyOnce() {
         var pending = _store.CreateOrGet(_request)!;
         Assert.That(_store.TryQueue(_request.UserId, _request.AuthenticationKey, pending.OperationId, pending.Revision), Is.True);
         Assert.That(_store.TryQueue(_request.UserId, _request.AuthenticationKey, pending.OperationId, pending.Revision), Is.False);
         Assert.That(_store.Read(_request.UserId, _request.AuthenticationKey).Single().State, Is.EqualTo(ManualMarkState.Queued));
     }
     [Test]
-    public void ForeignIdentityAndStaleRevisionCannotConfirm()
-    {
+    public void ForeignIdentityAndStaleRevisionCannotConfirm() {
         var pending = _store.CreateOrGet(_request)!;
         Assert.That(_store.TryQueue(Guid.NewGuid(), _request.AuthenticationKey, pending.OperationId, pending.Revision), Is.False);
         Assert.That(_store.TryQueue(_request.UserId, "foreign", pending.OperationId, pending.Revision), Is.False);
@@ -98,16 +89,14 @@ public class ManualMarkStoreTests
         Assert.That(_store.Read(Guid.NewGuid(), _request.AuthenticationKey), Is.Empty);
     }
     [Test]
-    public void DuplicateTransitionUsesExistingOperationButUnmarkAndRemarkGetsNewOperation()
-    {
+    public void DuplicateTransitionUsesExistingOperationButUnmarkAndRemarkGetsNewOperation() {
         var first = _store.CreateOrGet(_request)!;
         Assert.That(_store.CreateOrGet(_request with { OperationId = Guid.NewGuid() })!.OperationId, Is.EqualTo(first.OperationId));
         _store.CancelForSource(_request.UserId, _request.SourceItemId);
         Assert.That(_store.CreateOrGet(_request with { OperationId = Guid.NewGuid() })!.OperationId, Is.Not.EqualTo(first.OperationId));
     }
     [Test]
-    public void QueuedUnmarkPreventsClaim()
-    {
+    public void QueuedUnmarkPreventsClaim() {
         var pending = _store.CreateOrGet(_request)!;
         _store.TryQueue(_request.UserId, _request.AuthenticationKey, pending.OperationId, pending.Revision);
         _store.CancelForSource(_request.UserId, _request.SourceItemId);
@@ -115,8 +104,7 @@ public class ManualMarkStoreTests
         Assert.That(_store.Read(_request.UserId, _request.AuthenticationKey).Single().State, Is.EqualTo(ManualMarkState.Cancelled));
     }
     [Test]
-    public void SendingUnmarkRetainsActualStateAndExplainsNoRollback()
-    {
+    public void SendingUnmarkRetainsActualStateAndExplainsNoRollback() {
         var pending = _store.CreateOrGet(_request)!;
         _store.TryQueue(_request.UserId, _request.AuthenticationKey, pending.OperationId, pending.Revision);
         Assert.That(_store.TryBegin(pending.OperationId, out _), Is.True);
@@ -126,8 +114,7 @@ public class ManualMarkStoreTests
         Assert.That(sending.Reason, Does.Contain("cannot undo"));
     }
     [Test]
-    public void ExpiryStopsQueuedWorkAndTerminalRecoveryIsBounded()
-    {
+    public void ExpiryStopsQueuedWorkAndTerminalRecoveryIsBounded() {
         var pending = _store.CreateOrGet(_request)!;
         _store.TryQueue(_request.UserId, _request.AuthenticationKey, pending.OperationId, pending.Revision);
         _clock.Now += TimeSpan.FromMinutes(2);
@@ -137,23 +124,21 @@ public class ManualMarkStoreTests
         Assert.That(_store.Read(_request.UserId, _request.AuthenticationKey), Is.Empty);
     }
     [Test]
-    public void CapacityDoesNotEvictPendingCommands()
-    {
-        for (var i = 0; i < 10; i++) Assert.That(_store.CreateOrGet(_request with { OperationId = Guid.NewGuid(), SourceItemId = Guid.NewGuid() }), Is.Not.Null);
+    public void CapacityDoesNotEvictPendingCommands() {
+        for (var i = 0; i < 10; i++)
+            Assert.That(_store.CreateOrGet(_request with { OperationId = Guid.NewGuid(), SourceItemId = Guid.NewGuid() }), Is.Not.Null);
         Assert.That(_store.CreateOrGet(_request with { OperationId = Guid.NewGuid(), SourceItemId = Guid.NewGuid() }), Is.Null);
         Assert.That(_store.Read(_request.UserId, _request.AuthenticationKey), Has.Length.EqualTo(10));
     }
     [Test]
-    public void ConcurrentClaimsExecuteOnlyOnce()
-    {
+    public void ConcurrentClaimsExecuteOnlyOnce() {
         var pending = _store.CreateOrGet(_request)!;
         _store.TryQueue(_request.UserId, _request.AuthenticationKey, pending.OperationId, pending.Revision);
         var claims = Enumerable.Range(0, 20).AsParallel().Select(_ => _store.TryBegin(pending.OperationId, out var request)).ToArray();
         Assert.That(claims.Count(x => x), Is.EqualTo(1));
     }
     [Test]
-    public void DismissQueuedOperationAndDisableSettingNeverCreateSendingWork()
-    {
+    public void DismissQueuedOperationAndDisableSettingNeverCreateSendingWork() {
         var pending = _store.CreateOrGet(_request)!;
         _store.TryQueue(_request.UserId, _request.AuthenticationKey, pending.OperationId, pending.Revision);
         var queued = _store.Read(_request.UserId, _request.AuthenticationKey).Single();

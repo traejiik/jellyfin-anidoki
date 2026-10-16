@@ -9,8 +9,11 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests.NotificationTests;
 
 public class PlaybackOutcomeCollectorTests {
-    private static Anime Target(string title = "Mapped season") => new() { Id = 10, Title = title,
-        MyListStatus = new MyListStatus { NumEpisodesWatched = 0, Status = Status.Watching } };
+    private static Anime Target(string title = "Mapped season") => new() {
+        Id = 10,
+        Title = title,
+        MyListStatus = new MyListStatus { NumEpisodesWatched = 0, Status = Status.Watching }
+    };
     private static UpdateAnimeStatusResponse Receipt(int progress = 1, Status status = Status.Watching) =>
         new() { NumEpisodesWatched = progress, Status = status };
 

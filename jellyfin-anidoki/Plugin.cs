@@ -24,19 +24,15 @@ namespace jellyfin_anidoki {
         public Plugin(IApplicationPaths applicationPaths,
             IServerConfigurationManager serverConfigurationManager,
             IXmlSerializer xmlSerializer,
-            ILogger<Plugin> logger) : base(applicationPaths, xmlSerializer)
-        {
+            ILogger<Plugin> logger) : base(applicationPaths, xmlSerializer) {
             _logger = logger;
             Instance = this;
-            try
-            {
+            try {
                 if (PluginConfiguration.enableUserPages)
                     CheckPluginPages(applicationPaths, serverConfigurationManager);
                 else
                     RemovePluginPages(applicationPaths);
-            }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
-            {
+            } catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException) {
                 _logger.LogWarning(error, "Could not initialize AniDoki user-page registration");
             }
         }
@@ -47,65 +43,54 @@ namespace jellyfin_anidoki {
         public PluginConfiguration PluginConfiguration => Configuration;
         public static Plugin? Instance { get; private set; }
 
-        public void CheckPluginPages(IApplicationPaths applicationPaths, IServerConfigurationManager serverConfigurationManager)
-        {
+        public void CheckPluginPages(IApplicationPaths applicationPaths, IServerConfigurationManager serverConfigurationManager) {
             int pluginPageConfigVersion = 2;
             string pluginPagesConfig = Path.Combine(applicationPaths.PluginConfigurationsPath, "Jellyfin.Plugin.PluginPages", "config.json");
-        
+
             JObject config = new JObject();
-            if (!File.Exists(pluginPagesConfig))
-            {
+            if (!File.Exists(pluginPagesConfig)) {
                 FileInfo info = new FileInfo(pluginPagesConfig);
                 info.Directory?.Create();
-            }
-            else
-            {
+            } else {
                 config = JObject.Parse(File.ReadAllText(pluginPagesConfig));
             }
 
-            if (!config.ContainsKey("pages"))
-            {
+            if (!config.ContainsKey("pages")) {
                 config.Add("pages", new JArray());
             }
 
             if (config["pages"] is not JArray pages || pages.Any(page =>
                 page is not JObject entry ||
-                (entry["Id"] != null && entry["Id"]!.Type != JTokenType.String)))
-            {
+                (entry["Id"] != null && entry["Id"]!.Type != JTokenType.String))) {
                 throw new JsonException("Plugin Pages configuration contains an invalid pages collection or page ID.");
             }
 
             JObject? hssPageConfig = config.Value<JArray>("pages")!.FirstOrDefault(x =>
                 x.Value<string>("Id") == typeof(Plugin).Namespace) as JObject;
 
-            if (hssPageConfig != null)
-            {
+            if (hssPageConfig != null) {
                 var version = hssPageConfig["Version"];
                 if (version != null && version.Type != JTokenType.Null &&
-                    !int.TryParse(version.ToString(), out _))
-                {
+                    !int.TryParse(version.ToString(), out _)) {
                     throw new JsonException("AniDoki's Plugin Pages registration contains an invalid version.");
                 }
 
-                if ((hssPageConfig.Value<int?>("Version") ?? 0) < pluginPageConfigVersion)
-                {
+                if ((hssPageConfig.Value<int?>("Version") ?? 0) < pluginPageConfigVersion) {
                     config.Value<JArray>("pages")!.Remove(hssPageConfig);
                 }
             }
-            
-            if (!config.Value<JArray>("pages")!.Any(x => x.Value<string>("Id") == typeof(Plugin).Namespace))
-            {
+
+            if (!config.Value<JArray>("pages")!.Any(x => x.Value<string>("Id") == typeof(Plugin).Namespace)) {
                 Assembly? pluginPagesAssembly = AssemblyLoadContext.All.SelectMany(x => x.Assemblies).FirstOrDefault(x => x.FullName?.Contains("Jellyfin.Plugin.PluginPages") ?? false);
-                
+
                 Version earliestVersionWithSubUrls = new Version("2.4.1.0");
                 bool supportsSubUrls = pluginPagesAssembly != null && pluginPagesAssembly.GetName().Version >= earliestVersionWithSubUrls;
-                
+
                 string rootUrl = serverConfigurationManager.GetNetworkConfiguration().BaseUrl.TrimStart('/').Trim();
-                if (!string.IsNullOrEmpty(rootUrl))
-                {
+                if (!string.IsNullOrEmpty(rootUrl)) {
                     rootUrl = $"/{rootUrl}";
                 }
-                
+
                 config.Value<JArray>("pages")!.Add(new JObject
                 {
                     { "Id", typeof(Plugin).Namespace },
@@ -114,24 +99,21 @@ namespace jellyfin_anidoki {
                     { "Icon", "sync" },
                     { "Version", pluginPageConfigVersion }
                 });
-        
+
                 File.WriteAllText(pluginPagesConfig, config.ToString(Formatting.Indented));
             }
         }
 
-        public void RemovePluginPages(IApplicationPaths applicationPaths)
-        {
+        public void RemovePluginPages(IApplicationPaths applicationPaths) {
             string path = Path.Combine(applicationPaths.PluginConfigurationsPath,
                 "Jellyfin.Plugin.PluginPages", "config.json");
             PluginPagesCleanup.Remove(path, typeof(Plugin).Namespace!, _logger,
                 PluginPagesRuntime.RemovePage);
         }
 
-        public override void OnUninstalling()
-        {
+        public override void OnUninstalling() {
             RemovePluginPages(ApplicationPaths);
-            try { Notifications.NotificationWebIntegration.Remove(); }
-            catch (Exception) { _logger.LogWarning("Could not remove AniDoki notification bootstrap on uninstall."); }
+            try { Notifications.NotificationWebIntegration.Remove(); } catch (Exception) { _logger.LogWarning("Could not remove AniDoki notification bootstrap on uninstall."); }
             base.OnUninstalling();
         }
 
@@ -181,8 +163,7 @@ namespace jellyfin_anidoki {
         /// Get the views that the plugin serves.
         /// </summary>
         /// <returns>Array of <see cref="PluginPageInfo"/>.</returns>
-        public IEnumerable<PluginPageInfo> GetViews()
-        {
+        public IEnumerable<PluginPageInfo> GetViews() {
             return new[]
             {
                 new PluginPageInfo {

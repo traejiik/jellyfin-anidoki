@@ -8,8 +8,7 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests.HelperTests;
 
 [TestFixture]
-public class UserConfigDefaultsTests
-{
+public class UserConfigDefaultsTests {
     [TestCase(typeof(UserConfig), false, null, true)]
     [TestCase(typeof(UserConfig), false, true, true)]
     [TestCase(typeof(UserConfig), false, false, false)]
@@ -22,8 +21,7 @@ public class UserConfigDefaultsTests
     [TestCase(typeof(UserEditableConfig), true, null, true)]
     [TestCase(typeof(UserEditableConfig), true, true, true)]
     [TestCase(typeof(UserEditableConfig), true, false, false)]
-    public void NotificationPreferenceMigrationRetainsDefaultAndExplicitValues(Type model, bool xml, bool? savedValue, bool expected)
-    {
+    public void NotificationPreferenceMigrationRetainsDefaultAndExplicitValues(Type model, bool xml, bool? savedValue, bool expected) {
         object result;
         if (xml) {
             var field = savedValue.HasValue ? $"<ShowLogNotifications>{savedValue.Value.ToString().ToLowerInvariant()}</ShowLogNotifications>" : string.Empty;
@@ -40,8 +38,7 @@ public class UserConfigDefaultsTests
     }
 
     [Test]
-    public void NewStoredUserRetainsExistingPreferenceDefaults()
-    {
+    public void NewStoredUserRetainsExistingPreferenceDefaults() {
         var config = new UserConfig();
         Assert.Multiple(() => {
             Assert.That(config.PlanToWatchOnly, Is.True);

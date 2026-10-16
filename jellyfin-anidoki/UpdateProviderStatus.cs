@@ -50,7 +50,7 @@ namespace jellyfin_anidoki {
 
         internal ApiName ApiName;
         private readonly ILoggerFactory _loggerFactory;
-        private AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse _apiIds = new ();
+        private AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse _apiIds = new();
 
         internal AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ResolvedIds => _apiIds;
 
@@ -80,9 +80,9 @@ namespace jellyfin_anidoki {
         }
 
         internal async Task UpdateInsideGate(BaseItem e, Guid userId, bool playedToCompletion, PlaybackOutcomeCollector? collector, SyncUpdateSource source) {
-            _outcomeCollector = collector; _source = source;
-            try { await UpdateCore(e, userId, playedToCompletion); }
-            finally { _outcomeCollector = null; _source = SyncUpdateSource.Playback; }
+            _outcomeCollector = collector;
+            _source = source;
+            try { await UpdateCore(e, userId, playedToCompletion); } finally { _outcomeCollector = null; _source = SyncUpdateSource.Playback; }
         }
 
         private async Task UpdateCore(BaseItem e, Guid userId, bool playedToCompletion) {
@@ -248,12 +248,14 @@ namespace jellyfin_anidoki {
                         case ApiName.Shikimori:
                             string? shikimoriAppName = ConfigHelper.GetShikimoriAppName(_logger);
                             // continue, not return: a missing app name must not skip the providers after it
-                            if (string.IsNullOrEmpty(shikimoriAppName)) continue;
+                            if (string.IsNullOrEmpty(shikimoriAppName))
+                                continue;
                             ApiCallHelpers = new ApiCallHelpers(shikimoriApiCalls: new ShikimoriApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, new Dictionary<string, string> { { "User-Agent", shikimoriAppName } }, _userConfig));
                             break;
                         case ApiName.Simkl:
                             string? simklClientId = ConfigHelper.GetSimklClientId(_logger);
-                            if (string.IsNullOrEmpty(simklClientId)) continue;
+                            if (string.IsNullOrEmpty(simklClientId))
+                                continue;
                             ApiCallHelpers = new ApiCallHelpers(simklApiCalls: new SimklApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, new Dictionary<string, string> { { "simkl-api-key", simklClientId } }, _userConfig));
                             if (((_apiIds.MyAnimeList != null && _apiIds.MyAnimeList != 0) ||
                                  (_apiIds.Anilist != null && _apiIds.Anilist != 0) ||
@@ -401,14 +403,16 @@ namespace jellyfin_anidoki {
             var candidateTitles = new List<string>();
             if (_animeType == typeof(Episode)) {
                 candidateTitles.Add(episode.SeriesName);
-                if (episode.Series?.OriginalTitle != null) candidateTitles.Add(episode.Series.OriginalTitle);
+                if (episode.Series?.OriginalTitle != null)
+                    candidateTitles.Add(episode.Series.OriginalTitle);
             } else {
                 candidateTitles.Add(movie.Name);
                 candidateTitles.Add(movie.OriginalTitle);
             }
 
             foreach (var title in candidateTitles) {
-                if (string.IsNullOrWhiteSpace(title)) continue;
+                if (string.IsNullOrWhiteSpace(title))
+                    continue;
                 if (CompareStrings(anime.Title, title) ||
                     (anime.AlternativeTitles.En != null && CompareStrings(anime.AlternativeTitles.En, title)) ||
                     (anime.AlternativeTitles.Ja != null && CompareStrings(anime.AlternativeTitles.Ja, title)) ||
@@ -840,7 +844,8 @@ namespace jellyfin_anidoki {
             }
             Task<UpdateAnimeStatusResponse?> Write() => ApiCallHelpers.UpdateAnime(target.Id, numberOfWatchedEpisodes,
                 status, isRewatching, numberOfTimesRewatched, startDate, endDate, alternativeId, ids, isShow);
-            if (collector == null) return Write();
+            if (collector == null)
+                return Write();
             bool meaningfulChange = target.MyListStatus == null || status != target.MyListStatus.Status ||
                 (ApiName != ApiName.Annict && (numberOfWatchedEpisodes != target.MyListStatus.NumEpisodesWatched ||
                  (isRewatching.HasValue && isRewatching != target.MyListStatus.IsRewatching) ||
@@ -901,7 +906,8 @@ namespace jellyfin_anidoki {
             Anime season = firstCour;
             while (seasonEpisodeCounter < episodeCount) {
                 // a cour of unknown length (usually still airing) can't be measured past, so it is the best target
-                if (season.NumEpisodes == 0) break;
+                if (season.NumEpisodes == 0)
+                    break;
                 // season is already the current cour, so its sequel is always exactly one hop away
                 var nextSeason = await GetDifferentSeasonAnime(season.Id, 2, alternativeId: season.AlternativeId);
                 if (nextSeason == null) {

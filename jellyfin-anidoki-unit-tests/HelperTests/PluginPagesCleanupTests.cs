@@ -8,15 +8,13 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests.HelperTests;
 
 [TestFixture]
-public class PluginPagesCleanupTests
-{
+public class PluginPagesCleanupTests {
     private string _directory = null!;
     private string _path = null!;
     private const string Owner = "jellyfin_anidoki";
 
     [SetUp]
-    public void SetUp()
-    {
+    public void SetUp() {
         _directory = Path.Combine(Path.GetTempPath(), "anidoki-pages-" + Guid.NewGuid());
         Directory.CreateDirectory(_directory);
         _path = Path.Combine(_directory, "config.json");
@@ -29,8 +27,7 @@ public class PluginPagesCleanupTests
         PluginPagesCleanup.Remove(_path, Owner, NullLogger.Instance, runtime);
 
     [Test]
-    public void RemovesAllOwnedEntriesAndPreservesOtherPagesAndProperties()
-    {
+    public void RemovesAllOwnedEntriesAndPreservesOtherPagesAndProperties() {
         File.WriteAllText(_path, """
         {"otherSetting":42,"pages":[
           {"Id":"jellyfin_anidoki","Url":"/AniDoki/settings"},
@@ -55,23 +52,20 @@ public class PluginPagesCleanupTests
     [TestCase("{\"pages\":[{\"Id\":\"other.plugin\"}],\"keep\":true}")]
     [TestCase("{\"pages\":[{\"Id\":{\"nested\":true}},{\"id\":[\"jellyfin_anidoki\"]}],\"keep\":true}")]
     [TestCase("{\"pages\":[{\"Id\":\"jellyfin_anidoki.other\"}],\"keep\":true}")]
-    public void DoesNotRewriteMalformedOrUnrelatedConfiguration(string original)
-    {
+    public void DoesNotRewriteMalformedOrUnrelatedConfiguration(string original) {
         File.WriteAllText(_path, original);
         Assert.DoesNotThrow(() => Remove());
         Assert.That(File.ReadAllText(_path), Is.EqualTo(original));
     }
 
     [Test]
-    public void MissingConfigurationDoesNotCreateAFile()
-    {
+    public void MissingConfigurationDoesNotCreateAFile() {
         Remove();
         Assert.That(File.Exists(_path), Is.False);
     }
 
     [Test]
-    public void RuntimeFailureDoesNotPreventStoredCleanup()
-    {
+    public void RuntimeFailureDoesNotPreventStoredCleanup() {
         File.WriteAllText(_path, "{\"pages\":[{\"Id\":\"jellyfin_anidoki\"}]}");
         Remove(_ => throw new InvalidOperationException("Runtime integration unavailable"));
         Assert.That(((JArray)JObject.Parse(File.ReadAllText(_path))["pages"]!).Count,
@@ -79,8 +73,7 @@ public class PluginPagesCleanupTests
     }
 
     [Test]
-    public void MalformedStoredConfigurationDoesNotPreventRuntimeCleanup()
-    {
+    public void MalformedStoredConfigurationDoesNotPreventRuntimeCleanup() {
         File.WriteAllText(_path, "not json");
         string? removed = null;
         Remove(id => removed = id);
@@ -89,8 +82,7 @@ public class PluginPagesCleanupTests
     }
 
     [Test]
-    public void RepeatedCleanupIsHarmless()
-    {
+    public void RepeatedCleanupIsHarmless() {
         File.WriteAllText(_path, "{\"pages\":[{\"Id\":\"jellyfin_anidoki\"}]}");
         Remove();
         string first = File.ReadAllText(_path);

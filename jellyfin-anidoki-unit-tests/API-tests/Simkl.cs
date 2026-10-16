@@ -32,7 +32,7 @@ public class Simkl {
         MemoryCache memoryCache = new MemoryCache(new MemoryCacheOptions());
         Mock<IAsyncDelayer> mockDelayer = new Mock<IAsyncDelayer>();
         _simklApiCalls = new SimklApiCalls(_httpClientFactory, mockLoggerFactory, mockServerApplicationHost.Object, mockHttpContextAccessor.Object, memoryCache, mockDelayer.Object, new Dictionary<string, string> { { "simkl-api-key", String.Empty } }, new UserConfig {
-            UserApiAuth = new []{new UserApiAuth {
+            UserApiAuth = new[]{new UserApiAuth {
                 Name = ApiName.Simkl,
                 AccessToken = String.Empty
             }}
@@ -68,7 +68,7 @@ public class Simkl {
                 })
             }
         });
-        
+
         var result = await _simklApiCalls.SearchAnime("monogatari");
 
         Assert.IsNotNull(result);
@@ -88,7 +88,7 @@ public class Simkl {
                 })
             }
         });
-        
+
         var result = await _simklApiCalls.GetAnime(animeId);
 
         Assert.IsNotNull(result?.Title);
@@ -97,7 +97,7 @@ public class Simkl {
     [Test]
     public async Task TestGetUserList() {
         SimklStatus status = SimklStatus.plantowatch;
-        
+
         Setup(new List<Helpers.HttpCall> {
             new() {
                 RequestMethod = HttpMethod.Get,
@@ -106,13 +106,13 @@ public class Simkl {
                 ResponseContent = JsonSerializer.Serialize(new SimklUserList {
                     Entry = new List<SimklUserEntry> {
                         new () {
-                            
+
                         }
                     }
                 })
             }
         });
-        
+
         var result = await _simklApiCalls.GetUserAnimeList(status);
 
         Assert.IsNotNull(result);
@@ -135,7 +135,7 @@ public class Simkl {
                 })
             }
         });
-        
+
         var result = await _simklApiCalls.GetAnimeByIdLookup(new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
             MyAnimeList = id
         }, title);
@@ -153,7 +153,7 @@ public class Simkl {
                 ResponseContent = "{\"added\":{\"shows\":0,\"movies\":0,\"episodes\":1,\"statuses\":[{\"request\":{\"ids\":{\"simkl\":45006}},\"response\":{\"status\":\"watching\"}}]},\"not_found\":{\"shows\":[],\"movies\":[],\"episodes\":[]}}"
             }
         });
-        
+
         var result = await _simklApiCalls.UpdateAnime(45006, SimklStatus.plantowatch, true, new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
             AniDb = 6327
         }, 10);

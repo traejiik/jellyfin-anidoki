@@ -38,7 +38,7 @@ namespace jellyfin_anidoki.Helpers {
 
             return call is { IsSuccessStatusCode: true } ? call : null;
         }
-        
+
         public static async Task<T> DeserializeRequest<T>(HttpClient httpClient, ILogger logger, ApiName provider, IMemoryCache memoryCache, IAsyncDelayer delayer, string query, Dictionary<string, object> variables) {
             var response = await Request(httpClient, logger, provider, memoryCache, delayer, query, variables);
             if (response != null) {

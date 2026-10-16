@@ -15,15 +15,13 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests;
 
 [TestFixture, NonParallelizable]
-public class PluginIntegrationTests
-{
+public class PluginIntegrationTests {
     private string _directory = null!;
     private string _pagesPath = null!;
     private Mock<IApplicationPaths> _paths = null!;
 
     [SetUp]
-    public void SetUp()
-    {
+    public void SetUp() {
         _directory = Path.Combine(Path.GetTempPath(), "anidoki-plugin-" + Guid.NewGuid());
         Directory.CreateDirectory(_directory);
         _pagesPath = Path.Combine(_directory, "Jellyfin.Plugin.PluginPages", "config.json");
@@ -36,8 +34,7 @@ public class PluginIntegrationTests
     [TearDown]
     public void TearDown() => Directory.Delete(_directory, true);
 
-    private Plugin CreatePlugin(bool enableUserPages = false)
-    {
+    private Plugin CreatePlugin(bool enableUserPages = false) {
         var xml = new Mock<IXmlSerializer>();
         xml.Setup(s => s.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>()))
             .Returns(new PluginConfiguration { enableUserPages = enableUserPages });
@@ -46,8 +43,7 @@ public class PluginIntegrationTests
     }
 
     [Test]
-    public void UninstallRemovesOnlyOwnedPageRegistration()
-    {
+    public void UninstallRemovesOnlyOwnedPageRegistration() {
         var plugin = CreatePlugin();
         File.WriteAllText(_pagesPath, """
         {"pages":[{"Id":"jellyfin_anidoki"},{"Id":"other.plugin"}],"keep":true}
@@ -61,8 +57,7 @@ public class PluginIntegrationTests
     }
 
     [Test]
-    public void MalformedThirdPartyConfigDoesNotPreventStartupOrUninstall()
-    {
+    public void MalformedThirdPartyConfigDoesNotPreventStartupOrUninstall() {
         File.WriteAllText(_pagesPath, "not json");
         Plugin? plugin = null;
         Assert.DoesNotThrow(() => plugin = CreatePlugin());
@@ -77,8 +72,7 @@ public class PluginIntegrationTests
     [TestCase("{\"pages\":[42],\"keep\":true}")]
     [TestCase("{\"pages\":[{\"Id\":{\"nested\":true}}],\"keep\":true}")]
     [TestCase("{\"pages\":[{\"Id\":\"jellyfin_anidoki\",\"Version\":\"invalid\"}],\"keep\":true}")]
-    public void EnabledUserPagesContainMalformedRegistrationWithoutRewriting(string original)
-    {
+    public void EnabledUserPagesContainMalformedRegistrationWithoutRewriting(string original) {
         var seed = CreatePlugin();
         File.WriteAllText(seed.ConfigurationFilePath, "fixture");
         File.WriteAllText(_pagesPath, original);
@@ -89,8 +83,7 @@ public class PluginIntegrationTests
     }
 
     [Test]
-    public void DisablingUserPagesRemovesOwnedRegistrationDuringStartup()
-    {
+    public void DisablingUserPagesRemovesOwnedRegistrationDuringStartup() {
         File.WriteAllText(_pagesPath, "{\"pages\":[{\"Id\":\"jellyfin_anidoki\"},{\"Id\":\"other.plugin\"}]}");
         CreatePlugin();
         Assert.That((string)JObject.Parse(File.ReadAllText(_pagesPath))["pages"]![0]!["Id"]!,
@@ -98,8 +91,7 @@ public class PluginIntegrationTests
     }
 
     [Test]
-    public void EnablingUserPagesUpgradesOwnedMenuMetadataAndPreservesOtherPages()
-    {
+    public void EnablingUserPagesUpgradesOwnedMenuMetadataAndPreservesOtherPages() {
         var seed = CreatePlugin();
         File.WriteAllText(seed.ConfigurationFilePath, "fixture");
         File.WriteAllText(_pagesPath, """
@@ -121,8 +113,7 @@ public class PluginIntegrationTests
         Assert.That((JArray)JObject.Parse(File.ReadAllText(_pagesPath))["pages"]!, Has.Count.EqualTo(2));
     }
 
-    private static IServerConfigurationManager CreateServerConfiguration()
-    {
+    private static IServerConfigurationManager CreateServerConfiguration() {
         var manager = new Mock<IServerConfigurationManager>();
         manager.Setup(configuration => configuration.GetConfiguration("network"))
             .Returns(new NetworkConfiguration { BaseUrl = "/jellyfin" });
@@ -130,8 +121,7 @@ public class PluginIntegrationTests
     }
 
     [Test]
-    public void OnlyTheAdminPageIsEnabledInTheDashboardMenu()
-    {
+    public void OnlyTheAdminPageIsEnabledInTheDashboardMenu() {
         var plugin = CreatePlugin();
         var visible = plugin.GetPages().Where(page => page.EnableInMainMenu).ToArray();
         Assert.That(visible.Length, Is.EqualTo(1));

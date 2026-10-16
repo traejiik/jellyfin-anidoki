@@ -19,11 +19,9 @@ using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.ControllerTests;
 
-public partial class UserConfigurationTests
-{
+public partial class UserConfigurationTests {
     [Test]
-    public async Task BodyPasswordGrantUsesSelectedUserWithoutUserPageGate()
-    {
+    public async Task BodyPasswordGrantUsesSelectedUserWithoutUserPageGate() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         _plugin.Configuration.enableUserPages = false;
         var otherAuth = _requesterConfig.UserApiAuth;
@@ -42,16 +40,14 @@ public partial class UserConfigurationTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public async Task BodyPasswordGrantDeniesOrdinaryCrossUserAccess(bool userRoute)
-    {
+    public async Task BodyPasswordGrantDeniesOrdinaryCrossUserAccess(bool userRoute) {
         var result = await InvokeEndpoint(userRoute ? "PasswordGrantAuthenticationUserBody" : "PasswordGrantAuthenticationBody", GrantRequest(_target.Id));
         Assert.That(result, Is.TypeOf<ForbidResult>());
         _httpClientFactory.VerifyNoOtherCalls();
     }
 
     [Test]
-    public async Task UserBodyPasswordGrantRemainsGated()
-    {
+    public async Task UserBodyPasswordGrantRemainsGated() {
         _plugin.Configuration.enableUserPages = false;
         Assert.That(await InvokeEndpoint("PasswordGrantAuthenticationUserBody", GrantRequest(_requester.Id)), Is.TypeOf<NotFoundResult>());
     }
@@ -61,14 +57,21 @@ public partial class UserConfigurationTests
     [TestCase("user")]
     [TestCase("username")]
     [TestCase("password")]
-    public async Task BodyPasswordGrantRejectsMissingOrUnsupportedValues(string invalidField)
-    {
+    public async Task BodyPasswordGrantRejectsMissingOrUnsupportedValues(string invalidField) {
         var request = GrantRequest(_requester.Id);
         switch (invalidField) {
-            case "provider": request.Provider = ApiName.Mal; break;
-            case "user": request.User = Guid.Empty; break;
-            case "username": request.Username = " "; break;
-            case "password": request.Password = ""; break;
+            case "provider":
+                request.Provider = ApiName.Mal;
+                break;
+            case "user":
+                request.User = Guid.Empty;
+                break;
+            case "username":
+                request.Username = " ";
+                break;
+            case "password":
+                request.Password = "";
+                break;
         }
         Assert.That(await InvokeEndpoint("PasswordGrantAuthenticationBody", invalidField == "body" ? null : request),
             Is.TypeOf<BadRequestObjectResult>());
@@ -76,15 +79,13 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task BodyPasswordGrantRejectsDeletedSelectedUser()
-    {
+    public async Task BodyPasswordGrantRejectsDeletedSelectedUser() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         Assert.That(await InvokeEndpoint("PasswordGrantAuthenticationBody", GrantRequest(Guid.NewGuid())), Is.TypeOf<ForbidResult>());
     }
 
     [Test]
-    public async Task FirstBodyPasswordGrantCreatesOnlySelectedUsersDefaultConfig()
-    {
+    public async Task FirstBodyPasswordGrantCreatesOnlySelectedUsersDefaultConfig() {
         _plugin.Configuration.UserConfig = [_targetConfig];
         SetSuccessfulKitsuHttp();
         Assert.That(await InvokeEndpoint("PasswordGrantAuthenticationUserBody", GrantRequest(_requester.Id)), Is.TypeOf<OkResult>());
@@ -102,8 +103,7 @@ public partial class UserConfigurationTests
     [TestCase(ApiName.AniList)]
     [TestCase(ApiName.Shikimori)]
     [TestCase(ApiName.Simkl)]
-    public async Task SavedOAuthAuthorizationUsesSelectedUserAndSavedAppCredentials(ApiName provider)
-    {
+    public async Task SavedOAuthAuthorizationUsesSelectedUserAndSavedAppCredentials(ApiName provider) {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         _plugin.Configuration.enableUserPages = false;
         ConfigureOAuthProvider(provider);
@@ -121,33 +121,32 @@ public partial class UserConfigurationTests
     [TestCase(ApiName.Kitsu)]
     [TestCase(ApiName.Annict)]
     [TestCase((ApiName)999)]
-    public async Task SavedOAuthAuthorizationRejectsUnsupportedProviders(ApiName provider)
-    {
+    public async Task SavedOAuthAuthorizationRejectsUnsupportedProviders(ApiName provider) {
         Assert.That(await InvokeEndpoint("AuthorizeProvider", provider, _requester.Id), Is.TypeOf<BadRequestObjectResult>());
     }
 
     [Test]
-    public async Task SavedOAuthAuthorizationDeniesOrdinaryCrossUserAccess()
-    {
+    public async Task SavedOAuthAuthorizationDeniesOrdinaryCrossUserAccess() {
         Assert.That(await InvokeEndpoint("AuthorizeProvider", ApiName.Mal, _target.Id), Is.TypeOf<ForbidResult>());
     }
 
     [TestCase("client-id")]
     [TestCase("secret")]
     [TestCase("app-name")]
-    public async Task SavedOAuthAuthorizationRejectsIncompleteConfiguration(string missingField)
-    {
+    public async Task SavedOAuthAuthorizationRejectsIncompleteConfiguration(string missingField) {
         ConfigureOAuthProvider(ApiName.Shikimori);
-        if (missingField == "client-id") _plugin.Configuration.ProviderApiAuth[0].ClientId = "";
-        if (missingField == "secret") _plugin.Configuration.ProviderApiAuth[0].ClientSecret = " ";
-        if (missingField == "app-name") _plugin.Configuration.shikimoriAppName = "";
+        if (missingField == "client-id")
+            _plugin.Configuration.ProviderApiAuth[0].ClientId = "";
+        if (missingField == "secret")
+            _plugin.Configuration.ProviderApiAuth[0].ClientSecret = " ";
+        if (missingField == "app-name")
+            _plugin.Configuration.shikimoriAppName = "";
         Assert.That(await InvokeEndpoint("AuthorizeProvider", ApiName.Shikimori, _requester.Id), Is.TypeOf<BadRequestObjectResult>());
         Assert.That(_controller.BuildAuthorizeRequestUrlUser(ApiName.Shikimori, _requester.Id), Is.TypeOf<BadRequestObjectResult>());
     }
 
     [Test]
-    public async Task SavedOAuthAuthorizationCreatesSelectedDefaultConfigAfterValidation()
-    {
+    public async Task SavedOAuthAuthorizationCreatesSelectedDefaultConfigAfterValidation() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         _plugin.Configuration.UserConfig = [_requesterConfig];
         Assert.That(await InvokeEndpoint("AuthorizeProvider", ApiName.Mal, _target.Id), Is.TypeOf<OkObjectResult>());
@@ -160,8 +159,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task InvalidSavedCallbackDoesNotCreateOAuthUserConfig()
-    {
+    public async Task InvalidSavedCallbackDoesNotCreateOAuthUserConfig() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         _plugin.Configuration.UserConfig = [_requesterConfig];
         _plugin.Configuration.callbackUrl = "https://host?invalid=value";
@@ -170,8 +168,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task ElevatedProfileAcceptsSelectedUserAlias()
-    {
+    public async Task ElevatedProfileAcceptsSelectedUserAlias() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         _plugin.Configuration.enableUserPages = false;
         bool targetAuthUsed = false;
@@ -186,20 +183,19 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task ElevatedLegacyProfileDeniesOrdinaryCrossUserAccess()
-    {
+    public async Task ElevatedLegacyProfileDeniesOrdinaryCrossUserAccess() {
         SetHttp(request => Task.FromResult(Response(request, HttpStatusCode.OK, """{"id":42,"name":"selected"}""")));
         Assert.That(await _controller.GetUser(ApiName.Mal, _target.Id.ToString()), Is.TypeOf<ForbidResult>());
     }
 
     [TestCase(false)]
     [TestCase(true)]
-    public async Task AnnictTokenChangesOnlySelectedUsersAnnictAuthentication(bool replace)
-    {
+    public async Task AnnictTokenChangesOnlySelectedUsersAnnictAuthentication(bool replace) {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         _plugin.Configuration.enableUserPages = false;
         _requesterConfig.AddUserApiAuth(new UserApiAuth { Name = ApiName.Annict, AccessToken = "requester-annict-fixture" });
-        if (replace) _targetConfig.AddUserApiAuth(new UserApiAuth { Name = ApiName.Annict, AccessToken = "target-old-annict-fixture" });
+        if (replace)
+            _targetConfig.AddUserApiAuth(new UserApiAuth { Name = ApiName.Annict, AccessToken = "target-old-annict-fixture" });
         _targetConfig.PlanToWatchOnly = false;
         _targetConfig.ShowLogNotifications = false;
         var otherAuth = _requesterConfig.UserApiAuth;
@@ -219,14 +215,12 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task AnnictTokenDeniesOrdinaryCrossUserAccess()
-    {
+    public async Task AnnictTokenDeniesOrdinaryCrossUserAccess() {
         Assert.That(await InvokeEndpoint("SetAnnictToken", _target.Id, new AnnictTokenRequest { Token = "fixture-annict" }), Is.TypeOf<ForbidResult>());
     }
 
     [Test]
-    public async Task AnnictTokenRejectsDeletedTarget()
-    {
+    public async Task AnnictTokenRejectsDeletedTarget() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         Assert.That(await InvokeEndpoint("SetAnnictToken", Guid.NewGuid(), new AnnictTokenRequest { Token = "fixture-annict" }), Is.TypeOf<ForbidResult>());
     }
@@ -234,8 +228,7 @@ public partial class UserConfigurationTests
     [TestCase(null)]
     [TestCase("")]
     [TestCase(" ")]
-    public async Task AnnictTokenRejectsMissingValue(string? token)
-    {
+    public async Task AnnictTokenRejectsMissingValue(string? token) {
         Assert.That(await InvokeEndpoint("SetAnnictToken", _requester.Id, token == null ? null : new AnnictTokenRequest { Token = token }), Is.TypeOf<BadRequestObjectResult>());
     }
 
@@ -243,8 +236,7 @@ public partial class UserConfigurationTests
     [TestCase("common.js", "application/javascript")]
     [TestCase("config-state.js", "application/javascript")]
     [TestCase("user-settings.js", "application/javascript")]
-    public async Task PublicStaticAssetsRemainAvailableWhenUserPagesAreDisabled(string asset, string contentType)
-    {
+    public async Task PublicStaticAssetsRemainAvailableWhenUserPagesAreDisabled(string asset, string contentType) {
         _plugin.Configuration.enableUserPages = false;
         var result = (FileStreamResult)await InvokeEndpoint("GetAsset", asset);
         using var stream = result.FileStream;
@@ -260,16 +252,14 @@ public partial class UserConfigurationTests
     [TestCase("../CommonJs.js")]
     [TestCase("jellyfin_anidoki.Configuration.ConfigPage.html")]
     [TestCase("missing.js")]
-    public async Task StaticAssetRouteRejectsNamesOutsideWhitelist(string asset)
-    {
+    public async Task StaticAssetRouteRejectsNamesOutsideWhitelist(string asset) {
         Assert.That(await InvokeEndpoint("GetAsset", asset), Is.TypeOf<NotFoundResult>());
     }
 
     [TestCase("PasswordGrantAuthenticationBody", "passwordGrant", true)]
     [TestCase("PasswordGrantAuthenticationUserBody", "user/passwordGrant", false)]
     [TestCase("SetAnnictToken", "annictToken", true)]
-    public void AccountSecretsBindFromPostBody(string action, string route, bool elevated)
-    {
+    public void AccountSecretsBindFromPostBody(string action, string route, bool elevated) {
         var method = typeof(AniDokiController).GetMethod(action)!;
         Assert.That(method, Is.Not.Null);
         Assert.Multiple(() => {
@@ -281,11 +271,13 @@ public partial class UserConfigurationTests
     }
 
     private static PasswordGrantRequest GrantRequest(Guid user) => new() {
-        Provider = ApiName.Kitsu, User = user, Username = "fixture-user", Password = "fixture-password"
+        Provider = ApiName.Kitsu,
+        User = user,
+        Username = "fixture-user",
+        Password = "fixture-password"
     };
 
-    private void ConfigureOAuthProvider(ApiName provider)
-    {
+    private void ConfigureOAuthProvider(ApiName provider) {
         _plugin.Configuration.ProviderApiAuth = [new ProviderApiAuth { Name = provider, ClientId = "saved-client", ClientSecret = "saved-secret" }];
         _plugin.Configuration.shikimoriAppName = "fixture-application";
     }

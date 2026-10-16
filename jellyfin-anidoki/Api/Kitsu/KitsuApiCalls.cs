@@ -60,7 +60,8 @@ namespace jellyfin_anidoki.Api.Kitsu {
                 return int.Parse(userIdKeyPair);
             } else {
                 var userInformation = await GetUserInformation();
-                if (userInformation != null) return userInformation.Id;
+                if (userInformation != null)
+                    return userInformation.Id;
             }
 
             return null;
@@ -270,7 +271,7 @@ namespace jellyfin_anidoki.Api.Kitsu {
                 new("filter[status]", status.ToString()),
                 new("include", "anime"),
             });
-            
+
             return animeList;
         }
     }

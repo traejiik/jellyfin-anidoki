@@ -3,14 +3,11 @@ using System.Threading.Tasks;
 
 namespace jellyfin_anidoki.Interfaces;
 
-public interface IAsyncDelayer
-{
+public interface IAsyncDelayer {
     Task Delay(TimeSpan timeSpan);
 }
-public class Delayer : IAsyncDelayer
-{
-    public async Task Delay(TimeSpan timeSpan)
-    {
+public class Delayer : IAsyncDelayer {
+    public async Task Delay(TimeSpan timeSpan) {
         await Task.Delay(timeSpan);
     }
 }

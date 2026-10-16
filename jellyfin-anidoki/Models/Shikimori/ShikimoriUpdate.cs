@@ -1,17 +1,15 @@
 using System;
 using System.Text.Json.Serialization;
 
-namespace jellyfin_anidoki.Models.Shikimori; 
+namespace jellyfin_anidoki.Models.Shikimori;
 
 public class ShikimoriUpdate {
-    public class UpdateBody
-    {
+    public class UpdateBody {
         [JsonPropertyName("user_rate")]
         public UserRate UserRate { get; set; }
     }
 
-    public class UserRate
-    {
+    public class UserRate {
         [JsonPropertyName("target_id")]
         public string AnimeId { get; set; }
 

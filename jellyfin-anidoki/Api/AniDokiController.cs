@@ -71,8 +71,7 @@ namespace jellyfin_anidoki.Api {
             _delayer = new Delayer();
         }
 
-        private bool UserPagesEnabled()
-        {
+        private bool UserPagesEnabled() {
             return Plugin.Instance?.PluginConfiguration.enableUserPages == true;
         }
 
@@ -85,8 +84,7 @@ namespace jellyfin_anidoki.Api {
 
         [Authorize(Policy = Policies.RequiresElevation)]
         [HttpGet("callbackPreview")]
-        public IActionResult CallbackPreview([FromQuery] string? address = null)
-        {
+        public IActionResult CallbackPreview([FromQuery] string? address = null) {
             try {
                 string baseAddress = string.IsNullOrWhiteSpace(address)
                     ? CallbackUrlHelper.GetLocalBaseAddress(_serverApplicationHost, _httpContextAccessor.HttpContext)
@@ -110,16 +108,16 @@ namespace jellyfin_anidoki.Api {
 
         [Authorize(Policy = Policies.RequiresElevation)]
         [HttpPost("annictToken")]
-        public IActionResult SetAnnictToken([FromQuery] Guid user, [FromBody] AnnictTokenRequest? request)
-        {
+        public IActionResult SetAnnictToken([FromQuery] Guid user, [FromBody] AnnictTokenRequest? request) {
             if (user == Guid.Empty || string.IsNullOrWhiteSpace(request?.Token))
                 return BadRequest("A Jellyfin user and an Annict token are required");
             var jellyfinUser = _userManager.GetUser(User, user);
-            if (jellyfinUser == null) return Forbid();
-            lock (Plugin.Instance!.PluginConfiguration)
-            {
+            if (jellyfinUser == null)
+                return Forbid();
+            lock (Plugin.Instance!.PluginConfiguration) {
                 var configuration = GetOrCreateUserConfiguration(jellyfinUser.Id);
-                if (configuration == null) return StatusCode(500, "Plugin configuration not loaded");
+                if (configuration == null)
+                    return StatusCode(500, "Plugin configuration not loaded");
                 var auth = configuration.UserApiAuth?.FirstOrDefault(auth => auth.Name == ApiName.Annict);
                 if (auth == null)
                     configuration.AddUserApiAuth(new UserApiAuth { Name = ApiName.Annict, AccessToken = request.Token, ConnectionGeneration = Guid.NewGuid() });
@@ -134,8 +132,7 @@ namespace jellyfin_anidoki.Api {
 
         [AllowAnonymous]
         [HttpGet("assets/{asset}")]
-        public IActionResult GetAsset([FromRoute] string asset)
-        {
+        public IActionResult GetAsset([FromRoute] string asset) {
             string? resource = asset switch {
                 "styles.css" => "Anidoki.css",
                 "notifications.js" => "NotificationsJs.js",
@@ -154,9 +151,11 @@ namespace jellyfin_anidoki.Api {
                 "provider-simkl.svg" => "Images.provider-simkl.svg",
                 _ => null
             };
-            if (resource == null) return NotFound();
+            if (resource == null)
+                return NotFound();
             var stream = typeof(Plugin).Assembly.GetManifestResourceStream($"{typeof(Plugin).Namespace}.Configuration.{resource}");
-            if (stream == null) return NotFound();
+            if (stream == null)
+                return NotFound();
             Response.Headers.CacheControl = "no-store";
             return File(stream, MimeTypes.GetMimeType(resource));
         }
@@ -230,7 +229,8 @@ namespace jellyfin_anidoki.Api {
             if (!targetId.HasValue || targetId.Value == Guid.Empty)
                 return BadRequest("A Jellyfin user is required");
             var jellyfinUser = _userManager.GetUser(User, targetId);
-            if (jellyfinUser == null) return Forbid();
+            if (jellyfinUser == null)
+                return Forbid();
             UserConfig? userConfig = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(item => item.UserId == jellyfinUser.Id);
             if (userConfig == null) {
                 _logger.LogError("User not found in config");
@@ -330,8 +330,7 @@ namespace jellyfin_anidoki.Api {
         [Authorize(Policy = Policies.RequiresElevation)]
         [HttpGet]
         [Route("parameters")]
-        public IActionResult FrontendParameters(ParameterInclude[]? includes, bool onlyConfiguredProviders = false)
-        {
+        public IActionResult FrontendParameters(ParameterInclude[]? includes, bool onlyConfiguredProviders = false) {
             return Ok(GetFrontendParameters(includes, onlyConfiguredProviders, false));
         }
 
@@ -362,20 +361,21 @@ namespace jellyfin_anidoki.Api {
         // The following endpoints are user-specific versions of the above endpoints (do not require elevated access)
 
         #region User Endpoints
-        
+
         [Authorize]
         [HttpGet]
         [Route("user/buildAuthorizeRequestUrl")]
         public ActionResult BuildAuthorizeRequestUrlUser(ApiName provider, Guid user) {
-            if (!UserPagesEnabled()) return NotFound();
+            if (!UserPagesEnabled())
+                return NotFound();
             return AuthorizeSavedProvider(provider, user);
         }
 
         [Authorize]
         [HttpPost("user/passwordGrant")]
-        public Task<IActionResult> PasswordGrantAuthenticationUserBody([FromBody] PasswordGrantRequest? request)
-        {
-            if (!UserPagesEnabled()) return Task.FromResult<IActionResult>(NotFound());
+        public Task<IActionResult> PasswordGrantAuthenticationUserBody([FromBody] PasswordGrantRequest? request) {
+            if (!UserPagesEnabled())
+                return Task.FromResult<IActionResult>(NotFound());
             return PasswordGrantFromBody(request);
         }
 
@@ -383,9 +383,11 @@ namespace jellyfin_anidoki.Api {
         [HttpGet]
         [Route("user/user")]
         public async Task<ActionResult> GetUserUser(ApiName apiName, Guid user) {
-            if (!UserPagesEnabled()) return NotFound();
+            if (!UserPagesEnabled())
+                return NotFound();
             var jellyfinUser = _userManager.GetUser(User, user);
-            if (jellyfinUser == null) return Forbid();
+            if (jellyfinUser == null)
+                return Forbid();
 
             return await GetUser(apiName, jellyfinUser.Id.ToString());
         }
@@ -394,9 +396,11 @@ namespace jellyfin_anidoki.Api {
         [HttpGet]
         [Route("user/configuration")]
         public ActionResult GetConfigurationUser(Guid user) {
-            if (!UserPagesEnabled()) return NotFound();
+            if (!UserPagesEnabled())
+                return NotFound();
             var jellyfinUser = _userManager.GetUser(User, user);
-            if (jellyfinUser == null) return Forbid();
+            if (jellyfinUser == null)
+                return Forbid();
 
             var userConfig = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(userConfig => userConfig.UserId == jellyfinUser.Id);
             return Ok(new UserConfigurationResponse(userConfig));
@@ -407,9 +411,9 @@ namespace jellyfin_anidoki.Api {
         [Route("user/configuration")]
         public ActionResult UpdateConfigurationUser(
             [FromQuery] Guid user,
-            [FromBody] UserEditableConfig dto)
-        {
-            if (!UserPagesEnabled()) return NotFound();
+            [FromBody] UserEditableConfig dto) {
+            if (!UserPagesEnabled())
+                return NotFound();
             var jellyfinUser = _userManager.GetUser(User, user);
             if (jellyfinUser == null)
                 return Forbid();
@@ -438,8 +442,7 @@ namespace jellyfin_anidoki.Api {
                     return Forbid();
                 }
 
-                if (userConfig == null)
-                {
+                if (userConfig == null) {
                     userConfig = new UserConfig {
                         UserId = jellyfinUser.Id,
                         PlanToWatchOnly = dto.PlanToWatchOnly,
@@ -451,9 +454,7 @@ namespace jellyfin_anidoki.Api {
                     config.UserConfig = config.UserConfig
                         .Append(userConfig)
                         .ToArray();
-                }
-                else
-                {
+                } else {
                     userConfig.PlanToWatchOnly = dto.PlanToWatchOnly;
                     userConfig.RewatchCompleted = dto.RewatchCompleted;
                     userConfig.ShowLogNotifications = dto.ShowLogNotifications;
@@ -470,7 +471,8 @@ namespace jellyfin_anidoki.Api {
         [HttpGet]
         [Route("user/parameters")]
         public object GetFrontendParametersUser(ParameterInclude[]? includes) {
-            if (!UserPagesEnabled()) return NotFound();
+            if (!UserPagesEnabled())
+                return NotFound();
             return GetFrontendParameters(includes, true, true);
         }
 
@@ -478,46 +480,43 @@ namespace jellyfin_anidoki.Api {
         [HttpPost]
         [Route("user/deauthenticate")]
         public IActionResult DeauthenticateUser([FromQuery] Guid user, [FromQuery] ApiName apiName) {
-            if (!UserPagesEnabled()) return NotFound();
+            if (!UserPagesEnabled())
+                return NotFound();
             return DeauthenticateProvidedUser(user, apiName);
         }
 
         [Authorize]
         [HttpGet("{viewName}")]
-        public ActionResult GetView([FromRoute] string viewName)
-        {
-            if (Plugin.Instance == null)
-            {
+        public ActionResult GetView([FromRoute] string viewName) {
+            if (Plugin.Instance == null) {
                 return BadRequest("No plugin instance found");
             }
 
-            if (!UserPagesEnabled()) return NotFound();
+            if (!UserPagesEnabled())
+                return NotFound();
 
             IEnumerable<PluginPageInfo> pages = Plugin.Instance.GetViews();
 
-            if (pages == null)
-            {
+            if (pages == null) {
                 return NotFound("Pages is null or empty");
             }
 
             PluginPageInfo? view = pages.FirstOrDefault(pageInfo => pageInfo?.Name == viewName, null);
 
-            if (view == null)
-            {
+            if (view == null) {
                 return NotFound("No matching view found");
             }
 
             Stream? stream = Plugin.Instance.GetType().Assembly.GetManifestResourceStream(view.EmbeddedResourcePath);
 
-            if (stream == null)
-            {
+            if (stream == null) {
                 _logger.LogError("Failed to get resource {Resource}", view.EmbeddedResourcePath);
                 return NotFound();
             }
 
             return File(stream, MimeTypes.GetMimeType(view.EmbeddedResourcePath));
         }
-        
+
         #endregion
 
 
@@ -527,12 +526,15 @@ namespace jellyfin_anidoki.Api {
         [HttpGet]
         [Route("authCallback")]
         public async Task<IActionResult> AuthCallback(string code, string? state) {
-            if (state == null) return BadRequest("State is empty");
+            if (state == null)
+                return BadRequest("State is empty");
             StoredState? storedState = MemoryCacheHelper.ConsumeState(_memoryCache, state);
-            if (storedState == null) return BadRequest("User not found or link already used/expired, try again");
+            if (storedState == null)
+                return BadRequest("User not found or link already used/expired, try again");
             try {
                 var token = await new ApiAuthentication(storedState.ApiName, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer).GetToken(storedState.UserId, code, codeVerifier: storedState.CodeVerifier);
-                if (token == null) return StatusCode(500, "Could not authenticate");
+                if (token == null)
+                    return StatusCode(500, "Could not authenticate");
             } catch (Exception error) {
                 // this endpoint is anonymous; provider responses stay in the server log
                 _logger.LogError($"({storedState.ApiName}) Could not complete sign-in: {error.Message}");
@@ -562,12 +564,10 @@ namespace jellyfin_anidoki.Api {
         private Parameters GetFrontendParameters(ParameterInclude[]? includes, bool onlyConfiguredProviders, bool onlyLibrariesUserHasAccessTo) {
             Parameters toReturn = new Parameters();
 
-            if (includes == null || includes.Contains(ParameterInclude.ProviderList))
-            {
+            if (includes == null || includes.Contains(ParameterInclude.ProviderList)) {
                 toReturn.providerList = new List<ExpandoObject>();
 
-                foreach (ApiName apiName in Enum.GetValues<ApiName>())
-                {
+                foreach (ApiName apiName in Enum.GetValues<ApiName>()) {
                     if (onlyConfiguredProviders && apiName != ApiName.Kitsu && GetConfiguredOAuthProvider(apiName) == null)
                         continue;
 
@@ -594,8 +594,7 @@ namespace jellyfin_anidoki.Api {
             if (includes == null || includes.Contains(ParameterInclude.Https))
                 toReturn.https = _serverApplicationHost.ListenWithHttps;
 
-            if (includes == null || includes.Contains(ParameterInclude.Libraries))
-            {
+            if (includes == null || includes.Contains(ParameterInclude.Libraries)) {
                 Dictionary<Guid, string> libraries = new Dictionary<Guid, string>();
                 if (onlyLibrariesUserHasAccessTo) {
                     User? jellyfinUser = _userManager.GetUser(User, null);
@@ -606,8 +605,7 @@ namespace jellyfin_anidoki.Api {
                     libraries = _libraryManager.GetVirtualFolders().ToDictionary(virtualFolderInfo => Guid.Parse(virtualFolderInfo.ItemId), virtualFolderInfo => virtualFolderInfo.Name);
                 }
                 toReturn.libraries = new List<ExpandoObject>();
-                foreach (var library in libraries)
-                {
+                foreach (var library in libraries) {
                     dynamic lib = new ExpandoObject();
                     lib.Name = library.Value;
                     lib.Id = library.Key;
@@ -618,8 +616,7 @@ namespace jellyfin_anidoki.Api {
             return toReturn;
         }
 
-        private static ProviderApiAuth? GetConfiguredOAuthProvider(ApiName provider)
-        {
+        private static ProviderApiAuth? GetConfiguredOAuthProvider(ApiName provider) {
             if (provider is not (ApiName.Mal or ApiName.AniList or ApiName.Shikimori or ApiName.Simkl))
                 return null;
             var configuration = Plugin.Instance?.PluginConfiguration;
@@ -630,13 +627,15 @@ namespace jellyfin_anidoki.Api {
             return auth;
         }
 
-        private ActionResult AuthorizeSavedProvider(ApiName provider, Guid user)
-        {
-            if (user == Guid.Empty) return BadRequest("A Jellyfin user is required");
+        private ActionResult AuthorizeSavedProvider(ApiName provider, Guid user) {
+            if (user == Guid.Empty)
+                return BadRequest("A Jellyfin user is required");
             var jellyfinUser = _userManager.GetUser(User, user);
-            if (jellyfinUser == null) return Forbid();
+            if (jellyfinUser == null)
+                return Forbid();
             var auth = GetConfiguredOAuthProvider(provider);
-            if (auth == null) return BadRequest("Provider does not support OAuth or its saved app settings are incomplete");
+            if (auth == null)
+                return BadRequest("Provider does not support OAuth or its saved app settings are incomplete");
             try {
                 var authentication = new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost,
                     _httpContextAccessor, _loggerFactory, _memoryCache, _delayer, auth);
@@ -649,27 +648,28 @@ namespace jellyfin_anidoki.Api {
             }
         }
 
-        private async Task<IActionResult> PasswordGrantFromBody(PasswordGrantRequest? request)
-        {
+        private async Task<IActionResult> PasswordGrantFromBody(PasswordGrantRequest? request) {
             if (request == null || request.Provider != ApiName.Kitsu || request.User == Guid.Empty ||
                 string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 return BadRequest("Kitsu provider, a Jellyfin user, a username, and a password are required");
             var jellyfinUser = _userManager.GetUser(User, request.User);
-            if (jellyfinUser == null) return Forbid();
+            if (jellyfinUser == null)
+                return Forbid();
             if (GetOrCreateUserConfiguration(jellyfinUser.Id) == null)
                 return StatusCode(500, "Plugin configuration not loaded");
             return await PasswordGrantAuthentication(request.Provider, jellyfinUser.Id.ToString(), request.Username, request.Password);
         }
 
-        private static UserConfig? GetOrCreateUserConfiguration(Guid userId)
-        {
+        private static UserConfig? GetOrCreateUserConfiguration(Guid userId) {
             var plugin = Plugin.Instance;
-            if (plugin == null) return null;
+            if (plugin == null)
+                return null;
             var configuration = plugin.PluginConfiguration;
             lock (configuration) {
                 configuration.UserConfig ??= Array.Empty<UserConfig>();
                 var existing = configuration.UserConfig.FirstOrDefault(config => config.UserId == userId);
-                if (existing != null) return existing;
+                if (existing != null)
+                    return existing;
                 var created = new UserConfig { UserId = userId, LibraryToCheck = Array.Empty<string>() };
                 configuration.UserConfig = configuration.UserConfig.Append(created).ToArray();
                 plugin.SaveConfiguration();
@@ -679,8 +679,9 @@ namespace jellyfin_anidoki.Api {
 
         private IActionResult DeauthenticateProvidedUser(Guid user, ApiName apiName) {
             var jellyfinUser = _userManager.GetUser(User, user);
-            if (jellyfinUser == null) return Forbid();
-            
+            if (jellyfinUser == null)
+                return Forbid();
+
             (bool success, string? reason) deauthenticateUser = ConfigHelper.DeauthenticateUser(jellyfinUser.Id, apiName);
             if (deauthenticateUser.success) {
                 return Ok();

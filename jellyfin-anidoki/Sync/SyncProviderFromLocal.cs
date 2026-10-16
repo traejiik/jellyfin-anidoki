@@ -18,7 +18,7 @@ using Microsoft.Extensions.Logging;
 
 namespace jellyfin_anidoki;
 
-public class SyncProviderFromLocal (
+public class SyncProviderFromLocal(
     IUserManager userManager,
     ILibraryManager libraryManager,
     ILoggerFactory loggerFactory,
@@ -79,14 +79,15 @@ public class SyncProviderFromLocal (
         var seasons = series.Children.OfType<Season>().Select(baseItem => baseItem).ToList();
         _logger.LogInformation($"(Sync) Series {series.Name} contains {seasons.Count} seasons");
         User user = userManager.GetUserById(_userId);
-        if (user == null) return null;
+        if (user == null)
+            return null;
         foreach (Season season in seasons) {
             _logger.LogInformation($"(Sync) Getting user data for {season.Name} of {series.Name}...");
             if (season.IndexNumber == null) {
                 _logger.LogError($"(Sync) Season index number is null. Skipping...");
                 continue;
             }
-            
+
             IEnumerable<Episode> episodes = season.GetEpisodes(user, new DtoOptions(), false).OfType<Episode>().ToArray();
             if (!episodes.Any()) {
                 _logger.LogInformation($"(Sync) No (user visible) episodes found for {season.Name} of {series.Name}");

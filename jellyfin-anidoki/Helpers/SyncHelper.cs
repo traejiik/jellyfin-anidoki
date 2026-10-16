@@ -35,7 +35,7 @@ public class SyncHelper {
         } else if (series.ProviderIds.ContainsKey("AniDB") && int.TryParse(series.ProviderIds["AniDB"], out providerId)) {
             return (AnimeOfflineDatabaseHelpers.Source.Anidb, providerId);
         }
-        
+
         return (null, null);
     }
 
@@ -145,7 +145,8 @@ public class SyncHelper {
     /// Whether the item, its parent season or its series carries the ignore tag.
     /// </summary>
     public static bool MediaShouldBeIgnored(BaseItem item) {
-        if (item == null) return false;
+        if (item == null)
+            return false;
         return HasIgnoreTag(item) || HasIgnoreTag(item.GetParent()) || (item is Episode episode && HasIgnoreTag(episode.Series));
     }
 

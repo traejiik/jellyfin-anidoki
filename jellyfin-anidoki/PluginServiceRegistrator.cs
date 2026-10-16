@@ -9,10 +9,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace jellyfin_anidoki;
 
-public class PluginServiceRegistrator : IPluginServiceRegistrator
-{
-    public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
-    {
+public class PluginServiceRegistrator : IPluginServiceRegistrator {
+    public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost) {
         serviceCollection.AddHttpClient("AniDokiDiscord", client => client.Timeout = TimeSpan.FromSeconds(15))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }).RemoveAllLoggers();
         serviceCollection.AddSingleton<Notifications.Discord.DiscordSettingsService>();

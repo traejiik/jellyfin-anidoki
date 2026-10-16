@@ -15,12 +15,10 @@ using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.ControllerTests;
 
-public partial class UserConfigurationTests
-{
+public partial class UserConfigurationTests {
     [TestCase(false)]
     [TestCase(true)]
-    public async Task OAuthCallbackWaitsForTokenBeforeSuccessOrRedirect(bool redirect)
-    {
+    public async Task OAuthCallbackWaitsForTokenBeforeSuccessOrRedirect(bool redirect) {
         _plugin.Configuration.callbackRedirectUrl = redirect ? "http://{{LocalIpAddress}}:{{LocalPort}}/done" : "";
         var grantStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var grantResponse = new TaskCompletionSource<System.Net.Http.HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -52,8 +50,7 @@ public partial class UserConfigurationTests
     [TestCase(HttpStatusCode.OK, "{}")]
     [TestCase(HttpStatusCode.OK, "{\"error\":\"invalid_grant\"}")]
     [TestCase(HttpStatusCode.OK, "{\"access_token\":\"\"}")]
-    public async Task FailedOAuthCallbackDoesNotClaimSuccessOrRedirect(HttpStatusCode responseCode, string responseBody)
-    {
+    public async Task FailedOAuthCallbackDoesNotClaimSuccessOrRedirect(HttpStatusCode responseCode, string responseBody) {
         _plugin.Configuration.callbackRedirectUrl = "https://host/done";
         SetHttp(request => Task.FromResult(Response(request, responseCode, responseBody)));
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal, "fixture-verifier");
@@ -68,8 +65,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public void MalSignInLinksEachCarryTheirOwnStoredVerifier()
-    {
+    public void MalSignInLinksEachCarryTheirOwnStoredVerifier() {
         var authentication = new ApiAuthentication(ApiName.Mal, _httpClientFactory.Object, _serverHost.Object,
             new HttpContextAccessor(), NullLoggerFactory.Instance, _memoryCache, new Mock<IAsyncDelayer>().Object);
         var links = new[] { authentication.BuildAuthorizeRequestUrl(_requester.Id), authentication.BuildAuthorizeRequestUrl(_requester.Id) }
@@ -85,8 +81,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task OAuthCallbackSendsTheVerifierIssuedWithItsState()
-    {
+    public async Task OAuthCallbackSendsTheVerifierIssuedWithItsState() {
         string? sentVerifier = null;
         SetHttp(async request => {
             sentVerifier = QueryHelpers.ParseQuery(await request.Content!.ReadAsStringAsync())["code_verifier"].ToString();
@@ -98,8 +93,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task MalCallbackWithoutIssuedVerifierFailsWithoutContactingProvider()
-    {
+    public async Task MalCallbackWithoutIssuedVerifierFailsWithoutContactingProvider() {
         bool contacted = false;
         SetHttp(request => { contacted = true; return Task.FromResult(TokenResponse(request)); });
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal);
@@ -111,8 +105,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task NullTokenOAuthCallbackReturnsFailure()
-    {
+    public async Task NullTokenOAuthCallbackReturnsFailure() {
         ConfigureOAuthProvider(ApiName.Shikimori);
         _plugin.Configuration.shikimoriAppName = "";
         SetSuccessfulKitsuHttp();

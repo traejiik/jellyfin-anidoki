@@ -38,9 +38,10 @@ The build is versioned from the latest release tag (for example `1.1.1.27`), so 
 
 ## Coding style
 
-- Indent with four spaces. Follow the brace and namespace style of the surrounding code.
+- `.editorconfig` defines the whitespace rules: four-space indents, opening braces on the same line, and LF line endings. Run `dotnet format whitespace jellyfin-anidoki.sln` before pushing. CI fails if it would change anything.
+- Prefer file-scoped namespaces in new files.
 - Use PascalCase for types and methods, camelCase for locals, and `_camelCase` for private fields.
-- Don't reformat code you aren't otherwise changing.
+- Keep one statement per line in new code.
 - Prefer message templates for logging (`_logger.LogInformation("Synced {Title}", title)`) over string interpolation.
 - Comments explain why the code works the way it does. History belongs in commit messages.
 

@@ -5,10 +5,8 @@ using jellyfin_anidoki.Configuration;
 
 namespace jellyfin_anidoki.Models;
 
-public sealed class UserConfigurationResponse
-{
-    public UserConfigurationResponse(UserConfig? config)
-    {
+public sealed class UserConfigurationResponse {
+    public UserConfigurationResponse(UserConfig? config) {
         LibraryToCheck = config?.LibraryToCheck ?? Array.Empty<string>();
         PlanToWatchOnly = config?.PlanToWatchOnly ?? true;
         RewatchCompleted = config?.RewatchCompleted ?? true;

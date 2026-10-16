@@ -39,7 +39,7 @@ public class AniList {
         MemoryCache memoryCache = new MemoryCache(new MemoryCacheOptions());
         Mock<IAsyncDelayer> mockDelayer = new Mock<IAsyncDelayer>();
         _aniListApiCalls = new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost.Object, _httpContextAccessor.Object, memoryCache, mockDelayer.Object, new UserConfig {
-            UserApiAuth = new [] {
+            UserApiAuth = new[] {
                 new UserApiAuth {
                     AccessToken = "accessToken",
                     Name = ApiName.AniList,
@@ -199,11 +199,16 @@ public class AniList {
         var updater = new UpdateProviderStatus(new Mock<ILibraryManager>().Object, _loggerFactory,
             _httpContextAccessor.Object, _serverApplicationHost.Object, _httpClientFactory,
             new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object) {
-            ApiName = ApiName.AniList, ApiCallHelpers = new ApiCallHelpers(aniListApiCalls: _aniListApiCalls)
+            ApiName = ApiName.AniList,
+            ApiCallHelpers = new ApiCallHelpers(aniListApiCalls: _aniListApiCalls)
         };
         var collector = new PlaybackOutcomeCollector();
-        await updater.UpdateAnimeStatus(new Anime { Id = 1, Title = "Rewatch", NumEpisodes = 12,
-            MyListStatus = new MyListStatus { NumEpisodesWatched = 12, Status = Status.Completed } },
+        await updater.UpdateAnimeStatus(new Anime {
+            Id = 1,
+            Title = "Rewatch",
+            NumEpisodes = 12,
+            MyListStatus = new MyListStatus { NumEpisodesWatched = 12, Status = Status.Completed }
+        },
             1, setRewatching: true, collector: collector);
 
         Assert.That(requests, Is.EqualTo(2));

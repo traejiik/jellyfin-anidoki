@@ -13,7 +13,7 @@ namespace jellyfin_anidoki_unit_tests.HelperTests;
 public class AnimeOfflineDatabaseHelperTests {
     private HttpClient _httpClient;
     private ILogger _logger = new NullLogger<AnimeOfflineDatabaseHelperTests>();
-    
+
     private void Setup(List<Helpers.HttpCall> httpCalls) {
         Helpers.MockHttpCalls(httpCalls, ref _httpClient);
     }

@@ -12,7 +12,7 @@ namespace jellyfin_anidoki.Helpers {
 
             return stringBuilder.ToString();
         }
-        
+
         public static string RemoveSpaces(string str) {
             StringBuilder stringBuilder = new StringBuilder();
             foreach (char c in str) {

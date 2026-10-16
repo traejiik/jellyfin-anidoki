@@ -14,13 +14,12 @@ namespace jellyfin_anidoki.Notifications;
 public sealed record AuthenticatedSessionIdentity(Guid UserId, string SessionId, [property: System.Text.Json.Serialization.JsonIgnore, Newtonsoft.Json.JsonIgnore] string AuthenticationKey);
 public sealed record AuthenticatedSessionResolution(AuthenticatedSessionIdentity? Identity, int FailureStatus);
 
-public sealed class AuthenticatedSessionResolver(IAuthorizationContext authorization, ISessionManager sessions, IUserManager users)
-{
-    public async Task<AuthenticatedSessionResolution> Resolve(HttpContext context)
-    {
+public sealed class AuthenticatedSessionResolver(IAuthorizationContext authorization, ISessionManager sessions, IUserManager users) {
+    public async Task<AuthenticatedSessionResolution> Resolve(HttpContext context) {
         var auth = await authorization.GetAuthorizationInfo(context.Request);
         if (auth == null || auth.IsApiKey || auth.UserId == Guid.Empty || string.IsNullOrWhiteSpace(auth.Token) ||
-            users.GetUserById(auth.UserId) == null) return new(null, StatusCodes.Status401Unauthorized);
+            users.GetUserById(auth.UserId) == null)
+            return new(null, StatusCodes.Status401Unauthorized);
         // The caller's device header must never select or create the token's session.
         var session = await sessions.GetSessionByAuthenticationToken(auth.Token, null!, context.Connection.RemoteIpAddress?.ToString() ?? "");
         if (session == null || session.UserId != auth.UserId || string.IsNullOrWhiteSpace(session.Id) ||

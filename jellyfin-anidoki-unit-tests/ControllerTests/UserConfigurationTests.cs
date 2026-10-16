@@ -35,8 +35,7 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests.ControllerTests;
 
 [TestFixture, NonParallelizable]
-public partial class UserConfigurationTests
-{
+public partial class UserConfigurationTests {
     private string _directory = null!;
     private Plugin _plugin = null!;
     private User _requester = null!;
@@ -55,8 +54,7 @@ public partial class UserConfigurationTests
     private Guid _libraryId;
 
     [SetUp]
-    public void SetUp()
-    {
+    public void SetUp() {
         _directory = Path.Combine(Path.GetTempPath(), "anidoki-controller-" + Guid.NewGuid());
         Directory.CreateDirectory(_directory);
         _paths = new Mock<IApplicationPaths>();
@@ -110,8 +108,7 @@ public partial class UserConfigurationTests
     }
 
     [TearDown]
-    public void TearDown()
-    {
+    public void TearDown() {
         _httpClient?.Dispose();
         _httpClient = null;
         _memoryCache.Dispose();
@@ -119,8 +116,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public void AdministratorConfigurationGetReturnsSelectedUser()
-    {
+    public void AdministratorConfigurationGetReturnsSelectedUser() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         _targetConfig.PlanToWatchOnly = false;
         var result = (OkObjectResult)_controller.GetConfigurationUser(_target.Id);
@@ -129,8 +125,7 @@ public partial class UserConfigurationTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void UserConfigurationResponsesExcludeAuthenticationDetails(bool update)
-    {
+    public void UserConfigurationResponsesExcludeAuthenticationDetails(bool update) {
         var auth = _requesterConfig.UserApiAuth;
         var keyPairs = _requesterConfig.KeyPairs;
         var result = (OkObjectResult)(update
@@ -154,8 +149,7 @@ public partial class UserConfigurationTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void NewUserGetReturnsEffectiveDefaultsWithoutCreatingStoredRecords(bool nullConfiguration)
-    {
+    public void NewUserGetReturnsEffectiveDefaultsWithoutCreatingStoredRecords(bool nullConfiguration) {
         _plugin.Configuration.UserConfig = nullConfiguration ? null! : [_targetConfig];
         var result = (OkObjectResult)_controller.GetConfigurationUser(_requester.Id);
         var json = JsonSerializer.SerializeToElement(result.Value);
@@ -175,9 +169,9 @@ public partial class UserConfigurationTests
     [TestCase(false, true)]
     [TestCase(true, false)]
     [TestCase(true, true)]
-    public void UserSavePersistsExplicitNotificationPreference(bool create, bool notifications)
-    {
-        if (create) _plugin.Configuration.UserConfig = [_targetConfig];
+    public void UserSavePersistsExplicitNotificationPreference(bool create, bool notifications) {
+        if (create)
+            _plugin.Configuration.UserConfig = [_targetConfig];
         var dto = JsonSerializer.Deserialize<UserEditableConfig>(
             $"{{\"PlanToWatchOnly\":true,\"RewatchCompleted\":true,\"LibraryToCheck\":[],\"ShowLogNotifications\":{notifications.ToString().ToLowerInvariant()}}}")!;
         var result = (OkObjectResult)_controller.UpdateConfigurationUser(_requester.Id, dto);
@@ -195,8 +189,7 @@ public partial class UserConfigurationTests
     [TestCase(ApiName.AniList)]
     [TestCase(ApiName.Shikimori)]
     [TestCase(ApiName.Simkl)]
-    public void IncompleteOAuthAppIsUnavailableToUser(ApiName provider)
-    {
+    public void IncompleteOAuthAppIsUnavailableToUser(ApiName provider) {
         _plugin.Configuration.ProviderApiAuth = [new ProviderApiAuth { Name = provider, ClientId = "fixture-client", ClientSecret = "" }];
         var parameters = (Parameters)_controller.GetFrontendParametersUser([ParameterInclude.ProviderList]);
         var available = parameters.providerList.Select(item => (ApiName)((IDictionary<string, object?>)item)["Key"]!);
@@ -204,8 +197,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public void ShikimoriWithoutAppNameIsUnavailableToUser()
-    {
+    public void ShikimoriWithoutAppNameIsUnavailableToUser() {
         _plugin.Configuration.ProviderApiAuth = [new ProviderApiAuth { Name = ApiName.Shikimori, ClientId = "fixture-client", ClientSecret = "fixture-secret" }];
         var parameters = (Parameters)_controller.GetFrontendParametersUser([ParameterInclude.ProviderList]);
         Assert.That(parameters.providerList.Select(item => (ApiName)((IDictionary<string, object?>)item)["Key"]!),
@@ -213,14 +205,15 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public void AdministratorConfigurationPutChangesSelectedPreferencesAndPreservesAuthentication()
-    {
+    public void AdministratorConfigurationPutChangesSelectedPreferencesAndPreservesAuthentication() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         var requesterAuth = _requesterConfig.UserApiAuth;
         var targetAuth = _targetConfig.UserApiAuth;
         var targetKeyPairs = _targetConfig.KeyPairs;
         var result = _controller.UpdateConfigurationUser(_target.Id, new UserEditableConfig {
-            PlanToWatchOnly = false, RewatchCompleted = false, LibraryToCheck = [_libraryId.ToString()]
+            PlanToWatchOnly = false,
+            RewatchCompleted = false,
+            LibraryToCheck = [_libraryId.ToString()]
         });
 
         Assert.Multiple(() => {
@@ -243,8 +236,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task AdministratorProfileTestUsesSelectedAuthentication()
-    {
+    public async Task AdministratorProfileTestUsesSelectedAuthentication() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         bool targetAuthenticationUsed = false;
         SetHttp(request => {
@@ -261,8 +253,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public void AdministratorAuthorizationUrlStoresSelectedUserInState()
-    {
+    public void AdministratorAuthorizationUrlStoresSelectedUserInState() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         var result = (OkObjectResult)_controller.BuildAuthorizeRequestUrlUser(ApiName.Mal, _target.Id);
         var url = new Uri((string)result.Value!);
@@ -272,8 +263,7 @@ public partial class UserConfigurationTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void AdministratorDeauthenticationRemovesOnlySelectedProvider(bool elevatedRoute)
-    {
+    public void AdministratorDeauthenticationRemovesOnlySelectedProvider(bool elevatedRoute) {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         var result = elevatedRoute
             ? _controller.Deauthenticate(_target.Id, ApiName.Mal)
@@ -291,8 +281,7 @@ public partial class UserConfigurationTests
     [TestCase("authorize")]
     [TestCase("grant")]
     [TestCase("deauthenticate")]
-    public async Task OrdinaryUserCannotOperateOnAnotherUser(string operation)
-    {
+    public async Task OrdinaryUserCannotOperateOnAnotherUser(string operation) {
         Assert.That(await InvokeUserOperation(operation, _target.Id), Is.TypeOf<ForbidResult>());
     }
 
@@ -302,15 +291,13 @@ public partial class UserConfigurationTests
     [TestCase("authorize")]
     [TestCase("grant")]
     [TestCase("deauthenticate")]
-    public async Task DisabledUserPagesRejectUserOperations(string operation)
-    {
+    public async Task DisabledUserPagesRejectUserOperations(string operation) {
         _plugin.Configuration.enableUserPages = false;
         Assert.That(await InvokeUserOperation(operation, _requester.Id), Is.TypeOf<NotFoundResult>());
     }
 
     [Test]
-    public void NullLibrariesAreSavedAsEmptyArray()
-    {
+    public void NullLibrariesAreSavedAsEmptyArray() {
         var result = _controller.UpdateConfigurationUser(_requester.Id, new UserEditableConfig {
             LibraryToCheck = null!
         });
@@ -324,10 +311,10 @@ public partial class UserConfigurationTests
     [TestCase("")]
     [TestCase("00000000-0000-0000-0000-000000000000")]
     [TestCase(null)]
-    public void InvalidLibraryIdsRejectSaveWithoutChangingPreferences(string? invalidId)
-    {
+    public void InvalidLibraryIdsRejectSaveWithoutChangingPreferences(string? invalidId) {
         var result = _controller.UpdateConfigurationUser(_requester.Id, new UserEditableConfig {
-            PlanToWatchOnly = false, RewatchCompleted = false,
+            PlanToWatchOnly = false,
+            RewatchCompleted = false,
             LibraryToCheck = [_libraryId.ToString(), invalidId!]
         });
         Assert.Multiple(() => {
@@ -339,13 +326,14 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public void AdministratorSaveChecksSelectedUsersLibraryAccess()
-    {
+    public void AdministratorSaveChecksSelectedUsersLibraryAccess() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         SetPermission(_target, PermissionKind.EnableAllFolders, false);
         _target.Preferences.Clear();
         var result = _controller.UpdateConfigurationUser(_target.Id, new UserEditableConfig {
-            PlanToWatchOnly = false, RewatchCompleted = false, LibraryToCheck = [_libraryId.ToString()]
+            PlanToWatchOnly = false,
+            RewatchCompleted = false,
+            LibraryToCheck = [_libraryId.ToString()]
         });
         Assert.Multiple(() => {
             Assert.That(result, Is.TypeOf<ForbidResult>());
@@ -355,16 +343,14 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public void EmptyLibrariesRemainEmptyArray()
-    {
+    public void EmptyLibrariesRemainEmptyArray() {
         Assert.That(_controller.UpdateConfigurationUser(_requester.Id,
             new UserEditableConfig { LibraryToCheck = [] }), Is.TypeOf<OkObjectResult>());
         Assert.That(_requesterConfig.LibraryToCheck, Is.Empty);
     }
 
     [Test]
-    public void NewUserConfigurationIsCreatedWithoutReplacingOtherUsers()
-    {
+    public void NewUserConfigurationIsCreatedWithoutReplacingOtherUsers() {
         _plugin.Configuration.UserConfig = [_targetConfig];
         Assert.That(_controller.UpdateConfigurationUser(_requester.Id,
             new UserEditableConfig { PlanToWatchOnly = true, RewatchCompleted = false, LibraryToCheck = [] }),
@@ -377,8 +363,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task PasswordGrantWaitsForTokenBeforeReturningSuccess()
-    {
+    public async Task PasswordGrantWaitsForTokenBeforeReturningSuccess() {
         var grantStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var grantResponse = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
         SetHttp(request => {
@@ -399,8 +384,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task FailedPasswordGrantReturnsFailure()
-    {
+    public async Task FailedPasswordGrantReturnsFailure() {
         SetHttp(request => Task.FromResult(Response(request, HttpStatusCode.Unauthorized,
             """{"error":"invalid_grant"}""")));
         var previousAuth = _requesterConfig.UserApiAuth.Single(auth => auth.Name == ApiName.AniList).AccessToken;
@@ -413,10 +397,11 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task FailedKitsuGrantDoesNotRequestProfileUsingPreviousAuthentication()
-    {
+    public async Task FailedKitsuGrantDoesNotRequestProfileUsingPreviousAuthentication() {
         _requesterConfig.AddUserApiAuth(new UserApiAuth {
-            Name = ApiName.Kitsu, AccessToken = "previous-kitsu-fixture", RefreshToken = "previous-refresh-fixture"
+            Name = ApiName.Kitsu,
+            AccessToken = "previous-kitsu-fixture",
+            RefreshToken = "previous-refresh-fixture"
         });
         int profileCalls = 0;
         SetHttp(request => {
@@ -435,8 +420,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task PasswordGrantWithoutRequiredProviderConfigReturnsFailure()
-    {
+    public async Task PasswordGrantWithoutRequiredProviderConfigReturnsFailure() {
         var result = await _controller.PasswordGrantAuthentication(ApiName.Shikimori,
             _requester.Id.ToString(), "fixture-user", "fixture-password");
         Assert.Multiple(() => {
@@ -447,8 +431,7 @@ public partial class UserConfigurationTests
 
     [TestCase(ApiName.Mal)]
     [TestCase(ApiName.Kitsu)]
-    public async Task InvalidSavedCallbackDoesNotBlockTokenRefresh(ApiName provider)
-    {
+    public async Task InvalidSavedCallbackDoesNotBlockTokenRefresh(ApiName provider) {
         const string invalidAddress = "https://host?legacy=value";
         _plugin.Configuration.callbackUrl = invalidAddress;
         bool refreshParametersPreserved = false;
@@ -479,8 +462,7 @@ public partial class UserConfigurationTests
     [TestCase("{\"access_token\":\"\"}")]
     [TestCase("{\"access_token\":\" \"}")]
     [TestCase("null")]
-    public void SuccessfulHttpResponseWithoutAccessTokenFailsBeforeOverwritingAuthentication(string body)
-    {
+    public void SuccessfulHttpResponseWithoutAccessTokenFailsBeforeOverwritingAuthentication(string body) {
         SetHttp(request => Task.FromResult(Response(request, HttpStatusCode.OK, body)));
         var authentication = new ApiAuthentication(ApiName.Mal, _httpClientFactory.Object,
             _serverHost.Object, new HttpContextAccessor { HttpContext = _controller.HttpContext },
@@ -495,8 +477,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task InvalidSavedCallbackDoesNotBlockKitsuPasswordGrant()
-    {
+    public async Task InvalidSavedCallbackDoesNotBlockKitsuPasswordGrant() {
         const string invalidAddress = "https://host?legacy=value";
         _plugin.Configuration.callbackUrl = invalidAddress;
         int tokenCalls = 0;
@@ -521,8 +502,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public void AuthorizationCodeGrantRejectsInvalidSavedCallbackBeforePosting()
-    {
+    public void AuthorizationCodeGrantRejectsInvalidSavedCallbackBeforePosting() {
         _plugin.Configuration.callbackUrl = "https://host?legacy=value";
         int requests = 0;
         SetHttp(request => {
@@ -541,8 +521,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task AuthorizationCodeGrantUsesSameCallbackAsPreview()
-    {
+    public async Task AuthorizationCodeGrantUsesSameCallbackAsPreview() {
         const string baseAddress = "https://host/jellyfin/";
         _plugin.Configuration.callbackUrl = baseAddress;
         string? postedCallback = null;
@@ -562,8 +541,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task KitsuGrantInitializesMissingKeyPairsAndPreservesGrantParameters()
-    {
+    public async Task KitsuGrantInitializesMissingKeyPairsAndPreservesGrantParameters() {
         _requesterConfig.KeyPairs = null!;
         bool grantParametersPreserved = false;
         bool tokenAvailableDuringLookup = false;
@@ -588,8 +566,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public async Task AdministratorKitsuGrantWaitsForTokenAndCapturesSelectedUserId()
-    {
+    public async Task AdministratorKitsuGrantWaitsForTokenAndCapturesSelectedUserId() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         var grantStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var grantResponse = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -632,11 +609,15 @@ public partial class UserConfigurationTests
     };
 
     private static PasswordGrantRequest KitsuGrant(Guid user) => new() {
-        Provider = ApiName.Kitsu, User = user, Username = "fixture-user", Password = "fixture-password"
+        Provider = ApiName.Kitsu,
+        User = user,
+        Username = "fixture-user",
+        Password = "fixture-password"
     };
 
     private static UserConfig CreateConfig(Guid userId, string marker) => new() {
-        UserId = userId, LibraryToCheck = [],
+        UserId = userId,
+        LibraryToCheck = [],
         UserApiAuth = [
             new UserApiAuth { Name = ApiName.Mal, AccessToken = marker + "-mal-fixture", RefreshToken = marker + "-refresh-fixture" },
             new UserApiAuth { Name = ApiName.AniList, AccessToken = marker + "-anilist-fixture" }
@@ -644,22 +625,21 @@ public partial class UserConfigurationTests
         KeyPairs = [new KeyPairs { Key = "FutureKey", Value = marker }]
     };
 
-    private static void SetPermission(User user, PermissionKind kind, bool value)
-    {
+    private static void SetPermission(User user, PermissionKind kind, bool value) {
         foreach (var permission in user.Permissions.Where(permission => permission.Kind == kind).ToArray()) {
             user.Permissions.Remove(permission);
         }
         user.Permissions.Add(new Permission(kind, value));
     }
 
-    private void SetHttp(Func<HttpRequestMessage, Task<HttpResponseMessage>> handler)
-    {
+    private void SetHttp(Func<HttpRequestMessage, Task<HttpResponseMessage>> handler) {
         _httpClient = new HttpClient(new HttpHandler(handler));
         _httpClientFactory.Setup(factory => factory.CreateClient(It.IsAny<string>())).Returns(_httpClient);
     }
 
     private static HttpResponseMessage Response(HttpRequestMessage? request, HttpStatusCode code, string content) => new(code) {
-        RequestMessage = request, Content = new StringContent(content)
+        RequestMessage = request,
+        Content = new StringContent(content)
     };
 
     private static HttpResponseMessage TokenResponse(HttpRequestMessage? request) => Response(request, HttpStatusCode.OK,
@@ -668,8 +648,7 @@ public partial class UserConfigurationTests
     private static HttpResponseMessage KitsuProfileResponse(HttpRequestMessage request) => Response(request, HttpStatusCode.OK,
         """{"data":[{"id":"42","type":"users","attributes":{"id":42,"name":"selected profile","type":"users"}}]}""");
 
-    private sealed class HttpHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> handler) : DelegatingHandler
-    {
+    private sealed class HttpHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> handler) : DelegatingHandler {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => handler(request);
     }

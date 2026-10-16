@@ -92,7 +92,7 @@ namespace jellyfin_anidoki.Api.Anilist {
                     while (page < 10) {
                         page++;
                         variables["page"] = page.ToString();
-                        
+
                         AniListSearch.AniListSearchMedia nextPageResult = await GraphQlHelper.DeserializeRequest<AniListSearch.AniListSearchMedia>(_httpClient, _logger, ApiName.AniList, _memoryCache, _delayer, query, variables);
 
                         result.Data.Page.Media = result.Data.Page.Media.Concat(nextPageResult.Data.Page.Media).ToList();
@@ -248,7 +248,8 @@ namespace jellyfin_anidoki.Api.Anilist {
             bool acknowledged = await MutationAcknowledgement.Validate(response, root => {
                 if (!MutationAcknowledgement.Object(root, "data", out var data) ||
                     !MutationAcknowledgement.Object(data, "SaveMediaListEntry", out var entry) ||
-                    !MutationAcknowledgement.Id(entry)) return false;
+                    !MutationAcknowledgement.Id(entry))
+                    return false;
                 int? returnedProgress = MutationAcknowledgement.Number(entry, "progress", out var actualProgress) && actualProgress >= 0
                     ? actualProgress : null;
                 Status? returnedStatus = entry.TryGetProperty("status", out var statusField) && statusField.ValueKind == JsonValueKind.String
@@ -261,7 +262,8 @@ namespace jellyfin_anidoki.Api.Anilist {
                         "REPEATING" => Status.Rewatching,
                         _ => null
                     } : null;
-                if (!returnedProgress.HasValue && !returnedStatus.HasValue) return false;
+                if (!returnedProgress.HasValue && !returnedStatus.HasValue)
+                    return false;
                 receipt = new UpdateAnimeStatusResponse {
                     UsesAcknowledgementFields = true,
                     AcknowledgedProgress = returnedProgress,

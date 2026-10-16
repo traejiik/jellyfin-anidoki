@@ -55,13 +55,15 @@ namespace jellyfin_anidoki {
         }
 
         public Task StartAsync(CancellationToken cancellationToken) {
-            if (!_started) _sessionManager.PlaybackStopped += PlaybackStopped;
+            if (!_started)
+                _sessionManager.PlaybackStopped += PlaybackStopped;
             _started = true;
             return Task.CompletedTask;
         }
 
         public Task StopAsync(CancellationToken cancellationToken) {
-            if (_started) _sessionManager.PlaybackStopped -= PlaybackStopped;
+            if (_started)
+                _sessionManager.PlaybackStopped -= PlaybackStopped;
             _started = false;
             return Task.CompletedTask;
         }
@@ -77,10 +79,9 @@ namespace jellyfin_anidoki {
                     var collector = new PlaybackOutcomeCollector();
                     var updateProviderStatus = new UpdateProviderStatus(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
                     using var gate = await SyncExecutionGate.Shared.Enter(user.Id);
-                    try { await updateProviderStatus.UpdateInsideGate(e.Item, user.Id, e.PlayedToCompletion, collector, SyncUpdateSource.Playback); }
-
-                    finally {
-                        if (e.PlayedToCompletion && collector.HasConfirmedChange) _manualMarks?.Supersede(user.Id, e.Item.Id);
+                    try { await updateProviderStatus.UpdateInsideGate(e.Item, user.Id, e.PlayedToCompletion, collector, SyncUpdateSource.Playback); } finally {
+                        if (e.PlayedToCompletion && collector.HasConfirmedChange)
+                            _manualMarks?.Supersede(user.Id, e.Item.Id);
                         _discord?.Enqueue(SyncOperationSummary.Capture(e.Item, user.Id, Guid.NewGuid(), SyncNotificationTrigger.Playback, collector));
                         PlaybackNotificationPublisher.Publish(collector, context, user.Id, _notifications, _logger);
                     }

@@ -17,21 +17,24 @@ namespace jellyfin_anidoki.Extensions {
         /// <param name="claimsPrincipal">The <see cref="ClaimsPrincipal"/> of the currently logged-in user.</param>
         /// <param name="userId">ID of the <see cref="User"/> the logged-in user would like to access. Null to access the logged-in user.</param>
         /// <returns>User if the requester has permissions to interact with the user. Null if the requester cannot interact with the user./></returns>
-        public static User? GetUser(this IUserManager userManager, ClaimsPrincipal claimsPrincipal, Guid? userId)
-        {
+        public static User? GetUser(this IUserManager userManager, ClaimsPrincipal claimsPrincipal, Guid? userId) {
             var currentUserId = GetCurrentUserId(claimsPrincipal);
 
-            if (currentUserId.IsNullOrEmpty()) return null;
+            if (currentUserId.IsNullOrEmpty())
+                return null;
 
             var currentUser = userManager.GetUserById(currentUserId.Value);
 
-            if (currentUser == null) return null;
+            if (currentUser == null)
+                return null;
 
-            if (userId.IsNullOrEmpty()) return currentUser;
+            if (userId.IsNullOrEmpty())
+                return currentUser;
 
             var isAdministrator = currentUser.Permissions.Any(permission => permission is { Kind: PermissionKind.IsAdministrator, Value: true });
 
-            if (!userId.Equals(currentUserId) && !isAdministrator) return null;
+            if (!userId.Equals(currentUserId) && !isAdministrator)
+                return null;
 
             return userManager.GetUserById(userId.Value);
         }
@@ -39,11 +42,9 @@ namespace jellyfin_anidoki.Extensions {
         private static string? GetClaimValue(ClaimsPrincipal user, string name)
             => user.Claims.FirstOrDefault(claim => claim.Type.Equals(name, StringComparison.OrdinalIgnoreCase))?.Value;
 
-        private static Guid? GetCurrentUserId(ClaimsPrincipal claimsPrincipal)
-        {
+        private static Guid? GetCurrentUserId(ClaimsPrincipal claimsPrincipal) {
             string currentUserString = GetClaimValue(claimsPrincipal, ClaimValues.UserId) ?? string.Empty;
-            if (Guid.TryParse(currentUserString, out Guid userId))
-            {
+            if (Guid.TryParse(currentUserString, out Guid userId)) {
                 return userId;
             }
             return null;

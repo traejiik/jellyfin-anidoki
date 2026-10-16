@@ -7,7 +7,7 @@ using Jellyfin.Database.Implementations.Enums;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 
-namespace jellyfin_anidoki.Extensions { 
+namespace jellyfin_anidoki.Extensions {
     public static class LibraryManagerExtensions {
         /// <summary>
         /// Checks if the user has access to the list of <see cref="CollectionFolder"/>.

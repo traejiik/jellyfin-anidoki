@@ -18,7 +18,7 @@ using Microsoft.Extensions.Logging;
 namespace jellyfin_anidoki;
 
 public class TaskProcessMarkedMedia {
-    private List<(Guid userId, Guid? seasonId, Video baseItem)> itemsToUpdate { get; set; } = new ();
+    private List<(Guid userId, Guid? seasonId, Video baseItem)> itemsToUpdate { get; set; } = new();
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<TaskProcessMarkedMedia> _logger;
     private readonly ILibraryManager _libraryManager;
@@ -58,18 +58,20 @@ public class TaskProcessMarkedMedia {
     public async Task RunUpdate() {
         // wait a second to let the list populate itself if a mass update is occuring
         await Task.Delay(1000);
-        
+
         while (true) {
             (Guid userId, Guid? seasonId, Video baseItem) item;
             lock (itemsToUpdate) {
-                if (itemsToUpdate.Count == 0) return;
+                if (itemsToUpdate.Count == 0)
+                    return;
                 item = itemsToUpdate[0];
             }
             if (item.Equals(default)) {
                 RemoveFromUpdateList(item);
                 continue;
-            };
-            
+            }
+            ;
+
             var aniDokiConfigUser = Plugin.Instance?.PluginConfiguration.UserConfig.FirstOrDefault(uc => uc.UserId == item.userId);
             List<(Guid userId, Guid? seasonId, Video baseItem)> pairedItems = new List<(Guid userId, Guid? seasonId, Video baseItem)>();
             if (aniDokiConfigUser != null && UpdateProviderStatus.LibraryCheck(aniDokiConfigUser, _libraryManager, _logger, item.baseItem)) {
@@ -88,7 +90,7 @@ public class TaskProcessMarkedMedia {
                 _memoryCache.Set("lastQuery", DateTime.UtcNow, new MemoryCacheEntryOptions {
                     AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(5)
                 });
-                
+
                 UpdateProviderStatus updateProviderStatus = new UpdateProviderStatus(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
                 lock (itemsToUpdate) {
                     pairedItems = itemsToUpdate.Where(items => items.seasonId == item.seasonId && items.userId == item.userId).ToList();
@@ -98,8 +100,7 @@ public class TaskProcessMarkedMedia {
                     _logger.LogDebug($"(Sync) Ignoring {item.baseItem.Name}; ignore tag detected on all paired episodes");
                 } else {
                     var collector = new PlaybackOutcomeCollector();
-                    try { await updateProviderStatus.Update(highestNonIgnoredItem.baseItem, highestNonIgnoredItem.userId, true, collector, SyncUpdateSource.LegacyManual); }
-                    finally { _discord?.Enqueue(SyncOperationSummary.Capture(highestNonIgnoredItem.baseItem, highestNonIgnoredItem.userId, Guid.NewGuid(), SyncNotificationTrigger.LegacyManual, collector)); }
+                    try { await updateProviderStatus.Update(highestNonIgnoredItem.baseItem, highestNonIgnoredItem.userId, true, collector, SyncUpdateSource.LegacyManual); } finally { _discord?.Enqueue(SyncOperationSummary.Capture(highestNonIgnoredItem.baseItem, highestNonIgnoredItem.userId, Guid.NewGuid(), SyncNotificationTrigger.LegacyManual, collector)); }
                 }
             }
 

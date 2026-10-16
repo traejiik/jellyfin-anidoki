@@ -5,18 +5,17 @@ using System.Text;
 using jellyfin_anidoki.Models.Mal;
 namespace jellyfin_anidoki.Notifications.Discord;
 
-public static class DiscordEmbedBuilder
-{
+public static class DiscordEmbedBuilder {
     public const string AvatarUrl = "https://raw.githubusercontent.com/traejiik/jellyfin-anidoki/2c4d36d516dfa2ea4540f63bc9953ef9c50b6238/docs/assets/anidoki-logo.png";
     public const string JellyfinLogoUrl = "https://raw.githubusercontent.com/jellyfin/jellyfin-ux/master/logos/PNG-4x/jellyfin-icon--color-on-dark.png";
     internal static string Limit(string? value, int max) => string.Concat((value ?? "").EnumerateRunes().Take(max).Select(r => r.ToString()));
     internal static string Escape(string? value) => string.Concat((value ?? "").Where(c => !char.IsControl(c))).Replace("\\", "\\\\").Replace("*", "\\*").Replace("_", "\\_").Replace("`", "\\`").Replace("[", "\\[").Replace("]", "\\]").Replace("@", "@\u200b");
     public static string EpisodeLine(SyncOperationSummary summary) => summary.IsMovie ? "Movie" :
         (summary.EpisodeNumber.HasValue ? $"Episode {summary.EpisodeNumber}" + (summary.EpisodeEndNumber > summary.EpisodeNumber ? $"–{summary.EpisodeEndNumber}" : "") : "Episode number unavailable") + " - " + (string.IsNullOrWhiteSpace(summary.EpisodeTitle) ? "Episode title unavailable" : Limit(summary.EpisodeTitle, 400));
-    private static string ConfirmedResult(ProviderWriteOutcome outcome)
-    {
+    private static string ConfirmedResult(ProviderWriteOutcome outcome) {
         var status = outcome.ConfirmedStatus?.ToString().Replace('_', ' ');
-        if (outcome.StatusOnly || !outcome.ConfirmedProgress.HasValue) return status ?? "Confirmed update";
+        if (outcome.StatusOnly || !outcome.ConfirmedProgress.HasValue)
+            return status ?? "Confirmed update";
         var prefix = outcome.ConfirmedStatus switch {
             Status.Completed => "Completed: ",
             Status.Watching when outcome.ConfirmedProgress == 1 => "Started watching: ",
@@ -25,13 +24,16 @@ public static class DiscordEmbedBuilder
         };
         return prefix + "Updated progress to " + outcome.ConfirmedProgress;
     }
-    internal static object[] Fields(SyncOperationSummary summary) => summary.Outcomes.GroupBy(o => o.Provider).Take(6).Select(group =>
-    {
+    internal static object[] Fields(SyncOperationSummary summary) => summary.Outcomes.GroupBy(o => o.Provider).Take(6).Select(group => {
         // Keep uncertainty visible even when a multi-season operation has many receipts.
         var results = group.GroupBy(o => (o.TargetId, o.Kind, o.Step)).Select(g => g.Last()).ToArray();
         var selected = results.OrderBy(o => o.Kind switch {
-            OutcomeKind.Unconfirmed => 0, OutcomeKind.Failed => 1, OutcomeKind.Unresolved => 2,
-            OutcomeKind.Skipped => 3, OutcomeKind.Confirmed => 4, _ => 5
+            OutcomeKind.Unconfirmed => 0,
+            OutcomeKind.Failed => 1,
+            OutcomeKind.Unresolved => 2,
+            OutcomeKind.Skipped => 3,
+            OutcomeKind.Confirmed => 4,
+            _ => 5
         }).Take(6).ToArray();
         var lines = selected.Select(outcome => {
             var result = outcome.Kind != OutcomeKind.Confirmed ? outcome.Kind.ToString() : ConfirmedResult(outcome);
@@ -51,12 +53,11 @@ public static class DiscordEmbedBuilder
         (summary.Outcomes.Any(o => o.Kind is OutcomeKind.Failed or OutcomeKind.Unconfirmed or OutcomeKind.Unresolved) ?
             "\nSome tracker results could not be confirmed." : "") + (poster ? "" : "\nPoster unavailable.");
     public static object Build(SyncOperationSummary summary, string address, string server, bool poster, bool test = false,
-        string? serverName = null, DateTimeOffset? sentUtc = null) => new
-    {
-        username = "AniDoki",
-        avatar_url = AvatarUrl,
-        allowed_mentions = new { parse = Array.Empty<string>() },
-        embeds = new[] {
+        string? serverName = null, DateTimeOffset? sentUtc = null) => new {
+            username = "AniDoki",
+            avatar_url = AvatarUrl,
+            allowed_mentions = new { parse = Array.Empty<string>() },
+            embeds = new[] {
             new {
                 title = Limit(summary.ShowTitle, 240),
                 url = JellyfinShowLink.Build(address, summary.ShowItemId, server),
@@ -68,9 +69,8 @@ public static class DiscordEmbedBuilder
                 timestamp = (sentUtc ?? summary.CreatedUtc).ToString("O")
             }
         }
-    };
-    public static object GenericTest(string? serverName = null, DateTimeOffset? sentUtc = null) => new
-    {
+        };
+    public static object GenericTest(string? serverName = null, DateTimeOffset? sentUtc = null) => new {
         username = "AniDoki",
         avatar_url = AvatarUrl,
         allowed_mentions = new { parse = Array.Empty<string>() },

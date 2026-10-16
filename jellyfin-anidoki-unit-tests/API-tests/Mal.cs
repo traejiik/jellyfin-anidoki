@@ -34,7 +34,7 @@ public class Mal {
         MemoryCache memoryCache = new MemoryCache(new MemoryCacheOptions());
         Mock<IAsyncDelayer> mockDelayer = new Mock<IAsyncDelayer>();
         _malApiCalls = new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost.Object, _httpContextAccessor.Object, memoryCache, mockDelayer.Object, new UserConfig {
-            UserApiAuth = new [] {
+            UserApiAuth = new[] {
                 new UserApiAuth {
                     AccessToken = "accessToken",
                     Name = ApiName.Mal,
@@ -82,7 +82,7 @@ public class Mal {
                 })
             }
         });
-        
+
         var result = await _malApiCalls.SearchAnime(String.Empty, new[] { String.Empty });
         Assert.IsTrue(result is { Count: > 0 });
     }
@@ -100,7 +100,7 @@ public class Mal {
                 })
             }
         });
-        
+
         var result = await _malApiCalls.GetAnime(animeId);
         Assert.IsNotNull(result);
     }

@@ -29,12 +29,11 @@ public sealed record PublicNotificationEvent(
     [property: JsonPropertyName("sourceEpisode")] int? SourceEpisode,
     [property: JsonPropertyName("isMovie")] bool IsMovie,
     [property: JsonPropertyName("outcomes")] PublicOutcome[] Outcomes,
-    [property: JsonPropertyName("summarized")] bool Summarized)
-{
+    [property: JsonPropertyName("summarized")] bool Summarized) {
     internal static string Bounded(string? text) => string.IsNullOrEmpty(text) ? string.Empty : text[..Math.Min(256, text.Length)];
-    private static ProviderWriteOutcome[] Sample(ProviderWriteOutcome[] outcomes)
-    {
-        if (outcomes.Length <= 24) return outcomes;
+    private static ProviderWriteOutcome[] Sample(ProviderWriteOutcome[] outcomes) {
+        if (outcomes.Length <= 24)
+            return outcomes;
         var representatives = outcomes.GroupBy(o => (o.Provider, o.Kind)).Select(g => g.FirstOrDefault(o => o.Kind == OutcomeKind.Confirmed && o.MeaningfulChange) ?? g.First())
             .OrderBy(o => o.Kind == OutcomeKind.Confirmed ? 0 : o.Kind is OutcomeKind.Unconfirmed or OutcomeKind.Failed ? 1 : 2).ToArray();
         return representatives.Concat(outcomes).Distinct().Take(24).ToArray();

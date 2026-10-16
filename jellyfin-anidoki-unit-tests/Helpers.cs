@@ -45,7 +45,7 @@ public class Helpers {
         mockFactory.Setup(_ => _.CreateClient(It.IsAny<string>())).Returns(client);
         _httpClientFactory = mockFactory.Object;
     }
-    
+
     public static void MockHttpCalls(List<HttpCall> calls, ref HttpClient httpClient) {
         var clientHandlerStub = new DelegatingHandlerStub((request, _) => {
             request.SetConfiguration(new HttpConfiguration());
