@@ -42,6 +42,7 @@ The build is versioned from the latest release tag (for example `1.1.1.27`), so 
 - Prefer file-scoped namespaces in new files.
 - Use PascalCase for types and methods, camelCase for locals, and `_camelCase` for private fields.
 - Keep one statement per line in new code.
+- Nullable reference types are on for the whole plugin. Older files opt out with `#nullable disable` on their first line. When you work in one of them, remove the directive if you can annotate the file without adding warnings.
 - Prefer message templates for logging (`_logger.LogInformation("Synced {Title}", title)`) over string interpolation.
 - Comments explain why the code works the way it does. History belongs in commit messages.
 

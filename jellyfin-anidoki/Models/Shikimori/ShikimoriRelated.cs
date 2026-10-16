@@ -9,7 +9,7 @@ public class ShikimoriRelated {
     public ShikimoriAnime? Anime { get; set; }
 
     [JsonPropertyName("relationEn")]
-    public string Relation { get; set; }
+    public string? Relation { get; set; }
 
     public ShikimoriRelation? RelationEnum {
         get {

@@ -3,6 +3,7 @@
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
         <RootNamespace>jellyfin_anidoki</RootNamespace>
+        <Nullable>enable</Nullable>
         <Version>0.1.0.0</Version>
         <AssemblyVersion>0.1.0.0</AssemblyVersion>
         <FileVersion>0.1.0.0</FileVersion>
@@ -17,12 +18,12 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <!-- Only for the File Transformation plugin interop (NotificationWebIntegration). -->
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageReference Include="Jellyfin.Controller" Version="12.2.0" />
         <PackageReference Include="Jellyfin.Model" Version="12.2.0" />
         <FrameworkReference Include="Microsoft.AspNetCore.App"/>
         <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.11" />
-        <PackageReference Include="System.Collections" Version="4.3.0"/>
     </ItemGroup>
 
     <ItemGroup>

@@ -1,4 +1,3 @@
-#nullable enable
 using System;
 using System.Text.RegularExpressions;
 namespace jellyfin_anidoki.Notifications.Discord;

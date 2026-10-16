@@ -1,10 +1,9 @@
-#nullable enable
 using System;
 using System.IO;
 using System.Linq;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace jellyfin_anidoki.Configuration;
 
@@ -32,15 +31,15 @@ internal static class PluginPagesCleanup {
         if (!File.Exists(path))
             return;
         string original = File.ReadAllText(path);
-        var config = JObject.Parse(original);
-        if (config["pages"] == null)
+        var config = PluginPagesJson.Parse(original);
+        if (!config.ContainsKey("pages"))
             return;
-        if (config["pages"] is not JArray pages) {
+        if (config["pages"] is not JsonArray pages) {
             logger.LogWarning("Plugin Pages configuration has an invalid pages collection at {Path}", path);
             return;
         }
 
-        var owned = pages.OfType<JObject>().Where(page =>
+        var owned = pages.OfType<JsonObject>().Where(page =>
             HasOwnerId(page, "Id", ownerId) || HasOwnerId(page, "id", ownerId)).ToArray();
         if (owned.Length == 0)
             return;
@@ -49,7 +48,7 @@ internal static class PluginPagesCleanup {
 
         string temporary = path + ".anidoki-" + Guid.NewGuid().ToString("N") + ".tmp";
         try {
-            File.WriteAllText(temporary, config.ToString(Formatting.Indented));
+            File.WriteAllText(temporary, PluginPagesJson.Serialize(config));
             if (!string.Equals(File.ReadAllText(path), original, StringComparison.Ordinal))
                 throw new IOException("Plugin Pages configuration changed during cleanup; retained the newer file.");
             File.Move(temporary, path, overwrite: true);
@@ -59,7 +58,7 @@ internal static class PluginPagesCleanup {
         }
     }
 
-    private static bool HasOwnerId(JObject page, string property, string ownerId) =>
-        page[property] is JValue { Type: JTokenType.String } value &&
-        string.Equals(value.Value<string>(), ownerId, StringComparison.Ordinal);
+    private static bool HasOwnerId(JsonObject page, string property, string ownerId) =>
+        PluginPagesJson.IsString(page[property], out var id) &&
+        string.Equals(id, ownerId, StringComparison.Ordinal);
 }

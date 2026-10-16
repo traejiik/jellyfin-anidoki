@@ -1,3 +1,4 @@
+#nullable disable
 namespace jellyfin_anidoki.Configuration {
     public class ProviderApiAuth {
         public ApiName Name { get; set; }

@@ -1,9 +1,10 @@
-#nullable enable
 using System;
 using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Runtime.Loader;
+// File Transformation's RegisterTransformation API takes a Newtonsoft JObject, so this
+// is the only Newtonsoft API AniDoki calls. Use System.Text.Json everywhere else.
 using Newtonsoft.Json.Linq;
 
 namespace jellyfin_anidoki.Notifications;

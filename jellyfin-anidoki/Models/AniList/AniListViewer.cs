@@ -1,3 +1,4 @@
+#nullable disable
 using System.Text.Json.Serialization;
 
 namespace jellyfin_anidoki.Models {

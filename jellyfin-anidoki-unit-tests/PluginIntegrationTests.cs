@@ -9,7 +9,7 @@ using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Model.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests;
@@ -49,10 +49,10 @@ public class PluginIntegrationTests {
         {"pages":[{"Id":"jellyfin_anidoki"},{"Id":"other.plugin"}],"keep":true}
         """);
         plugin.OnUninstalling();
-        var result = JObject.Parse(File.ReadAllText(_pagesPath));
-        Assert.That((bool)result["keep"]!, Is.True);
-        Assert.That(((JArray)result["pages"]!).Count, Is.EqualTo(1));
-        Assert.That((string)result["pages"]![0]!["Id"]!, Is.EqualTo("other.plugin"));
+        var result = JsonNode.Parse(File.ReadAllText(_pagesPath))!;
+        Assert.That(result["keep"]!.GetValue<bool>(), Is.True);
+        Assert.That(result["pages"]!.AsArray().Count, Is.EqualTo(1));
+        Assert.That(result["pages"]![0]!["Id"]!.GetValue<string>(), Is.EqualTo("other.plugin"));
         Assert.DoesNotThrow(() => plugin.OnUninstalling());
     }
 
@@ -72,6 +72,9 @@ public class PluginIntegrationTests {
     [TestCase("{\"pages\":[42],\"keep\":true}")]
     [TestCase("{\"pages\":[{\"Id\":{\"nested\":true}}],\"keep\":true}")]
     [TestCase("{\"pages\":[{\"Id\":\"jellyfin_anidoki\",\"Version\":\"invalid\"}],\"keep\":true}")]
+    [TestCase("{\"pages\":[{\"Id\":null}],\"keep\":true}")]
+    [TestCase("{\"pages\":[],\"pages\":[{\"Id\":\"jellyfin_anidoki\"}]}")]
+    [TestCase("[{\"Id\":\"jellyfin_anidoki\"}]")]
     public void EnabledUserPagesContainMalformedRegistrationWithoutRewriting(string original) {
         var seed = CreatePlugin();
         File.WriteAllText(seed.ConfigurationFilePath, "fixture");
@@ -86,7 +89,7 @@ public class PluginIntegrationTests {
     public void DisablingUserPagesRemovesOwnedRegistrationDuringStartup() {
         File.WriteAllText(_pagesPath, "{\"pages\":[{\"Id\":\"jellyfin_anidoki\"},{\"Id\":\"other.plugin\"}]}");
         CreatePlugin();
-        Assert.That((string)JObject.Parse(File.ReadAllText(_pagesPath))["pages"]![0]!["Id"]!,
+        Assert.That(JsonNode.Parse(File.ReadAllText(_pagesPath))!["pages"]![0]!["Id"]!.GetValue<string>(),
             Is.EqualTo("other.plugin"));
     }
 
@@ -99,18 +102,33 @@ public class PluginIntegrationTests {
         """);
 
         var plugin = CreatePlugin(true);
-        var result = JObject.Parse(File.ReadAllText(_pagesPath));
-        var pages = (JArray)result["pages"]!;
-        var owned = pages.Single(page => (string?)page["Id"] == "jellyfin_anidoki");
+        string written = File.ReadAllText(_pagesPath);
+        var result = JsonNode.Parse(written)!;
+        var pages = result["pages"]!.AsArray();
+        var owned = pages.Single(page => page!["Id"]!.GetValue<string>() == "jellyfin_anidoki")!;
         Assert.Multiple(() => {
-            Assert.That((string?)owned["DisplayText"], Is.EqualTo("AniDōki"));
-            Assert.That((string?)owned["Icon"], Is.EqualTo("sync"));
-            Assert.That((string?)owned["Url"], Is.EqualTo("/jellyfin/AniDoki/settings"));
-            Assert.That((string?)pages.Single(page => (string?)page["Id"] == "other.plugin")["Icon"], Is.EqualTo("star"));
-            Assert.That((bool)result["keep"]!, Is.True);
+            Assert.That(owned["DisplayText"]!.GetValue<string>(), Is.EqualTo("AniDōki"));
+            Assert.That(owned["Icon"]!.GetValue<string>(), Is.EqualTo("sync"));
+            Assert.That(owned["Url"]!.GetValue<string>(), Is.EqualTo("/jellyfin/AniDoki/settings"));
+            Assert.That(owned["Version"]!.GetValue<int>(), Is.EqualTo(2));
+            Assert.That(pages.Single(page => page!["Id"]!.GetValue<string>() == "other.plugin")!["Icon"]!.GetValue<string>(), Is.EqualTo("star"));
+            Assert.That(result["keep"]!.GetValue<bool>(), Is.True);
+            Assert.That(written, Does.Contain("\"AniDōki\""));
         });
         plugin.CheckPluginPages(_paths.Object, CreateServerConfiguration());
-        Assert.That((JArray)JObject.Parse(File.ReadAllText(_pagesPath))["pages"]!, Has.Count.EqualTo(2));
+        Assert.That(JsonNode.Parse(File.ReadAllText(_pagesPath))!["pages"]!.AsArray(), Has.Count.EqualTo(2));
+    }
+
+    [TestCase(2)]
+    [TestCase("2")]
+    public void CurrentRegistrationIsLeftAloneWhetherVersionIsNumberOrString(object version) {
+        var seed = CreatePlugin();
+        File.WriteAllText(seed.ConfigurationFilePath, "fixture");
+        string versionJson = version is string text ? $"\"{text}\"" : version.ToString()!;
+        string original = "{\"pages\":[{\"Id\":\"jellyfin_anidoki\",\"Icon\":\"custom\",\"Version\":" + versionJson + "}]}";
+        File.WriteAllText(_pagesPath, original);
+        CreatePlugin(true);
+        Assert.That(File.ReadAllText(_pagesPath), Is.EqualTo(original));
     }
 
     private static IServerConfigurationManager CreateServerConfiguration() {

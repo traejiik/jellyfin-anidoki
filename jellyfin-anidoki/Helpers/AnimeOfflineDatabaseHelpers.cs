@@ -1,3 +1,4 @@
+#nullable disable
 using System;
 using System.IO;
 using System.Net.Http;
@@ -31,12 +32,11 @@ namespace jellyfin_anidoki.Helpers {
             StreamReader streamReader = new StreamReader(await response.Content.ReadAsStreamAsync());
             string streamText = await streamReader.ReadToEndAsync();
 
-            // FIX 8: the previous code reported success whenever the payload merely
-            // deserialised, which hid the case of a row that exists but carries no
-            // usable provider ID. ARM returns literal `null` for an unknown ID and a
-            // partially-populated object when the offline database has the entry but
-            // not yet the cross-references. Those are very different situations and
-            // both used to log "Retrieved provider IDs".
+            // A payload that deserialises is not necessarily a usable result. ARM
+            // returns literal `null` for an unknown ID and a partially-populated
+            // object when the offline database has the entry but not yet the
+            // cross-references. Those are very different situations, so the raw
+            // response is logged and each case is reported separately below.
             logger.LogDebug($"[anidoki-diag] ARM {(int)response.StatusCode} for {source.ToString().ToLower()}={metadataId}, body: {(streamText.Length > 400 ? streamText.Substring(0, 400) + "..." : streamText)}");
             if (!response.IsSuccessStatusCode) {
                 logger.LogWarning($"ARM server returned {(int)response.StatusCode}; treating as no result");

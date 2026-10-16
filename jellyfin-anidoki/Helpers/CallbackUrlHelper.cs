@@ -1,4 +1,3 @@
-#nullable enable
 using System;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
