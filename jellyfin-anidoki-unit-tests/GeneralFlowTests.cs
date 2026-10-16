@@ -439,11 +439,10 @@ public class GeneralFlowTests {
             It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string>(),
             It.IsAny<AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse>(), It.IsAny<bool?>())).ReturnsAsync(new UpdateAnimeStatusResponse());
 
-        var (season, totalEpisodesWatched, isRootSeason) = await _updateProviderStatus.WalkCours(cours[0], 30);
+        var (season, totalEpisodesWatched) = await _updateProviderStatus.WalkCours(cours[0], 30);
 
-        Assert.That(season.Id, Is.EqualTo(3));
+        Assert.That(season!.Id, Is.EqualTo(3));
         Assert.That(totalEpisodesWatched, Is.EqualTo(2 * coursEpisodes));
-        Assert.That(isRootSeason, Is.False);
         foreach (var completedCour in new[] { 1, 2 }) {
             _mockApiCallHelpers.Verify(s => s.UpdateAnime(completedCour, coursEpisodes,
                 Status.Completed, It.IsAny<bool?>(), It.IsAny<int?>(),
@@ -451,6 +450,88 @@ public class GeneralFlowTests {
                 It.IsAny<AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse>(), It.IsAny<bool?>()), Times.Once);
         }
         _mockApiCallHelpers.Verify(s => s.GetAnime(4, It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    /// <summary>
+    /// Builds a sequel chain of cours with the given lengths. Each cour is only found by its own alternative ID,
+    /// as providers such as Annict look entries up that way.
+    /// </summary>
+    private List<Anime> SetupCours(params int[] episodesPerCour) {
+        var cours = new List<Anime>();
+        for (int index = 0; index < episodesPerCour.Length; index++) {
+            int id = index + 1;
+            bool hasSequel = index < episodesPerCour.Length - 1;
+            var cour = new Anime {
+                Id = id,
+                AlternativeId = $"alt-{id}",
+                Title = $"cour {id}",
+                NumEpisodes = episodesPerCour[index],
+                MyListStatus = new MyListStatus { Status = Status.Watching },
+                RelatedAnime = hasSequel
+                    ? new List<RelatedAnime> { new RelatedAnime { Anime = new Anime { Id = id + 1, AlternativeId = $"alt-{id + 1}" }, RelationType = RelationType.Sequel } }
+                    : new List<RelatedAnime>()
+            };
+            cours.Add(cour);
+            _mockApiCallHelpers.Setup(s => s.GetAnime(id, $"alt-{id}", It.IsAny<bool>())).ReturnsAsync(cour);
+        }
+
+        _mockApiCallHelpers.Setup(s => s.UpdateAnime(It.IsAny<int>(), It.IsAny<int>(),
+            It.IsAny<Status>(), It.IsAny<bool?>(), It.IsAny<int?>(),
+            It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string>(),
+            It.IsAny<AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse>(), It.IsAny<bool?>())).ReturnsAsync(new UpdateAnimeStatusResponse());
+        return cours;
+    }
+
+    private void VerifyCourCompleted(int courId, int episodes, Times times) =>
+        _mockApiCallHelpers.Verify(s => s.UpdateAnime(courId, episodes,
+            Status.Completed, It.IsAny<bool?>(), It.IsAny<int?>(),
+            It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string>(),
+            It.IsAny<AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse>(), It.IsAny<bool?>()), times);
+
+    /// <summary>
+    /// Episode 30 of two 12-episode cours lies past the last cour. Writing it there would set progress beyond the
+    /// cour's length, so the walk must report that no cour holds it.
+    /// </summary>
+    [Test]
+    public async Task WalkCoursReturnsNoCourWhenEpisodeLiesPastTheLastCour() {
+        var cours = SetupCours(12, 12);
+
+        var (season, totalEpisodesWatched) = await _updateProviderStatus.WalkCours(cours[0], 30);
+
+        Assert.That(season, Is.Null);
+        Assert.That(totalEpisodesWatched, Is.EqualTo(12));
+        VerifyCourCompleted(1, 12, Times.Once());
+        VerifyCourCompleted(2, 12, Times.Never());
+    }
+
+    /// <summary>
+    /// A cour still airing reports 0 episodes. Its length is unknown, so the walk can't measure past it and must
+    /// target it rather than skip ahead to an announced sequel.
+    /// </summary>
+    [Test]
+    public async Task WalkCoursStopsAtCourOfUnknownLength() {
+        var cours = SetupCours(12, 0, 12);
+
+        var (season, totalEpisodesWatched) = await _updateProviderStatus.WalkCours(cours[0], 15);
+
+        Assert.That(season!.Id, Is.EqualTo(2));
+        Assert.That(totalEpisodesWatched, Is.EqualTo(12));
+        _mockApiCallHelpers.Verify(s => s.GetAnime(3, It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    /// <summary>
+    /// Each passed cour must be looked up by its own alternative ID. Reusing the first cour's ID finds nothing for
+    /// later cours, so they were never marked complete.
+    /// </summary>
+    [Test]
+    public async Task WalkCoursCompletesPassedCoursUsingTheirOwnAlternativeId() {
+        var cours = SetupCours(12, 12, 12);
+
+        var (season, _) = await _updateProviderStatus.WalkCours(cours[0], 30);
+
+        Assert.That(season!.Id, Is.EqualTo(3));
+        VerifyCourCompleted(1, 12, Times.Once());
+        VerifyCourCompleted(2, 12, Times.Once());
     }
 
     [TestCase(false, false, 1)]
