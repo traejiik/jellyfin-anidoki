@@ -82,7 +82,7 @@ export default function (view, host = view) {
                 return { message: profile?.name || profile?.Name ? `Connection verified for ${profile.name ?? profile.Name}.` : 'Connection verified.' };
             }
             if (kind === 'link' && provider !== 'Kitsu') return { authorizationUrl: await common.json(`AniDoki/user/buildAuthorizeRequestUrl?provider=${provider}&user=${cache.userId}`, { signal }) };
-            if (kind === 'disconnect') await common.request(`AniDoki/user/deauthenticate?apiName=${provider}&user=${cache.userId}`, { signal });
+            if (kind === 'disconnect') await common.request(`AniDoki/user/deauthenticate?apiName=${provider}&user=${cache.userId}`, { method: 'POST', signal });
             else await common.request('AniDoki/user/passwordGrant', { method: 'POST', body: { Provider: provider, User: cache.userId, ...credentials }, signal });
             cache.saved = await common.json(`AniDoki/user/configuration?user=${cache.userId}`, { signal });
             const message = kind === 'disconnect' ? `${common.providerName(provider)} disconnected.` : 'Account linked. Your preference edits are retained.';

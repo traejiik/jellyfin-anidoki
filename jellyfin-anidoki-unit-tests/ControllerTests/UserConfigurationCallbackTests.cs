@@ -1,9 +1,15 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
 
@@ -25,7 +31,7 @@ public partial class UserConfigurationTests
             grantStarted.TrySetResult();
             return grantResponse.Task;
         });
-        string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal);
+        string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal, "fixture-verifier");
         var callback = _controller.AuthCallback("fixture-code", state);
         await grantStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         bool returnedBeforeGrant = callback.IsCompleted;
@@ -50,13 +56,57 @@ public partial class UserConfigurationTests
     {
         _plugin.Configuration.callbackRedirectUrl = "https://host/done";
         SetHttp(request => Task.FromResult(Response(request, responseCode, responseBody)));
+        string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal, "fixture-verifier");
+        var result = await _controller.AuthCallback("fixture-code", state);
+        Assert.Multiple(() => {
+            Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(500));
+            Assert.That((result as ObjectResult)?.Value as string, Does.Not.Contain("invalid_grant"));
+            Assert.That(_requesterConfig.UserApiAuth[0].AccessToken == "requester-mal-fixture", Is.True);
+            Assert.That(_requesterConfig.UserApiAuth[0].RefreshToken == "requester-refresh-fixture", Is.True);
+            Assert.That(MemoryCacheHelper.ConsumeState(_memoryCache, state), Is.Null);
+        });
+    }
+
+    [Test]
+    public void MalSignInLinksEachCarryTheirOwnStoredVerifier()
+    {
+        var authentication = new ApiAuthentication(ApiName.Mal, _httpClientFactory.Object, _serverHost.Object,
+            new HttpContextAccessor(), NullLoggerFactory.Instance, _memoryCache, new Mock<IAsyncDelayer>().Object);
+        var links = new[] { authentication.BuildAuthorizeRequestUrl(_requester.Id), authentication.BuildAuthorizeRequestUrl(_requester.Id) }
+            .Select(url => QueryHelpers.ParseQuery(new Uri(url).Query)).ToArray();
+        Assert.Multiple(() => {
+            Assert.That(links[0]["code_challenge"].ToString(), Is.Not.EqualTo(links[1]["code_challenge"].ToString()));
+            foreach (var link in links) {
+                var stored = MemoryCacheHelper.ConsumeState(_memoryCache, link["state"].ToString());
+                Assert.That(link["code_challenge"].ToString(), Has.Length.EqualTo(128));
+                Assert.That(stored?.CodeVerifier, Is.EqualTo(link["code_challenge"].ToString()));
+            }
+        });
+    }
+
+    [Test]
+    public async Task OAuthCallbackSendsTheVerifierIssuedWithItsState()
+    {
+        string? sentVerifier = null;
+        SetHttp(async request => {
+            sentVerifier = QueryHelpers.ParseQuery(await request.Content!.ReadAsStringAsync())["code_verifier"].ToString();
+            return TokenResponse(request);
+        });
+        string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal, "issued-verifier");
+        await _controller.AuthCallback("fixture-code", state);
+        Assert.That(sentVerifier, Is.EqualTo("issued-verifier"));
+    }
+
+    [Test]
+    public async Task MalCallbackWithoutIssuedVerifierFailsWithoutContactingProvider()
+    {
+        bool contacted = false;
+        SetHttp(request => { contacted = true; return Task.FromResult(TokenResponse(request)); });
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal);
         var result = await _controller.AuthCallback("fixture-code", state);
         Assert.Multiple(() => {
             Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(500));
-            Assert.That(_requesterConfig.UserApiAuth[0].AccessToken == "requester-mal-fixture", Is.True);
-            Assert.That(_requesterConfig.UserApiAuth[0].RefreshToken == "requester-refresh-fixture", Is.True);
-            Assert.That(MemoryCacheHelper.ConsumeState(_memoryCache, state), Is.Null);
+            Assert.That(contacted, Is.False);
         });
     }
 

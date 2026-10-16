@@ -184,10 +184,8 @@ namespace jellyfin_anidoki.Api {
             }
         }
 
-        [Authorize(Policy = Policies.RequiresElevation)]
-        [HttpGet]
-        [Route("passwordGrant")]
-        public async Task<IActionResult> PasswordGrantAuthentication(ApiName provider, string userId, string username, string password) {
+        // Not routed: credentials only arrive in a POST body, via PasswordGrantFromBody.
+        internal async Task<IActionResult> PasswordGrantAuthentication(ApiName provider, string userId, string username, string password) {
             try {
                 var token = await new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer, new ProviderApiAuth { ClientId = username, ClientSecret = password }).GetToken(Guid.Parse(userId));
                 if (token == null)
@@ -356,7 +354,7 @@ namespace jellyfin_anidoki.Api {
         }
 
         [Authorize(Policy = Policies.RequiresElevation)]
-        [HttpGet]
+        [HttpPost]
         [Route("deauthenticate")]
         public IActionResult Deauthenticate([FromQuery] Guid user, [FromQuery] ApiName apiName) =>
             DeauthenticateProvidedUser(user, apiName);
@@ -379,17 +377,6 @@ namespace jellyfin_anidoki.Api {
         {
             if (!UserPagesEnabled()) return Task.FromResult<IActionResult>(NotFound());
             return PasswordGrantFromBody(request);
-        }
-
-        [Authorize]
-        [HttpGet]
-        [Route("user/passwordGrant")]
-        public async Task<IActionResult> PasswordGrantAuthenticationUser(ApiName provider, [FromQuery] Guid user, string username, string password) {
-            if (!UserPagesEnabled()) return NotFound();
-            var jellyfinUser = _userManager.GetUser(User, user);
-            if (jellyfinUser == null) return Forbid();
-            
-            return await PasswordGrantAuthentication(provider, jellyfinUser.Id.ToString(), username, password);
         }
 
         [Authorize]
@@ -488,7 +475,7 @@ namespace jellyfin_anidoki.Api {
         }
 
         [Authorize]
-        [HttpGet]
+        [HttpPost]
         [Route("user/deauthenticate")]
         public IActionResult DeauthenticateUser([FromQuery] Guid user, [FromQuery] ApiName apiName) {
             if (!UserPagesEnabled()) return NotFound();
@@ -544,10 +531,12 @@ namespace jellyfin_anidoki.Api {
             StoredState? storedState = MemoryCacheHelper.ConsumeState(_memoryCache, state);
             if (storedState == null) return BadRequest("User not found or link already used/expired, try again");
             try {
-                var token = await new ApiAuthentication(storedState.ApiName, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer).GetToken(storedState.UserId, code);
+                var token = await new ApiAuthentication(storedState.ApiName, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer).GetToken(storedState.UserId, code, codeVerifier: storedState.CodeVerifier);
                 if (token == null) return StatusCode(500, "Could not authenticate");
             } catch (Exception error) {
-                return StatusCode(500, $"Could not authenticate; {error.Message}");
+                // this endpoint is anonymous; provider responses stay in the server log
+                _logger.LogError($"({storedState.ApiName}) Could not complete sign-in: {error.Message}");
+                return StatusCode(500, "Could not authenticate; check the Jellyfin log for details");
             }
             if (!string.IsNullOrEmpty(Plugin.Instance?.PluginConfiguration.callbackRedirectUrl)) {
                 string replacedCallbackRedirectUrl = Plugin.Instance.PluginConfiguration.callbackRedirectUrl.Replace("{{LocalIpAddress}}", Request.HttpContext.Connection.LocalIpAddress != null ? Request.HttpContext.Connection.LocalIpAddress.ToString() : "localhost")

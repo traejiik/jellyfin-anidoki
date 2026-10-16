@@ -17,11 +17,12 @@ public class MemoryCacheHelper
     internal const string XRateLimitRemainingHeader = "X-RateLimit-Remaining";
     internal const string XRateLimitResetHeader = "X-RateLimit-Reset";
 
-    public static string GenerateState(IMemoryCache memoryCache, Guid userId, ApiName provider) {
+    public static string GenerateState(IMemoryCache memoryCache, Guid userId, ApiName provider, string? codeVerifier = null) {
         var key = Guid.NewGuid().ToString().Replace("-", "");
         memoryCache.Set(key, new StoredState {
             ApiName = provider,
-            UserId = userId
+            UserId = userId,
+            CodeVerifier = codeVerifier
         }, DateTimeOffset.Now.AddMinutes(Plugin.Instance?.Configuration.authenticationLinkExpireTimeMinutes ?? 1440));
         return key;
     }
