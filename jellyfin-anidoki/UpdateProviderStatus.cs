@@ -45,12 +45,14 @@ namespace jellyfin_anidoki {
         private UserConfig? _userConfig;
         private PlaybackOutcomeCollector? _outcomeCollector;
         private SyncUpdateSource _source;
-        private Type _animeType;
+        private Type? _animeType;
         private readonly ILibraryManager _libraryManager;
 
         internal ApiName ApiName;
         private readonly ILoggerFactory _loggerFactory;
         private AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse _apiIds = new ();
+
+        internal AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ResolvedIds => _apiIds;
 
         public UpdateProviderStatus(ILibraryManager libraryManager,
             ILoggerFactory loggerFactory,
@@ -84,6 +86,12 @@ namespace jellyfin_anidoki {
         }
 
         private async Task UpdateCore(BaseItem e, Guid userId, bool playedToCompletion) {
+            // SyncProviderFromLocal reuses one instance across series, so anything resolved
+            // for the previous item must not leak into this one. Without this, an item that
+            // resolves no IDs would be written to the previous item's tracker entry.
+            _apiIds = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse();
+            _animeType = null;
+
             var video = e as Video;
             Episode episode = video as Episode;
             Movie movie = video as Movie;
@@ -239,12 +247,13 @@ namespace jellyfin_anidoki {
                             break;
                         case ApiName.Shikimori:
                             string? shikimoriAppName = ConfigHelper.GetShikimoriAppName(_logger);
-                            if (shikimoriAppName == null) return;
+                            // continue, not return: a missing app name must not skip the providers after it
+                            if (string.IsNullOrEmpty(shikimoriAppName)) continue;
                             ApiCallHelpers = new ApiCallHelpers(shikimoriApiCalls: new ShikimoriApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, new Dictionary<string, string> { { "User-Agent", shikimoriAppName } }, _userConfig));
                             break;
                         case ApiName.Simkl:
                             string? simklClientId = ConfigHelper.GetSimklClientId(_logger);
-                            if (simklClientId == null) return;
+                            if (string.IsNullOrEmpty(simklClientId)) continue;
                             ApiCallHelpers = new ApiCallHelpers(simklApiCalls: new SimklApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, new Dictionary<string, string> { { "simkl-api-key", simklClientId } }, _userConfig));
                             if (((_apiIds.MyAnimeList != null && _apiIds.MyAnimeList != 0) ||
                                  (_apiIds.Anilist != null && _apiIds.Anilist != 0) ||
@@ -885,9 +894,13 @@ namespace jellyfin_anidoki {
                         _logger.LogInformation($"({ApiName}) Attempting to get season {i + 1}...");
                         Anime nextSeason = await ApiCallHelpers.GetAnime(initialSeasonRelatedAnime.Anime.Id, getRelated: true, alternativeId: initialSeasonRelatedAnime.Anime.AlternativeId);
 
-                        if (nextSeason != null) {
-                            retrievedSeason = nextSeason;
+                        if (nextSeason == null) {
+                            // returning the season we already have would write progress to the wrong entry
+                            _logger.LogInformation($"({ApiName}) Could not retrieve season {i + 1}");
+                            return null;
                         }
+
+                        retrievedSeason = nextSeason;
                     } else {
                         _logger.LogInformation($"({ApiName}) Could not find any related anime sequel");
                         return null;
