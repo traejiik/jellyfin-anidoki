@@ -107,3 +107,7 @@ To build without installing the SDK, use the Docker image. It copies the same th
 docker build -t anidoki-build .
 docker run --rm -v "$PWD/bin/anidoki:/out" anidoki-build
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and [ROADMAP.md](ROADMAP.md) for planned work.
