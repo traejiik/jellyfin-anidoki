@@ -535,7 +535,7 @@ public partial class UserConfigurationTests
                 new HttpContextAccessor { HttpContext = _controller.HttpContext }, NullLoggerFactory.Instance,
                 _memoryCache, new Mock<IAsyncDelayer>().Object,
                 new ProviderApiAuth { ClientId = "fixture-client", ClientSecret = "fixture-secret" });
-            await authentication.GetToken(_requester.Id, code: "fixture-code");
+            await authentication.GetToken(_requester.Id, code: "fixture-code", codeVerifier: "fixture-verifier");
         }, Throws.ArgumentException);
         Assert.That(requests, Is.Zero);
     }
@@ -556,7 +556,7 @@ public partial class UserConfigurationTests
             new HttpContextAccessor { HttpContext = _controller.HttpContext }, NullLoggerFactory.Instance,
             _memoryCache, new Mock<IAsyncDelayer>().Object,
             new ProviderApiAuth { ClientId = "fixture-client", ClientSecret = "fixture-secret" });
-        await authentication.GetToken(_requester.Id, code: "fixture-code");
+        await authentication.GetToken(_requester.Id, code: "fixture-code", codeVerifier: "fixture-verifier");
         var preview = System.Text.Json.JsonSerializer.SerializeToElement(((OkObjectResult)_controller.CallbackPreview(baseAddress)).Value);
         Assert.That(postedCallback, Is.EqualTo(preview.GetProperty("callbackUrl").GetString()));
     }
