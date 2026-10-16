@@ -216,6 +216,54 @@ class TagDrivenReleaseTests(unittest.TestCase):
         self.assertEqual(result[0]['versions'][0]['version'], '0.1.1.0')
 
 
+class LocalBuildTests(unittest.TestCase):
+    def test_three_part_tag_counts_commits_in_revision(self):
+        self.assertEqual(release.parse_describe('v1.1.1-23-g999b4c5\n'), ('1.1.1.23', '1.1.1+23.g999b4c5'))
+
+    def test_build_on_tag_matches_release_version(self):
+        self.assertEqual(release.parse_describe('v1.1.1-0-g999b4c5')[0], '1.1.1.0')
+
+    def test_four_part_tag_keeps_its_revision(self):
+        self.assertEqual(release.parse_describe('v1.2.3.4-5-gabc1234'), ('1.2.3.4', '1.2.3.4+5.gabc1234'))
+
+    def test_dirty_tree_is_marked(self):
+        self.assertEqual(release.parse_describe('v1.1.1-2-gabc1234-dirty')[1], '1.1.1+2.gabc1234.dirty')
+
+    def test_unrecognised_describe_is_rejected(self):
+        for describe in ('abc1234', 'v1.1-2-gabc1234', 'v1.1.1-beta-2-gabc1234'):
+            with self.subTest(describe=describe), self.assertRaises(ValueError):
+                release.parse_describe(describe)
+
+    def test_falls_back_to_build_metadata_outside_git(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'jellyfin-anidoki').mkdir()
+            shutil.copyfile(ROOT / 'jellyfin-anidoki/build.yaml', root / 'jellyfin-anidoki/build.yaml')
+            version = release.read_build_metadata(ROOT)['version']
+            self.assertEqual(release.dev_version(root), (version, f'{version}+unknown'))
+
+    def test_local_cli_writes_installable_plugin_folder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            publish = Path(directory) / 'publish'
+            publish.mkdir()
+            (publish / 'jellyfin-anidoki.dll').write_bytes(b'test assembly')
+            (publish / 'Jellyfin.Model.dll').write_bytes(b'server dependency')
+            output = Path(directory) / 'anidoki'
+            result = subprocess.run([
+                sys.executable, str(ROOT / 'scripts/release.py'), 'local',
+                '--publish-dir', str(publish), '--output', str(output),
+            ], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual({p.name for p in output.iterdir()}, {'jellyfin-anidoki.dll', 'meta.json', 'anidoki-card.png'})
+            metadata = json.loads((output / 'meta.json').read_text())
+            version, informational = release.dev_version(ROOT)
+            self.assertEqual(metadata['version'], version)
+            self.assertEqual(metadata['changelog'], f'Development build {informational}')
+            self.assertEqual(metadata['targetAbi'], release.read_build_metadata(ROOT)['targetAbi'])
+            self.assertEqual(metadata['imagePath'], 'anidoki-card.png')
+            self.assertEqual(metadata['guid'], json.loads((ROOT / 'manifest.json').read_text())[0]['guid'])
+
+
 class FeedUpdateTests(unittest.TestCase):
     def setUp(self):
         self.current = fixture_manifest()

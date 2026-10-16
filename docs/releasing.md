@@ -44,4 +44,7 @@ python3 scripts/release.py check
 python3 -m unittest discover -s scripts/tests -v
 dotnet build jellyfin-anidoki.sln --configuration Release
 dotnet test jellyfin-anidoki-unit-tests/jellyfin-anidoki-unit-tests.csproj --configuration Release --no-build
+python3 scripts/release.py local
 ```
+
+`release.py local` builds an installable `bin/anidoki/` folder (DLL, `meta.json` and card artwork) versioned from the latest tag, such as `1.1.1.27` for 27 commits after `v1.1.1`. It never edits the project or `build.yaml`. Without git history or tags it falls back to the `build.yaml` version.

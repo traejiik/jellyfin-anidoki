@@ -87,12 +87,23 @@ KefinTweaks is an optional appearance integration; AniDōki does not require it.
 
 ## Build
 
-1. To build this plugin you will need [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+You need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), Python 3 and git.
 
-2. Build plugin with following command:
+1. From the repository root, build an installable plugin folder:
 
-  ```
-  dotnet publish --configuration Release --output bin
-  ```
+   ```sh
+   python3 scripts/release.py local
+   ```
 
-3. Place the dll-file in the `plugins/anidoki` folder (you might need to create the folders) of your JF install
+   This publishes the plugin and writes `jellyfin-anidoki.dll`, `meta.json` and `anidoki-card.png` to `bin/anidoki/`. Use `--output <folder>` to write them somewhere else.
+
+2. Copy all three files into the `plugins/anidoki` folder of your Jellyfin install (create the folder if needed), then restart Jellyfin.
+
+Development builds take their version from the latest release tag plus the number of commits since it. For example, 27 commits after `v1.1.1` builds as `1.1.1.27`, and `meta.json` records the exact commit. Mention that version when you report a bug.
+
+To build without installing the SDK, use the Docker image. It copies the same three files into the folder mounted at `/out`:
+
+```sh
+docker build -t anidoki-build .
+docker run --rm -v "$PWD/bin/anidoki:/out" anidoki-build
+```
