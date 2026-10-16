@@ -17,7 +17,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.API_tests; 
+namespace jellyfin_anidoki_unit_tests.API_tests;
 
 public class Kitsu {
     private KitsuApiCalls _kitsuApiCalls;
@@ -36,7 +36,7 @@ public class Kitsu {
         _memoryCache = new MemoryCache(new MemoryCacheOptions());
         _mockDelayer = new Mock<IAsyncDelayer>();
         _kitsuApiCalls = new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost.Object, _httpContextAccessor.Object, _memoryCache, _mockDelayer.Object, new UserConfig {
-            UserApiAuth = new [] {
+            UserApiAuth = new[] {
                 new UserApiAuth {
                     AccessToken = "accessToken",
                     Name = ApiName.Kitsu,
@@ -51,7 +51,7 @@ public class Kitsu {
             }
         });
     }
-    
+
     [Test]
     public async Task TestGenericSearch() {
         Setup(new List<Helpers.HttpCall> {
@@ -69,7 +69,7 @@ public class Kitsu {
             }
         });
         var result = await _kitsuApiCalls.SearchAnime(String.Empty);
-        
+
         Assert.IsNotNull(result[0].Id);
     }
 
@@ -94,7 +94,7 @@ public class Kitsu {
             }
         });
         var result = await _kitsuApiCalls.GetUserInformation();
-        
+
         Assert.IsNotNull(result);
     }
 
@@ -114,7 +114,7 @@ public class Kitsu {
             }
         });
         var result = await _kitsuApiCalls.GetAnime(id);
-        
+
         Assert.IsNotNull(result.KitsuAnimeData.Id);
     }
 
@@ -138,7 +138,7 @@ public class Kitsu {
             }
         });
         var result = await _kitsuApiCalls.GetUserAnimeStatus(1, 1);
-        
+
         Assert.IsNotNull(result.Attributes.Progress);
     }
 
@@ -170,10 +170,10 @@ public class Kitsu {
             numberOfTimesRewatched: 1,
             startDate: DateTime.UtcNow - TimeSpan.FromHours(1),
             endDate: DateTime.UtcNow);
-        
+
         Assert.IsTrue(result);
     }
-    
+
     [Test]
     public async Task TestUpdateAnimeStatusAndFetchUserId() {
         Setup(new List<Helpers.HttpCall> {
@@ -219,7 +219,7 @@ public class Kitsu {
             numberOfTimesRewatched: 1,
             startDate: DateTime.UtcNow - TimeSpan.FromHours(1),
             endDate: DateTime.UtcNow);
-        
+
         Assert.IsTrue(result);
     }
 
@@ -257,7 +257,7 @@ public class Kitsu {
             }
         });
         var result = await _kitsuApiCalls.GetRelatedAnime(1);
-        
+
         Assert.IsNotNull(result);
     }
 

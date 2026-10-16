@@ -9,7 +9,8 @@ namespace jellyfin_anidoki.Helpers;
 // Validate the receipt already returned by a mutation. Never issue a verification request.
 internal static class MutationAcknowledgement {
     internal static async Task<bool> Validate(HttpResponseMessage? response, Func<JsonElement, bool> expected) {
-        if (response is not { IsSuccessStatusCode: true }) return false;
+        if (response is not { IsSuccessStatusCode: true })
+            return false;
         try {
             using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             var root = document.RootElement;
@@ -22,7 +23,8 @@ internal static class MutationAcknowledgement {
     }
 
     private static bool HasErrors(JsonElement root) {
-        if (root.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null) return true;
+        if (root.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null)
+            return true;
         return root.TryGetProperty("errors", out var errors) && errors.ValueKind != JsonValueKind.Null &&
                (errors.ValueKind != JsonValueKind.Array || errors.GetArrayLength() != 0);
     }

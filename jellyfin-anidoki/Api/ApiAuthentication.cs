@@ -27,7 +27,7 @@ namespace jellyfin_anidoki.Api {
         private readonly string _authApiUrl;
         private readonly string _redirectBaseAddress;
         private readonly ProviderApiAuth _providerApiAuth;
-        private readonly IMemoryCache  _memoryCache;
+        private readonly IMemoryCache _memoryCache;
         private readonly IAsyncDelayer _delayer;
 
         public ApiAuthentication(ApiName provider, IHttpClientFactory httpClientFactory, IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, ILoggerFactory loggerFactory, IMemoryCache memoryCache, IAsyncDelayer delayer, ProviderApiAuth? overrideProviderApiAuth = null, string? overrideRedirectUrl = null) {
@@ -148,14 +148,15 @@ namespace jellyfin_anidoki.Api {
 
             if (_provider == ApiName.Shikimori) {
                 string? shikimoriAppName = ConfigHelper.GetShikimoriAppName(_logger);
-                if (shikimoriAppName == null) return null;
+                if (shikimoriAppName == null)
+                    return null;
                 client.DefaultRequestHeaders.Add("User-Agent", shikimoriAppName);
             }
 
             await MemoryCacheHelper.CheckRateLimiting(_provider, _logger, _memoryCache, _delayer);
             var response = await client.PostAsync(new Uri($"{(_provider is not ApiName.Simkl ? _authApiUrl : $"{SimklApiCalls.ApiBaseUrl}/oauth")}/token"), formUrlEncodedContent);
             MemoryCacheHelper.CheckResponseHeadersForRateLimiting(response, _logger, _provider, _memoryCache);
-            
+
             if (response.IsSuccessStatusCode) {
                 var content = await response.Content.ReadAsStreamAsync();
 
@@ -165,8 +166,7 @@ namespace jellyfin_anidoki.Api {
                 if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.access_token))
                     throw new AuthenticationException($"{_provider} did not return an access token");
 
-                lock (Plugin.Instance.PluginConfiguration)
-                {
+                lock (Plugin.Instance.PluginConfiguration) {
                     UserConfig? pluginConfig = Plugin.Instance.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == userId);
 
                     if (pluginConfig != null) {

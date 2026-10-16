@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace jellyfin_anidoki.Models.Annict; 
+namespace jellyfin_anidoki.Models.Annict;
 
 public class AnnictViewer {
-    public class AnnictViewerRoot
-    {
+    public class AnnictViewerRoot {
         [JsonPropertyName("data")]
         public AnnictViewerData AnnictSearchData { get; set; }
     }

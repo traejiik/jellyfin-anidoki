@@ -23,7 +23,7 @@ namespace jellyfin_anidoki.Models {
         /// API authentication details of the user.
         /// </summary>
         public UserApiAuth[] UserApiAuth { get; set; }
-        
+
         /// <summary>
         /// Key pair values for any data that needs to be stored but doesn't fit anywhere else.
         /// </summary>
@@ -52,7 +52,7 @@ namespace jellyfin_anidoki.Models {
         public bool RewatchCompleted { get; set; }
 
         public bool ShowLogNotifications { get; set; } = true;
-        
+
         public string[] LibraryToCheck { get; set; }
     }
 }

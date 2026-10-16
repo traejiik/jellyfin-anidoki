@@ -14,8 +14,7 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests.NotificationTests.Discord;
 
 [TestFixture]
-public class DiscordSettingsTests
-{
+public class DiscordSettingsTests {
     private Mock<IXmlSerializer> _xml = null!;
     private string _directory = null!; private Guid _user; private DiscordSettingsService _service = null!;
     private const string Webhook = "https://discord.com/api/webhooks/123456789012345678/fixture_secret";
@@ -25,8 +24,7 @@ public class DiscordSettingsTests
     [Test] public void StaleSettingsCannotOverwriteAnotherSave() { _service.Save(_user, new(false, DiscordWebhookAction.Replace, Webhook, 0)); Assert.That(_service.Save(_user, new(true, DiscordWebhookAction.Clear, null, 0)).Status, Is.EqualTo(409)); Assert.That(_service.Read(_user).HasWebhook, Is.True); }
     [Test] public void RejectedRevisionIsBlockedUntilExplicitRetest() { var saved = _service.Save(_user, new(true, DiscordWebhookAction.Replace, Webhook, 0)).Settings!; _service.Block(_user, saved.Revision); Assert.That(_service.Destination(_user, saved.Revision), Is.Null); Assert.That(_service.Destination(_user, saved.Revision, test: true), Is.Not.Null); _service.Unblock(_user, saved.Revision); Assert.That(_service.Destination(_user, saved.Revision), Is.Not.Null); }
     [Test]
-    public void ResponseUsesTheBrowserContractCasing()
-    {
+    public void ResponseUsesTheBrowserContractCasing() {
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(_service.Read(_user)));
         Assert.That(json.RootElement.TryGetProperty("enabled", out _), Is.True);
         Assert.That(json.RootElement.TryGetProperty("hasWebhook", out _), Is.True);
@@ -34,8 +32,7 @@ public class DiscordSettingsTests
     }
 
     [Test]
-    public void FailedPersistenceDoesNotEnableAnUnsavedDestination()
-    {
+    public void FailedPersistenceDoesNotEnableAnUnsavedDestination() {
         _xml.Setup(x => x.SerializeToFile(It.IsAny<object>(), It.IsAny<string>())).Throws(new IOException("fixture"));
         Assert.That(_service.Save(_user, new(true, DiscordWebhookAction.Replace, Webhook, 0)).Status, Is.EqualTo(503));
         Assert.That(_service.Read(_user).HasWebhook, Is.False);

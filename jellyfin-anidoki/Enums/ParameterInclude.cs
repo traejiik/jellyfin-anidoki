@@ -1,4 +1,4 @@
-namespace jellyfin_anidoki.Enums {    
+namespace jellyfin_anidoki.Enums {
     public enum ParameterInclude {
         ProviderList = 0,
         LocalIpAddress = 1,

@@ -6,10 +6,8 @@ using System.Runtime.Loader;
 
 namespace jellyfin_anidoki.Configuration;
 
-internal static class PluginPagesRuntime
-{
-    internal static void RemovePage(string id)
-    {
+internal static class PluginPagesRuntime {
+    internal static void RemovePage(string id) {
         var interfaceType = AssemblyLoadContext.All.SelectMany(context => context.Assemblies)
             .Distinct()
             .Select(assembly => assembly.GetType("Jellyfin.Plugin.PluginPages.PluginInterface", false))

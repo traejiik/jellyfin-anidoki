@@ -68,7 +68,7 @@ namespace jellyfin_anidoki.Api {
             var client = _httpClientFactory.CreateClient(NamedClient.Default);
             // added once; the client is reused for every retry below
             if (requestHeaders != null) {
-                foreach (KeyValuePair<string,string> requestHeader in requestHeaders) {
+                foreach (KeyValuePair<string, string> requestHeader in requestHeaders) {
                     client.DefaultRequestHeaders.Add(requestHeader.Key, requestHeader.Value);
                 }
             }
@@ -111,8 +111,7 @@ namespace jellyfin_anidoki.Api {
                 if (responseMessage.IsSuccessStatusCode) {
                     return responseMessage;
                 } else {
-                    switch (responseMessage.StatusCode)
-                    {
+                    switch (responseMessage.StatusCode) {
                         case HttpStatusCode.Unauthorized:
                             // token has probably expired; try refreshing it
                             UserApiAuth newAuth;
@@ -143,7 +142,7 @@ namespace jellyfin_anidoki.Api {
             _logger.LogError("Unable to authenticate the API call, re-authenticate the plugin");
             return null;
         }
-        
+
         public enum CallType {
             GET,
             POST,

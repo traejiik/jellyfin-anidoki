@@ -59,7 +59,8 @@ namespace jellyfin_anidoki {
         /// <returns></returns>
         private async Task<bool> CheckIfFileSizeHasChanged(int fileSize) {
             FileInfo animeListFile = new FileInfo(Path);
-            if (animeListFile.Exists) return animeListFile.Length != fileSize;
+            if (animeListFile.Exists)
+                return animeListFile.Length != fileSize;
             return true;
         }
 

@@ -1,17 +1,15 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace jellyfin_anidoki.Models.Annict; 
+namespace jellyfin_anidoki.Models.Annict;
 
 public class AnnictSearch {
-    public class AnnictSearchData
-    {
+    public class AnnictSearchData {
         [JsonPropertyName("searchWorks")]
         public SearchWorks SearchWorks { get; set; }
     }
 
-    public class AnnictAnime
-    {
+    public class AnnictAnime {
         [JsonPropertyName("id")]
         public string Id { get; set; }
 
@@ -27,14 +25,12 @@ public class AnnictSearch {
         public int NumberOfEpisodes { get; set; }
     }
 
-    public class AnnictSearchMedia
-    {
+    public class AnnictSearchMedia {
         [JsonPropertyName("data")]
         public AnnictSearchData AnnictSearchData { get; set; }
     }
 
-    public class SearchWorks
-    {
+    public class SearchWorks {
         [JsonPropertyName("nodes")]
         public List<AnnictAnime> Nodes { get; set; }
     }

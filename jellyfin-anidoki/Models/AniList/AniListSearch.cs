@@ -79,7 +79,7 @@ namespace jellyfin_anidoki.Models {
             [JsonConverter(typeof(JsonStringEnumConverter))]
             [JsonPropertyName("status")]
             public AiringStatus Status { get; set; }
-            
+
             [JsonPropertyName("siteUrl")]
             public string SiteUrl { get; set; }
 

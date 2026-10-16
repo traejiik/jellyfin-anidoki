@@ -22,12 +22,12 @@ namespace jellyfin_anidoki.Tests.Helpers {
         public void TearDown() {
             memoryCache.Dispose();
         }
-        
+
         [Test]
         public void CheckResponseHeadersForRateLimiting_RateLimitReached_SetsTwoMinuteBackoff() {
             var responseMessage = new HttpResponseMessage();
             responseMessage.Headers.TryAddWithoutValidation(
-                MemoryCacheHelper.XRateLimitRemainingHeader, 
+                MemoryCacheHelper.XRateLimitRemainingHeader,
                 "0"
             );
 
@@ -51,9 +51,9 @@ namespace jellyfin_anidoki.Tests.Helpers {
         public void CheckResponseHeadersForRateLimiting_ResetTimeInFuture_SetsDelayBasedOnReset() {
             var responseMessage = new HttpResponseMessage();
             var futureTime = DateTimeOffset.UtcNow.AddHours(1);
-            
+
             responseMessage.Headers.TryAddWithoutValidation(
-                MemoryCacheHelper.XRateLimitResetHeader, 
+                MemoryCacheHelper.XRateLimitResetHeader,
                 futureTime.ToString("R")
             );
 

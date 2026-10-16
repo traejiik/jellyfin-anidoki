@@ -17,7 +17,7 @@ using Moq;
 using NUnit.Framework;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
-namespace jellyfin_anidoki_unit_tests.API_tests; 
+namespace jellyfin_anidoki_unit_tests.API_tests;
 
 public class Annict {
     private AnnictApiCalls _annictApiCalls;
@@ -34,7 +34,7 @@ public class Annict {
         MemoryCache memoryCache = new MemoryCache(new MemoryCacheOptions());
         Mock<IAsyncDelayer> mockDelayer = new Mock<IAsyncDelayer>();
         _annictApiCalls = new AnnictApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost.Object, _httpContextAccessor.Object, memoryCache, mockDelayer.Object, new UserConfig {
-            UserApiAuth = new [] {
+            UserApiAuth = new[] {
                 new UserApiAuth {
                     AccessToken = "accessToken",
                     Name = ApiName.Annict,
@@ -63,9 +63,9 @@ public class Annict {
                 })
             }
         });
-        
+
         var result = await _annictApiCalls.SearchAnime(String.Empty);
-        
+
         Assert.IsNotNull(result?[0]?.Id);
     }
 
@@ -84,12 +84,12 @@ public class Annict {
                 })
             }
         });
-        
+
         var result = await _annictApiCalls.GetCurrentUser();
-        
+
         Assert.IsNotNull(result);
     }
-    
+
     [Test]
     public async Task TestGettingUserAnimeList() {
         Setup(new List<Helpers.HttpCall> {
@@ -116,7 +116,7 @@ public class Annict {
         });
 
         var result = await _annictApiCalls.GetAnimeList(AnnictSearch.AnnictMediaStatus.Watched);
-        
+
         Assert.IsNotNull(result);
     }
 
@@ -129,9 +129,9 @@ public class Annict {
                 ResponseContent = "{\"data\":{\"updateStatus\":{\"clientMutationId\":null}}}"
             }
         });
-        
+
         var result = await _annictApiCalls.UpdateAnime("V29yay02Njg=", AnnictSearch.AnnictMediaStatus.Watched);
-        
+
         Assert.IsTrue(result);
     }
 

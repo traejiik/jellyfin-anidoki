@@ -263,7 +263,8 @@ public class ShikimoriApiCalls {
         };
 
         string? shikimoriUserId = await GetUserId();
-        if (shikimoriUserId == null) return false;
+        if (shikimoriUserId == null)
+            return false;
 
         ShikimoriUpdate.UpdateBody updateBody = new ShikimoriUpdate.UpdateBody {
             UserRate = new ShikimoriUpdate.UserRate {
@@ -298,7 +299,7 @@ public class ShikimoriApiCalls {
 
     private async Task<string?> GetUserId() {
         string? shikimoriUserId = _userConfig?.KeyPairs.FirstOrDefault(keypair => keypair.Key == "ShikimoriUserId")?.Value;
-        if (shikimoriUserId == null || string.IsNullOrEmpty(shikimoriUserId))  {
+        if (shikimoriUserId == null || string.IsNullOrEmpty(shikimoriUserId)) {
             _logger.LogInformation("No Shikimori user ID stored in the config. Attempting to retrieve...");
             User? user = await GetUserInformation();
             if (user != null) {
@@ -333,7 +334,7 @@ public class ShikimoriApiCalls {
         public string Message { get; set; }
     }
 
-    private async Task<T?> GraphqlApiCall<T>(GraphqlRequest request) where T: class {
+    private async Task<T?> GraphqlApiCall<T>(GraphqlRequest request) where T : class {
         var url = new UrlBuilder {
             Base = $"{_apiBaseUrl}/graphql"
         };

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Dynamic;
 
-namespace jellyfin_anidoki.Models {        
+namespace jellyfin_anidoki.Models {
     public class Parameters {
         public string localIpAddress { get; set; }
         public int localPort { get; set; }

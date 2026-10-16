@@ -32,7 +32,7 @@ public class ApiCallHelperTests {
     public void Setup() {
         nextKitsuId = 0;
     }
-    
+
     [Test]
     public void AniListSearchAnimeConvertedListTest() {
         List<AniListSearch.Media> mediaList = new List<AniListSearch.Media>();
@@ -83,7 +83,7 @@ public class ApiCallHelperTests {
 
         List<Anime> animeList = ApiCallHelpers.AnnictSearchAnimeConvertedList(mediaList);
         Assert.AreEqual(10, animeList.Count);
-// Assert that the anime list contains the expected anime objects
+        // Assert that the anime list contains the expected anime objects
         for (int i = 0; i < animeList.Count; i++) {
             Assert.AreEqual(mediaList[i].Id, animeList[i].AlternativeId);
             Assert.AreEqual(mediaList[i].TitleEn, animeList[i].Title);
@@ -155,7 +155,7 @@ public class ApiCallHelperTests {
                         Assert.AreEqual(RelationType.Other, relatedAnime.RelationType, $"Kitsu relation {matchingRelated.RelationType}");
                         break;
                 }
-                
+
                 Assert.AreEqual(matchingRelated.Id, relatedAnime.Anime.Id);
                 Assert.AreEqual(matchingRelated.Attributes.EpisodeCount, relatedAnime.Anime.NumEpisodes);
                 Assert.AreEqual(matchingRelated.Attributes.Titles.English, relatedAnime.Anime.Title);
@@ -199,21 +199,21 @@ public class ApiCallHelperTests {
                 })
             }
         }, ref httpClientFactory);
-        
+
         KitsuApiCalls kitsuApiCalls = new KitsuApiCalls(httpClientFactory, loggerFactory, serverApplicationHost.Object, httpContextAccessor.Object, memoryCache, mockDelayer.Object, new UserConfig {
-            UserApiAuth = new [] {
+            UserApiAuth = new[] {
                 new UserApiAuth {
                     AccessToken = "accessToken",
                     Name = ApiName.Kitsu,
                     RefreshToken = "refreshToken"
                 }
             },
-            KeyPairs = new List<KeyPairs> { new()  { Key = "KitsuUserId", Value = "1" }}
+            KeyPairs = new List<KeyPairs> { new() { Key = "KitsuUserId", Value = "1" } }
         });
-        
+
         ApiCallHelpers apiCallHelpers = new ApiCallHelpers(kitsuApiCalls: kitsuApiCalls);
         MyListStatus convertedResult = await apiCallHelpers.GetConvertedKitsuUserList(animeId);
-        
+
         Assert.IsTrue(convertedResult.NumEpisodesWatched == expectedProgress);
         Assert.IsTrue(convertedResult.IsRewatching == expectedReconsuming);
         Assert.IsTrue(convertedResult.RewatchCount == expectedReconsumeCount);
@@ -251,7 +251,7 @@ public class ApiCallHelperTests {
         Assert.That(result.AcknowledgedRewatching, Is.Null);
         Assert.That(result.AcknowledgedRewatchCount, Is.Null);
     }
-    
+
     private ShikimoriAnime GetShikimoriAnime(bool createRelations) {
         Random random = new Random();
 

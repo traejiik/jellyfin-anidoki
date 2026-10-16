@@ -31,7 +31,7 @@ public class AnimeListHelperTests {
         Assert.IsTrue(returned != null);
         Assert.IsTrue(returned.Count() == 2);
     }
-    
+
     [Test]
     public void GetCorrectAniDbSeason() {
         int aniDbId = 1;

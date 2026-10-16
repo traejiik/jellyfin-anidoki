@@ -21,32 +21,32 @@ namespace jellyfin_anidoki.Configuration {
         /// Overriden callback URL set if the user is using Jellyfin over the internet. Generally should not be set if the user is on LAN.
         /// </summary>
         public string callbackUrl { get; set; }
-        
+
         /// <summary>
         /// The URL to redirect the user to on successful authentication.
         /// </summary>
         public string callbackRedirectUrl { get; set; }
-        
+
         /// <summary>
         /// Save location of the anime list.
         /// </summary>
         public string animeListSaveLocation { get; set; }
-        
+
         /// <summary>
         /// Whether or not marking an episode/movie as watched sends an update to the provider API.
         /// </summary>
         public bool watchedTickboxUpdatesProvider { get; set; }
-        
+
         /// <summary>
         /// Shikimori app name, which is required on all Shikimori API calls
         /// </summary>
         public string shikimoriAppName { get; set; }
-        
+
         /// <summary>
         /// True to update all simkl series episodes to current point.
         /// </summary>
         public bool simklUpdateAll { get; set; }
-        
+
         /// <summary>
         /// True to update NSFW anime.
         /// </summary>
@@ -56,17 +56,17 @@ namespace jellyfin_anidoki.Configuration {
         /// How long the memory cache holds onto users authentication details in minutes.
         /// </summary>
         public long authenticationLinkExpireTimeMinutes { get; set; }
-        
+
         /// <summary>
         /// Custom ARM server base URL.
         /// </summary>
         public string armServerBaseUrl { get; set; }
-        
+
         /// <summary>
         /// True to enable user authentication pages.
         /// </summary>
         public bool enableUserPages { get; set; }
-        
+
         /// <summary>
         /// The custom domain for the Shikimori provider.
         /// </summary>

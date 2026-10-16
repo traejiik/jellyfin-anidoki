@@ -25,7 +25,8 @@ namespace jellyfin_anidoki.Helpers {
         /// </summary>
         public static bool TryGetProviderId(Dictionary<string, string> providerIds, string key, out string value) {
             value = null;
-            if (providerIds == null) return false;
+            if (providerIds == null)
+                return false;
             foreach (var providerId in providerIds) {
                 if (string.Equals(providerId.Key, key, StringComparison.OrdinalIgnoreCase)) {
                     value = providerId.Value;
@@ -119,7 +120,8 @@ namespace jellyfin_anidoki.Helpers {
                 return (seasonAniDbId, null);
             }
 
-            if (animeListXml == null) return (null, null);
+            if (animeListXml == null)
+                return (null, null);
             Dictionary<string, string> providers;
             {
                 if (video is Episode episode) {
@@ -134,7 +136,8 @@ namespace jellyfin_anidoki.Helpers {
 
             if (TryGetProviderId(providers, aniDbKey, out string aniDbProviderId)) {
                 logger.LogInformation($"({aniDbKey}) Anime already has AniDb ID; no need to look it up");
-                if (!int.TryParse(aniDbProviderId, out aniDbId)) return (null, null);
+                if (!int.TryParse(aniDbProviderId, out aniDbId))
+                    return (null, null);
                 var foundAnime = animeListXml.Anime.Where(anime => int.TryParse(anime.Anidbid, out int xmlAniDbId) &&
                                                                    xmlAniDbId == aniDbId &&
                                                                    (
@@ -191,7 +194,8 @@ namespace jellyfin_anidoki.Helpers {
             string tvDbKey = "Tvdb";
 
             if (TryGetProviderId(providers, tvDbKey, out string tvDbProviderId)) {
-                if (!int.TryParse(tvDbProviderId, out var tvDbId)) return (null, null);
+                if (!int.TryParse(tvDbProviderId, out var tvDbId))
+                    return (null, null);
                 var related = animeListXml.Anime.Where(anime => int.TryParse(anime.Tvdbid, out int xmlTvDbId) && xmlTvDbId == tvDbId).ToList();
 
                 if (!related.Any()) {
@@ -359,17 +363,20 @@ namespace jellyfin_anidoki.Helpers {
         /// <param name="aniDbId"></param>
         /// <returns>Season.</returns>
         public static AnimeListAnime GetAniDbSeason(int aniDbId, AnimeListXml animeListXml) {
-            if (animeListXml == null) return null;
+            if (animeListXml == null)
+                return null;
 
             return animeListXml.Anime.FirstOrDefault(anime => int.TryParse(anime.Anidbid, out int xmlAniDbId) && xmlAniDbId == aniDbId);
         }
 
 
         public static IEnumerable<AnimeListAnime> ListAllSeasonOfAniDbSeries(int aniDbId, AnimeListXml animeListXml) {
-            if (animeListXml == null) return null;
+            if (animeListXml == null)
+                return null;
 
             AnimeListAnime foundXmlAnime = animeListXml.Anime.FirstOrDefault(anime => int.TryParse(anime.Anidbid, out int xmlAniDbId) && xmlAniDbId == aniDbId);
-            if (foundXmlAnime == null) return null;
+            if (foundXmlAnime == null)
+                return null;
 
             return animeListXml.Anime.Where(anime => anime.Tvdbid == foundXmlAnime.Tvdbid);
         }

@@ -6,8 +6,7 @@ using jellyfin_anidoki.Notifications;
 namespace jellyfin_anidoki.ManualMarks;
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum ManualMarkState
-{
+public enum ManualMarkState {
     Pending, Queued, Sending, Confirmed, Partial, NoChange, Skipped, Unresolved,
     Failed, Unconfirmed, Cancelled, Dismissed, Expired, Superseded
 }

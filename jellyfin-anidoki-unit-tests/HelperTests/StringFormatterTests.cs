@@ -2,7 +2,7 @@ using System;
 using jellyfin_anidoki.Helpers;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.HelperTests; 
+namespace jellyfin_anidoki_unit_tests.HelperTests;
 
 public class StringFormatterTests {
 

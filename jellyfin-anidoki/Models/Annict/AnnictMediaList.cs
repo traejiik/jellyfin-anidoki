@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace jellyfin_anidoki.Models.Annict; 
+namespace jellyfin_anidoki.Models.Annict;
 
 public class AnnictMediaList {
-    public class AnnictUserMediaList
-    {
+    public class AnnictUserMediaList {
         [JsonPropertyName("data")]
         public AnnictUserMediaListData AnnictSearchData { get; set; }
     }
@@ -19,17 +18,15 @@ public class AnnictMediaList {
         [JsonPropertyName("libraryEntries")]
         public AnnictUserMediaListLibraryEntries AnnictUserMediaListLibraryEntries { get; set; }
     }
-    
-    public class AnnictUserMediaListLibraryEntries
-    {
+
+    public class AnnictUserMediaListLibraryEntries {
         [JsonPropertyName("nodes")]
         public List<AnnictSearch.AnnictAnime> Nodes { get; set; }
         [JsonPropertyName("pageInfo")]
         public PageInfo PageInfo { get; set; }
     }
-    
-    public class PageInfo
-    {
+
+    public class PageInfo {
         [JsonPropertyName("hasNextPage")]
         public bool HasNextPage { get; set; }
         [JsonPropertyName("startCursor")]

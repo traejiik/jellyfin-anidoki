@@ -11,8 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace jellyfin_anidoki.Helpers;
 
-public class MemoryCacheHelper
-{
+public class MemoryCacheHelper {
     private static string GetLastCallDateTimeKey(ApiName provider) => $"{provider}LastCallDateTime";
     internal const string XRateLimitRemainingHeader = "X-RateLimit-Remaining";
     internal const string XRateLimitResetHeader = "X-RateLimit-Reset";
@@ -42,13 +41,12 @@ public class MemoryCacheHelper
     /// <param name="delayer">Instance of <see cref="IAsyncDelayer"/></param>
     public static async Task CheckRateLimiting(ApiName provider, ILogger logger, IMemoryCache memoryCache, IAsyncDelayer delayer) {
         DateTime lastCallDateTime = memoryCache.Get<DateTime>(GetLastCallDateTimeKey(provider));
-        if (lastCallDateTime != default)
-        {
+        if (lastCallDateTime != default) {
             logger.LogDebug($"({provider}) Delaying API call to prevent 429 (too many requests)...");
             await delayer.Delay(DateTime.UtcNow.Subtract(lastCallDateTime));
         }
     }
-    
+
     /// <summary>
     /// Set the rate limiting for the provided API provider.
     /// </summary>

@@ -84,7 +84,8 @@ namespace jellyfin_anidoki.Helpers {
             List<Anime> convertedList = new List<Anime>();
             if (animeList != null) {
                 foreach (ShikimoriAnime shikimoriAnime in animeList) {
-                    if (!updateNsfw && shikimoriAnime.IsCensored == true) continue;
+                    if (!updateNsfw && shikimoriAnime.IsCensored == true)
+                        continue;
                     convertedList.Add(ClassConversions.ConvertShikimoriAnime(shikimoriAnime));
                 }
             }
@@ -118,7 +119,8 @@ namespace jellyfin_anidoki.Helpers {
             List<Anime> convertedList = new List<Anime>();
             if (animeList != null) {
                 foreach (AniListSearch.Media media in animeList) {
-                    if (!updateNsfw && media.IsAdult) continue; // Skip NSFW anime if the user doesn't want to update them
+                    if (!updateNsfw && media.IsAdult)
+                        continue; // Skip NSFW anime if the user doesn't want to update them
                     var synonyms = new List<string> {
                         { media.Title.Romaji },
                         { media.Title.UserPreferred }
@@ -163,14 +165,16 @@ namespace jellyfin_anidoki.Helpers {
 
             if (_aniListApiCalls != null) {
                 AniListSearch.Media anime = await _aniListApiCalls.GetAnime(id);
-                if (anime == null) return null;
+                if (anime == null)
+                    return null;
 
                 return ClassConversions.ConvertAniListAnime(anime);
             }
 
             if (_kitsuApiCalls != null) {
                 KitsuGet.KitsuGetAnime anime = await _kitsuApiCalls.GetAnime(id);
-                if (anime == null) return null;
+                if (anime == null)
+                    return null;
                 Anime convertedAnime = ClassConversions.ConvertKitsuAnime(anime.KitsuAnimeData);
 
                 convertedAnime.MyListStatus = await GetConvertedKitsuUserList(id);
@@ -180,13 +184,15 @@ namespace jellyfin_anidoki.Helpers {
 
             if (_annictApiCalls != null && alternativeId != null) {
                 var anime = await _annictApiCalls.GetAnime(alternativeId);
-                if (anime == null) return null;
+                if (anime == null)
+                    return null;
                 return ClassConversions.ConvertAnnictAnime(anime);
             }
 
             if (_shikimoriApiCalls != null && alternativeId != null) {
                 var anime = await _shikimoriApiCalls.GetAnime(alternativeId, getRelated);
-                if (anime == null) return null;
+                if (anime == null)
+                    return null;
 
                 return ClassConversions.ConvertShikimoriAnime(anime);
             }
@@ -312,8 +318,11 @@ namespace jellyfin_anidoki.Helpers {
                 }
 
                 if (await _kitsuApiCalls.UpdateAnimeStatus(animeId, numberOfWatchedEpisodes, kitsuStatus, isRewatching, numberOfTimesRewatched, startDate, endDate)) {
-                    return new UpdateAnimeStatusResponse { UsesAcknowledgementFields = true, AcknowledgedProgress = numberOfWatchedEpisodes,
-                        AcknowledgedStatus = kitsuStatus == KitsuUpdate.Status.current ? Status.Watching : status == Status.Rewatching ? Status.Completed : status };
+                    return new UpdateAnimeStatusResponse {
+                        UsesAcknowledgementFields = true,
+                        AcknowledgedProgress = numberOfWatchedEpisodes,
+                        AcknowledgedStatus = kitsuStatus == KitsuUpdate.Status.current ? Status.Watching : status == Status.Rewatching ? Status.Completed : status
+                    };
                 }
             }
 

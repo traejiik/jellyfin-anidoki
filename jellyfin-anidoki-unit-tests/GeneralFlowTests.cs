@@ -343,7 +343,7 @@ public class GeneralFlowTests {
                 }
             }
         }));
-        
+
         _mockApiCallHelpers.Setup(s => s.GetAnime(secondSeasonAnimeId, It.IsAny<string>(), true)).Returns(Task.FromResult(new Anime {
             RelatedAnime = new List<RelatedAnime> {
                 new RelatedAnime {
@@ -354,17 +354,17 @@ public class GeneralFlowTests {
                 }
             }
         }));
-        
+
         _mockApiCallHelpers.Setup(s => s.GetAnime(thirdSeasonAnimeId, It.IsAny<string>(), true)).Returns(Task.FromResult(new Anime {
             Id = thirdSeasonAnimeId
         }));
 
         Anime? result = await _updateProviderStatus.GetDifferentSeasonAnime(animeId, seasonNumber);
-        
+
         Assert.IsNotNull(result);
         Assert.AreEqual(thirdSeasonAnimeId, result.Id);
     }
-    
+
     /// <summary>
     /// Correctly fail to get the requested season by number because of no related anime available. Make sure it isn't throwing.
     /// </summary>
@@ -539,8 +539,12 @@ public class GeneralFlowTests {
     [TestCase(true, true, 2)]
     public async Task MalRewatchKeepsEarlierReceiptAndSkipsCounterWithoutFirstReceipt(bool firstSuccess, bool secondSuccess, int writes) {
         var collector = new jellyfin_anidoki.Notifications.PlaybackOutcomeCollector();
-        var anime = new Anime { Id = 1, Title = "Rewatch", NumEpisodes = 12,
-            MyListStatus = new MyListStatus { NumEpisodesWatched = 11, Status = Status.Completed, IsRewatching = true, RewatchCount = 1 } };
+        var anime = new Anime {
+            Id = 1,
+            Title = "Rewatch",
+            NumEpisodes = 12,
+            MyListStatus = new MyListStatus { NumEpisodesWatched = 11, Status = Status.Completed, IsRewatching = true, RewatchCount = 1 }
+        };
         _updateProviderStatus.ApiName = ApiName.Mal;
         _mockApiCallHelpers.SetupSequence(s => s.UpdateAnime(1, 12, Status.Completed,
             It.IsAny<bool?>(), It.IsAny<int?>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string>(),
@@ -552,15 +556,21 @@ public class GeneralFlowTests {
             It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse>(), It.IsAny<bool?>()), Times.Exactly(writes));
         Assert.That(collector.Outcomes, Has.Length.EqualTo(writes));
         Assert.That(collector.HasConfirmedChange, Is.EqualTo(firstSuccess));
-        if (firstSuccess) Assert.That(collector.Outcomes[1].Kind, Is.EqualTo(secondSuccess ? jellyfin_anidoki.Notifications.OutcomeKind.Confirmed : jellyfin_anidoki.Notifications.OutcomeKind.Unconfirmed));
+        if (firstSuccess)
+            Assert.That(collector.Outcomes[1].Kind, Is.EqualTo(secondSuccess ? jellyfin_anidoki.Notifications.OutcomeKind.Confirmed : jellyfin_anidoki.Notifications.OutcomeKind.Unconfirmed));
     }
 
     [Test]
     public async Task AnnictAlreadyWatchingProducesNoChangeWithoutWrite() {
         var collector = new jellyfin_anidoki.Notifications.PlaybackOutcomeCollector();
         _updateProviderStatus.ApiName = ApiName.Annict;
-        await _updateProviderStatus.UpdateAnnictStatus(new Anime { Id = 1, AlternativeId = "work", Title = "Status only", NumEpisodes = 12,
-            MyListStatus = new MyListStatus { Status = Status.Watching } }, 4, collector);
+        await _updateProviderStatus.UpdateAnnictStatus(new Anime {
+            Id = 1,
+            AlternativeId = "work",
+            Title = "Status only",
+            NumEpisodes = 12,
+            MyListStatus = new MyListStatus { Status = Status.Watching }
+        }, 4, collector);
         _mockApiCallHelpers.Verify(s => s.UpdateAnime(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Status>(), It.IsAny<bool?>(), It.IsAny<int?>(),
             It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse>(), It.IsAny<bool?>()), Times.Never);
         Assert.That(collector.Outcomes[0].Kind, Is.EqualTo(jellyfin_anidoki.Notifications.OutcomeKind.NoChange));
@@ -584,8 +594,12 @@ public class GeneralFlowTests {
     public async Task AniListTwoStepRewatchRetainsFirstConfirmationWhenSecondFails() {
         var collector = new jellyfin_anidoki.Notifications.PlaybackOutcomeCollector();
         _updateProviderStatus.ApiName = ApiName.AniList;
-        var anime = new Anime { Id = 1, Title = "Rewatch", NumEpisodes = 12,
-            MyListStatus = new MyListStatus { NumEpisodesWatched = 12, Status = Status.Completed } };
+        var anime = new Anime {
+            Id = 1,
+            Title = "Rewatch",
+            NumEpisodes = 12,
+            MyListStatus = new MyListStatus { NumEpisodesWatched = 12, Status = Status.Completed }
+        };
         _mockApiCallHelpers.SetupSequence(s => s.UpdateAnime(1, 1, Status.Completed, true, It.IsAny<int?>(),
             It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse>(), It.IsAny<bool?>()))
             .ReturnsAsync(new UpdateAnimeStatusResponse { UsesAcknowledgementFields = true, AcknowledgedProgress = 1, AcknowledgedStatus = Status.Rewatching })

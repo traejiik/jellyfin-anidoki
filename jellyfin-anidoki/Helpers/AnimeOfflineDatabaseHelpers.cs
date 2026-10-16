@@ -51,7 +51,8 @@ namespace jellyfin_anidoki.Helpers {
                 return null;
             }
 
-            if (deserializedResponse == null) return null;
+            if (deserializedResponse == null)
+                return null;
 
             logger.LogDebug($"[anidoki-diag] ARM parsed -> anidb={Fmt(deserializedResponse.AniDb)}, anilist={Fmt(deserializedResponse.Anilist)}, myanimelist={Fmt(deserializedResponse.MyAnimeList)}, kitsu={Fmt(deserializedResponse.Kitsu)}");
 
@@ -66,7 +67,7 @@ namespace jellyfin_anidoki.Helpers {
             [JsonPropertyName("myanimelist")] public int? MyAnimeList { get; set; }
             [JsonPropertyName("kitsu")] public int? Kitsu { get; set; }
         }
-        
+
         public enum Source {
             Anidb,
             Anilist,

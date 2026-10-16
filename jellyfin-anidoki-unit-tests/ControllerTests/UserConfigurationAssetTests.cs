@@ -8,12 +8,10 @@ using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.ControllerTests;
 
-public partial class UserConfigurationTests
-{
+public partial class UserConfigurationTests {
     [TestCase("notifications.js")]
     [TestCase("notification-state.js")]
-    public void PublicNotificationModulesAreEmbeddedAndUncachedWithoutPluginPages(string asset)
-    {
+    public void PublicNotificationModulesAreEmbeddedAndUncachedWithoutPluginPages(string asset) {
         _plugin.Configuration.enableUserPages = false;
         var file = (FileStreamResult)_controller.GetAsset(asset);
         using var stream = file.FileStream;
@@ -30,8 +28,7 @@ public partial class UserConfigurationTests
     [TestCase("provider-kitsu.svg")]
     [TestCase("provider-shikimori.svg")]
     [TestCase("provider-simkl.svg")]
-    public void PublicProviderSvgAssetsAreEmbeddedAndContainOnlyLocalDrawingData(string asset)
-    {
+    public void PublicProviderSvgAssetsAreEmbeddedAndContainOnlyLocalDrawingData(string asset) {
         _plugin.Configuration.enableUserPages = false;
         var result = _controller.GetAsset(asset);
         Assert.That(result, Is.TypeOf<FileStreamResult>());
@@ -52,8 +49,7 @@ public partial class UserConfigurationTests
     }
 
     [Test]
-    public void PublicAnnictLogoIsEmbeddedAsPngWhenUserPagesAreDisabled()
-    {
+    public void PublicAnnictLogoIsEmbeddedAsPngWhenUserPagesAreDisabled() {
         _plugin.Configuration.enableUserPages = false;
         var result = _controller.GetAsset("provider-annict.png");
         Assert.That(result, Is.TypeOf<FileStreamResult>());
@@ -73,8 +69,7 @@ public partial class UserConfigurationTests
     [TestCase("../Images/provider-anilist.svg")]
     [TestCase("provider-anilist.svg/../CommonJs.js")]
     [TestCase("jellyfin_anidoki.Configuration.Images.provider-anilist.svg")]
-    public void PublicProviderAssetWhitelistRejectsUnknownNamesAndResourcePaths(string asset)
-    {
+    public void PublicProviderAssetWhitelistRejectsUnknownNamesAndResourcePaths(string asset) {
         Assert.That(_controller.GetAsset(asset), Is.TypeOf<NotFoundResult>());
     }
 }
