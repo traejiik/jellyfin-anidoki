@@ -66,16 +66,17 @@ namespace jellyfin_anidoki.Api {
             }
 
             var client = _httpClientFactory.CreateClient(NamedClient.Default);
+            // added once; the client is reused for every retry below
+            if (requestHeaders != null) {
+                foreach (KeyValuePair<string,string> requestHeader in requestHeaders) {
+                    client.DefaultRequestHeaders.Add(requestHeader.Key, requestHeader.Value);
+                }
+            }
+
             while (attempts < 3) {
                 await MemoryCacheHelper.CheckRateLimiting(provider, _logger, _memoryCache, _delayer);
-                if (requestHeaders != null) {
-                    foreach (KeyValuePair<string,string> requestHeader in requestHeaders) {
-                        client.DefaultRequestHeaders.Add(requestHeader.Key, requestHeader.Value);
-                    }
-                }
-
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
-                HttpResponseMessage responseMessage = new HttpResponseMessage();
+                HttpResponseMessage responseMessage;
                 try {
                     // set a generous default rate limit
                     MemoryCacheHelper.SetRateLimitingForProvider(provider, _memoryCache);
@@ -100,7 +101,9 @@ namespace jellyfin_anidoki.Api {
                             break;
                     }
                 } catch (Exception e) {
-                    _logger.LogError(e.Message);
+                    // no response arrived, so the call can't be treated as a success; a write may still have landed
+                    _logger.LogError($"({provider}) {callType} {url} failed before a response arrived: {e.Message}");
+                    return null;
                 }
 
                 MemoryCacheHelper.CheckResponseHeadersForRateLimiting(responseMessage, _logger, provider, _memoryCache);

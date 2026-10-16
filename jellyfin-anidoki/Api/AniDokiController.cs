@@ -341,7 +341,7 @@ namespace jellyfin_anidoki.Api {
         public async Task Sync(ApiName provider, string userId, SyncHelper.Status status, SyncAction syncAction) {
             switch (syncAction) {
                 case SyncAction.UpdateProvider:
-                    SyncProviderFromLocal syncProviderFromLocal = new SyncProviderFromLocal(_userManager, _libraryManager, _loggerFactory, _httpClientFactory, _applicationPaths, _memoryCache, _delayer, userId);
+                    SyncProviderFromLocal syncProviderFromLocal = new SyncProviderFromLocal(_userManager, _libraryManager, _loggerFactory, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _applicationPaths, _memoryCache, _delayer, userId);
                     await syncProviderFromLocal.SyncFromLocal();
                     return;
                 case SyncAction.UpdateJellyfin:

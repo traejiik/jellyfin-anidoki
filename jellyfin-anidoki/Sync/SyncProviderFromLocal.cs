@@ -23,14 +23,14 @@ public class SyncProviderFromLocal (
     ILibraryManager libraryManager,
     ILoggerFactory loggerFactory,
     IHttpClientFactory httpClientFactory,
+    IServerApplicationHost serverApplicationHost,
+    IHttpContextAccessor httpContextAccessor,
     IApplicationPaths applicationPaths,
     IMemoryCache memoryCache,
     IAsyncDelayer delayer,
     string userId) {
     private readonly Guid _userId = Guid.Parse(userId);
     private readonly ILogger<SyncProviderFromLocal> _logger = loggerFactory.CreateLogger<SyncProviderFromLocal>();
-    private IServerApplicationHost _serverApplicationHost;
-    private IHttpContextAccessor _httpContextAccessor;
 
     public async Task SyncFromLocal() {
         using var lease = await SyncExecutionGate.Shared.Enter(_userId);
@@ -41,7 +41,7 @@ public class SyncProviderFromLocal (
 
     private async Task GetSeasonDetails(List<Series> userSeriesList) {
         _logger.LogInformation($"(Sync) Starting sync to provider from local process");
-        UpdateProviderStatus updateProviderStatus = new UpdateProviderStatus(libraryManager, loggerFactory, _httpContextAccessor, _serverApplicationHost, httpClientFactory, applicationPaths, memoryCache, delayer);
+        UpdateProviderStatus updateProviderStatus = new UpdateProviderStatus(libraryManager, loggerFactory, httpContextAccessor, serverApplicationHost, httpClientFactory, applicationPaths, memoryCache, delayer);
 
         foreach (Series series in userSeriesList) {
             _logger.LogInformation($"(Sync) Retrieved {series.Name}'s seasons latest watched episode and when it was watched...");

@@ -324,24 +324,21 @@ namespace jellyfin_anidoki {
                                             // totalEpisodesWatched accumulates season.NumEpisodes. With
                                             // 0 the offset is always 0, so the raw episode number gets
                                             // sent to the sequel. The arithmetic requires a known
-                                            // length. When no sequel exists the code already recovers
-                                            // via isRootSeason; this guard applies that same judgement
-                                            // up front, so the outcome no longer depends on whether the
-                                            // entry happens to have a Sequel relation.
+                                            // length, so an entry of unknown length is written as the
+                                            // first cour without walking.
                                             _logger.LogInformation($"({ApiName}) Watched episode passes total episodes in season! Checking for additional seasons/cours...");
                                             // either we have found the wrong series (highly unlikely) or it is a multi cour series/Jellyfin has grouped next season into the current.
                                             int episodeCount = episode.IndexNumber.Value;
-                                            var (season, totalEpisodesWatched, isRootSeason) = await WalkCours(matchingAnime, episodeCount);
-
-                                            if (!isRootSeason) {
-                                                if (season.Id != matchingAnime.Id) {
-                                                    matchingAnime = season;
-                                                    episodeNumber = episodeCount - totalEpisodesWatched;
-                                                } else {
-                                                    found = true;
-                                                    break;
-                                                }
+                                            var (season, totalEpisodesWatched) = await WalkCours(matchingAnime, episodeCount);
+                                            if (season == null) {
+                                                _outcomeCollector?.Record(new ProviderWriteOutcome(ApiName, matchingAnime.AlternativeId ?? matchingAnime.Id.ToString(), GetAnimeTitle(matchingAnime),
+                                                    OutcomeKind.Unresolved, null, null, ApiName == ApiName.Annict, "resolve", false));
+                                                found = true;
+                                                break;
                                             }
+
+                                            matchingAnime = season;
+                                            episodeNumber = episodeCount - totalEpisodesWatched;
                                         }
                                     }
 
@@ -897,32 +894,30 @@ namespace jellyfin_anidoki {
         /// </summary>
         /// <param name="firstCour">The first cour of the series.</param>
         /// <param name="episodeCount">The episode number as Jellyfin numbers it, counted across all cours.</param>
-        /// <returns>The cour reached, the episodes in the cours before it, and whether to fall back to the first cour.</returns>
-        internal async Task<(Anime season, int totalEpisodesWatched, bool isRootSeason)> WalkCours(Anime firstCour, int episodeCount) {
+        /// <returns>The cour reached and the episodes in the cours before it, or a null cour when no cour can hold the episode.</returns>
+        internal async Task<(Anime? season, int totalEpisodesWatched)> WalkCours(Anime firstCour, int episodeCount) {
             int seasonEpisodeCounter = firstCour.NumEpisodes;
             int totalEpisodesWatched = 0;
             Anime season = firstCour;
             while (seasonEpisodeCounter < episodeCount) {
+                // a cour of unknown length (usually still airing) can't be measured past, so it is the best target
+                if (season.NumEpisodes == 0) break;
                 // season is already the current cour, so its sequel is always exactly one hop away
                 var nextSeason = await GetDifferentSeasonAnime(season.Id, 2, alternativeId: season.AlternativeId);
                 if (nextSeason == null) {
-                    _logger.LogWarning($"({ApiName}) Could not find next season");
-                    if (firstCour.Status == AiringStatus.currently_airing && firstCour.NumEpisodes == 0) {
-                        _logger.LogWarning($"({ApiName}) Show is currently airing and API reports 0 episodes, going to use first season");
-                        return (season, totalEpisodesWatched, true);
-                    }
-
-                    break;
+                    // the episode lies past every cour we could reach; writing it to the last one would exceed its length
+                    _logger.LogWarning($"({ApiName}) Could not find a cour covering episode {episodeCount}; not updating");
+                    return (null, totalEpisodesWatched);
                 }
 
                 seasonEpisodeCounter += nextSeason.NumEpisodes;
                 // complete the current season; we have surpassed it onto the next season/cour
                 totalEpisodesWatched += season.NumEpisodes;
-                await CheckUserListAnimeStatus(season.Id, season.NumEpisodes, overrideCheckRewatch: false, alternativeId: firstCour.AlternativeId);
+                await CheckUserListAnimeStatus(season.Id, season.NumEpisodes, overrideCheckRewatch: false, alternativeId: season.AlternativeId);
                 season = nextSeason;
             }
 
-            return (season, totalEpisodesWatched, false);
+            return (season, totalEpisodesWatched);
         }
 
         private async Task<Anime> GetOva(int animeId, string episodeName, string? alternativeId = null) {
