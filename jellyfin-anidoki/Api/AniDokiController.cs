@@ -534,7 +534,9 @@ namespace jellyfin_anidoki.Api {
                 var token = await new ApiAuthentication(storedState.ApiName, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer).GetToken(storedState.UserId, code, codeVerifier: storedState.CodeVerifier);
                 if (token == null) return StatusCode(500, "Could not authenticate");
             } catch (Exception error) {
-                return StatusCode(500, $"Could not authenticate; {error.Message}");
+                // this endpoint is anonymous; provider responses stay in the server log
+                _logger.LogError($"({storedState.ApiName}) Could not complete sign-in: {error.Message}");
+                return StatusCode(500, "Could not authenticate; check the Jellyfin log for details");
             }
             if (!string.IsNullOrEmpty(Plugin.Instance?.PluginConfiguration.callbackRedirectUrl)) {
                 string replacedCallbackRedirectUrl = Plugin.Instance.PluginConfiguration.callbackRedirectUrl.Replace("{{LocalIpAddress}}", Request.HttpContext.Connection.LocalIpAddress != null ? Request.HttpContext.Connection.LocalIpAddress.ToString() : "localhost")

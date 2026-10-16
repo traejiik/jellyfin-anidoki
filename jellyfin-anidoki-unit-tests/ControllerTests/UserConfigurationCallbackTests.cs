@@ -60,6 +60,7 @@ public partial class UserConfigurationTests
         var result = await _controller.AuthCallback("fixture-code", state);
         Assert.Multiple(() => {
             Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(500));
+            Assert.That((result as ObjectResult)?.Value as string, Does.Not.Contain("invalid_grant"));
             Assert.That(_requesterConfig.UserApiAuth[0].AccessToken == "requester-mal-fixture", Is.True);
             Assert.That(_requesterConfig.UserApiAuth[0].RefreshToken == "requester-refresh-fixture", Is.True);
             Assert.That(MemoryCacheHelper.ConsumeState(_memoryCache, state), Is.Null);
