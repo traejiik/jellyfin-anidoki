@@ -45,7 +45,7 @@ public class SyncProviderFromLocal(
         UpdateProviderStatus updateProviderStatus = new UpdateProviderStatus(libraryManager, loggerFactory, httpContextAccessor, serverApplicationHost, httpClientFactory, applicationPaths, memoryCache, delayer);
 
         foreach (Series series in userSeriesList) {
-            _logger.LogInformation("(Sync) Retrieved {SeriesName}'s seasons latest watched episode and when it was watched...", series.Name);
+            _logger.LogDebug("(Sync) Retrieved {SeriesName}'s seasons latest watched episode and when it was watched...", series.Name);
             var toMarkAsCompleted = GetMaxEpisodeAndCompletedTime(series);
             if (toMarkAsCompleted != null) {
                 foreach (Episode episodeDateTime in toMarkAsCompleted) {
@@ -76,14 +76,14 @@ public class SyncProviderFromLocal(
     private List<Episode> GetMaxEpisodeAndCompletedTime(Series series) {
         List<Episode> returnDictionary = new List<Episode>();
 
-        _logger.LogInformation("(Sync) Getting {SeriesName} seasons latest watched episode", series.Name);
+        _logger.LogDebug("(Sync) Getting {SeriesName} seasons latest watched episode", series.Name);
         var seasons = series.Children.OfType<Season>().Select(baseItem => baseItem).ToList();
-        _logger.LogInformation("(Sync) Series {SeriesName} contains {SeasonCount} seasons", series.Name, seasons.Count);
+        _logger.LogDebug("(Sync) Series {SeriesName} contains {SeasonCount} seasons", series.Name, seasons.Count);
         User user = userManager.GetUserById(_userId);
         if (user == null)
             return null;
         foreach (Season season in seasons) {
-            _logger.LogInformation("(Sync) Getting user data for {SeasonName} of {SeriesName}...", season.Name, series.Name);
+            _logger.LogDebug("(Sync) Getting user data for {SeasonName} of {SeriesName}...", season.Name, series.Name);
             if (season.IndexNumber == null) {
                 _logger.LogError("(Sync) Season index number is null. Skipping...");
                 continue;
@@ -91,9 +91,9 @@ public class SyncProviderFromLocal(
 
             IEnumerable<Episode> episodes = season.GetEpisodes(user, new DtoOptions(), false).OfType<Episode>().ToArray();
             if (!episodes.Any()) {
-                _logger.LogInformation("(Sync) No (user visible) episodes found for {SeasonName} of {SeriesName}", season.Name, series.Name);
+                _logger.LogDebug("(Sync) No (user visible) episodes found for {SeasonName} of {SeriesName}", season.Name, series.Name);
             }
-            _logger.LogInformation("(Sync) Season contains {EpisodeCount} episodes", season.Children.OfType<Episode>().Count());
+            _logger.LogDebug("(Sync) Season contains {EpisodeCount} episodes", season.Children.OfType<Episode>().Count());
             Episode latestWatchedEpisode;
 
             try {
@@ -104,14 +104,14 @@ public class SyncProviderFromLocal(
             }
 
             if (latestWatchedEpisode == null) {
-                _logger.LogInformation("(Sync) No episodes watched for {SeasonName}", season.Name);
+                _logger.LogDebug("(Sync) No episodes watched for {SeasonName}", season.Name);
                 continue;
             }
-            _logger.LogInformation("(Sync) The latest watched episode for this user of this season is {EpisodeNumber}", latestWatchedEpisode.IndexNumber);
+            _logger.LogDebug("(Sync) The latest watched episode for this user of this season is {EpisodeNumber}", latestWatchedEpisode.IndexNumber);
             returnDictionary.Add(latestWatchedEpisode);
         }
 
-        _logger.LogInformation("(Sync) Found {SeasonCount} seasons that contain user data", returnDictionary.Count);
+        _logger.LogDebug("(Sync) Found {SeasonCount} seasons that contain user data", returnDictionary.Count);
         return returnDictionary;
     }
 }

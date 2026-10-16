@@ -145,7 +145,7 @@ namespace jellyfin_anidoki {
                         : movie.ProviderIds != null &&
                           movie.ProviderIds.ContainsKey("AniList") &&
                           int.TryParse(movie.ProviderIds["AniList"], out retrievedAniListId)) {
-                    _logger.LogInformation("AniList ID found. Retrieving provider IDs from offline database...");
+                    _logger.LogDebug("AniList ID found. Retrieving provider IDs from offline database...");
                     _apiIds = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(_httpClientFactory.CreateClient(NamedClient.Default), _logger, retrievedAniListId, AnimeOfflineDatabaseHelpers.Source.Anilist);
                     if (_apiIds is null) {
                         _apiIds = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
@@ -153,7 +153,7 @@ namespace jellyfin_anidoki {
                         };
                         _logger.LogWarning("Did not get provider IDs, defaulting to episode provided AniList ID");
                     } else {
-                        _logger.LogInformation("Retrieved provider IDs");
+                        _logger.LogDebug("Retrieved provider IDs");
                     }
                 } else if (_animeType == typeof(Episode)
                                ? (AnimeListHelpers.HasProviderId(episode.Series.ProviderIds, "Tvdb") ||
@@ -166,7 +166,7 @@ namespace jellyfin_anidoki {
                         ? await AnimeListHelpers.GetAniDbId(_logger, episode, episode.IndexNumber.Value, episode.Season.IndexNumber.Value, animeListXml)
                         : await AnimeListHelpers.GetAniDbId(_logger, movie, movie.IndexNumber.Value, 1, animeListXml);
                     if (aniDbId.aniDbId != null) {
-                        _logger.LogInformation("Retrieving provider IDs from offline database for AniDb ID {AniDbId}...", aniDbId.aniDbId.Value);
+                        _logger.LogDebug("Retrieving provider IDs from offline database for AniDb ID {AniDbId}...", aniDbId.aniDbId.Value);
                         _apiIds = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(_httpClientFactory.CreateClient(NamedClient.Default), _logger, aniDbId.aniDbId.Value, AnimeOfflineDatabaseHelpers.Source.Anidb);
                         if (_apiIds is null) {
                             _apiIds = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
@@ -181,7 +181,7 @@ namespace jellyfin_anidoki {
                             if (_apiIds.Anilist is null or 0 && _apiIds.MyAnimeList is null or 0 && _apiIds.Kitsu is null or 0) {
                                 _logger.LogWarning("ARM server has a record for AniDb ID {AniDbId} but no tracker IDs; falling back to title search", aniDbId.aniDbId.Value);
                             } else {
-                                _logger.LogInformation("Retrieved provider IDs");
+                                _logger.LogDebug("Retrieved provider IDs");
                             }
                         }
                     }
@@ -189,7 +189,7 @@ namespace jellyfin_anidoki {
 
                 foreach (UserApiAuth userApiAuth in _userConfig.UserApiAuth) {
                     ApiName = userApiAuth.Name;
-                    _logger.LogInformation("Using provider {ApiName}...", userApiAuth.Name);
+                    _logger.LogDebug("Using provider {ApiName}...", userApiAuth.Name);
                     switch (userApiAuth.Name) {
                         case ApiName.Mal:
                             ApiCallHelpers = new ApiCallHelpers(malApiCalls: new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig));
@@ -275,7 +275,7 @@ namespace jellyfin_anidoki {
 
                     var animeType = _animeType == typeof(Episode) ? "series" : "movie";
                     var searchTitle = _animeType == typeof(Episode) ? episode.SeriesName : video.Name;
-                    _logger.LogInformation("({ApiName}) Searching for {AnimeType}: {SearchTitle}", ApiName, animeType, searchTitle);
+                    _logger.LogDebug("({ApiName}) Searching for {AnimeType}: {SearchTitle}", ApiName, animeType, searchTitle);
                     List<Anime> animeList = await ApiCallHelpers.SearchAnime(_animeType == typeof(Episode) ? episode.SeriesName : video.Name);
                     bool found = false;
                     if (animeList != null) {
@@ -284,7 +284,7 @@ namespace jellyfin_anidoki {
                                 ApiName == ApiName.Shikimori && _apiIds.MyAnimeList != null && anime.Id > 0;
                             if (checkMalId && _apiIds.MyAnimeList != null && anime.Id == _apiIds.MyAnimeList ||
                                 !checkMalId && TitleCheck(anime, episode, movie)) {
-                                _logger.LogInformation("({ApiName}) Found matching {AnimeType}: {Title}", ApiName, animeType, GetAnimeTitle(anime));
+                                _logger.LogDebug("({ApiName}) Found matching {AnimeType}: {Title}", ApiName, animeType, GetAnimeTitle(anime));
                                 Anime matchingAnime = anime;
                                 if (_animeType == typeof(Episode)) {
                                     var episodeOffset = aniDbId.episodeOffset ?? 0;
@@ -303,7 +303,7 @@ namespace jellyfin_anidoki {
                                                 break;
                                             }
 
-                                            _logger.LogInformation("({ApiName}) Season being watched is {Title}", ApiName, GetAnimeTitle(matchingAnime));
+                                            _logger.LogDebug("({ApiName}) Season being watched is {Title}", ApiName, GetAnimeTitle(matchingAnime));
                                         } else if (episode?.Season.IndexNumber == 0) {
                                             // the episode is an ova or special
                                             matchingAnime = await GetOva(anime.Id, episode.Name, alternativeId: anime.AlternativeId);
@@ -327,7 +327,7 @@ namespace jellyfin_anidoki {
                                             // sent to the sequel. The arithmetic requires a known
                                             // length, so an entry of unknown length is written as the
                                             // first cour without walking.
-                                            _logger.LogInformation("({ApiName}) Watched episode passes total episodes in season! Checking for additional seasons/cours...", ApiName);
+                                            _logger.LogDebug("({ApiName}) Watched episode passes total episodes in season! Checking for additional seasons/cours...", ApiName);
                                             // either we have found the wrong series (highly unlikely) or it is a multi cour series/Jellyfin has grouped next season into the current.
                                             int episodeCount = episode.IndexNumber.Value;
                                             var (season, totalEpisodesWatched) = await WalkCours(matchingAnime, episodeCount);
@@ -512,7 +512,7 @@ namespace jellyfin_anidoki {
             if (detectedAnime.MyListStatus != null &&
                 (detectedAnime.MyListStatus.Status == Status.Watching || detectedAnime.MyListStatus.Status == Status.Rewatching) &&
                 ApiName != ApiName.Annict) {
-                _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) found on {ListStatus} list", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime), detectedAnime.MyListStatus.Status);
+                _logger.LogDebug("({ApiName}) {MediaKind} ({Title}) found on {ListStatus} list", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime), detectedAnime.MyListStatus.Status);
                 await UpdateAnimeStatus(detectedAnime, episodeNumber);
                 return;
             }
@@ -521,7 +521,7 @@ namespace jellyfin_anidoki {
             if (_userConfig.PlanToWatchOnly) {
                 bool updated = false;
                 if (detectedAnime.MyListStatus != null && detectedAnime.MyListStatus.Status == Status.Plan_to_watch) {
-                    _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) found on plan to watch list", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
+                    _logger.LogDebug("({ApiName}) {MediaKind} ({Title}) found on plan to watch list", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime));
                     if (ApiName == ApiName.Annict) {
                         updated = true;
                         await UpdateAnnictStatus(detectedAnime, episodeNumber);
@@ -556,7 +556,7 @@ namespace jellyfin_anidoki {
             // everything else
             if (detectedAnime.MyListStatus != null) {
                 // anime is on user list
-                _logger.LogInformation("({ApiName}) {MediaKind} ({Title}) found on {ListStatus} list", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime), detectedAnime.MyListStatus.Status);
+                _logger.LogDebug("({ApiName}) {MediaKind} ({Title}) found on {ListStatus} list", ApiName, (_animeType == typeof(Episode) ? "Series" : "Movie"), GetAnimeTitle(detectedAnime), detectedAnime.MyListStatus.Status);
                 if (detectedAnime.MyListStatus.Status == Status.Completed) {
                     RecordDecision(_outcomeCollector, detectedAnime, OutcomeKind.Skipped, "rewatch-disabled");
                     if (ApiName != ApiName.Annict)
@@ -861,7 +861,7 @@ namespace jellyfin_anidoki {
         /// <param name="seasonNumber">Index of the season to get.</param>
         /// <returns>The different seasons anime or null if unable to retrieve the relations.</returns>
         internal async Task<Anime?> GetDifferentSeasonAnime(int animeId, int seasonNumber, string? alternativeId = null) {
-            _logger.LogInformation("({ApiName}) Attempting to get season {SeasonNumber}...", ApiName, seasonNumber);
+            _logger.LogDebug("({ApiName}) Attempting to get season {SeasonNumber}...", ApiName, seasonNumber);
             Anime retrievedSeason = await ApiCallHelpers.GetAnime(animeId, getRelated: true, alternativeId: alternativeId);
 
             if (retrievedSeason != null) {
@@ -869,7 +869,7 @@ namespace jellyfin_anidoki {
                 while (i != seasonNumber) {
                     RelatedAnime? initialSeasonRelatedAnime = retrievedSeason.RelatedAnime?.FirstOrDefault(item => item.RelationType == RelationType.Sequel);
                     if (initialSeasonRelatedAnime != null) {
-                        _logger.LogInformation("({ApiName}) Attempting to get season {SeasonNumber}...", ApiName, i + 1);
+                        _logger.LogDebug("({ApiName}) Attempting to get season {SeasonNumber}...", ApiName, i + 1);
                         Anime nextSeason = await ApiCallHelpers.GetAnime(initialSeasonRelatedAnime.Anime.Id, getRelated: true, alternativeId: initialSeasonRelatedAnime.Anime.AlternativeId);
 
                         if (nextSeason == null) {

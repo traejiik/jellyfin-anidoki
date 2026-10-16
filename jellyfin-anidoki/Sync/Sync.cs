@@ -236,7 +236,7 @@ public class Sync {
     private async Task<List<SyncAnimeMetadata>> GetMetadataIdsFromAnime(List<Anime> animeList) {
         List<SyncAnimeMetadata> animeIdProgress = new List<SyncAnimeMetadata>();
         for (var i = 0; i < animeList.Count; i++) {
-            _logger.LogInformation("(Sync) Fetching IDs for anime with an ID of {AnimeListId}...", animeList[i].Id);
+            _logger.LogDebug("(Sync) Fetching IDs for anime with an ID of {AnimeListId}...", animeList[i].Id);
             var ids = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(_httpClientFactory.CreateClient(NamedClient.Default), _logger, animeList[i].Id, AnimeOfflineDatabaseHelpers.MapFromApiName(_apiName));
             if (ids?.AniDb == null) {
                 _logger.LogError("(Sync) Could not retrieve AniDb ID; skipping item...");
