@@ -1,4 +1,3 @@
-#nullable enable
 using System;
 
 namespace jellyfin_anidoki.Helpers;

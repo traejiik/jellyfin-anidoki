@@ -1,4 +1,3 @@
-#nullable enable
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Models.Mal;
 

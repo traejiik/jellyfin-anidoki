@@ -1,3 +1,4 @@
+#nullable disable
 using jellyfin_anidoki.Models;
 using MediaBrowser.Model.Plugins;
 
