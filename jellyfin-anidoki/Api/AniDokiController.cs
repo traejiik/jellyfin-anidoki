@@ -184,10 +184,8 @@ namespace jellyfin_anidoki.Api {
             }
         }
 
-        [Authorize(Policy = Policies.RequiresElevation)]
-        [HttpGet]
-        [Route("passwordGrant")]
-        public async Task<IActionResult> PasswordGrantAuthentication(ApiName provider, string userId, string username, string password) {
+        // Not routed: credentials only arrive in a POST body, via PasswordGrantFromBody.
+        internal async Task<IActionResult> PasswordGrantAuthentication(ApiName provider, string userId, string username, string password) {
             try {
                 var token = await new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer, new ProviderApiAuth { ClientId = username, ClientSecret = password }).GetToken(Guid.Parse(userId));
                 if (token == null)
@@ -379,17 +377,6 @@ namespace jellyfin_anidoki.Api {
         {
             if (!UserPagesEnabled()) return Task.FromResult<IActionResult>(NotFound());
             return PasswordGrantFromBody(request);
-        }
-
-        [Authorize]
-        [HttpGet]
-        [Route("user/passwordGrant")]
-        public async Task<IActionResult> PasswordGrantAuthenticationUser(ApiName provider, [FromQuery] Guid user, string username, string password) {
-            if (!UserPagesEnabled()) return NotFound();
-            var jellyfinUser = _userManager.GetUser(User, user);
-            if (jellyfinUser == null) return Forbid();
-            
-            return await PasswordGrantAuthentication(provider, jellyfinUser.Id.ToString(), username, password);
         }
 
         [Authorize]

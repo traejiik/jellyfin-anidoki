@@ -605,7 +605,7 @@ public partial class UserConfigurationTests
                 _targetConfig.UserApiAuth.Any(auth => auth.Name == ApiName.Kitsu && auth.AccessToken == "new-fixture-access");
             return Task.FromResult(KitsuProfileResponse(request));
         });
-        var linking = _controller.PasswordGrantAuthenticationUser(ApiName.Kitsu, _target.Id, "fixture-user", "fixture-password");
+        var linking = _controller.PasswordGrantAuthenticationUserBody(KitsuGrant(_target.Id));
         await grantStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         bool returnedBeforeGrant = linking.IsCompleted;
         grantResponse.SetResult(TokenResponse(null));
@@ -626,9 +626,13 @@ public partial class UserConfigurationTests
         "put" => _controller.UpdateConfigurationUser(user, new UserEditableConfig { LibraryToCheck = [] }),
         "profile" => await _controller.GetUserUser(ApiName.Mal, user),
         "authorize" => _controller.BuildAuthorizeRequestUrlUser(ApiName.Mal, user),
-        "grant" => await _controller.PasswordGrantAuthenticationUser(ApiName.Kitsu, user, "fixture-user", "fixture-password"),
+        "grant" => await _controller.PasswordGrantAuthenticationUserBody(KitsuGrant(user)),
         "deauthenticate" => _controller.DeauthenticateUser(user, ApiName.Mal),
         _ => throw new ArgumentOutOfRangeException(nameof(operation))
+    };
+
+    private static PasswordGrantRequest KitsuGrant(Guid user) => new() {
+        Provider = ApiName.Kitsu, User = user, Username = "fixture-user", Password = "fixture-password"
     };
 
     private static UserConfig CreateConfig(Guid userId, string marker) => new() {
