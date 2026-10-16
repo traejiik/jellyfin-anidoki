@@ -121,7 +121,7 @@ namespace jellyfin_anidoki {
                     return;
                 }
 
-                // FIX 4: diagnostics. Prints exactly which provider IDs Jellyfin holds at
+                // Diagnostics: prints exactly which provider IDs Jellyfin holds at
                 // each level, plus the season count that drives the absolute-episode path.
                 // Logged at Debug: this runs on every played episode, and the information
                 // is only useful when investigating a mis-resolution. The IsEnabled guard
@@ -175,9 +175,9 @@ namespace jellyfin_anidoki {
                             };
                             _logger.LogWarning("Did not get provider IDs, defaulting to episode provided AniDb ID");
                         } else {
-                            // FIX 8: distinguish "ARM gave us a usable ID" from "ARM gave us a
-                            // row that carries none". Only the former avoids the title-search
-                            // fallback, so reporting both as success made the fallback look
+                            // Distinguish "ARM gave us a usable ID" from "ARM gave us a row
+                            // that carries none". Only the former avoids the title-search
+                            // fallback; reporting both as success would make the fallback look
                             // like a bug in ID resolution rather than a gap in the database.
                             if (_apiIds.Anilist is null or 0 && _apiIds.MyAnimeList is null or 0 && _apiIds.Kitsu is null or 0) {
                                 _logger.LogWarning($"ARM server has a record for AniDb ID {aniDbId.aniDbId.Value} but no tracker IDs; falling back to title search");
@@ -314,7 +314,7 @@ namespace jellyfin_anidoki {
                                                 break;
                                             }
                                         } else if (matchingAnime.NumEpisodes > 0 && matchingAnime.NumEpisodes < episode?.IndexNumber.Value) {
-                                            // FIX 9: NumEpisodes is a non-nullable int, so an unknown
+                                            // NumEpisodes is a non-nullable int, so an unknown
                                             // episode count arrives as 0 - which is the norm for a
                                             // currently-airing show. Without the > 0 guard this branch
                                             // fires on every episode of every airing series that reaches
@@ -393,7 +393,7 @@ namespace jellyfin_anidoki {
         /// <param name="movie">The movie if its a single episode movie.</param>
         /// <returns></returns>
         private bool TitleCheck(Anime anime, Episode episode, Movie movie) {
-            // FIX 7: try every title Jellyfin holds for the item, not just the display
+            // Try every title Jellyfin holds for the item, not just the display
             // name. Metadata providers such as Shokofin populate OriginalTitle with the
             // series' native title, and AniList carries a native title for effectively
             // every entry - so this matches even when the romanisations disagree

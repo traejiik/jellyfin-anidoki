@@ -54,7 +54,7 @@ namespace jellyfin_anidoki.Helpers {
             string aniDbKey = "Anidb";
 
             // ---------------------------------------------------------------------
-            // FIX 1: if the season already carries its own AniDB ID, trust it.
+            // If the season already carries its own AniDB ID, trust it.
             //
             // Metadata providers such as Shokofin assign a distinct AniDB series ID
             // to every season and number that season's episodes 1..N relative to
@@ -68,8 +68,8 @@ namespace jellyfin_anidoki.Helpers {
                 TryGetProviderId(episodeWithSeasonAniDbId.Season?.ProviderIds, aniDbKey, out var seasonAniDbIdRaw) &&
                 int.TryParse(seasonAniDbIdRaw, out var seasonAniDbId)) {
                 // -----------------------------------------------------------------
-                // FIX 10: fix 1's premise is "one Jellyfin season == one AniDB series".
-                // Shokofin's season merging breaks that premise: several AniDB series
+                // Trusting the season ID assumes "one Jellyfin season == one AniDB series".
+                // Shokofin's season merging breaks that assumption: several AniDB series
                 // are folded into a single season with continuous 1..N numbering, and
                 // the season-level AniDB ID then describes only the FIRST of them.
                 //
@@ -243,15 +243,14 @@ namespace jellyfin_anidoki.Helpers {
         internal static (int? aniDbId, int? episodeOffset) GetAniDbByEpisodeOffset(ILogger logger, int? absoluteEpisodeNumber, int seasonNumber, int episodeNumber, List<AnimeListAnime> related) {
             if (absoluteEpisodeNumber != null) {
                 // -----------------------------------------------------------------
-                // FIX 2: the original predicate compared only Start/End and ignored
-                // the season entirely. Start and End are plain ints, so they default
-                // to 0 when the attribute is absent, and FirstOrDefault walks the
-                // list in raw document order. The net effect was that the first
-                // entry owning a wide mapping table always won - for a franchise
-                // like Bleach that is the original 366-episode series - while
-                // sequel entries, which carry no <mapping-list> at all, could never
-                // be selected. Require a genuine range in the correct TVDB season,
-                // and return that mapping's offset rather than null.
+                // Match on the TVDB season as well as a genuine Start/End range.
+                // Start and End are plain ints that default to 0 when the attribute
+                // is absent, and the list is in raw document order, so matching on
+                // the range alone lets the first entry with a wide mapping table
+                // win - for a franchise like Bleach, the original 366-episode
+                // series - while sequel entries, which carry no <mapping-list> at
+                // all, could never be selected. The matched mapping's offset is
+                // returned along with it.
                 //
                 // No need to remove offset here from absoluteEpisodeNumber as its
                 // already cumulative (absolute).
@@ -323,11 +322,11 @@ namespace jellyfin_anidoki.Helpers {
                 ? episodeOffset
                 : (int?)null);
 
-            // FIX 3: make the outcome of this branch visible. NOTE: seasonNumber here
-            // is Jellyfin's season index, while defaulttvdbseason/tvdbseason in the XML
-            // are TVDB season numbers. If your metadata provider does not number
-            // seasons the way TVDB does, this lookup will silently pick the wrong
-            // entry - which is exactly why FIX 1 short-circuits it where possible.
+            // Log the outcome so mis-resolutions are diagnosable. seasonNumber here is
+            // Jellyfin's season index, while defaulttvdbseason/tvdbseason in the XML
+            // are TVDB season numbers. If the metadata provider does not number
+            // seasons the way TVDB does, this lookup picks the wrong entry - which is
+            // why a season that carries its own AniDB ID skips it entirely.
             logger.LogInformation($"(AniDb) Season lookup for tvdb season {seasonNumber}, episode {episodeNumber} resolved to AniDB ID {foundMapping?.Anidbid ?? "<none>"} ({foundMapping?.Name ?? "<none>"}) with offset {(resolvedOffset.HasValue ? resolvedOffset.Value.ToString() : "<none>")}");
 
             return (
