@@ -33,10 +33,9 @@ public sealed class ManualMarkService(ManualMarkStore store, IUserManager users,
             var user = users.GetUserById(request.UserId);
             var item = sourceItem = library.GetItemById(request.SourceItemId) as Episode;
             var configuration = Plugin.Instance?.PluginConfiguration;
-            var preferences = configuration?.UserConfig?.FirstOrDefault(c => c.UserId == request.UserId);
             if (user == null || item == null || !item.IsVisible(user, false) || !data.GetUserData(user, item).Played ||
-                configuration?.watchedTickboxUpdatesProvider != true || preferences == null || SyncHelper.MediaShouldBeIgnored(item) ||
-                !UpdateProviderStatus.LibraryCheck(preferences, library, loggers.CreateLogger<ManualMarkService>(), item))
+                configuration?.watchedTickboxUpdatesProvider != true || SyncHelper.MediaShouldBeIgnored(item) ||
+                !ManualMarkRequestFilter.IsTracked(request.UserId, item, library, loggers.CreateLogger<ManualMarkService>()))
             { store.Complete(operationId, ManualMarkState.Cancelled, [], "The item, access or tracking settings changed. Trackers were not updated."); return; }
             var fingerprint = ManualMarkAccounts.Fingerprint(request.UserId);
             if (string.IsNullOrEmpty(fingerprint) || fingerprint != request.AccountFingerprint)

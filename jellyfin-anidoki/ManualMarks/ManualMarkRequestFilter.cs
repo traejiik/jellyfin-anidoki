@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Notifications;
@@ -21,6 +22,13 @@ public sealed class ManualMarkRequestFilter(AuthenticatedSessionResolver resolve
         controller == "Jellyfin.Api.Controllers.PlaystateController" &&
         ((method is "MarkPlayedItem" or "MarkPlayedItemLegacy") && verb == "POST" ||
          (method is "MarkUnplayedItem" or "MarkUnplayedItemLegacy") && verb == "DELETE");
+
+    // Mirrors playback sync: users without settings, or items outside their selected libraries, are never tracked.
+    internal static bool IsTracked(Guid userId, MediaBrowser.Controller.Entities.BaseItem item, ILibraryManager library, ILogger logger)
+    {
+        var preferences = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(c => c.UserId == userId);
+        return preferences != null && UpdateProviderStatus.LibraryCheck(preferences, library, logger, item);
+    }
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
@@ -67,7 +75,8 @@ public sealed class ManualMarkRequestFilter(AuthenticatedSessionResolver resolve
                     result.Result is StatusCodeResult status && status.StatusCode >= 400 ||
                     result.Result is ObjectResult obj && obj.StatusCode >= 400) return;
                 if (identity == null || !withhold || !known || Plugin.Instance?.PluginConfiguration.watchedTickboxUpdatesProvider != true ||
-                    context.HttpContext.Request.Method != "POST" || item == null || SyncHelper.MediaShouldBeIgnored(item)) return;
+                    context.HttpContext.Request.Method != "POST" || item == null || SyncHelper.MediaShouldBeIgnored(item) ||
+                    !IsTracked(identity.UserId, item, library, logger)) return;
                 var request = new ManualMarkRequest(Guid.NewGuid(), identity.UserId, identity.AuthenticationKey, itemId,
                     item is Episode episode ? episode.Series?.Name ?? episode.SeriesName ?? episode.Name : item.Name,
                     item is Episode ? item.IndexNumber : null, item is Episode ? item.Name : "",
