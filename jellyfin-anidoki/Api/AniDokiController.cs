@@ -544,7 +544,7 @@ namespace jellyfin_anidoki.Api {
             StoredState? storedState = MemoryCacheHelper.ConsumeState(_memoryCache, state);
             if (storedState == null) return BadRequest("User not found or link already used/expired, try again");
             try {
-                var token = await new ApiAuthentication(storedState.ApiName, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer).GetToken(storedState.UserId, code);
+                var token = await new ApiAuthentication(storedState.ApiName, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer).GetToken(storedState.UserId, code, codeVerifier: storedState.CodeVerifier);
                 if (token == null) return StatusCode(500, "Could not authenticate");
             } catch (Exception error) {
                 return StatusCode(500, $"Could not authenticate; {error.Message}");

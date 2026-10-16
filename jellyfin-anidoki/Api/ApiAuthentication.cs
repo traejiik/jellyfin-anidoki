@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Api.Simkl;
@@ -28,7 +29,6 @@ namespace jellyfin_anidoki.Api {
         private readonly ProviderApiAuth _providerApiAuth;
         private readonly IMemoryCache  _memoryCache;
         private readonly IAsyncDelayer _delayer;
-        private readonly string _codeChallenge = "eZBLUX_JPk4~el62z_k3Q4fV5CzCYHoTz4iLKvwJ~9QTsTJNlzwveKCSYCSiSOa5zAm5Zt~cfyVM~3BuO4kQ0iYwCxPoeN0SOmBYR_C.QgnzyYE4KY-xIe4Vy1bf7_B4";
 
         public ApiAuthentication(ApiName provider, IHttpClientFactory httpClientFactory, IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, ILoggerFactory loggerFactory, IMemoryCache memoryCache, IAsyncDelayer delayer, ProviderApiAuth? overrideProviderApiAuth = null, string? overrideRedirectUrl = null) {
             _provider = provider;
@@ -77,10 +77,12 @@ namespace jellyfin_anidoki.Api {
 
         public string BuildAuthorizeRequestUrl(Guid userId) {
             string redirectUrl = Uri.EscapeDataString(CallbackUrlHelper.Build(_redirectBaseAddress));
-            string state = MemoryCacheHelper.GenerateState(_memoryCache, userId, _provider);
+            // MAL only supports the plain PKCE method, so the challenge is the verifier; it stays secret by being per link
+            string? codeVerifier = _provider == ApiName.Mal ? GeneratePkce() : null;
+            string state = MemoryCacheHelper.GenerateState(_memoryCache, userId, _provider, codeVerifier);
             switch (_provider) {
                 case ApiName.Mal:
-                    return $"{_authApiUrl}/authorize?response_type=code&client_id={_providerApiAuth.ClientId}&code_challenge={_codeChallenge}&redirect_uri={redirectUrl}&state={state}";
+                    return $"{_authApiUrl}/authorize?response_type=code&client_id={_providerApiAuth.ClientId}&code_challenge={codeVerifier}&code_challenge_method=plain&redirect_uri={redirectUrl}&state={state}";
                 case ApiName.AniList:
                 case ApiName.Shikimori:
                 case ApiName.Simkl:
@@ -96,7 +98,7 @@ namespace jellyfin_anidoki.Api {
         /// <param name="httpClientFactory"></param>
         /// <param name="code">Optional auth code to generate a new token with.</param>
         /// <param name="refreshToken">Optional refresh token to refresh an existing token with.</param>
-        public async Task<UserApiAuth> GetToken(Guid userId, string? code = null, string? refreshToken = null) {
+        public async Task<UserApiAuth> GetToken(Guid userId, string? code = null, string? refreshToken = null, string? codeVerifier = null) {
             var client = _httpClientFactory.CreateClient(NamedClient.Default);
 
             HttpContent formUrlEncodedContent;
@@ -131,7 +133,9 @@ namespace jellyfin_anidoki.Api {
                         new KeyValuePair<string, string>("redirect_uri", CallbackUrlHelper.Build(_redirectBaseAddress))
                     };
                     if (_provider == ApiName.Mal) {
-                        content.Add(new KeyValuePair<string, string>("code_verifier", _codeChallenge));
+                        if (string.IsNullOrEmpty(codeVerifier))
+                            throw new AuthenticationException($"No {_provider} PKCE verifier was issued with this sign-in link");
+                        content.Add(new KeyValuePair<string, string>("code_verifier", codeVerifier));
                     }
 
                     if (_provider == ApiName.Simkl) {
@@ -199,17 +203,11 @@ namespace jellyfin_anidoki.Api {
             throw new AuthenticationException($"Could not retrieve {_provider} token: " + response.StatusCode + " - " + await response.Content.ReadAsStringAsync());
         }
 
-        public static string GeneratePkce() {
-            string characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~";
-            var chars = new char[128];
-            var random = new Random();
-
-            for (var x = 0; x < chars.Length; x++) {
-                chars[x] = characters[random.Next(characters.Length)];
-            }
-
-            return new string(chars);
-        }
+        /// <summary>
+        /// Generate a 128-character PKCE code verifier (RFC 7636) from a cryptographically secure source.
+        /// </summary>
+        public static string GeneratePkce() =>
+            RandomNumberGenerator.GetString("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~", 128);
     }
 
     public class TokenResponse {
