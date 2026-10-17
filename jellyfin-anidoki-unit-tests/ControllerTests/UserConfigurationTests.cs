@@ -60,6 +60,7 @@ public partial class UserConfigurationTests {
         _paths = new Mock<IApplicationPaths>();
         _paths.SetupGet(paths => paths.PluginsPath).Returns(_directory);
         _paths.SetupGet(paths => paths.PluginConfigurationsPath).Returns(_directory);
+        _paths.SetupGet(paths => paths.DataPath).Returns(_directory);
         _xmlSerializer = new Mock<IXmlSerializer>();
         _xmlSerializer.Setup(serializer => serializer.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>()))
             .Returns(new PluginConfiguration());

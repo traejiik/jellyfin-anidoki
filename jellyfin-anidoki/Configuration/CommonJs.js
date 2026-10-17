@@ -287,7 +287,7 @@ export function renderAccounts(container, { linked, visible, admin = false, user
                     const field = element('label', 'ad-field', label); const input = element('input', 'ad-input'); input.type = type; input.autocomplete = 'off'; field.append(input); fields.append(field); credentials[key] = input;
                 }
                 detail.append(fields);
-                if (provider.key === 'Annict') detail.append(element('p', 'ad-help', 'The token is stored in plain text in the server configuration.'));
+                if (provider.key === 'Annict') detail.append(element('p', 'ad-help', 'The token is kept in the AniDōki database on the server, not in the plugin configuration.'));
                 const actions = element('div', 'ad-actions');
                 const link = button('Link account', async () => {
                     const values = Object.fromEntries(Object.entries(credentials).map(([key, input]) => [key, input.value]));

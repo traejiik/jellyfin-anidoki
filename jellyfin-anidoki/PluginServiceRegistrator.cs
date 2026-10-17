@@ -21,7 +21,11 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
         serviceCollection.AddSingleton(TimeProvider.System);
         serviceCollection.AddSingleton<ManualMarks.ManualMarkStore>();
         serviceCollection.AddSingleton<ManualMarks.ManualMarkQueue>();
-        serviceCollection.AddSingleton(provider => new ManualMarks.ManualMarkCapabilityRegistry(Path.Combine(provider.GetRequiredService<IApplicationPaths>().DataPath, "AniDoki", "manual-capabilities.json")));
+        serviceCollection.AddSingleton(provider => {
+            string dataPath = provider.GetRequiredService<IApplicationPaths>().DataPath;
+            return new ManualMarks.ManualMarkCapabilityRegistry(Storage.AniDokiDatabase.ForDataPath(dataPath),
+                Path.Combine(dataPath, "AniDoki", "manual-capabilities.json"));
+        });
         serviceCollection.AddSingleton<ManualMarks.ManualMarkService>();
         serviceCollection.AddHostedService<ManualMarks.ManualMarkWorker>();
         serviceCollection.AddScoped<ManualMarks.ManualMarkRequestFilter>();

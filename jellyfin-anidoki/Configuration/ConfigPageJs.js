@@ -1,5 +1,5 @@
 export default function (view) {
-    let lifetime, saved, baseline, draft, users, parameters, selectedUser, busy = false;
+    let lifetime, saved, baseline, draft, users, parameters, selectedUser, busy = false, secretState = {}, storage;
     let common, state, previewGeneration = 0, previewTimer;
     const libraryValidators = new Map();
     const libraryChoices = new Map();
@@ -41,18 +41,28 @@ export default function (view) {
         common.ensureStyles(); common.prepareStickyShell(root, signal); common.setTabs(common.TabGeneral, common.getTabs, view);
         common.status(find('[data-page-status]'), 'Loading settings…');
         if (!saved) {
-            const result = await Promise.all([ApiClient.getPluginConfiguration(common.pluginId), ApiClient.getUsers(), common.json('AniDoki/parameters', { signal })]);
+            const result = await Promise.all([
+                ApiClient.getPluginConfiguration(common.pluginId),
+                ApiClient.getUsers(),
+                common.json('AniDoki/parameters', { signal }),
+                common.json('AniDoki/providerSecrets', { signal }),
+                common.json('AniDoki/storage', { signal })
+            ]);
             if (signal.aborted) return;
             [saved, users, parameters] = result;
+            secretState = Object.fromEntries(result[3].map(item => [item.provider, item.hasSecret]));
+            storage = result[4];
             const editable = structuredClone(saved);
             editable.ProviderApiAuth ??= [];
-            for (const provider of common.providers) if (!editable.ProviderApiAuth.some(item => item.Name === provider.key)) editable.ProviderApiAuth.push({ Name: provider.key, ClientId: '', ClientSecret: '' });
+            for (const provider of common.providers) if (!editable.ProviderApiAuth.some(item => item.Name === provider.key)) editable.ProviderApiAuth.push({ Name: provider.key, ClientId: '' });
             editable.UserConfig ??= [];
             for (const user of users) if (!editable.UserConfig.some(item => item.UserId === user.Id)) editable.UserConfig.push({ UserId: user.Id, ...state.userPreferences() });
             baseline = state.createDraft(editable); draft = state.createDraft(baseline);
         }
         if (signal.aborted) return;
-        find('#TemplateConfigForm').hidden = false; common.status(find('[data-page-status]'), '');
+        find('#TemplateConfigForm').hidden = false;
+        if (storage && !storage.available) common.status(find('[data-page-status]'), `Settings and tracker syncs are paused: ${storage.message}`, 'error');
+        else common.status(find('[data-page-status]'), '');
         render(signal);
         root.addEventListener('input', event => {
             const field = event.target.dataset.field;
@@ -162,8 +172,9 @@ export default function (view) {
             const summary = common.element('summary');
             const badge = common.element('span', 'ad-badge');
             const refreshBadge = () => {
-                const unsaved = ['ClientId', 'ClientSecret'].some(field => record[field] !== savedRecord?.[field]) || provider.key === 'Shikimori' && ['shikimoriAppName', 'shikimoriDomain'].some(field => draft[field] !== baseline[field]);
-                const readiness = provider.key === 'Kitsu' ? 'Per-user sign-in' : provider.key === 'Annict' ? 'Personal token under Users' : !record.ClientId ? 'Missing client ID' : !record.ClientSecret ? 'Missing secret' : provider.key === 'Shikimori' && !draft.shikimoriAppName?.trim() ? 'Missing app name' : 'Configured';
+                const unsaved = ['ClientId', 'ClientSecret', 'ClearClientSecret'].some(field => record[field] !== savedRecord?.[field]) || provider.key === 'Shikimori' && ['shikimoriAppName', 'shikimoriDomain'].some(field => draft[field] !== baseline[field]);
+                const hasSecret = Boolean(record.ClientSecret) || (secretState[provider.key] && !record.ClearClientSecret);
+                const readiness = provider.key === 'Kitsu' ? 'Per-user sign-in' : provider.key === 'Annict' ? 'Personal token under Users' : !record.ClientId ? 'Missing client ID' : !hasSecret ? 'Missing secret' : provider.key === 'Shikimori' && !draft.shikimoriAppName?.trim() ? 'Missing app name' : 'Configured';
                 badge.textContent = unsaved ? `${readiness} · Unsaved` : readiness;
             };
             refreshBadge();
@@ -173,28 +184,75 @@ export default function (view) {
                 body.append(common.element('p', 'ad-help', provider.key === 'Kitsu' ? 'Kitsu does not need a server-wide OAuth app. Select a user below to sign in with their username and password.' : 'Annict uses a personal access token. Select the intended user below to link it; tokens are never copied to another user.'));
             } else {
                 const grid = common.element('div', 'ad-grid');
-                for (const [field, title, type] of [['ClientId', 'Client ID', 'text'], ['ClientSecret', 'Client secret', 'password']]) {
-                    const fieldRoot = common.element('div', 'ad-field'); const label = common.element('label', '', title);
-                    const input = common.element('input', 'ad-input ad-mono'); input.type = type; input.value = record[field]; input.autocomplete = 'off'; input.id = `ad-${provider.key}-${field}`; label.htmlFor = input.id;
-                    let clear;
-                    input.addEventListener('input', () => { record[field] = input.value; if (clear) clear.hidden = !input.value; refreshBadge(); updateDirty(); }, { signal });
-                    fieldRoot.append(label, type === 'password' ? common.secretInput(input, provider.name, signal) : input);
-                    if (type === 'password') {
-                        const footer = common.element('div', 'ad-field-footer');
-                        clear = common.element('button', 'ad-button ad-button-quiet', 'Clear secret'); clear.type = 'button'; clear.hidden = !input.value; clear.setAttribute('aria-label', `Clear ${provider.name} secret`);
-                        const confirmation = common.element('div', 'ad-clear-confirm'); confirmation.hidden = true; confirmation.id = `ad-${provider.key}-clear-confirm`;
-                        clear.setAttribute('aria-controls', confirmation.id); clear.setAttribute('aria-expanded', 'false');
-                        confirmation.append(common.element('p', 'ad-help', `Clear the ${provider.name} secret when you save changes?`));
-                        const actions = common.element('div', 'ad-actions');
-                        const confirm = common.element('button', 'ad-button', 'Confirm clear'); confirm.type = 'button'; confirm.setAttribute('aria-label', `Confirm clear ${provider.name} secret`);
-                        confirm.addEventListener('click', () => { input.value = ''; record[field] = ''; clear.hidden = true; confirmation.hidden = true; clear.setAttribute('aria-expanded', 'false'); refreshBadge(); updateDirty(); input.focus(); }, { signal });
-                        const keep = common.element('button', 'ad-button', 'Keep secret'); keep.type = 'button'; keep.addEventListener('click', () => { confirmation.hidden = true; clear.setAttribute('aria-expanded', 'false'); clear.focus(); }, { signal });
-                        actions.append(confirm, keep); confirmation.append(actions);
-                        clear.addEventListener('click', () => { confirmation.hidden = false; clear.setAttribute('aria-expanded', 'true'); keep.focus(); }, { signal });
-                        footer.append(clear); fieldRoot.append(footer, confirmation);
-                    }
-                    grid.append(fieldRoot);
-                }
+                const idRoot = common.element('div', 'ad-field');
+                const idLabel = common.element('label', '', 'Client ID');
+                const idInput = common.element('input', 'ad-input ad-mono');
+                idInput.type = 'text';
+                idInput.value = record.ClientId;
+                idInput.autocomplete = 'off';
+                idInput.id = `ad-${provider.key}-ClientId`;
+                idLabel.htmlFor = idInput.id;
+                idInput.addEventListener('input', () => { record.ClientId = idInput.value; refreshBadge(); updateDirty(); }, { signal });
+                idRoot.append(idLabel, idInput);
+                grid.append(idRoot);
+
+                const secretRoot = common.element('div', 'ad-field');
+                const secretLabel = common.element('label', '', 'Client secret');
+                const input = common.element('input', 'ad-input ad-mono');
+                input.type = 'password';
+                input.value = record.ClientSecret;
+                input.autocomplete = 'off';
+                input.id = `ad-${provider.key}-ClientSecret`;
+                secretLabel.htmlFor = input.id;
+                const footer = common.element('div', 'ad-field-footer');
+                const clear = common.element('button', 'ad-button ad-button-quiet', 'Clear secret');
+                clear.type = 'button';
+                clear.setAttribute('aria-label', `Clear ${provider.name} secret`);
+                const confirmation = common.element('div', 'ad-clear-confirm');
+                confirmation.hidden = true;
+                confirmation.id = `ad-${provider.key}-clear-confirm`;
+                clear.setAttribute('aria-controls', confirmation.id);
+                clear.setAttribute('aria-expanded', 'false');
+                const placeholder = () => {
+                    input.placeholder = record.ClearClientSecret ? 'Secret will be cleared when you save' : secretState[provider.key] ? 'Secret saved · leave blank to keep' : '';
+                };
+                const showClear = () => { clear.hidden = record.ClearClientSecret || !(input.value || secretState[provider.key]); };
+                input.addEventListener('input', () => {
+                    record.ClientSecret = input.value;
+                    record.ClearClientSecret = false;
+                    placeholder();
+                    showClear();
+                    refreshBadge();
+                    updateDirty();
+                }, { signal });
+                confirmation.append(common.element('p', 'ad-help', `Clear the ${provider.name} secret when you save changes?`));
+                const actions = common.element('div', 'ad-actions');
+                const confirm = common.element('button', 'ad-button', 'Confirm clear');
+                confirm.type = 'button';
+                confirm.setAttribute('aria-label', `Confirm clear ${provider.name} secret`);
+                confirm.addEventListener('click', () => {
+                    input.value = '';
+                    record.ClientSecret = '';
+                    record.ClearClientSecret = Boolean(secretState[provider.key]);
+                    confirmation.hidden = true;
+                    clear.setAttribute('aria-expanded', 'false');
+                    placeholder();
+                    showClear();
+                    refreshBadge();
+                    updateDirty();
+                    input.focus();
+                }, { signal });
+                const keep = common.element('button', 'ad-button', 'Keep secret');
+                keep.type = 'button';
+                keep.addEventListener('click', () => { confirmation.hidden = true; clear.setAttribute('aria-expanded', 'false'); clear.focus(); }, { signal });
+                actions.append(confirm, keep);
+                confirmation.append(actions);
+                clear.addEventListener('click', () => { confirmation.hidden = false; clear.setAttribute('aria-expanded', 'true'); keep.focus(); }, { signal });
+                footer.append(clear);
+                placeholder();
+                showClear();
+                secretRoot.append(secretLabel, common.secretInput(input, provider.name, signal), footer, confirmation);
+                grid.append(secretRoot);
                 body.append(grid);
                 if (provider.key === 'Shikimori') {
                     for (const [field, title] of [['shikimoriAppName', 'App name (User-Agent)'], ['shikimoriDomain', 'Shikimori domain']]) {
@@ -274,11 +332,22 @@ export default function (view) {
                 const merged = state.mergeChanges(latest, baseline, draft);
                 if (merged.conflicts.length) throw new Error(`Changed on the server: ${merged.conflicts.join(', ')}. Your edits are retained. Reload to review the current values before saving.`);
                 common.status(find('#saveStatus'), 'Saving…');
-                await ApiClient.updatePluginConfiguration(common.pluginId, merged.value);
-                saved = merged.value; baseline = state.createDraft(merged.value);
+                const posted = state.withoutSecrets(merged.value);
+                await ApiClient.updatePluginConfiguration(common.pluginId, posted);
+                // After the configuration: the endpoint creates a provider record the posted configuration may lack.
+                for (const change of state.secretChanges(draft)) {
+                    const result = await common.json('AniDoki/providerSecret', { method: 'POST', body: change, signal });
+                    secretState[result.provider] = result.hasSecret;
+                }
+                saved = posted;
+                baseline = state.createDraft(posted);
                 // Retain zero-field drafts for users/providers that have never been saved.
                 for (const item of draft.ProviderApiAuth) if (!baseline.ProviderApiAuth.some(p => p.Name === item.Name)) baseline.ProviderApiAuth.push(structuredClone(item));
                 for (const item of draft.UserConfig) if (!baseline.UserConfig.some(u => u.UserId === item.UserId)) baseline.UserConfig.push(structuredClone(item));
+                for (const item of baseline.ProviderApiAuth) {
+                    item.ClientSecret = '';
+                    item.ClearClientSecret = false;
+                }
                 draft = state.createDraft(baseline); libraryValidators.clear(); libraryChoices.clear();
                 if (!signal.aborted) { render(signal); common.status(find('[data-page-status]'), 'Settings saved.', 'success'); }
             });

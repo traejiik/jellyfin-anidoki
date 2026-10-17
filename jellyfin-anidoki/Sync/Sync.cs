@@ -74,6 +74,11 @@ public class Sync {
     /// </summary>
     /// <param name="userId">ID of the user that you want to update the library of.</param>
     public async Task SyncFromProvider(string userId) {
+        if (Plugin.Instance?.StorageError is { } storageError) {
+            _logger.LogWarning("(Sync) Skipping sync from the tracker because AniDoki storage is unavailable: {StorageError}", storageError);
+            return;
+        }
+
         var completedList = await GetAnimeList(userId);
         if (completedList == null) {
             _logger.LogWarning("(Sync) No anime found by provider; please make sure user is authenticated with this provider and the authenticated users watch list is populated");

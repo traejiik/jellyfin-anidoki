@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Serialization;
+using System.Xml.Serialization;
 using jellyfin_anidoki.Configuration;
 
 namespace jellyfin_anidoki.Models {
@@ -17,6 +19,8 @@ namespace jellyfin_anidoki.Models {
         /// </summary>
         public Guid UserId { get; set; }
         public bool DiscordNotificationsEnabled { get; set; }
+        /// <summary>Stored in the AniDoki database; never written to the plugin XML or JSON.</summary>
+        [XmlIgnore, JsonIgnore]
         public string DiscordWebhookUrl { get; set; }
         public long DiscordNotificationRevision { get; set; }
 

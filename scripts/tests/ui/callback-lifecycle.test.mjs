@@ -88,6 +88,8 @@ async function setupAdmin(t, users = []) {
     const failedResponse = new Response(new ReadableStream({ start(controller) { stream = controller; } }), { status: 400 });
     t.mock.method(globalThis, 'fetch', async url => {
         if (url.endsWith('/parameters')) return Response.json({ libraries: [] });
+        if (url.endsWith('/providerSecrets')) return Response.json([]);
+        if (url.endsWith('/storage')) return Response.json({ available: true, message: null });
         const address = new URL(url).searchParams.get('address');
         return address ? Response.json({ baseAddress: address, callbackUrl: `${address}/AniDoki/authCallback` }) : failedResponse;
     });

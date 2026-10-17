@@ -29,6 +29,7 @@ public class PluginIntegrationTests {
         _paths = new Mock<IApplicationPaths>();
         _paths.SetupGet(p => p.PluginsPath).Returns(_directory);
         _paths.SetupGet(p => p.PluginConfigurationsPath).Returns(_directory);
+        _paths.SetupGet(p => p.DataPath).Returns(_directory);
     }
 
     [TearDown]

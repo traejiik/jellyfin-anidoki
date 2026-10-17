@@ -46,6 +46,7 @@ public class DiscordDispatcherTests {
         var paths = new Mock<IApplicationPaths>();
         paths.SetupGet(p => p.PluginsPath).Returns(_directory);
         paths.SetupGet(p => p.PluginConfigurationsPath).Returns(_directory);
+        paths.SetupGet(p => p.DataPath).Returns(_directory);
         var xml = new Mock<IXmlSerializer>();
         xml.Setup(x => x.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>()))
             .Returns(new PluginConfiguration { callbackUrl = "https://jf.example" });

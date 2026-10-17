@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using jellyfin_anidoki;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.ManualMarks;
+using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Notifications;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Common.Configuration;
@@ -33,6 +34,7 @@ public class ManualMarkControllerTests {
         var paths = new Mock<IApplicationPaths>();
         paths.SetupGet(p => p.PluginsPath).Returns(_directory);
         paths.SetupGet(p => p.PluginConfigurationsPath).Returns(_directory);
+        paths.SetupGet(p => p.DataPath).Returns(_directory);
         var xml = new Mock<IXmlSerializer>();
         xml.Setup(x => x.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>())).Returns(new PluginConfiguration { watchedTickboxUpdatesProvider = true });
         _ = new Plugin(paths.Object, new Mock<IServerConfigurationManager>().Object, xml.Object, NullLogger<Plugin>.Instance);
@@ -48,7 +50,7 @@ public class ManualMarkControllerTests {
         var identity = (await resolver.Resolve(context)).Identity!;
         _store = new(TimeProvider.System);
         _queue = new();
-        _controller = new(_store, new ManualMarkCapabilityRegistry(Path.Combine(_directory, "enrollment.json")), resolver, _queue) { ControllerContext = new() { HttpContext = context } };
+        _controller = new(_store, new ManualMarkCapabilityRegistry(new AniDokiDatabase(Path.Combine(_directory, "anidoki.db")), Path.Combine(_directory, "enrollment.json")), resolver, _queue) { ControllerContext = new() { HttpContext = context } };
         _request = new(Guid.NewGuid(), user.Id, identity.AuthenticationKey, Guid.NewGuid(), "Anime", 3, "Episode", DateTimeOffset.UtcNow, "account");
     }
     [TearDown] public void Cleanup() => Directory.Delete(_directory, true);
