@@ -53,6 +53,15 @@ namespace jellyfin_anidoki {
 
         internal AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ResolvedIds => _apiIds;
 
+        /// <summary>
+        /// Builds the provider client for a provider and user. Tests set this to substitute an in-memory tracker;
+        /// production leaves it null so the real client is constructed.
+        /// </summary>
+        internal Func<ApiName, UserConfig, IApiCallHelpers>? ApiCallHelpersFactory { get; set; }
+
+        private IApiCallHelpers CreateApiCallHelpers(ApiName provider, Func<IApiCallHelpers> createProductionClient) =>
+            ApiCallHelpersFactory?.Invoke(provider, _userConfig!) ?? createProductionClient();
+
         public UpdateProviderStatus(ILibraryManager libraryManager,
             ILoggerFactory loggerFactory,
             IHttpContextAccessor httpContextAccessor,
@@ -192,7 +201,7 @@ namespace jellyfin_anidoki {
                     _logger.LogDebug("Using provider {ApiName}...", userApiAuth.Name);
                     switch (userApiAuth.Name) {
                         case ApiName.Mal:
-                            ApiCallHelpers = new ApiCallHelpers(malApiCalls: new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig));
+                            ApiCallHelpers = CreateApiCallHelpers(ApiName.Mal, () => new ApiCallHelpers(malApiCalls: new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
                             if (_apiIds.MyAnimeList != null && _apiIds.MyAnimeList != 0 && (episode != null && episode.Season.IndexNumber.Value != 0)) {
                                 await CheckUserListAnimeStatus(_apiIds.MyAnimeList.Value, _animeType == typeof(Episode)
                                         ? (aniDbId.episodeOffset != null
@@ -205,7 +214,7 @@ namespace jellyfin_anidoki {
 
                             break;
                         case ApiName.AniList:
-                            ApiCallHelpers = new ApiCallHelpers(aniListApiCalls: new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig));
+                            ApiCallHelpers = CreateApiCallHelpers(ApiName.AniList, () => new ApiCallHelpers(aniListApiCalls: new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
                             if (_apiIds.Anilist != null && _apiIds.Anilist != 0 && (episode != null && episode.Season.IndexNumber.Value != 0)) {
                                 await CheckUserListAnimeStatus(_apiIds.Anilist.Value, _animeType == typeof(Episode)
                                         ? (aniDbId.episodeOffset != null
@@ -228,7 +237,7 @@ namespace jellyfin_anidoki {
 
                             break;
                         case ApiName.Kitsu:
-                            ApiCallHelpers = new ApiCallHelpers(kitsuApiCalls: new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig));
+                            ApiCallHelpers = CreateApiCallHelpers(ApiName.Kitsu, () => new ApiCallHelpers(kitsuApiCalls: new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
                             if (_apiIds.Kitsu != null && _apiIds.Kitsu != 0 && (episode != null && episode.Season.IndexNumber.Value != 0)) {
                                 await CheckUserListAnimeStatus(_apiIds.Kitsu.Value, _animeType == typeof(Episode)
                                         ? (aniDbId.episodeOffset != null
@@ -242,20 +251,20 @@ namespace jellyfin_anidoki {
                             break;
                         case ApiName.Annict:
                             // annict works differently to the other providers, so we have to go the traditional route
-                            ApiCallHelpers = new ApiCallHelpers(annictApiCalls: new AnnictApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig));
+                            ApiCallHelpers = CreateApiCallHelpers(ApiName.Annict, () => new ApiCallHelpers(annictApiCalls: new AnnictApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
                             break;
                         case ApiName.Shikimori:
                             string? shikimoriAppName = ConfigHelper.GetShikimoriAppName(_logger);
                             // continue, not return: a missing app name must not skip the providers after it
                             if (string.IsNullOrEmpty(shikimoriAppName))
                                 continue;
-                            ApiCallHelpers = new ApiCallHelpers(shikimoriApiCalls: new ShikimoriApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, new Dictionary<string, string> { { "User-Agent", shikimoriAppName } }, _userConfig));
+                            ApiCallHelpers = CreateApiCallHelpers(ApiName.Shikimori, () => new ApiCallHelpers(shikimoriApiCalls: new ShikimoriApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, new Dictionary<string, string> { { "User-Agent", shikimoriAppName } }, _userConfig)));
                             break;
                         case ApiName.Simkl:
                             string? simklClientId = ConfigHelper.GetSimklClientId(_logger);
                             if (string.IsNullOrEmpty(simklClientId))
                                 continue;
-                            ApiCallHelpers = new ApiCallHelpers(simklApiCalls: new SimklApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, new Dictionary<string, string> { { "simkl-api-key", simklClientId } }, _userConfig));
+                            ApiCallHelpers = CreateApiCallHelpers(ApiName.Simkl, () => new ApiCallHelpers(simklApiCalls: new SimklApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, new Dictionary<string, string> { { "simkl-api-key", simklClientId } }, _userConfig)));
                             if (((_apiIds.MyAnimeList != null && _apiIds.MyAnimeList != 0) ||
                                  (_apiIds.Anilist != null && _apiIds.Anilist != 0) ||
                                  (_apiIds.Kitsu != null && _apiIds.Kitsu != 0) ||

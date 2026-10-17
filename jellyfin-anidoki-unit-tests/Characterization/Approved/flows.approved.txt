@@ -1,0 +1,81 @@
+## ids-from-arm-season-1
+Mal: write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
+AniList: write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
+Kitsu: write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
+Annict: no writes | NoChange:status@500
+Shikimori: write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
+Simkl: write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
+## title-search-season-1
+Mal: write(id=600, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@600
+AniList: write(id=600, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@600
+Kitsu: write(id=600, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@600
+Annict: no writes | Unresolved:resolve@?
+Shikimori: write(id=600, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@600
+Simkl: write(id=600, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@600
+## title-search-season-2-sequel
+Mal: write(id=601, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@601
+AniList: write(id=601, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@601
+Kitsu: write(id=601, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@601
+Annict: no writes | Unresolved:resolve@?
+Shikimori: write(id=601, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@601
+Simkl: write(id=601, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@601
+## sequel-fetch-fails
+Mal: no writes | no outcomes
+AniList: no writes | no outcomes
+Kitsu: no writes | no outcomes
+Annict: no writes | Unresolved:resolve@?
+Shikimori: no writes | no outcomes
+Simkl: no writes | no outcomes
+## multi-cour-walk
+Mal: write(id=700, progress=12, status=Completed, rewatching=-, count=-, start=True, end=True) + write(id=701, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@700, Confirmed:progress@701
+AniList: write(id=700, progress=12, status=Completed, rewatching=-, count=-, start=True, end=True) + write(id=701, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@700, Confirmed:progress@701
+Kitsu: write(id=700, progress=12, status=Completed, rewatching=-, count=-, start=True, end=True) + write(id=701, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@700, Confirmed:progress@701
+Annict: no writes | Unresolved:resolve@?
+Shikimori: write(id=700, progress=12, status=Completed, rewatching=-, count=-, start=True, end=True) + write(id=701, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@700, Confirmed:progress@701
+Simkl: write(id=700, progress=12, status=Completed, rewatching=-, count=-, start=True, end=True) + write(id=701, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@700, Confirmed:progress@701
+## multi-cour-past-last-cour
+Mal: write(id=700, progress=12, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@700, Unresolved:resolve@700
+AniList: write(id=700, progress=12, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@700, Unresolved:resolve@700
+Kitsu: write(id=700, progress=12, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@700, Unresolved:resolve@700
+Annict: no writes | Unresolved:resolve@?
+Shikimori: write(id=700, progress=12, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@700, Unresolved:resolve@700
+Simkl: write(id=700, progress=12, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@700, Unresolved:resolve@700
+## special-season-0
+Mal: write(id=801, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@801
+AniList: write(id=801, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@801
+Kitsu: write(id=801, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@801
+Annict: no writes | Unresolved:resolve@?
+Shikimori: write(id=801, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@801
+Simkl: write(id=801, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@801
+## movie-with-anilist-id
+Mal: write(id=901, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@901
+AniList: no writes | Unresolved:resolve@900
+Kitsu: write(id=901, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@901
+Annict: no writes | Unresolved:resolve@?
+Shikimori: no writes | Unresolved:resolve@?
+Simkl: write(id=901, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@901
+movie IndexNumber after sync: 1
+## unconfigured-shikimori
+Shikimori: no writes | no outcomes
+AniList: write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
+## instance-reuse (first: Fixture Show with IDs)
+Mal: write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
+AniList: write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
+Kitsu: write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
+Annict: no writes | NoChange:status@500
+Shikimori: write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
+Simkl: write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
+## instance-reuse (second: Other Show without IDs, same instance)
+Mal: no writes | Unresolved:resolve@?
+AniList: no writes | Unresolved:resolve@?
+Kitsu: no writes | Unresolved:resolve@?
+Annict: no writes | Unresolved:resolve@?
+Shikimori: no writes | Unresolved:resolve@?
+Simkl: no writes | Unresolved:resolve@?
+## missing-episode-number
+Mal: no writes | no outcomes
+AniList: no writes | no outcomes
+Kitsu: no writes | no outcomes
+Annict: no writes | no outcomes
+Shikimori: no writes | no outcomes
+Simkl: no writes | no outcomes
