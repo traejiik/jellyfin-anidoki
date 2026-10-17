@@ -94,6 +94,11 @@ namespace jellyfin_anidoki {
         }
 
         private async Task UpdateCore(BaseItem e, Guid userId, bool playedToCompletion) {
+            if (Plugin.Instance?.StorageError is { } storageError) {
+                _logger.LogWarning("Skipping tracker sync because AniDoki storage is unavailable: {StorageError}", storageError);
+                return;
+            }
+
             // SyncProviderFromLocal reuses one instance across series, so anything resolved
             // for the previous item must not leak into this one. Without this, an item that
             // resolves no IDs would be written to the previous item's tracker entry.

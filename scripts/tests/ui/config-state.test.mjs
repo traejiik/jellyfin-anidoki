@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDraft, changedValues, mergeChanges, mergePreferences, userPreferences, validateLibraries } from '../../../jellyfin-anidoki/Configuration/ConfigStateJs.js';
+import { createDraft, changedValues, mergeChanges, mergePreferences, userPreferences, validateLibraries, secretChanges, withoutSecrets } from '../../../jellyfin-anidoki/Configuration/ConfigStateJs.js';
 
 const saved = () => ({ callbackUrl: '', updateNsfw: true, ProviderApiAuth: [
     { Name: 'AniList', ClientId: 'one', ClientSecret: 'keep' },
@@ -41,9 +41,34 @@ test('two collapsed provider drafts save while untouched secrets stay intact', (
     assert.equal(result.value.ProviderApiAuth[1].ClientId, 'edited2');
     assert.equal(result.value.ProviderApiAuth[0].ClientSecret, 'keep');
 });
-test('explicit secret clearing is saved', () => {
-    const baseline = saved(); const draft = createDraft(baseline); draft.ProviderApiAuth[0].ClientSecret = '';
-    assert.equal(mergeChanges(baseline, baseline, draft).value.ProviderApiAuth[0].ClientSecret, '');
+// What the server sends now: no client secrets.
+const server = () => withoutSecrets(saved());
+
+test('secrets never enter the draft from the server and never reach the posted configuration', () => {
+    const draft = createDraft(server());
+    assert.equal(draft.ProviderApiAuth[0].ClientSecret, '');
+    assert.equal(draft.ProviderApiAuth[0].ClearClientSecret, false);
+    draft.ProviderApiAuth[0].ClientSecret = 'typed';
+    const merged = mergeChanges(server(), server(), draft);
+    assert.deepEqual(merged.conflicts, []);
+    const posted = withoutSecrets(merged.value);
+    assert.equal(posted.ProviderApiAuth[0].ClientSecret, undefined);
+    assert.equal(posted.ProviderApiAuth[0].ClearClientSecret, undefined);
+});
+test('a typed secret is a replacement and marks the draft dirty', () => {
+    const baseline = createDraft(server()); const draft = createDraft(baseline);
+    draft.ProviderApiAuth[1].ClientSecret = 'new';
+    assert.equal(changedValues(baseline, draft).length, 1);
+    assert.deepEqual(secretChanges(draft), [{ Provider: 'Mal', Secret: 'new', Clear: false }]);
+});
+test('explicit secret clearing is a clear request', () => {
+    const baseline = createDraft(server()); const draft = createDraft(baseline);
+    draft.ProviderApiAuth[0].ClearClientSecret = true;
+    assert.equal(changedValues(baseline, draft).length, 1);
+    assert.deepEqual(secretChanges(draft), [{ Provider: 'AniList', Clear: true }]);
+});
+test('untouched secrets produce no secret requests', () => {
+    assert.deepEqual(secretChanges(createDraft(server())), []);
 });
 test('two user drafts preserve other-user preferences and auth', () => {
     const baseline = saved(); const draft = createDraft(baseline);

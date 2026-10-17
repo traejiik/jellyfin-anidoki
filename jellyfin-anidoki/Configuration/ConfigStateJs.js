@@ -3,7 +3,9 @@
 const serverFields = ['callbackUrl', 'callbackRedirectUrl', 'animeListSaveLocation',
     'watchedTickboxUpdatesProvider', 'shikimoriAppName', 'simklUpdateAll', 'updateNsfw',
     'authenticationLinkExpireTimeMinutes', 'armServerBaseUrl', 'enableUserPages', 'shikimoriDomain'];
-const providerFields = ['ClientId', 'ClientSecret'];
+const providerFields = ['ClientId'];
+// Client secrets are write-only: the server never returns them, so a draft holds only a replacement or a clear request.
+const secretDefaults = { ClientSecret: '', ClearClientSecret: false };
 const preferenceFields = ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications', 'LibraryToCheck'];
 const clone = value => value === undefined ? undefined : structuredClone(value);
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -21,7 +23,10 @@ export function createDraft(saved = {}) {
     const result = {};
     for (const field of serverFields) result[field] = clone(saved[field]);
     result.ProviderApiAuth = (saved.ProviderApiAuth ?? []).map(provider => ({
-        Name: provider.Name, ClientId: provider.ClientId ?? '', ClientSecret: provider.ClientSecret ?? ''
+        Name: provider.Name,
+        ClientId: provider.ClientId ?? '',
+        ClientSecret: provider.ClientSecret ?? secretDefaults.ClientSecret,
+        ClearClientSecret: provider.ClearClientSecret ?? secretDefaults.ClearClientSecret
     }));
     result.UserConfig = (saved.UserConfig ?? []).map(user => ({ UserId: user.UserId, ...userPreferences(user) }));
     return result;
@@ -36,6 +41,7 @@ export function changedValues(baseline, draft) {
     for (const provider of draft.ProviderApiAuth ?? []) {
         const old = baseline.ProviderApiAuth?.find(item => item.Name === provider.Name);
         for (const field of providerFields) add('provider', provider.Name, field, old?.[field] ?? '', provider[field] ?? '');
+        for (const [field, empty] of Object.entries(secretDefaults)) add('secret', provider.Name, field, old?.[field] ?? empty, provider[field] ?? empty);
     }
     for (const user of draft.UserConfig ?? []) {
         const old = userPreferences(baseline.UserConfig?.find(item => item.UserId === user.UserId));
@@ -48,13 +54,14 @@ export function mergeChanges(latest, baseline, draft) {
     const value = clone(latest);
     const conflicts = [];
     for (const change of changedValues(createDraft(baseline), draft)) {
+        if (change.group === 'secret') continue;
         let target = value;
         if (change.group !== 'server') {
             const collection = change.group === 'provider' ? 'ProviderApiAuth' : 'UserConfig';
             const key = change.group === 'provider' ? 'Name' : 'UserId';
             const list = value[collection] ?? [];
             target = list.find(item => item[key] === change.id);
-            const defaults = change.group === 'user' ? userPreferences() : { ClientId: '', ClientSecret: '' };
+            const defaults = change.group === 'user' ? userPreferences() : { ClientId: '' };
             const remote = target?.[change.field] ?? defaults[change.field];
             if (!equal(remote, change.before) && !equal(remote, change.value)) {
                 conflicts.push(`${change.id}.${change.field}`); continue;
@@ -85,4 +92,21 @@ export function mergePreferences(latest, baseline, draft) {
         else value[field] = clone(draft[field]);
     }
     return { value, conflicts };
+}
+
+export function secretChanges(draft) {
+    return (draft.ProviderApiAuth ?? []).flatMap(provider => {
+        if (provider.ClearClientSecret) return [{ Provider: provider.Name, Clear: true }];
+        if (provider.ClientSecret) return [{ Provider: provider.Name, Secret: provider.ClientSecret, Clear: false }];
+        return [];
+    });
+}
+
+export function withoutSecrets(configuration) {
+    const value = clone(configuration);
+    for (const provider of value.ProviderApiAuth ?? []) {
+        delete provider.ClientSecret;
+        delete provider.ClearClientSecret;
+    }
+    return value;
 }

@@ -43,12 +43,13 @@ internal sealed class SyncHarness : IDisposable {
 
     public PluginConfiguration Configuration => _plugin.Configuration;
 
-    public SyncHarness() {
+    public SyncHarness(string? dataPath = null) {
         _directory = Path.Combine(Path.GetTempPath(), "anidoki-characterization-" + Guid.NewGuid());
         Directory.CreateDirectory(_directory);
         var paths = new Mock<IApplicationPaths>();
         paths.SetupGet(p => p.PluginsPath).Returns(_directory);
         paths.SetupGet(p => p.PluginConfigurationsPath).Returns(_directory);
+        paths.SetupGet(p => p.DataPath).Returns(dataPath ?? _directory);
         var xml = new Mock<IXmlSerializer>();
         xml.Setup(x => x.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>())).Returns(new PluginConfiguration());
         _plugin = new Plugin(paths.Object, new Mock<IServerConfigurationManager>().Object, xml.Object, NullLogger<Plugin>.Instance);

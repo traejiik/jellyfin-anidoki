@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Loader;
 using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Storage;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
@@ -20,12 +21,17 @@ namespace jellyfin_anidoki {
     public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages {
         private readonly ILogger<Plugin> _logger;
 
+        private readonly SecretStore _secrets;
+
         public Plugin(IApplicationPaths applicationPaths,
             IServerConfigurationManager serverConfigurationManager,
             IXmlSerializer xmlSerializer,
             ILogger<Plugin> logger) : base(applicationPaths, xmlSerializer) {
             _logger = logger;
             Instance = this;
+            Database = AniDokiDatabase.ForDataPath(applicationPaths.DataPath);
+            _secrets = new SecretStore(Database);
+            LoadCredentials();
             try {
                 if (PluginConfiguration.enableUserPages)
                     CheckPluginPages(applicationPaths, serverConfigurationManager);
@@ -41,6 +47,84 @@ namespace jellyfin_anidoki {
         public override string Description => "Synchronize anime watch status between Jellyfin and anime tracking sites.";
         public PluginConfiguration PluginConfiguration => Configuration;
         public static Plugin? Instance { get; private set; }
+
+        /// <summary>The plugin database. Check <see cref="StorageError"/> before relying on it.</summary>
+        public AniDokiDatabase Database { get; }
+
+        /// <summary>
+        /// Why stored credentials cannot be used, or null. While set, syncs pause and saves are refused, so a save can
+        /// never drop credentials that are only in the old XML file.
+        /// </summary>
+        public string? StorageError { get; private set; }
+
+        private bool _loadingConfiguration;
+
+        private void LoadCredentials() {
+            // Read old credentials before touching Configuration: if the XML is unreadable, Jellyfin replaces it with defaults on load.
+            Dictionary<SecretKey, string> legacy = new();
+            string? legacyError = null;
+            try {
+                legacy = LegacySecrets.Read(ConfigurationFilePath);
+            } catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException) {
+                legacyError = $"Credentials in {ConfigurationFilePath} could not be read: {error.Message}";
+            }
+            // Jellyfin may save default settings while loading the file. Those saves must not replace stored credentials.
+            _loadingConfiguration = true;
+            try {
+                _ = Configuration;
+            } finally {
+                _loadingConfiguration = false;
+            }
+            StorageError = Database.Failure ?? legacyError;
+            if (StorageError != null) {
+                _logger.LogError("AniDoki storage is unavailable; tracker syncs are paused and settings cannot be saved: {StorageError}", StorageError);
+                return;
+            }
+            try {
+                var credentials = _secrets.ReadAll();
+                // Anything still in the XML was written after the last move (for example by an older version), so it wins.
+                foreach (var (key, value) in legacy)
+                    credentials[key] = value;
+                lock (Configuration)
+                    SecretOverlay.Apply(Configuration, credentials);
+                if (legacy.Count == 0)
+                    return;
+                SaveConfiguration();
+                var stored = _secrets.ReadAll();
+                if (legacy.Any(pair => !stored.TryGetValue(pair.Key, out var value) || value != pair.Value)) {
+                    StorageError = "Credentials moved from the plugin configuration could not be confirmed in the AniDoki database";
+                    _logger.LogError("AniDoki storage is unavailable; tracker syncs are paused and settings cannot be saved: {StorageError}", StorageError);
+                    return;
+                }
+                _logger.LogInformation("Moved {CredentialCount} credentials from the plugin configuration into the AniDoki database", legacy.Count);
+            } catch (Exception error) when (error is InvalidOperationException or Microsoft.Data.Sqlite.SqliteException or IOException) {
+                StorageError = $"Credentials could not be loaded: {error.Message}";
+                _logger.LogError("AniDoki storage is unavailable; tracker syncs are paused and settings cannot be saved: {StorageError}", StorageError);
+            }
+        }
+
+        public override void SaveConfiguration() => SaveConfiguration(Configuration);
+
+        /// <summary>Writes credentials to the database first, then the XML; if the database write fails, nothing is written.</summary>
+        public override void SaveConfiguration(PluginConfiguration config) {
+            if (_loadingConfiguration) {
+                base.SaveConfiguration(config);
+                return;
+            }
+            if (StorageError != null)
+                throw new InvalidOperationException($"AniDoki settings were not saved because storage is unavailable: {StorageError}");
+            _secrets.ReplaceAll(SecretOverlay.Extract(config));
+            base.SaveConfiguration(config);
+        }
+
+        /// <summary>The admin page posts configuration without credentials; carry the current ones over before saving.</summary>
+        public override void UpdateConfiguration(BasePluginConfiguration configuration) {
+            if (configuration is PluginConfiguration incoming) {
+                lock (Configuration)
+                    SecretOverlay.Apply(incoming, SecretOverlay.Extract(Configuration));
+            }
+            base.UpdateConfiguration(configuration);
+        }
 
         public void CheckPluginPages(IApplicationPaths applicationPaths, IServerConfigurationManager serverConfigurationManager) {
             int pluginPageConfigVersion = 2;
@@ -128,7 +212,18 @@ namespace jellyfin_anidoki {
         public override void OnUninstalling() {
             RemovePluginPages(ApplicationPaths);
             try { Notifications.NotificationWebIntegration.Remove(); } catch (Exception) { _logger.LogWarning("Could not remove AniDoki notification bootstrap on uninstall."); }
+            RemoveData();
             base.OnUninstalling();
+        }
+
+        private void RemoveData() {
+            string directory = Path.GetDirectoryName(Database.FilePath)!;
+            try {
+                if (Directory.Exists(directory))
+                    Directory.Delete(directory, true);
+            } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
+                _logger.LogWarning(error, "Could not remove AniDoki data at {DataDirectory} on uninstall", directory);
+            }
         }
 
         public IEnumerable<PluginPageInfo> GetPages() {

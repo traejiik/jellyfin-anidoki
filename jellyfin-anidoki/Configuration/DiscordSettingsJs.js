@@ -15,7 +15,7 @@ export default async function mountDiscord(root, common, cache, signal, isHostBu
         find('discordEnabled').checked = draft.enabled;
         if (webhook.value !== draft.webhook) webhook.value = draft.webhook;
         find('discordWebhook').placeholder = saved.hasWebhook ? 'Webhook saved · leave blank to keep it' : 'https://discord.com/api/webhooks/…';
-        find('discordHelp').textContent = saved.publicAddressReady ? 'AniDoki uses its own name and avatar. Your webhook is stored in the server configuration.' : 'Ask your administrator to set the server Public address. AniDoki uses its own name and avatar.';
+        find('discordHelp').textContent = saved.publicAddressReady ? 'AniDoki uses its own name and avatar. Your webhook is kept in the AniDōki database on the server.' : 'Ask your administrator to set the server Public address. AniDoki uses its own name and avatar.';
         for (const id of ['discordEnabled','discordWebhook','saveDiscord','clearDiscord','testDiscord']) find(id).disabled = busy;
         find('testDiscord').disabled = busy || !saved.hasWebhook || discordDirty(draft, saved);
         find('clearDiscord').disabled = busy || !saved.hasWebhook && !draft.webhook;

@@ -43,7 +43,7 @@ Each user can enable Discord updates and save their own incoming **Webhook link*
 
 An administrator must set the server **Public address** so the bold show title links back to Jellyfin. Notifications include the episode number and title, a processed poster when available, and confirmed tracker results. Partial results show the other outcomes too. Only meaningful confirmed updates from playback or watched marks are sent; pending prompts, dismissed changes, manual sync and failed-only operations stay silent.
 
-Webhook credentials are stored in the server configuration and are not returned to clients. Delivery is bounded and best effort: only explicit Discord rate limits are retried, at most twice. An ambiguous network response is not resent. A rejected webhook pauses that saved revision until it is replaced or a test succeeds.
+Webhook URLs, like tracker tokens and client secrets, are kept in the AniDōki database in the Jellyfin data folder and are never returned to clients. Delivery is bounded and best effort: only explicit Discord rate limits are retried, at most twice. An ambiguous network response is not resent. A rejected webhook pauses that saved revision until it is replaced or a test succeeds.
 
 ### Services/providers
 

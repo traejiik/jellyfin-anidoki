@@ -34,6 +34,7 @@ public class ManualMarkControllerTests {
         paths.SetupGet(p => p.PluginsPath).Returns(_directory);
         paths.SetupGet(p => p.PluginConfigurationsPath).Returns(_directory);
         var xml = new Mock<IXmlSerializer>();
+        paths.SetupGet(p => p.DataPath).Returns(_directory);
         xml.Setup(x => x.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>())).Returns(new PluginConfiguration { watchedTickboxUpdatesProvider = true });
         _ = new Plugin(paths.Object, new Mock<IServerConfigurationManager>().Object, xml.Object, NullLogger<Plugin>.Instance);
         var user = new User("fixture", "auth", "reset") { Id = Guid.NewGuid() };
