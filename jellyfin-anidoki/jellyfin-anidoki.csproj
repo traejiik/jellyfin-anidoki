@@ -24,6 +24,8 @@
         <PackageReference Include="Jellyfin.Model" Version="12.2.0" />
         <FrameworkReference Include="Microsoft.AspNetCore.App"/>
         <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.11" />
+        <!-- Jellyfin 12.2 ships this assembly and native SQLite; the plugin folder must not carry its own copy. -->
+        <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.11" ExcludeAssets="runtime" />
     </ItemGroup>
 
     <ItemGroup>
