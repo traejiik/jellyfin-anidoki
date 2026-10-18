@@ -48,13 +48,13 @@ Annict: no writes | Unresolved:resolve@?
 Shikimori: write(id=801, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@alt-801
 Simkl: no writes | Unresolved:resolve@?
 ## movie-with-anilist-id
-Mal: write(id=901, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@901
-AniList: no writes | Unresolved:resolve@900
-Kitsu: write(id=901, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@901
+Mal: write(id=500, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@500
+AniList: write(id=500, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@500
+Kitsu: write(id=500, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@500
 Annict: no writes | Unresolved:resolve@?
 Shikimori: no writes | Unresolved:resolve@?
 Simkl: no writes | Unresolved:resolve@?
-movie IndexNumber after sync: 1
+movie IndexNumber after sync: null
 ## movie-by-title
 Mal: write(id=901, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@901
 AniList: write(id=901, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@901
@@ -62,7 +62,7 @@ Kitsu: write(id=901, progress=1, status=Completed, rewatching=-, count=-, start=
 Annict: no writes | Unresolved:resolve@?
 Shikimori: write(id=901, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@alt-901
 Simkl: no writes | Unresolved:resolve@?
-movie IndexNumber after sync: 1
+movie IndexNumber after sync: null
 ## unconfigured-shikimori
 Shikimori: no writes | no outcomes
 AniList: write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
