@@ -30,6 +30,7 @@ public class AniList {
     private Mock<IServerApplicationHost> _serverApplicationHost;
     private Mock<IHttpContextAccessor> _httpContextAccessor;
     private IHttpClientFactory _httpClientFactory;
+    private Mock<IAsyncDelayer> _delayer = null!;
 
     private void Setup(List<Helpers.HttpCall> httpCalls) {
         _loggerFactory = new NullLoggerFactory();
@@ -37,8 +38,8 @@ public class AniList {
         _httpContextAccessor = new Mock<IHttpContextAccessor>();
         Helpers.MockHttpCalls(httpCalls, ref _httpClientFactory);
         MemoryCache memoryCache = new MemoryCache(new MemoryCacheOptions());
-        Mock<IAsyncDelayer> mockDelayer = new Mock<IAsyncDelayer>();
-        _aniListApiCalls = new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost.Object, _httpContextAccessor.Object, memoryCache, mockDelayer.Object, new UserConfig {
+        _delayer = new Mock<IAsyncDelayer>();
+        _aniListApiCalls = new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost.Object, _httpContextAccessor.Object, memoryCache, _delayer.Object, new UserConfig {
             UserApiAuth = new[] {
                 new UserApiAuth {
                     AccessToken = "accessToken",
@@ -145,6 +146,8 @@ public class AniList {
         var result = await _aniListApiCalls.SearchAnime(String.Empty);
 
         Assert.IsTrue(result.Count == 10);
+        // Pages 2 to 10 each report another page, so the search waits nine times between requests.
+        _delayer.Verify(delayer => delayer.Delay(TimeSpan.FromSeconds(1)), Times.Exactly(9));
     }
 
     [Test]

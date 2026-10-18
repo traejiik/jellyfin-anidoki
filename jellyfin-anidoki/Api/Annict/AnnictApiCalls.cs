@@ -1,4 +1,5 @@
 #nullable disable
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -160,7 +161,7 @@ namespace jellyfin_anidoki.Api.Annict {
 
 
                     // sleeping thread so we dont hammer the API
-                    Thread.Sleep(1000);
+                    await _delayer.Delay(TimeSpan.FromSeconds(1));
                 }
 
                 return result.AnnictSearchData.Viewer.AnnictUserMediaListLibraryEntries.Nodes;

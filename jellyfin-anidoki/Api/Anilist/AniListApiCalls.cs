@@ -102,7 +102,7 @@ namespace jellyfin_anidoki.Api.Anilist {
                         }
 
                         // sleeping thread so we dont hammer the API
-                        Thread.Sleep(1000);
+                        await _delayer.Delay(TimeSpan.FromSeconds(1));
                     }
                 }
 
@@ -324,7 +324,7 @@ namespace jellyfin_anidoki.Api.Anilist {
                         }
 
                         // sleeping thread so we dont hammer the API
-                        Thread.Sleep(2000);
+                        await _delayer.Delay(TimeSpan.FromSeconds(2));
                     }
                 }
 
