@@ -12,6 +12,7 @@ using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Operations;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Net;
@@ -70,23 +71,29 @@ public class Sync {
     }
 
     /// <summary>
-    /// Sync Jellyfin with the selected providers watch list.
+    /// Sync Jellyfin with the selected provider's watch list. Runs inside an operation.
     /// </summary>
     /// <param name="userId">ID of the user that you want to update the library of.</param>
-    public async Task SyncFromProvider(string userId) {
+    public async Task SyncFromProvider(string userId, OperationContext operation) {
         if (Plugin.Instance?.StorageError is { } storageError) {
             _logger.LogWarning("(Sync) Skipping sync from the tracker because AniDoki storage is unavailable: {StorageError}", storageError);
+            operation.Result = OperationState.Failed;
+            operation.Message = "AniDoki storage is unavailable, so nothing was imported.";
             return;
         }
 
         var completedList = await GetAnimeList(userId);
         if (completedList == null) {
             _logger.LogWarning("(Sync) No anime found by provider; please make sure user is authenticated with this provider and the authenticated users watch list is populated");
+            operation.Result = OperationState.NoChange;
+            operation.Message = "The tracker returned no anime for the selected statuses. Check that the account is linked.";
             return;
         }
 
-        var metadataIds = await GetMetadataIdsFromAnime(completedList);
+        var metadataIds = await GetMetadataIdsFromAnime(completedList, operation);
         await GetCurrentLibrary(userId, metadataIds);
+        operation.Result = OperationState.Succeeded;
+        operation.Message = completedList.Count == 1 ? "Checked 1 tracker entry." : $"Checked {completedList.Count} tracker entries.";
     }
 
     /// <summary>
@@ -238,9 +245,10 @@ public class Sync {
     /// </summary>
     /// <param name="animeList">List of anime you want to get the metadata IDs of.</param>
     /// <returns>List of metadata IDs.</returns>
-    private async Task<List<SyncAnimeMetadata>> GetMetadataIdsFromAnime(List<Anime> animeList) {
+    private async Task<List<SyncAnimeMetadata>> GetMetadataIdsFromAnime(List<Anime> animeList, OperationContext operation) {
         List<SyncAnimeMetadata> animeIdProgress = new List<SyncAnimeMetadata>();
         for (var i = 0; i < animeList.Count; i++) {
+            operation.ReportProgress(i, animeList.Count);
             _logger.LogDebug("(Sync) Fetching IDs for anime with an ID of {AnimeListId}...", animeList[i].Id);
             var ids = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(_httpClientFactory.CreateClient(NamedClient.Default), _logger, animeList[i].Id, AnimeOfflineDatabaseHelpers.MapFromApiName(_apiName));
             if (ids?.AniDb == null) {
@@ -252,7 +260,7 @@ public class Sync {
             AnimeListHelpers.AnimeListAnime season = AnimeListHelpers.GetAniDbSeason(ids.AniDb.Value, animeListXml);
             if (season == null || (!int.TryParse(season.Defaulttvdbseason, out var seasonNumber) && season.Defaulttvdbseason != "a")) {
                 _logger.LogError("(Sync) Could not retrieve season number; skipping item...");
-                Sleep();
+                await Sleep(operation.CancellationToken);
                 continue;
             }
 
@@ -275,19 +283,21 @@ public class Sync {
             animeIdProgress.Add(syncAnimeMetadata);
             _logger.LogInformation("(Sync) Fetched");
             if (i != animeList.Count - 1) {
-                Sleep();
+                await Sleep(operation.CancellationToken);
             }
         }
 
+        operation.ReportProgress(animeList.Count, animeList.Count);
         return animeIdProgress;
     }
 
     /// <summary>
-    /// Sleep the thread so we don't hammer the API.
+    /// Wait between tracker requests so we don't hammer the API, and stop here if the operation was cancelled.
     /// </summary>
-    private void Sleep() {
-        _logger.LogInformation("(Sync) Waiting 2 seconds before proceeding...");
-        Thread.Sleep(_apiTimeOutLength);
+    private async Task Sleep(CancellationToken cancellationToken) {
+        _logger.LogDebug("(Sync) Waiting 2 seconds before proceeding...");
+        await _delayer.Delay(TimeSpan.FromMilliseconds(_apiTimeOutLength));
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
 

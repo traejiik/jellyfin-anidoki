@@ -10,9 +10,27 @@ export function buildSyncRequest(form, linked) {
     if (!form.completed && !form.watching) throw new Error('Choose at least one inbound status.');
     return { userId: form.userId, provider: form.provider, syncAction: form.syncAction, status: form.completed && form.watching ? 'Both' : form.completed ? 'Completed' : 'Watching' };
 }
-export const syncFeedback = success => success
-    ? 'Sync request finished. Check Jellyfin logs for provider results.'
-    : 'Could not confirm the outcome. Check Jellyfin logs before running again.';
+const units = { SyncToTrackers: 'seasons', SyncFromTrackers: 'tracker entries' };
+const headings = {
+    Succeeded: 'Finished', Partial: 'Finished with some problems', NoChange: 'Finished; nothing needed changing',
+    Skipped: 'Finished; your tracking rules skipped these', Unresolved: 'Finished; some series could not be matched',
+    Unconfirmed: 'Finished; some updates could not be confirmed', Failed: 'Failed', Cancelled: 'Cancelled',
+    Interrupted: 'Interrupted when Jellyfin stopped'
+};
+const countLabels = [['Confirmed', 'updated'], ['NoChange', 'unchanged'], ['Skipped', 'skipped'], ['Unresolved', 'not matched'],
+    ['Unconfirmed', 'not confirmed'], ['Failed', 'failed']];
+export const isFinished = state => !['Queued', 'Running'].includes(state);
+// Turns an operation view from AniDoki/operations/{id} into one status line and a tone.
+export function describeOperation(view) {
+    if (view.state === 'Queued') return { message: 'Waiting to start…', tone: '' };
+    if (view.state === 'Running') {
+        const message = view.total == null ? 'Running…' : `Running: ${view.done} of ${view.total} ${units[view.kind] ?? 'items'} checked…`;
+        return { message, tone: '' };
+    }
+    const counts = countLabels.filter(([key]) => view.counts?.[key]).map(([key, label]) => `${view.counts[key]} ${label}`).join(' · ');
+    const tone = ['Succeeded', 'NoChange'].includes(view.state) ? 'success' : ['Failed', 'Unconfirmed', 'Interrupted'].includes(view.state) ? 'error' : '';
+    return { message: [headings[view.state] ?? view.state, counts, view.message].filter(Boolean).join('. '), tone };
+}
 
 // Jellyfin 12.2 matches main-menu plugin links by their exact page name. Hidden
 // sibling pages otherwise select Plugins. Keep this compatibility correction
@@ -115,7 +133,29 @@ export default function (view) {
         if (users.some(user => user.Id === selected)) find('#selectSyncUser').value = selected;
         find('#ManualSyncConfigForm').hidden = false;
         common.status(find('[data-page-status]'), ''); updateProviders(); updateForm();
-        if (lastRun) common.status(find('#runStatus'), lastRun.message, lastRun.tone);
+        busy = false;
+        if (lastRun) {
+            show(lastRun);
+            if (!isFinished(lastRun.state ?? 'Queued')) follow(signal);
+        }
+        find('#cancelSync').addEventListener('click', async () => {
+            const run = lastRun;
+            if (!run?.operationId) return;
+            find('#cancelSync').disabled = true;
+            try {
+                await common.request(`AniDoki/operations/${run.operationId}/cancel`, { method: 'POST' });
+                Object.assign(run, { message: 'Cancelling after the current item…', tone: '' });
+                show(run);
+            } catch (error) {
+                // 409: it finished first; the next poll shows the result.
+                if (!(error instanceof Response && error.status === 409)) {
+                    Object.assign(run, { message: `Could not cancel: ${await common.errorMessage(error)}`, tone: 'error' });
+                    show(run);
+                }
+            } finally {
+                find('#cancelSync').disabled = false;
+            }
+        }, { signal });
         find('#selectSyncUser').addEventListener('change', () => { updateProviders(); updateForm(); }, { signal });
         view.querySelectorAll('input, select').forEach(input => input.addEventListener('change', updateForm, { signal }));
         find('#ManualSyncConfigForm').addEventListener('submit', event => { event.preventDefault(); run(); }, { signal });
@@ -133,6 +173,34 @@ export default function (view) {
         find('#settingsLink').hidden = links().length > 0;
         find('#runSync').disabled = busy || !!problem;
     }
+    function show(run) {
+        common.status(find('#runStatus'), `${run.summary}: ${run.message}`, run.tone);
+        find('#cancelSync').hidden = !run.operationId || isFinished(run.state ?? 'Queued');
+    }
+    // Polls until the run finishes. Leaving the page stops polling, not the run; coming back resumes it.
+    async function follow(signal) {
+        const run = lastRun;
+        if (!run?.operationId) return;
+        busy = true;
+        updateForm();
+        while (!signal.aborted) {
+            try {
+                const view = await common.json(`AniDoki/operations/${run.operationId}`, { signal });
+                if (signal.aborted) return;
+                Object.assign(run, describeOperation(view), { state: view.state });
+                show(run);
+                if (isFinished(view.state)) break;
+            } catch (error) {
+                if (signal.aborted) return;
+                Object.assign(run, { message: `Could not read progress: ${await common.errorMessage(error)}`, tone: 'error' });
+                show(run);
+            }
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        if (signal.aborted) return;
+        busy = false;
+        updateForm();
+    }
     async function run() {
         if (busy) return;
         let captured;
@@ -140,13 +208,26 @@ export default function (view) {
         catch (error) { common.status(find('#formStatus'), error.message, 'error'); return; }
         const name = users.find(user => user.Id === captured.userId)?.Name ?? captured.userId;
         const summary = `${captured.syncAction === 'UpdateJellyfin' ? 'Tracker → Jellyfin' : 'Jellyfin → Trackers'} · ${name}${captured.syncAction === 'UpdateJellyfin' ? ` · ${common.providerName(captured.provider)} · ${captured.status}` : ' · linked trackers'}`;
-        busy = true; updateForm(); lastRun = { message: `Running: ${summary}`, tone: '' }; common.status(find('#runStatus'), lastRun.message);
+        busy = true;
+        updateForm();
+        lastRun = { summary, message: 'Starting…', tone: '' };
+        show(lastRun);
+        let started;
         try {
-            // No abort/cancellation promise: the server operation continues if this
-            // view closes, and a failed connection cannot prove that it did not run.
-            await common.request(`AniDoki/sync?${new URLSearchParams(captured)}`, { method: 'POST' });
-            lastRun = { message: `${summary}. ${syncFeedback(true)}`, tone: 'success' };
-        } catch { lastRun = { message: `${summary}. ${syncFeedback(false)}`, tone: 'error' }; }
-        finally { busy = false; if (!lifetime.signal.aborted) { common.status(find('#runStatus'), lastRun.message, lastRun.tone); updateForm(); } }
+            started = await common.json(`AniDoki/sync?${new URLSearchParams(captured)}`, { method: 'POST' });
+        } catch (error) {
+            // A run already queued or running for this user and direction answers 409 with its ID; follow that one.
+            if (error instanceof Response && error.status === 409) {
+                started = await error.json();
+                lastRun.summary = `${summary} (already running)`;
+            } else {
+                busy = false;
+                Object.assign(lastRun, { message: await common.errorMessage(error), tone: 'error' });
+                if (!lifetime.signal.aborted) { show(lastRun); updateForm(); }
+                return;
+            }
+        }
+        lastRun.operationId = started.operationId;
+        follow(lifetime.signal);
     }
 }

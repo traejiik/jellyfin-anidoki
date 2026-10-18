@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSyncRequest, syncFeedback } from '../../../jellyfin-anidoki/Configuration/ManualSyncJs.js';
+import { buildSyncRequest, describeOperation, isFinished } from '../../../jellyfin-anidoki/Configuration/ManualSyncJs.js';
 
 const form = () => ({ userId: 'u1', provider: 'AniList', syncAction: 'UpdateJellyfin', completed: true, watching: true });
 test('both inbound statuses encode Both', () => assert.equal(buildSyncRequest(form(), ['AniList']).status, 'Both'));
@@ -24,7 +24,28 @@ test('missing user and unknown direction cannot submit', () => {
     assert.throws(() => buildSyncRequest({ ...form(), userId: '' }, ['AniList']), /user/i);
     assert.throws(() => buildSyncRequest({ ...form(), syncAction: 'Preview' }, ['AniList']), /direction/i);
 });
-test('response feedback distinguishes request completion from confirmed tracker writes', () => {
-    assert.match(syncFeedback(true), /request finished.*logs/i);
-    assert.match(syncFeedback(false), /could not confirm.*before running again/i);
+const view = changes => ({ kind: 'SyncToTrackers', state: 'Succeeded', done: 0, total: null, counts: {}, message: null, ...changes });
+test('queued and running runs report progress', () => {
+    assert.equal(describeOperation(view({ state: 'Queued' })).message, 'Waiting to start…');
+    assert.equal(describeOperation(view({ state: 'Running', done: 3, total: 40 })).message, 'Running: 3 of 40 seasons checked…');
+    assert.equal(describeOperation(view({ kind: 'SyncFromTrackers', state: 'Running', done: 2, total: 9 })).message, 'Running: 2 of 9 tracker entries checked…');
+    assert.equal(describeOperation(view({ state: 'Running' })).message, 'Running…');
+});
+test('a finished run lists its non-zero counts and message', () => {
+    const result = describeOperation(view({ state: 'Partial', counts: { Confirmed: 3, NoChange: 10, Failed: 1 }, message: 'Checked 14 seasons with watched episodes.' }));
+    assert.equal(result.message, 'Finished with some problems. 3 updated · 10 unchanged · 1 failed. Checked 14 seasons with watched episodes.');
+    assert.equal(result.tone, '');
+});
+test('results carry a tone', () => {
+    assert.equal(describeOperation(view({ state: 'Succeeded' })).tone, 'success');
+    assert.equal(describeOperation(view({ state: 'NoChange' })).tone, 'success');
+    assert.equal(describeOperation(view({ state: 'Failed' })).tone, 'error');
+    assert.equal(describeOperation(view({ state: 'Interrupted' })).tone, 'error');
+    assert.equal(describeOperation(view({ state: 'Cancelled', message: 'Cancelled after 4 of 40 seasons. Updates already sent were kept.' })).message,
+        'Cancelled. Cancelled after 4 of 40 seasons. Updates already sent were kept.');
+});
+test('only queued and running are unfinished', () => {
+    assert.equal(isFinished('Queued'), false);
+    assert.equal(isFinished('Running'), false);
+    assert.equal(isFinished('Cancelled'), true);
 });

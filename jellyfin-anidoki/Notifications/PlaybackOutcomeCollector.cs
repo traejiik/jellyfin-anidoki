@@ -13,7 +13,15 @@ public sealed class PlaybackOutcomeCollector {
     public ProviderWriteOutcome[] Outcomes => _outcomes.ToArray();
     public bool HasConfirmedChange => _outcomes.Any(outcome => outcome.Kind == OutcomeKind.Confirmed && outcome.MeaningfulChange);
 
-    public void Record(ProviderWriteOutcome outcome) => _outcomes.Add(outcome);
+    private readonly Action<ProviderWriteOutcome>? _sink;
+
+    /// <param name="sink">Also receives each outcome as it is recorded, for example an operation's history.</param>
+    public PlaybackOutcomeCollector(Action<ProviderWriteOutcome>? sink = null) => _sink = sink;
+
+    public void Record(ProviderWriteOutcome outcome) {
+        _outcomes.Add(outcome);
+        _sink?.Invoke(outcome);
+    }
 
     public async Task<UpdateAnimeStatusResponse?> ObserveWrite(ApiName provider, Anime target,
         int requestedProgress, Status requestedStatus, string step,

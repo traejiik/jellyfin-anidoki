@@ -324,8 +324,6 @@ namespace jellyfin_anidoki.Api {
                         Name = apiCall.Name
                     });
                 case ApiName.Annict:
-                    // sleep the thread for a short amount of time to let the user config save
-                    Thread.Sleep(100);
                     AnnictApiCalls annictApiCalls;
                     try {
                         annictApiCalls = new AnnictApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, userConfig);
@@ -384,24 +382,6 @@ namespace jellyfin_anidoki.Api {
         [Route("parameters")]
         public IActionResult FrontendParameters(ParameterInclude[]? includes, bool onlyConfiguredProviders = false) {
             return Ok(GetFrontendParameters(includes, onlyConfiguredProviders, false));
-        }
-
-        [Authorize(Policy = Policies.RequiresElevation)]
-        [HttpPost]
-        [Route("sync")]
-        public async Task Sync(ApiName provider, string userId, SyncHelper.Status status, SyncAction syncAction) {
-            switch (syncAction) {
-                case SyncAction.UpdateProvider:
-                    SyncProviderFromLocal syncProviderFromLocal = new SyncProviderFromLocal(_userManager, _libraryManager, _loggerFactory, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _applicationPaths, _memoryCache, _delayer, userId);
-                    await syncProviderFromLocal.SyncFromLocal();
-                    return;
-                case SyncAction.UpdateJellyfin:
-                    Sync sync = new Sync(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _userManager, _libraryManager, _applicationPaths, _userDataManager, _memoryCache, _delayer, provider, status);
-                    await sync.SyncFromProvider(userId);
-                    return;
-            }
-
-            return;
         }
 
         [Authorize(Policy = Policies.RequiresElevation)]
