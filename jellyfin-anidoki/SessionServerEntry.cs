@@ -7,9 +7,11 @@ using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.ManualMarks;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Notifications;
+using jellyfin_anidoki.Operations;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
+using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Session;
 using Microsoft.AspNetCore.Http;
@@ -29,6 +31,7 @@ namespace jellyfin_anidoki {
         private readonly IMemoryCache _memoryCache;
         private readonly IAsyncDelayer _delayer;
         private readonly NotificationEventStore _notifications;
+        private readonly OperationRunner _runner;
         private bool _started;
         private readonly ManualMarkStore _manualMarks;
         private readonly Notifications.Discord.DiscordNotificationDispatcher _discord;
@@ -39,7 +42,7 @@ namespace jellyfin_anidoki {
         public SessionServerEntry(ISessionManager sessionManager, ILoggerFactory loggerFactory,
             IHttpClientFactory httpClientFactory, ILibraryManager libraryManager,
             IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor,
-            IApplicationPaths applicationPaths, IMemoryCache memoryCache, NotificationEventStore notifications, ManualMarkStore manualMarks = null, Notifications.Discord.DiscordNotificationDispatcher discord = null) {
+            IApplicationPaths applicationPaths, IMemoryCache memoryCache, NotificationEventStore notifications, OperationRunner runner, ManualMarkStore manualMarks = null, Notifications.Discord.DiscordNotificationDispatcher discord = null) {
             _httpClientFactory = httpClientFactory;
             _serverApplicationHost = serverApplicationHost;
             _httpContextAccessor = httpContextAccessor;
@@ -51,6 +54,7 @@ namespace jellyfin_anidoki {
             _memoryCache = memoryCache;
             _delayer = new Delayer();
             _notifications = notifications;
+            _runner = runner;
             _manualMarks = manualMarks;
             _discord = discord;
         }
@@ -69,26 +73,37 @@ namespace jellyfin_anidoki {
             return Task.CompletedTask;
         }
 
-        public async void PlaybackStopped(object sender, PlaybackStopEventArgs e) {
+        public void PlaybackStopped(object sender, PlaybackStopEventArgs e) {
             try {
+                // Unfinished playback never syncs (UpdateProviderStatus requires completion), so it starts no operation.
+                if (!e.PlayedToCompletion)
+                    return;
                 if (SyncHelper.MediaShouldBeIgnored(e.Item)) {
                     _logger.LogDebug("(Sync) Ignoring {ItemName}; ignore tag detected", e.Item.Name);
                     return;
                 }
                 var context = PlaybackNotificationContext.Capture(e.Item, e.Session);
+                BaseItem item = e.Item;
                 foreach (User user in e.Users) {
-                    var collector = new PlaybackOutcomeCollector();
-                    var updateProviderStatus = new UpdateProviderStatus(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
-                    using var gate = await SyncExecutionGate.Shared.Enter(user.Id);
-                    try { await updateProviderStatus.UpdateInsideGate(e.Item, user.Id, e.PlayedToCompletion, collector, SyncUpdateSource.Playback); } finally {
-                        if (e.PlayedToCompletion && collector.HasConfirmedChange)
-                            _manualMarks?.Supersede(user.Id, e.Item.Id);
-                        _discord?.Enqueue(SyncOperationSummary.Capture(e.Item, user.Id, Guid.NewGuid(), SyncNotificationTrigger.Playback, collector));
-                        PlaybackNotificationPublisher.Publish(collector, context, user.Id, _notifications, _logger);
-                    }
+                    Guid userId = user.Id;
+                    if (_runner.Enqueue(userId, OperationKind.Playback, OperationSources.Describe(item), operation => RunPlayback(item, userId, context, operation)) == null)
+                        _logger.LogWarning("Playback update for {ItemName} was not started because AniDoki storage is unavailable", item.Name);
                 }
             } catch (Exception exception) {
                 _logger.LogError("Fatal error occured during anime sync job: {Exception}", exception);
+            }
+        }
+
+        private async Task RunPlayback(BaseItem item, Guid userId, PlaybackNotificationContext context, OperationContext operation) {
+            var collector = new PlaybackOutcomeCollector(operation.Record);
+            var updateProviderStatus = new UpdateProviderStatus(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
+            try {
+                await updateProviderStatus.UpdateInsideGate(item, userId, true, collector, SyncUpdateSource.Playback);
+            } finally {
+                if (collector.HasConfirmedChange)
+                    _manualMarks?.Supersede(userId, item.Id);
+                _discord?.Enqueue(SyncOperationSummary.Capture(item, userId, operation.OperationId, SyncNotificationTrigger.Playback, collector));
+                PlaybackNotificationPublisher.Publish(collector, context, userId, _notifications, _logger);
             }
         }
     }

@@ -38,7 +38,7 @@ namespace jellyfin_anidoki {
             IServerApplicationHost serverApplicationHost,
             IHttpClientFactory httpClientFactory,
             IMemoryCache memoryCache,
-            IApplicationPaths applicationPaths, ManualMarkStore manualMarks, ManualMarkCapabilityRegistry capabilities, Notifications.Discord.DiscordNotificationDispatcher discord) {
+            IApplicationPaths applicationPaths, ManualMarkStore manualMarks, ManualMarkCapabilityRegistry capabilities, Notifications.Discord.DiscordNotificationDispatcher discord, Operations.OperationRunner runner) {
             _manualMarks = manualMarks;
             _capabilities = capabilities;
             _userDataManager = userDataManager;
@@ -50,7 +50,7 @@ namespace jellyfin_anidoki {
             _memoryCache = memoryCache;
             _applicationPaths = applicationPaths;
             _delayer = new Delayer();
-            _taskProcessMarkedMedia = new TaskProcessMarkedMedia(loggerFactory, _libraryManager, _memoryCache, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _delayer, discord);
+            _taskProcessMarkedMedia = new TaskProcessMarkedMedia(loggerFactory, _libraryManager, _memoryCache, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _delayer, runner, discord);
         }
 
         public Task StartAsync(CancellationToken cancellationToken) {
