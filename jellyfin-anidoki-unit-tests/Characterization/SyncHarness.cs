@@ -86,7 +86,7 @@ internal sealed class SyncHarness : IDisposable {
 
     public FakeTracker Tracker(ApiName provider) {
         if (!_trackers.TryGetValue(provider, out var tracker))
-            _trackers[provider] = tracker = new FakeTracker();
+            _trackers[provider] = tracker = new FakeTracker(provider);
         return tracker;
     }
 

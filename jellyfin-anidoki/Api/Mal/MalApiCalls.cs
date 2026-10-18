@@ -22,6 +22,7 @@ namespace jellyfin_anidoki.Api {
     public class MalApiCalls {
         private readonly ILogger<MalApiCalls> _logger;
         private readonly AuthApiCall _authApiCall;
+        private readonly IAsyncDelayer _delayer;
         private readonly string _refreshTokenUrl = "https://myanimelist.net/v1/oauth2/token";
         private readonly string _apiBaseUrl = "https://api.myanimelist.net/";
         private readonly int _apiVersion = 2;
@@ -30,6 +31,7 @@ namespace jellyfin_anidoki.Api {
 
         public MalApiCalls(IHttpClientFactory httpClientFactory, ILoggerFactory loggerFactory, IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, IMemoryCache memoryCache, IAsyncDelayer delayer, UserConfig userConfig = null) {
             _logger = loggerFactory.CreateLogger<MalApiCalls>();
+            _delayer = delayer;
             _authApiCall = new AuthApiCall(httpClientFactory, serverApplicationHost, httpContextAccessor, loggerFactory, memoryCache, delayer, userConfig: userConfig);
         }
 
@@ -180,7 +182,7 @@ namespace jellyfin_anidoki.Api {
                         if (userAnimeListPage.Paging.Next != null) {
                             builtUrl = userAnimeListPage.Paging.Next;
                             _logger.LogDebug("Additional pages found; waiting 2 seconds before calling again...");
-                            Thread.Sleep(2000);
+                            await _delayer.Delay(TimeSpan.FromSeconds(2));
                         } else {
                             builtUrl = null;
                         }
