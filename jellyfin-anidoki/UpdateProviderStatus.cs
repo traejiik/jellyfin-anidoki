@@ -31,6 +31,9 @@ using Microsoft.Extensions.Logging;
 namespace jellyfin_anidoki {
     public enum SyncUpdateSource { Playback, LegacyManual, ConfirmedManual }
     public class UpdateProviderStatus {
+        /// <summary>A movie counts as one watched episode. Held here so the library item's own IndexNumber is never changed.</summary>
+        private const int MovieProgress = 1;
+
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IApplicationPaths _applicationPaths;
         private readonly IServerApplicationHost _serverApplicationHost;
@@ -112,7 +115,6 @@ namespace jellyfin_anidoki {
                 _animeType = typeof(Episode);
             } else if (video is Movie) {
                 _animeType = typeof(Movie);
-                video.IndexNumber = 1;
             }
 
             _userConfig = Plugin.Instance?.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == userId);
@@ -127,9 +129,7 @@ namespace jellyfin_anidoki {
             }
 
             if (LibraryCheck(_userConfig, _libraryManager, _logger, e) && video is Episode or Movie && playedToCompletion) {
-                if ((video is Episode && (episode.IndexNumber == null ||
-                                          episode.Season.IndexNumber == null)) ||
-                    (video is Movie && movie.IndexNumber == null)) {
+                if (video is Episode && (episode.IndexNumber == null || episode.Season.IndexNumber == null)) {
                     _logger.LogError("Video does not contain required index numbers to sync; skipping");
                     return;
                 }
@@ -178,7 +178,7 @@ namespace jellyfin_anidoki {
                     AnimeListHelpers.AnimeListXml animeListXml = await AnimeListHelpers.GetAnimeListFileContents(_logger, _loggerFactory, _httpClientFactory, _applicationPaths);
                     aniDbId = _animeType == typeof(Episode)
                         ? await AnimeListHelpers.GetAniDbId(_logger, episode, episode.IndexNumber.Value, episode.Season.IndexNumber.Value, animeListXml)
-                        : await AnimeListHelpers.GetAniDbId(_logger, movie, movie.IndexNumber.Value, 1, animeListXml);
+                        : await AnimeListHelpers.GetAniDbId(_logger, movie, MovieProgress, 1, animeListXml);
                     if (aniDbId.aniDbId != null) {
                         _logger.LogDebug("Retrieving provider IDs from offline database for AniDb ID {AniDbId}...", aniDbId.aniDbId.Value);
                         _apiIds = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(_httpClientFactory.CreateClient(NamedClient.Default), _logger, aniDbId.aniDbId.Value, AnimeOfflineDatabaseHelpers.Source.Anidb);
@@ -201,41 +201,34 @@ namespace jellyfin_anidoki {
                     }
                 }
 
+                // Movies have no season, so resolved IDs apply to them directly. Specials (season 0) keep using
+                // title search, which finds the OVA by name.
+                bool useResolvedIds = _animeType == typeof(Movie) || episode.Season.IndexNumber.Value != 0;
+                int progress = _animeType == typeof(Episode)
+                    ? (aniDbId.episodeOffset != null
+                        ? episode.IndexNumber.Value - aniDbId.episodeOffset.Value
+                        : episode.IndexNumber.Value)
+                    : MovieProgress;
                 foreach (UserApiAuth userApiAuth in _userConfig.UserApiAuth) {
                     ApiName = userApiAuth.Name;
                     _logger.LogDebug("Using provider {ApiName}...", userApiAuth.Name);
                     switch (userApiAuth.Name) {
                         case ApiName.Mal:
                             ApiCallHelpers = CreateApiCallHelpers(ApiName.Mal, () => new ApiCallHelpers(malApiCalls: new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
-                            if (_apiIds.MyAnimeList != null && _apiIds.MyAnimeList != 0 && (episode != null && episode.Season.IndexNumber.Value != 0)) {
-                                await CheckUserListAnimeStatus(_apiIds.MyAnimeList.Value, _animeType == typeof(Episode)
-                                        ? (aniDbId.episodeOffset != null
-                                            ? episode.IndexNumber.Value - aniDbId.episodeOffset.Value
-                                            : episode.IndexNumber.Value)
-                                        : movie.IndexNumber.Value,
-                                    false);
+                            if (_apiIds.MyAnimeList != null && _apiIds.MyAnimeList != 0 && useResolvedIds) {
+                                await CheckUserListAnimeStatus(_apiIds.MyAnimeList.Value, progress, false);
                                 continue;
                             }
 
                             break;
                         case ApiName.AniList:
                             ApiCallHelpers = CreateApiCallHelpers(ApiName.AniList, () => new ApiCallHelpers(aniListApiCalls: new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
-                            if (_apiIds.Anilist != null && _apiIds.Anilist != 0 && (episode != null && episode.Season.IndexNumber.Value != 0)) {
-                                await CheckUserListAnimeStatus(_apiIds.Anilist.Value, _animeType == typeof(Episode)
-                                        ? (aniDbId.episodeOffset != null
-                                            ? episode.IndexNumber.Value - aniDbId.episodeOffset.Value
-                                            : episode.IndexNumber.Value)
-                                        : movie.IndexNumber.Value,
-                                    false);
+                            if (_apiIds.Anilist != null && _apiIds.Anilist != 0 && useResolvedIds) {
+                                await CheckUserListAnimeStatus(_apiIds.Anilist.Value, progress, false);
                                 continue;
                             } else if (_animeType == typeof(Episode) ? episode.Series.ProviderIds.ContainsKey("AniList") && episode.Season.IndexNumber.Value == 1 : movie.ProviderIds.ContainsKey("AniList")) {
                                 if (_animeType == typeof(Episode) ? int.TryParse(episode.Series.ProviderIds["AniList"], out int aniListId) : int.TryParse(movie.ProviderIds["AniList"], out aniListId)) {
-                                    await CheckUserListAnimeStatus(aniListId, _animeType == typeof(Episode)
-                                            ? (aniDbId.episodeOffset != null
-                                                ? episode.IndexNumber.Value - aniDbId.episodeOffset.Value
-                                                : episode.IndexNumber.Value)
-                                            : movie.IndexNumber.Value,
-                                        false);
+                                    await CheckUserListAnimeStatus(aniListId, progress, false);
                                     continue;
                                 }
                             }
@@ -243,13 +236,8 @@ namespace jellyfin_anidoki {
                             break;
                         case ApiName.Kitsu:
                             ApiCallHelpers = CreateApiCallHelpers(ApiName.Kitsu, () => new ApiCallHelpers(kitsuApiCalls: new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
-                            if (_apiIds.Kitsu != null && _apiIds.Kitsu != 0 && (episode != null && episode.Season.IndexNumber.Value != 0)) {
-                                await CheckUserListAnimeStatus(_apiIds.Kitsu.Value, _animeType == typeof(Episode)
-                                        ? (aniDbId.episodeOffset != null
-                                            ? episode.IndexNumber.Value - aniDbId.episodeOffset.Value
-                                            : episode.IndexNumber.Value)
-                                        : movie.IndexNumber.Value,
-                                    false);
+                            if (_apiIds.Kitsu != null && _apiIds.Kitsu != 0 && useResolvedIds) {
+                                await CheckUserListAnimeStatus(_apiIds.Kitsu.Value, progress, false);
                                 continue;
                             }
 
@@ -270,17 +258,13 @@ namespace jellyfin_anidoki {
                             if (string.IsNullOrEmpty(simklClientId))
                                 continue;
                             ApiCallHelpers = CreateApiCallHelpers(ApiName.Simkl, () => new ApiCallHelpers(simklApiCalls: new SimklApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, new Dictionary<string, string> { { "simkl-api-key", simklClientId } }, _userConfig)));
+                            // Movies stay off Simkl's ID path: its movie write has not been checked against a real account.
                             if (((_apiIds.MyAnimeList != null && _apiIds.MyAnimeList != 0) ||
                                  (_apiIds.Anilist != null && _apiIds.Anilist != 0) ||
                                  (_apiIds.Kitsu != null && _apiIds.Kitsu != 0) ||
                                  (_apiIds.AniDb != null && _apiIds.AniDb != 0)) &&
-                                (episode != null && episode.Season.IndexNumber.Value != 0)) {
-                                await CheckUserListAnimeStatus(_apiIds, _animeType == typeof(Episode)
-                                        ? (aniDbId.episodeOffset != null
-                                            ? episode.IndexNumber.Value - aniDbId.episodeOffset.Value
-                                            : episode.IndexNumber.Value)
-                                        : movie.IndexNumber.Value, _animeType == typeof(Episode) ? episode.SeriesName : video.Name,
-                                    false);
+                                _animeType == typeof(Episode) && useResolvedIds) {
+                                await CheckUserListAnimeStatus(_apiIds, progress, episode.SeriesName, false);
                                 continue;
                             }
 
@@ -363,7 +347,7 @@ namespace jellyfin_anidoki {
                                 }
 
                                 if (_animeType == typeof(Movie)) {
-                                    await CheckUserListAnimeStatus(matchingAnime.Id, movie.IndexNumber.Value, overrideCheckRewatch: false, alternativeId: matchingAnime.AlternativeId);
+                                    await CheckUserListAnimeStatus(matchingAnime.Id, MovieProgress, overrideCheckRewatch: false, alternativeId: matchingAnime.AlternativeId);
                                     found = true;
                                     break;
                                 }

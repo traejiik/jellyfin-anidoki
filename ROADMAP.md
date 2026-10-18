@@ -7,7 +7,7 @@ AniDōki is built in small phases that can each be verified on their own. Each p
 | 1 | Uninstall cleanup, dashboard entry and icon, card artwork, README logo | Shipped |
 | 2 | Visual refresh and a basic toast for confirmed tracker updates | Shipped |
 | 2 follow-up | Manual watched confirmation and personal Discord embeds | Shipped |
-| 2.5 | Hardening: secure storage for tracker tokens, background syncs, and reliability fixes | Planned |
+| 2.5 | Hardening: secure storage for tracker tokens, background syncs, and reliability fixes | Shipped |
 | 3 | Episode-range mappings, shared defaults and personal overrides | Planned |
 | 4 | Read-only manual-sync preview, then applying selected changes | Planned |
 | 5 | Live playback updates, per-user thresholds, reliability and history, adding unlisted anime | Planned |
