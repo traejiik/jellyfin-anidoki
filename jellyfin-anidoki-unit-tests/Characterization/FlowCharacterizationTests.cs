@@ -29,6 +29,7 @@ public class FlowCharacterizationTests {
         await MultiCourPastLastCour();
         await SpecialResolvesSideStory();
         await MovieWithAniListId();
+        await MovieByTitle();
         await UnconfiguredShikimoriBeforeAniList();
         await InstanceReuseAcrossSeries();
         await MissingEpisodeNumber();
@@ -99,9 +100,18 @@ public class FlowCharacterizationTests {
 
     private async Task MovieWithAniListId() {
         using var harness = NewHarness();
-        harness.SeedAll(SyncHarness.Entry(901, "Fixture Movie", 1, null));
+        // Title search finds 901; the IDs ARM resolves point at a same-named entry, 500 (a remake, say).
+        harness.SeedAll(SyncHarness.Entry(901, "Fixture Movie", 1, null), SyncHarness.Entry(SyncHarness.EntryId, "Fixture Movie", 1, null));
         var movie = harness.Library.Movie("Fixture Movie", new Dictionary<string, string> { ["AniList"] = "900" });
         await Record("movie-with-anilist-id", harness, movie);
+        _output.Append($"movie IndexNumber after sync: {movie.IndexNumber?.ToString() ?? "null"}\n");
+    }
+
+    private async Task MovieByTitle() {
+        using var harness = NewHarness();
+        harness.SeedAll(SyncHarness.Entry(901, "Fixture Movie", 1, null));
+        var movie = harness.Library.Movie("Fixture Movie");
+        await Record("movie-by-title", harness, movie);
         _output.Append($"movie IndexNumber after sync: {movie.IndexNumber?.ToString() ?? "null"}\n");
     }
 
