@@ -212,14 +212,47 @@
     box-shadow: 0 10px 32px #0003; pointer-events: auto; min-width: 0;
 }
 .anidoki .ad-toast-content { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.anidoki .ad-toast-label { color: var(--jf-palette-success-light, #a2d9ae); font-size: .875em; font-weight: 700; overflow-wrap: anywhere; }
+/* Tone colours the label, countdown and line icons. Shape carries the same meaning, so colour is never alone. */
+.anidoki .ad-toast { --ad-tone: var(--jf-palette-success-light, #a2d9ae); --ad-tone-bar: var(--ad-accent); }
+.anidoki .ad-toast[data-tone="active"] { --ad-tone: color-mix(in srgb, var(--ad-accent) 60%, #fff); }
+.anidoki .ad-toast[data-tone="neutral"] { --ad-tone: color-mix(in srgb, var(--ad-text) 86%, transparent); --ad-tone-bar: var(--ad-muted); }
+.anidoki .ad-toast[data-tone="attention"] { --ad-tone: var(--jf-palette-warning-light, #e5b96c); --ad-tone-bar: var(--ad-tone); }
+.anidoki .ad-toast[data-tone="error"] { --ad-tone: var(--jf-palette-error-light, #ffb4ab); --ad-tone-bar: var(--ad-tone); }
+.anidoki .ad-toast-label { display: flex; align-items: center; gap: 6px; color: var(--ad-tone); font-size: .875em; font-weight: 700; overflow-wrap: anywhere; }
 .anidoki .ad-toast-title { font-size: 1.05em; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
 .anidoki .ad-toast-detail { color: var(--ad-muted); font-size: .925em; overflow-wrap: anywhere; }
-.anidoki .ad-toast-warning { color: var(--jf-palette-warning-light, #e5b96c); font-size: .875em; overflow-wrap: anywhere; }
+/* The results box runs under the close column so it fills the card: 44px column + 12px gap, less 6px,
+   leaves the same 16px inset on the right as the card's left padding. The close button sits in row one, above it. */
+.anidoki .ad-toast-lines {
+    list-style: none; margin: 6px -50px 0 0; padding: 0; border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--ad-text) 8%, transparent); background: rgb(0 0 0 / .16);
+}
+.anidoki .ad-toast-line { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; padding: 10px 12px; --ad-line-tone: var(--ad-muted); }
+.anidoki .ad-toast-line + .ad-toast-line { border-top: 1px solid color-mix(in srgb, var(--ad-text) 8%, transparent); }
+.anidoki .ad-toast-line[data-tone="success"] { --ad-line-tone: var(--jf-palette-success-light, #a2d9ae); }
+.anidoki .ad-toast-line[data-tone="attention"] { --ad-line-tone: var(--jf-palette-warning-light, #e5b96c); }
+.anidoki .ad-toast-line[data-tone="error"] { --ad-line-tone: var(--jf-palette-error-light, #ffb4ab); }
+.anidoki .ad-toast-line-body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.anidoki .ad-toast-line-main { font-weight: 600; line-height: 1.35; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.anidoki .ad-toast-line-sub { color: var(--ad-muted); font-size: .925em; overflow-wrap: anywhere; }
+/* Icons are masks filled with the tone, so the renderer needs no SVG. */
+.anidoki :is(.ad-toast-label, .ad-toast-line)[data-icon]::before {
+    content: ''; flex: 0 0 auto; width: 14px; height: 14px; background: currentColor;
+    -webkit-mask: var(--ad-icon) center / contain no-repeat; mask: var(--ad-icon) center / contain no-repeat;
+}
+.anidoki .ad-toast-line[data-icon]::before { width: 16px; height: 16px; margin-top: 2px; background: var(--ad-line-tone); }
+.anidoki [data-icon="check"] { --ad-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3 3 7-7'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="dash"] { --ad-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='M5.5 8h5'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="skip"] { --ad-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4l5 4-5 4M9 4l5 4-5 4'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="question"] { --ad-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='M6.3 6.3a1.8 1.8 0 113 1.4c-.8.5-1.3.9-1.3 1.7M8 11.4v.1'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="cross"] { --ad-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='M5.9 5.9l4.2 4.2M10.1 5.9l-4.2 4.2'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="triangle"] { --ad-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2.5l6 10.5H2z'/%3E%3Cpath d='M8 6.5v3M8 11.3v.1'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="clock"] { --ad-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='M8 4.8V8l2.2 1.4'/%3E%3C/svg%3E"); }
 .anidoki .ad-toast-close { padding: 0; min-width: 44px; width: 44px; min-height: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: var(--ad-muted); font-size: 24px; cursor: pointer; }
 .anidoki .ad-toast-close:hover { background: var(--ad-pill); color: var(--ad-text); }
 .anidoki .ad-toast-countdown { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--ad-pill); }
-.anidoki .ad-toast-countdown-fill { height: 100%; background: var(--ad-accent); transform-origin: left; }
+.anidoki .ad-toast-countdown-fill { height: 100%; background: var(--ad-tone-bar); transform-origin: left; }
 @media (max-width: 600px) {
     .anidoki.ad-notification-host { right: max(16px, env(safe-area-inset-right)); width: min(392px, calc(100vw - 32px)); }
 }
@@ -227,9 +260,6 @@
     .anidoki .ad-toast-countdown-fill { transform: none !important; opacity: .5; }
 }
 
-.anidoki .ad-manual-toast:is([data-state="Pending"], [data-state="Queued"], [data-state="Sending"]) .ad-toast-label { color: var(--ad-accent); }
-.anidoki .ad-manual-toast[data-state="Dismissed"] .ad-toast-label { color: var(--jf-palette-error-light, #ffb4ab); }
-.anidoki .ad-manual-toast[data-state="Dismissed"] .ad-toast-countdown-fill { background: var(--jf-palette-error-light, #ffb4ab); }
 .anidoki.ad-notification-host .ad-toast-actions { display: flex; gap: .65rem; margin-top: 1rem; flex-wrap: wrap; }
 .anidoki.ad-notification-host .ad-update-spinner { display: inline-block; width: .85em; height: .85em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; margin-right: .6em; animation: ad-tracker-spin 900ms linear infinite; }
 @keyframes ad-tracker-spin { to { transform: rotate(360deg); } }

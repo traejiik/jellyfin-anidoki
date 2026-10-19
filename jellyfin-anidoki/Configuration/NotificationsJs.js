@@ -9,6 +9,25 @@ export function startNotifications(win = window, doc = document) {
         if (text !== undefined) element.textContent = text;
         return element;
     }
+    // The results box: one row per tracker result. The icon is CSS (data-icon) and is read out as the hidden word.
+    function resultLines(lines) {
+        const list = node('ul', 'ad-toast-lines');
+        for (const line of lines) {
+            const row = node('li', 'ad-toast-line'); row.dataset.tone = line.tone; row.dataset.icon = line.icon;
+            const body = node('span', 'ad-toast-line-body');
+            body.append(node('span', 'ad-sr-only', `${line.spoken}: `), node('span', 'ad-toast-line-main', line.entry || line.text));
+            const sub = line.entry ? line.text : line.note;
+            if (sub) body.append(node('span', 'ad-toast-line-sub', sub));
+            row.append(body); list.append(row);
+        }
+        return list;
+    }
+    const spokenLines = lines => lines.map(line => [line.spoken, line.entry, line.text, line.note].filter(Boolean).join(', '));
+    function label(presentation) {
+        const element = node('div', 'ad-toast-label', presentation.heading);
+        if (presentation.icon) element.dataset.icon = presentation.icon;
+        return element;
+    }
     win[runtimeKey]?.dispose();
     const lifetime = new AbortController(), state = createNotificationState(), rendered = new Map();
     const manual = createManualMarkState(), manualRendered = new Map(), commands = new Map();
@@ -46,13 +65,11 @@ export function startNotifications(win = window, doc = document) {
         for (const event of state.visible) {
             if (rendered.has(event.eventId)) continue;
             const presentation = buildPresentation(event); if (!presentation) continue;
-            const root = node('section', 'ad-toast'); const content = node('div', 'ad-toast-content');
-            const label = node('div', 'ad-toast-label', `✓ ${presentation.heading}`);
-            const title = node('h2', 'ad-toast-title', presentation.title);
-            content.append(label, title);
+            const root = node('section', 'ad-toast'); root.dataset.tone = presentation.tone; const content = node('div', 'ad-toast-content');
+            content.append(label(presentation), node('h2', 'ad-toast-title', presentation.title));
             if (presentation.detail) content.append(node('p', 'ad-toast-detail', presentation.detail));
-            for (const detail of presentation.details) content.append(node('p', 'ad-toast-detail', detail));
-            if (presentation.warning) content.append(node('p', 'ad-toast-warning', presentation.warning));
+            if (presentation.lines.length) content.append(resultLines(presentation.lines));
+            if (presentation.note) content.append(node('p', 'ad-toast-detail', presentation.note));
             const close = node('button', 'ad-toast-close', '×'); close.type = 'button'; close.setAttribute('aria-label', 'Dismiss tracker update');
             close.addEventListener('click', () => dismiss(event.eventId), { signal: lifetime.signal });
             const track = node('div', 'ad-toast-countdown'); track.setAttribute('aria-hidden', 'true'); const bar = node('div', 'ad-toast-countdown-fill'); track.append(bar);
@@ -63,7 +80,7 @@ export function startNotifications(win = window, doc = document) {
             root.addEventListener('focusin', () => timer.pause('focus'), { signal: lifetime.signal });
             root.addEventListener('focusout', event => { if (!root.contains(event.relatedTarget)) timer.resume('focus'); }, { signal: lifetime.signal });
             rendered.set(event.eventId, { root, timer, bar, previous: doc.activeElement });
-            host.append(root); announcement.textContent = [presentation.heading, presentation.title, presentation.detail, ...presentation.details, presentation.warning].filter(Boolean).join('. ');
+            host.append(root); announcement.textContent = [presentation.heading, presentation.title, presentation.detail, ...spokenLines(presentation.lines), presentation.note].filter(Boolean).join('. ');
         }
         const space = 2 - manualRendered.size;
         state.visible.forEach((event, index) => { const entry = rendered.get(event.eventId); if (entry) { entry.root.hidden = index >= space; index >= space ? entry.timer.pause('manual-priority') : entry.timer.resume('manual-priority'); host.append(entry.root); } });
@@ -91,13 +108,15 @@ export function startNotifications(win = window, doc = document) {
             if (old?.revision === operation.revision && old.busy === busy) continue;
             const focused = old?.root.contains(doc.activeElement); old?.root.remove();
             const p = buildManualMarkPresentation(operation), root = node('section', 'ad-toast ad-manual-toast'), content = node('div', 'ad-toast-content');
-            root.dataset.state = operation.state;
-            const label = node('div', 'ad-toast-label', p.heading);
-            if (p.spinner) { const spinner = node('span', 'ad-update-spinner'); spinner.setAttribute('aria-hidden','true'); label.prepend(spinner); }
-            content.append(label, node('h2', 'ad-toast-title', operation.sourceTitle));
+            root.dataset.state = operation.state; root.dataset.tone = p.tone;
+            const heading = label(p);
+            if (p.spinner) { const spinner = node('span', 'ad-update-spinner'); spinner.setAttribute('aria-hidden','true'); heading.prepend(spinner); }
+            content.append(heading, node('h2', 'ad-toast-title', operation.sourceTitle));
             if (operation.sourceEpisode != null || operation.episodeTitle) content.append(node('p','ad-toast-detail', [operation.sourceEpisode == null ? 'Episode number unavailable' : `Episode ${operation.sourceEpisode}`, operation.episodeTitle || 'Episode title unavailable'].join(' · ')));
-            content.append(node('p', 'ad-toast-detail', p.detail));
-            for (const line of p.outcomes) content.append(node('p','ad-toast-detail', line));
+            const detail = p.detail ? node('p', 'ad-toast-detail', p.detail) : null;
+            if (detail && !p.detailAfterLines) content.append(detail);
+            if (p.lines.length) content.append(resultLines(p.lines));
+            if (detail && p.detailAfterLines) content.append(detail);
             if (operation.state === 'Pending') {
                 const actions = node('div','ad-toast-actions');
                 for (const [text, action] of [['Update trackers','confirm'],['Dismiss','dismiss']]) {
@@ -120,7 +139,7 @@ export function startNotifications(win = window, doc = document) {
             root.addEventListener('mouseenter',()=>timer.pause('hover'),{signal:lifetime.signal});root.addEventListener('mouseleave',()=>timer.resume('hover'),{signal:lifetime.signal});
             root.addEventListener('focusin',()=>timer.pause('focus'),{signal:lifetime.signal});root.addEventListener('focusout',e=>{if(!root.contains(e.relatedTarget))timer.resume('focus');},{signal:lifetime.signal});
             manualRendered.set(id,{root,timer,bar,terminal:p.terminal,revision:operation.revision,busy});host.append(root);
-            announcement.textContent = [p.heading,operation.sourceTitle,p.detail].join('. ');
+            announcement.textContent = [p.heading,operation.sourceTitle,p.detail,...spokenLines(p.lines)].filter(Boolean).join('. ');
             if(focused && typeof close.focus==='function')close.focus({preventScroll:true});
         }
     }

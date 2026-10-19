@@ -1,32 +1,27 @@
-const names = { AniList: 'AniList', Mal: 'MyAnimeList', Kitsu: 'Kitsu', Annict: 'Annict', Shikimori: 'Shikimori', Simkl: 'Simkl' };
-const name = provider => names[provider] ?? 'Tracker';
-const list = values => values.length < 2 ? values[0] : `${values.slice(0, -1).join(', ')} and ${values.at(-1)}`;
+import { list, outcomeLines, providerName } from './outcome-lines.js';
+
 const text = value => String(value ?? '').slice(0, 256);
 export const eventLifetime = 120000;
+/**
+ * The top says what was watched in Jellyfin; `lines` (the results box) say what each tracker recorded.
+ * Only a confirmed change produces a toast. Skips stay out of the box until skip toasts arrive.
+ */
 export function buildPresentation(event) {
     const outcomes = Array.isArray(event.outcomes) ? event.outcomes : [];
-    const confirmed = outcomes.filter(o => o.kind === 'Confirmed' && o.meaningfulChange);
-    if (!confirmed.length) return null;
-    const targets = new Map();
-    for (const outcome of confirmed) targets.set(`${outcome.provider}:${outcome.targetId}`, outcome);
-    const finals = [...targets.values()];
-    const providers = [...new Set(finals.map(o => name(o.provider)))];
-    const unconfirmed = [...new Set(outcomes.filter(o => ['Failed', 'Unconfirmed'].includes(o.kind)).map(o => name(o.provider)))];
-    const sameProgress = finals.every(o => !o.statusOnly && Number.isInteger(o.progress) && o.progress === finals[0].progress);
-    const translated = finals.some(o => (!o.statusOnly && !event.isMovie && o.progress !== event.sourceEpisode) || text(o.targetTitle) !== text(event.sourceTitle));
-    const sameStatus = finals.every(o => o.status === finals[0].status);
-    const completed = finals.every(o => !o.statusOnly && o.status === 'Completed');
-    const statusOnly = finals.every(o => o.statusOnly);
-    let heading = completed ? `Completed on ${list(providers)}` : statusOnly ? `Status updated on ${list(providers)}` : `Logged to ${list(providers)}`;
-    if ((!sameProgress && !statusOnly) || !sameStatus || translated || event.summarized) heading = 'Tracker update';
-    if (unconfirmed.length) heading = `Updated on ${list(providers)}`;
-    const detail = statusOnly ? list([...new Set(finals.map(o => o.status?.replaceAll('_', ' ') ?? 'Status updated'))])
-        : sameProgress && !translated && !event.isMovie ? `Episode ${finals[0].progress}` : event.isMovie ? (completed ? 'Completed' : 'Movie updated') : '';
-    const details = ((!sameProgress && !statusOnly) || !sameStatus || translated || event.summarized) ? finals.map(o =>
-        `${name(o.provider)} · ${text(o.targetTitle)} · ${o.statusOnly ? (o.status ?? 'Status updated') : Number.isInteger(o.progress) && !event.isMovie ? `Episode ${o.progress}${o.status ? ` · ${o.status.replaceAll('_', ' ')}` : ''}` : (o.status ?? 'Updated')}`) : [];
-    if (event.summarized) details.push('Additional tracker results omitted.');
-    return { heading, title: text(event.sourceTitle) || 'Tracker update', detail, details, providers,
-        warning: unconfirmed.length ? `${list(unconfirmed)} update could not be confirmed` : '', completed };
+    const changed = outcomes.filter(o => o.kind === 'Confirmed' && o.meaningfulChange);
+    if (!changed.length) return null;
+    const providers = [...new Set(changed.map(o => providerName(o.provider)))];
+    const completed = changed.every(o => !o.statusOnly && o.status === 'Completed');
+    const statusOnly = changed.every(o => o.statusOnly);
+    const heading = completed ? `Completed on ${list(providers)}` : statusOnly ? `Status updated on ${list(providers)}` : `Logged to ${list(providers)}`;
+    const shown = outcomes.filter(o => o.kind !== 'NoChange' && o.kind !== 'Skipped' && (o.kind !== 'Confirmed' || o.meaningfulChange));
+    return {
+        tone: 'success', icon: 'check', heading,
+        title: text(event.sourceTitle) || 'Tracker update',
+        detail: !event.isMovie && Number.isInteger(event.sourceEpisode) ? `Episode ${event.sourceEpisode}` : '',
+        lines: outcomeLines(shown, event.sourceTitle, { isMovie: Boolean(event.isMovie), withNotes: true }),
+        note: event.summarized ? 'Additional tracker results omitted.' : ''
+    };
 }
 export function createNotificationState(now = Date.now) {
     const seen = new Map();

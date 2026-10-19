@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Text;
-using jellyfin_anidoki.Models.Mal;
 namespace jellyfin_anidoki.Notifications.Discord;
 
 public static class DiscordEmbedBuilder {
@@ -11,18 +10,6 @@ public static class DiscordEmbedBuilder {
     internal static string Escape(string? value) => string.Concat((value ?? "").Where(c => !char.IsControl(c))).Replace("\\", "\\\\").Replace("*", "\\*").Replace("_", "\\_").Replace("`", "\\`").Replace("[", "\\[").Replace("]", "\\]").Replace("@", "@\u200b");
     public static string EpisodeLine(SyncOperationSummary summary) => summary.IsMovie ? "Movie" :
         (summary.EpisodeNumber.HasValue ? $"Episode {summary.EpisodeNumber}" + (summary.EpisodeEndNumber > summary.EpisodeNumber ? $"–{summary.EpisodeEndNumber}" : "") : "Episode number unavailable") + " - " + (string.IsNullOrWhiteSpace(summary.EpisodeTitle) ? "Episode title unavailable" : Limit(summary.EpisodeTitle, 400));
-    private static string ConfirmedResult(ProviderWriteOutcome outcome) {
-        var status = outcome.ConfirmedStatus?.ToString().Replace('_', ' ');
-        if (outcome.StatusOnly || !outcome.ConfirmedProgress.HasValue)
-            return status ?? "Confirmed update";
-        var prefix = outcome.ConfirmedStatus switch {
-            Status.Completed => "Completed: ",
-            Status.Watching when outcome.ConfirmedProgress == 1 => "Started watching: ",
-            Status.Watching or null => "",
-            _ => status + ": "
-        };
-        return prefix + "Updated progress to " + outcome.ConfirmedProgress;
-    }
     internal static object[] Fields(SyncOperationSummary summary) => summary.Outcomes.GroupBy(o => o.Provider).Take(6).Select(group => {
         // Keep uncertainty visible even when a multi-season operation has many receipts.
         var results = group.GroupBy(o => (o.TargetId, o.Kind, o.Step)).Select(g => g.Last()).ToArray();
@@ -34,16 +21,12 @@ public static class DiscordEmbedBuilder {
             OutcomeKind.Confirmed => 4,
             _ => 5
         }).Take(6).ToArray();
-        var lines = selected.Select(outcome => {
-            var result = outcome.Kind != OutcomeKind.Confirmed ? outcome.Kind.ToString() : ConfirmedResult(outcome);
-            var target = string.IsNullOrWhiteSpace(outcome.TargetTitle) || string.Equals(outcome.TargetTitle, summary.ShowTitle, StringComparison.OrdinalIgnoreCase)
-                ? "" : " · " + Escape(outcome.TargetTitle);
-            return Limit(result + target, 95);
-        });
+        var lines = selected.Select(outcome => DiscordOutcomeText.Line(outcome, summary.ShowTitle, summary.IsMovie));
         var omitted = results.Length - selected.Length;
         return (object)new {
-            name = group.Key.ToString(),
-            value = string.Join("\n", lines) + (omitted > 0 ? $"\n+{omitted} additional results" : ""),
+            name = DiscordOutcomeText.ProviderName(group.Key),
+            // Discord rejects a field value over 1024 characters.
+            value = Limit(string.Join("\n", lines) + (omitted > 0 ? $"\n+{omitted} additional results" : ""), 1024),
             inline = false
         };
     }).ToArray();

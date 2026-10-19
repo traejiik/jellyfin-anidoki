@@ -39,6 +39,8 @@
         <EmbeddedResource Include="Configuration\ManualMarkStateJs.js"/>
         <None Remove="Configuration\NotificationStateJs.js"/>
         <EmbeddedResource Include="Configuration\NotificationStateJs.js"/>
+        <None Remove="Configuration\OutcomeLinesJs.js"/>
+        <EmbeddedResource Include="Configuration\OutcomeLinesJs.js"/>
         <None Remove="Configuration\Anidoki.css"/>
         <EmbeddedResource Include="Configuration\Anidoki.css"/>
         <None Remove="Configuration\ConfigStateJs.js"/>
