@@ -97,7 +97,7 @@ export function startNotifications(win = window, doc = document) {
             content.append(label, node('h2', 'ad-toast-title', operation.sourceTitle));
             if (operation.sourceEpisode != null || operation.episodeTitle) content.append(node('p','ad-toast-detail', [operation.sourceEpisode == null ? 'Episode number unavailable' : `Episode ${operation.sourceEpisode}`, operation.episodeTitle || 'Episode title unavailable'].join(' · ')));
             content.append(node('p', 'ad-toast-detail', p.detail));
-            for (const outcome of operation.outcomes ?? []) content.append(node('p','ad-toast-detail', `${outcome.provider}: ${outcome.kind}${outcome.progress == null ? '' : ` · ${outcome.progress} episodes`}`));
+            for (const line of p.outcomes) content.append(node('p','ad-toast-detail', line));
             if (operation.state === 'Pending') {
                 const actions = node('div','ad-toast-actions');
                 for (const [text, action] of [['Update trackers','confirm'],['Dismiss','dismiss']]) {

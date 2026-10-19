@@ -27,3 +27,36 @@ test('retained terminal history is bounded without discarding active confirmatio
  for(let i=0;i<300;i++)state.upsert({operationId:`done-${i}`,revision:1,state:'Confirmed'});
  assert.ok(state.operations.size<=256);assert.ok(state.operations.has('pending'));
 });
+
+test('tracker results read as sentences, never raw outcome names',()=>{
+ const lines=buildManualMarkPresentation({state:'Partial',outcomes:[
+  {provider:'Mal',kind:'Confirmed',progress:5,status:'Watching',step:'progress'},
+  {provider:'AniList',kind:'NoChange',progress:5,status:'Watching',step:'progress'},
+  {provider:'Kitsu',kind:'NoChange',step:'manual-forward-only'},
+  {provider:'Annict',kind:'Skipped',step:'rewatch-unsupported'},
+  {provider:'Shikimori',kind:'Skipped',step:'rewatch-disabled'},
+  {provider:'Simkl',kind:'Unresolved',step:'resolve'}]}).outcomes;
+ assert.deepEqual(lines,[
+  'MyAnimeList · Episode 5 · Watching',
+  'AniList · Already up to date · Episode 5',
+  'Kitsu · Already at or past this episode',
+  'Annict · Skipped: rewatching is not supported',
+  'Shikimori · Skipped: completed, and rewatching is off',
+  'Simkl · No matching entry found']);
+ for(const line of lines)assert.doesNotMatch(line,/NoChange|Unresolved|\bepisodes\b/);
+});
+test('failed, unconfirmed and status-only results stay readable',()=>{
+ const lines=buildManualMarkPresentation({state:'Partial',outcomes:[
+  {provider:'AniList',kind:'Failed',step:'progress'},
+  {provider:'Mal',kind:'Unconfirmed',progress:2,step:'progress'},
+  {provider:'Annict',kind:'Confirmed',status:'Watching',statusOnly:true,step:'status'},
+  {provider:'Kitsu',kind:'Skipped',step:'plan-to-watch-only'},
+  {provider:'Other',kind:'Mystery'}]}).outcomes;
+ assert.deepEqual(lines,[
+  'AniList · Update failed',
+  'MyAnimeList · Update not confirmed · Episode 2',
+  'Annict · Watching',
+  'Kitsu · Skipped: not on Plan to Watch',
+  'Tracker · Updated']);
+ assert.deepEqual(buildManualMarkPresentation({state:'Pending'}).outcomes,[]);
+});
