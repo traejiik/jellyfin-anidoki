@@ -11,6 +11,8 @@ namespace jellyfin_anidoki_unit_tests.ControllerTests;
 public partial class UserConfigurationTests {
     [TestCase("notifications.js")]
     [TestCase("notification-state.js")]
+    [TestCase("manual-mark-state.js")]
+    [TestCase("outcome-lines.js")]
     public void PublicNotificationModulesAreEmbeddedAndUncachedWithoutPluginPages(string asset) {
         _plugin.Configuration.enableUserPages = false;
         var file = (FileStreamResult)_controller.GetAsset(asset);

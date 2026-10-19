@@ -1,12 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
-const stateSource = await readFile(new URL('../../../jellyfin-anidoki/Configuration/NotificationStateJs.js',import.meta.url),'utf8');
-const stateUrl='data:text/javascript;base64,'+Buffer.from(stateSource).toString('base64');
-const manualSource = await readFile(new URL('../../../jellyfin-anidoki/Configuration/ManualMarkStateJs.js',import.meta.url),'utf8');
-const manualUrl='data:text/javascript;base64,'+Buffer.from(manualSource).toString('base64');
-const source=(await readFile(new URL('../../../jellyfin-anidoki/Configuration/NotificationsJs.js',import.meta.url),'utf8')).replace("'./notification-state.js'",JSON.stringify(stateUrl)).replace("'./manual-mark-state.js'",JSON.stringify(manualUrl));
-const {startNotifications}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+import {importConfiguration} from './load-configuration.mjs';
+const {startNotifications}=await importConfiguration('NotificationsJs.js');
 class Element extends EventTarget {
  constructor(tag){super();this.tagName=tag.toUpperCase();this.children=[];this.dataset={};this.style={};this.isConnected=true;}
  append(...items){for(const item of items){if(!item)continue;item.remove();item.parent=this;this.children.push(item);}}
@@ -142,5 +137,21 @@ test('a dismissed manual prompt shows a visible countdown only after the decisio
  assert.ok(bar);
  for(const {fn} of env.win.intervals.values())fn();
  assert.match(bar.style.transform,/^scaleX\(/);
+ runtime.dispose();
+});
+
+test('a playback toast puts each tracker result in the results box, with tone and icon as data', async()=>{
+ const twoTrackers={...event,eventId:'two',operationId:'two',outcomes:[...event.outcomes,{...event.outcomes[0],provider:'Mal'}]};
+ let calls=0;const env=setup(async()=>response({events:++calls===1?[]:[twoTrackers]}));
+ const runtime=startNotifications(env.win,env.doc);await flush();await env.tick();
+ const all=elements(env.doc.body), toast=all.find(e=>e.className==='ad-toast');
+ assert.equal(toast.dataset.tone,'success');
+ const label=all.find(e=>e.className==='ad-toast-label');
+ assert.equal(label.textContent,'Logged to AniList and MyAnimeList');assert.equal(label.dataset.icon,'check');
+ const rows=all.filter(e=>e.className==='ad-toast-line');
+ assert.equal(all.filter(e=>e.className==='ad-toast-lines').length,1);assert.equal(rows.length,2);
+ assert.deepEqual(rows.map(r=>r.dataset.icon),['check','check']);
+ assert.deepEqual(elements(rows[1]).filter(e=>e.className==='ad-toast-line-main').map(e=>e.textContent),['MyAnimeList · Episode 3 · Watching']);
+ assert.ok(elements(rows[0]).some(e=>e.className==='ad-sr-only'&&e.textContent==='Updated: '));
  runtime.dispose();
 });

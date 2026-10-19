@@ -60,8 +60,10 @@ public sealed class ManualMarkService(ManualMarkStore store, IUserManager users,
                 ManualMarkState.Confirmed => "Trackers updated.",
                 ManualMarkState.Partial => "Some trackers updated. Other results need attention.",
                 ManualMarkState.NoChange => "No tracker changes were needed.",
-                ManualMarkState.Unconfirmed => "The tracker response could not be confirmed.",
-                _ => "No confirmed tracker update. Check linking and tracking settings."
+                ManualMarkState.Unconfirmed => "The update may have taken effect. Check the tracker before retrying.",
+                ManualMarkState.Failed => "Not retried automatically.",
+                ManualMarkState.Skipped => "Skipped by your tracking settings.",
+                _ => "Check linking and tracking settings."
             });
         } catch (Exception) {
             if (collector.HasConfirmedChange && sourceItem != null)

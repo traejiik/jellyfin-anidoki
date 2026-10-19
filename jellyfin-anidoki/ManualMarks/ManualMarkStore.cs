@@ -34,7 +34,7 @@ public sealed class ManualMarkStore(TimeProvider clock) {
         var now = clock.GetUtcNow();
         foreach (var entry in _entries.Values)
             if (BeforeSending(entry) && now >= entry.ExpiresUtc)
-                Transition(entry, ManualMarkState.Expired, "Confirmation expired. Trackers were not updated.");
+                Transition(entry, ManualMarkState.Expired, "Trackers were not updated.");
         foreach (var key in _entries.Where(pair => pair.Value.TerminalUtc is { } time && now - time >= TimeSpan.FromMinutes(10)).Select(pair => pair.Key).ToArray())
             _entries.Remove(key);
     }
@@ -66,7 +66,7 @@ public sealed class ManualMarkStore(TimeProvider clock) {
             Prune();
             if (!_entries.TryGetValue(operationId, out var entry) || !Owns(entry, userId, key) || entry.State != ManualMarkState.Pending || entry.Revision != revision)
                 return false;
-            Transition(entry, ManualMarkState.Queued, "Waiting to update trackers.");
+            Transition(entry, ManualMarkState.Queued, "Confirmed. Waiting to update trackers.");
             return true;
         }
     }
@@ -86,7 +86,7 @@ public sealed class ManualMarkStore(TimeProvider clock) {
             Prune();
             if (!_entries.TryGetValue(operationId, out var entry) || !Owns(entry, userId, key) || !BeforeSending(entry) || entry.Revision != revision)
                 return false;
-            Transition(entry, ManualMarkState.Dismissed, "Dismissed. Trackers were not updated.");
+            Transition(entry, ManualMarkState.Dismissed, "Trackers were not updated. Jellyfin stays marked watched.");
             return true;
         }
     }
@@ -128,7 +128,7 @@ public sealed class ManualMarkStore(TimeProvider clock) {
         lock (_lock) {
             Prune();
             foreach (var entry in _entries.Values.Where(e => e.Request.UserId == userId && e.Request.SourceItemId == sourceItemId && BeforeSending(e)))
-                Transition(entry, ManualMarkState.Superseded, "Completed playback updated trackers. No further confirmation is needed.");
+                Transition(entry, ManualMarkState.Superseded, "No further confirmation is needed.");
         }
     }
     internal void Complete(Guid operationId, ManualMarkState state, PublicOutcome[] outcomes, string reason) {
