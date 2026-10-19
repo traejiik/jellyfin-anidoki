@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/traejiik/jellyfin-anidoki/development/docs/assets/anidoki-card.png",
     "versions": [
       {
+        "version": "1.3.2.0",
+        "targetAbi": "12.2.0.0",
+        "changelog": "## What's Changed\n* Name the tracker entry behind each result in toasts, the manual card and Discord by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/29\n\n\n**Full Changelog**: https://github.com/traejiik/jellyfin-anidoki/compare/v1.3.1...v1.3.2",
+        "timestamp": "2026-10-19T17:10:07Z",
+        "checksum": "92ce8d0f6dbdf7c25ccb6e5f3411118b",
+        "sourceUrl": "https://github.com/traejiik/jellyfin-anidoki/releases/download/v1.3.2/anidoki_1.3.2.0.zip"
+      },
+      {
         "version": "1.3.1.0",
         "targetAbi": "12.2.0.0",
         "changelog": "## What's Changed\n* Follow sequels when a tracker splits a season, and describe manual card results by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/28\n\n\n**Full Changelog**: https://github.com/traejiik/jellyfin-anidoki/compare/v1.3.0...v1.3.1",
