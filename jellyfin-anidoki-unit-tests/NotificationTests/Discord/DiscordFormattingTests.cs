@@ -67,14 +67,16 @@ public class DiscordFormattingTests {
         using var payload = JsonDocument.Parse(JsonSerializer.Serialize(DiscordEmbedBuilder.Build(summary, "https://jf.example", "server", false)));
         var embed = payload.RootElement.GetProperty("embeds")[0];
         Assert.That(embed.GetProperty("description").GetString(), Does.Contain("Some tracker results could not be confirmed"));
-        Assert.That(embed.GetProperty("fields")[0].GetProperty("value").GetString(), Does.Contain("Unconfirmed").And.Contain("additional results"));
+        var value = embed.GetProperty("fields")[0].GetProperty("value").GetString();
+        Assert.That(value, Does.Contain("Update not confirmed").And.Contain("additional results"));
+        Assert.That(value!.Length, Is.LessThanOrEqualTo(1024), "Discord rejects field values over 1024 characters");
     }
 
-    [TestCase(1, jellyfin_anidoki.Models.Mal.Status.Watching, "Started watching: Updated progress to 1")]
-    [TestCase(6, jellyfin_anidoki.Models.Mal.Status.Watching, "Updated progress to 6")]
-    [TestCase(12, jellyfin_anidoki.Models.Mal.Status.Watching, "Updated progress to 12")]
-    [TestCase(12, jellyfin_anidoki.Models.Mal.Status.Completed, "Completed: Updated progress to 12")]
-    [TestCase(1, jellyfin_anidoki.Models.Mal.Status.Rewatching, "Rewatching: Updated progress to 1")]
+    [TestCase(1, jellyfin_anidoki.Models.Mal.Status.Watching, "Started watching · Episode 1")]
+    [TestCase(6, jellyfin_anidoki.Models.Mal.Status.Watching, "Watching · Episode 6")]
+    [TestCase(12, jellyfin_anidoki.Models.Mal.Status.Watching, "Watching · Episode 12")]
+    [TestCase(12, jellyfin_anidoki.Models.Mal.Status.Completed, "Completed · Episode 12")]
+    [TestCase(1, jellyfin_anidoki.Models.Mal.Status.Rewatching, "Rewatching · Episode 1")]
     public void ConfirmedProgressUsesConciseUpdateWording(int progress, jellyfin_anidoki.Models.Mal.Status status, string expected) {
         var summary = new SyncOperationSummary(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Show", 12, null,
             "Pilot", false, DateTimeOffset.UtcNow, SyncNotificationTrigger.Playback,
@@ -83,6 +85,55 @@ public class DiscordFormattingTests {
         using var payload = JsonDocument.Parse(JsonSerializer.Serialize(DiscordEmbedBuilder.Build(summary, "https://jf.example", "server", true)));
         var result = payload.RootElement.GetProperty("embeds")[0].GetProperty("fields")[0].GetProperty("value").GetString();
         Assert.That(result, Is.EqualTo(expected));
+    }
+
+    private static JsonElement Fields(string show, bool isMovie, params ProviderWriteOutcome[] outcomes) {
+        var summary = new SyncOperationSummary(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), show, 2, null,
+            "The Sheriff's Request to Mountain Tim", isMovie, DateTimeOffset.UtcNow, SyncNotificationTrigger.ConfirmedManual, outcomes);
+        var json = JsonSerializer.Serialize(DiscordEmbedBuilder.Build(summary, "https://jf.example", "server", true));
+        return JsonDocument.Parse(json).RootElement.GetProperty("embeds")[0].GetProperty("fields").Clone();
+    }
+
+    [Test]
+    public void SteelBallRunRepeatRunNamesEachEntryUnderItsResult() {
+        const string first = "STEEL BALL RUN JoJo's Bizarre Adventure 1st STAGE";
+        const string sequel = "STEEL BALL RUN JoJo's Bizarre Adventure 2nd - 3rd STAGE";
+        var fields = Fields("JoJo's Bizarre Adventure", false,
+            new ProviderWriteOutcome(jellyfin_anidoki.Configuration.ApiName.AniList, "a", first, OutcomeKind.Confirmed, 1,
+                jellyfin_anidoki.Models.Mal.Status.Completed, false, "progress", true),
+            new ProviderWriteOutcome(jellyfin_anidoki.Configuration.ApiName.AniList, "b", sequel, OutcomeKind.NoChange, null, null, false,
+                "manual-forward-only", false));
+        Assert.That(fields[0].GetProperty("value").GetString(), Is.EqualTo(
+            $"Completed · Episode 1\n-# {first}\nAlready at or past this episode\n-# {sequel}"));
+    }
+
+    [Test]
+    public void ProvidersAndKindsUseDisplayNames() {
+        var fields = Fields("Show", false,
+            new ProviderWriteOutcome(jellyfin_anidoki.Configuration.ApiName.Mal, "1", "Show", OutcomeKind.NoChange, 3,
+                jellyfin_anidoki.Models.Mal.Status.Watching, false, "progress", false),
+            new ProviderWriteOutcome(jellyfin_anidoki.Configuration.ApiName.Kitsu, "1", "Show", OutcomeKind.Skipped, null, null, false,
+                "rewatch-disabled", false));
+        Assert.That(fields[0].GetProperty("name").GetString(), Is.EqualTo("MyAnimeList"));
+        Assert.That(fields[0].GetProperty("value").GetString(), Is.EqualTo("Already up to date"));
+        Assert.That(fields[1].GetProperty("value").GetString(), Is.EqualTo("Skipped · completed, and rewatching is off"));
+    }
+
+    [Test]
+    public void LongEntryTitlesEndAtAWordWithAnEllipsis() {
+        var title = string.Join(' ', Enumerable.Repeat("STAGE", 40));
+        var value = Fields("Show", false, new ProviderWriteOutcome(jellyfin_anidoki.Configuration.ApiName.AniList, "1", title,
+            OutcomeKind.Confirmed, 2, jellyfin_anidoki.Models.Mal.Status.Watching, false, "progress", true))[0].GetProperty("value").GetString()!;
+        var subtext = value.Split('\n')[1];
+        Assert.That(subtext, Does.StartWith("-# STAGE").And.EndWith("STAGE…"));
+        Assert.That(subtext.Length, Is.LessThanOrEqualTo("-# ".Length + 100));
+    }
+
+    [Test]
+    public void MovieResultsNeverClaimAnEpisode() {
+        var value = Fields("Movie", true, new ProviderWriteOutcome(jellyfin_anidoki.Configuration.ApiName.AniList, "1", "Movie",
+            OutcomeKind.Confirmed, 1, jellyfin_anidoki.Models.Mal.Status.Completed, false, "progress", true))[0].GetProperty("value").GetString();
+        Assert.That(value, Is.EqualTo("Completed"));
     }
 
     [Test]
