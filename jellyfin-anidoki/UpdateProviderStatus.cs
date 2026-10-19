@@ -216,7 +216,7 @@ namespace jellyfin_anidoki {
                         case ApiName.Mal:
                             ApiCallHelpers = CreateApiCallHelpers(ApiName.Mal, () => new ApiCallHelpers(malApiCalls: new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
                             if (_apiIds.MyAnimeList != null && _apiIds.MyAnimeList != 0 && useResolvedIds) {
-                                await CheckUserListAnimeStatus(_apiIds.MyAnimeList.Value, progress, false);
+                                await CheckResolvedAnimeStatus(_apiIds.MyAnimeList.Value, progress);
                                 continue;
                             }
 
@@ -224,11 +224,11 @@ namespace jellyfin_anidoki {
                         case ApiName.AniList:
                             ApiCallHelpers = CreateApiCallHelpers(ApiName.AniList, () => new ApiCallHelpers(aniListApiCalls: new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
                             if (_apiIds.Anilist != null && _apiIds.Anilist != 0 && useResolvedIds) {
-                                await CheckUserListAnimeStatus(_apiIds.Anilist.Value, progress, false);
+                                await CheckResolvedAnimeStatus(_apiIds.Anilist.Value, progress);
                                 continue;
                             } else if (_animeType == typeof(Episode) ? episode.Series.ProviderIds.ContainsKey("AniList") && episode.Season.IndexNumber.Value == 1 : movie.ProviderIds.ContainsKey("AniList")) {
                                 if (_animeType == typeof(Episode) ? int.TryParse(episode.Series.ProviderIds["AniList"], out int aniListId) : int.TryParse(movie.ProviderIds["AniList"], out aniListId)) {
-                                    await CheckUserListAnimeStatus(aniListId, progress, false);
+                                    await CheckResolvedAnimeStatus(aniListId, progress);
                                     continue;
                                 }
                             }
@@ -237,7 +237,7 @@ namespace jellyfin_anidoki {
                         case ApiName.Kitsu:
                             ApiCallHelpers = CreateApiCallHelpers(ApiName.Kitsu, () => new ApiCallHelpers(kitsuApiCalls: new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
                             if (_apiIds.Kitsu != null && _apiIds.Kitsu != 0 && useResolvedIds) {
-                                await CheckUserListAnimeStatus(_apiIds.Kitsu.Value, progress, false);
+                                await CheckResolvedAnimeStatus(_apiIds.Kitsu.Value, progress);
                                 continue;
                             }
 
@@ -497,7 +497,33 @@ namespace jellyfin_anidoki {
             await CheckUserListAnimeStatusBase(detectedAnime, episodeNumber, overrideCheckRewatch, alternativeId);
         }
 
-        private async Task CheckUserListAnimeStatusBase(Anime detectedAnime, int episodeNumber, bool overrideCheckRewatch, string? alternativeId = null) {
+        /// <summary>
+        /// Sync an entry resolved by ID. A tracker can split a season the ID databases keep whole (AniList splits Steel
+        /// Ball Run into "STAGE" entries AniDB lists as one), so an episode past the entry's known length follows the
+        /// sequel chain, as the title-search path does.
+        /// </summary>
+        private async Task CheckResolvedAnimeStatus(int animeId, int progress) {
+            Anime? detectedAnime = await GetAnime(animeId);
+            if (detectedAnime == null) {
+                _outcomeCollector?.Record(new ProviderWriteOutcome(ApiName, animeId.ToString(), "", OutcomeKind.Unresolved,
+                    null, null, ApiName == ApiName.Annict, "resolve", false));
+            } else if (_animeType == typeof(Episode) && detectedAnime.NumEpisodes > 0 && detectedAnime.NumEpisodes < progress) {
+                _logger.LogDebug("({ApiName}) Watched episode passes total episodes in the resolved entry! Checking for additional seasons/cours...", ApiName);
+                var (season, totalEpisodesWatched) = await WalkCours(detectedAnime, progress);
+                if (season == null) {
+                    _outcomeCollector?.Record(new ProviderWriteOutcome(ApiName, detectedAnime.AlternativeId ?? detectedAnime.Id.ToString(), GetAnimeTitle(detectedAnime),
+                        OutcomeKind.Unresolved, null, null, ApiName == ApiName.Annict, "resolve", false));
+                    return;
+                }
+
+                await CheckUserListAnimeStatus(season.Id, progress - totalEpisodesWatched, overrideCheckRewatch: false, alternativeId: season.AlternativeId);
+                return;
+            }
+
+            await CheckUserListAnimeStatusBase(detectedAnime, progress, false);
+        }
+
+        private async Task CheckUserListAnimeStatusBase(Anime? detectedAnime, int episodeNumber, bool overrideCheckRewatch, string? alternativeId = null) {
             if (detectedAnime == null) {
                 _logger.LogInformation("({ApiName}) Could not retrieve the matched anime from the provider; not updating", ApiName);
                 return;
