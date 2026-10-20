@@ -2,6 +2,21 @@
 
 Pull requests targeting `development` run the required **Build and test** check. It validates manifest/build metadata, runs packaging tests, builds the solution, and runs the .NET unit tests. Pushes to `development` run the same checks. CI uses read-only repository permissions and supports PRs from forks.
 
+## Choosing the version
+
+Release tags follow semantic versioning, judged by what a Jellyfin admin or user experiences rather than by how much code changed. Compare the release against the previous tag and pick the highest bump that applies:
+
+- **Major** (`v2.0.0`) for a change a user must notice or act on:
+  - the plugin targets a new Jellyfin ABI, or drops support for one;
+  - a setting is removed or renamed, or must be configured again;
+  - the default behaviour changes what is written to trackers, or when;
+  - a storage change makes going back to an earlier release lose data.
+- **Minor** (`v1.4.0`) for a new user-visible feature that keeps existing behaviour, usually a roadmap phase or a self-contained part of one. Ship each phase as its own minor rather than splitting one change over several minors.
+- **Patch** (`v1.3.3`) for fixes, wording, logging and internal refactors that leave settings and stored data compatible.
+- **Revision** (`v1.3.2.1`) only to republish the same code, for example to fix packaging or the feed.
+
+Plugin database migrations in `Storage/StorageMigrations.cs` are forward-only, so an earlier release cannot read data written by a later one. When a release adds a migration, say so in its PR description and treat it as at least a minor release; if downgrading would lose credentials or settings, it is a major release. Jellyfin lets admins install any older version from the feed, so the changelog should warn them.
+
 ## Publish a release
 
 1. Merge your changes into `development` after **Build and test** passes. You do not need to add a manifest version or bump the versions in the project or `build.yaml`: both stay at the `0.0.0.0` placeholder, and the release workflow applies the tag version.
