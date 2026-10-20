@@ -46,7 +46,7 @@ Prerelease tag suffixes are not supported. If publication succeeds but the feed 
 
 GitHub generates the changelog from merged pull requests since the previous release. The workflow uses the same generated text in the repository manifest, the ZIP's `meta.json`, and the GitHub release notes. You do not maintain a changelog in `build.yaml` or prepare a new manifest entry. Existing published changelogs remain intact.
 
-Write descriptive PR titles: those titles become the changelog entries. Generation or empty-output errors stop publication rather than reusing old notes. Manual feed recovery keeps the changelog from the existing published release.
+Write descriptive PR titles: those titles become the changelog entries. `.github/release.yml` groups them by PR label: `breaking` under **Breaking changes**, `enhancement` under **Features**, `bug` under **Fixes**, and `documentation` under **Documentation**. Unlabelled PRs land under **Other changes**, and PRs labelled `skip-changelog` are left out. Label a PR `breaking` whenever it would require a major release. Generation or empty-output errors stop publication rather than reusing old notes. Manual feed recovery keeps the changelog from the existing published release.
 
 ## Optional Docker image
 
