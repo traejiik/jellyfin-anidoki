@@ -172,6 +172,8 @@ def package(manifest, publish_dir, output_dir, tag, repository, changelog=None, 
     plugin = result[0]
     release = plugin['versions'][0]
     validate_tag(tag, release['version'])
+    # Notes grouped by .github/release.yml start with a generator comment that Jellyfin could show as text.
+    changelog = re.sub(r'<!--.*?-->', '', changelog, flags=re.DOTALL) if isinstance(changelog, str) else changelog
     if not isinstance(changelog, str) or not changelog.strip():
         raise ValueError('Packaging requires a non-empty generated changelog')
     release['changelog'] = changelog.strip()
