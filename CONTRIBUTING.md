@@ -57,7 +57,7 @@ The build is versioned from the latest release tag (for example `1.1.1.27`), so 
 
 - Branch from `development`, name the branch `feat/<topic>`, and target `development`.
 - Write commit subjects in the imperative. History uses `feat:`, `fix:`, `test:` and `chore:` prefixes.
-- **PR titles become changelog entries**, so make them descriptive for users.
+- **PR titles become changelog entries**, so make them descriptive for users. Label the PR `enhancement`, `bug` or `documentation` so the changelog groups it, and add `breaking` if users must act on the change (see the versioning policy in [docs/releasing.md](docs/releasing.md)).
 - In the description, explain the behaviour change, link any issue, and say how you validated it. Include screenshots for UI changes.
 - The **Build and test** check must pass before merging.
 
@@ -67,4 +67,4 @@ Never commit credentials, tokens or webhook URLs, and keep them out of logs. Rep
 
 ## Releases
 
-Maintainers release by tagging `development`. See [docs/releasing.md](docs/releasing.md).
+Maintainers release by tagging `development`; the tag is the only place a version is set. The project and `build.yaml` stay at the `0.0.0.0` placeholder, so don't bump them in a PR. See [docs/releasing.md](docs/releasing.md) for how the version is chosen and published.
