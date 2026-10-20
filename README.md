@@ -66,7 +66,7 @@ The following are needed for the plugin to run:
 - [File Transformation plugin](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation)
 - [Plugin Pages plugin](https://github.com/IAmParadox27/jellyfin-plugin-pages)
 
-AniDōki is designed for stock Jellyfin 12.2 and works with any theme: its pages keep the same layout and take only their colours from the active theme. Themes and [KefinTweaks](https://github.com/ranaldsgift/KefinTweaks/releases) (5.0 and later) are optional, and AniDōki does not require either.
+AniDōki is designed for stock Jellyfin 12.2 and works with any theme: its pages keep the same layout and take only their colours and font from the active theme. Themes and [KefinTweaks](https://github.com/ranaldsgift/KefinTweaks/releases) (5.0 and later) are optional, and AniDōki does not require either.
 
 ### Automatic (recommended)
 
