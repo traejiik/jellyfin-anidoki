@@ -67,4 +67,4 @@ Never commit credentials, tokens or webhook URLs, and keep them out of logs. Rep
 
 ## Releases
 
-Maintainers release by tagging `development`. See [docs/releasing.md](docs/releasing.md).
+Maintainers release by tagging `development`; the tag is the only place a version is set. The project and `build.yaml` stay at the `0.0.0.0` placeholder, so don't bump them in a PR. See [docs/releasing.md](docs/releasing.md) for how the version is chosen and published.

@@ -1,7 +1,7 @@
 ---
 name: "AniDoki"
 guid: "dceb799c-238e-4a33-aa5e-14fc0b1efe9d"
-version: "0.1.0.0"
+version: "0.0.0.0"
 targetAbi: "12.2.0.0"
 framework: "net10.0"
 owner: "traejiik"

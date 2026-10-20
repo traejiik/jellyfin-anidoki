@@ -4,7 +4,7 @@ Pull requests targeting `development` run the required **Build and test** check.
 
 ## Publish a release
 
-1. Merge your changes into `development` after **Build and test** passes. You do not need to add a manifest version or bump the versions in the project or `build.yaml`.
+1. Merge your changes into `development` after **Build and test** passes. You do not need to add a manifest version or bump the versions in the project or `build.yaml`: both stay at the `0.0.0.0` placeholder, and the release workflow applies the tag version.
 2. Tag the merged commit with the desired release version and push the tag. For example, `v0.1.1` produces plugin version `0.1.1.0`; four-part tags such as `v0.1.1.1` are also accepted:
 
    ```sh
@@ -21,7 +21,7 @@ Pull requests targeting `development` run the required **Build and test** check.
    - `manifest.json`: the completed new release entry, including its version, ABI, changelog, download URL, checksum, and timestamp.
 4. The **Update installation feed** job merges that entry into `development/manifest.json` and commits it directly. Published history stays intact; no follow-up PR is needed. The project and `build.yaml` version changes exist only in the release build checkout.
 
-The manifest is published history, so its versions do not control future builds and its list may initially be empty. Keep existing published entries so Jellyfin can still install compatible older releases. The target ABI comes from `jellyfin-anidoki/build.yaml`, and its Jellyfin package references must match. Only change ABI/dependencies when changing the supported Jellyfin version. Local project version fields must remain consistent with the version in `build.yaml`; they do not need a bump for each release.
+The manifest is published history, so its versions do not control future builds and its list may initially be empty. Keep existing published entries so Jellyfin can still install compatible older releases. The target ABI comes from `jellyfin-anidoki/build.yaml`, and its Jellyfin package references must match. Only change ABI/dependencies when changing the supported Jellyfin version. The project's `Version`, `AssemblyVersion` and `FileVersion` must match the `build.yaml` version, which `release.py check` enforces. Both stay at the `0.0.0.0` placeholder in the repository, so a DLL reporting `0.0.0.0` was built without a release tag or `release.py local`.
 
 Normal changes to `development` still require a PR and successful CI. The feed job authenticates with the repository deploy key stored in the `RELEASE_FEED_SSH_KEY` Actions secret. Deploy keys bypass the PR/status-check ruleset; a separate ruleset still blocks branch deletion and force pushes. GitHub applies deploy-key bypass to all repository deploy keys, so additional write keys would receive the same exception. `upstream-master` remains locked against these pushes.
 
@@ -47,4 +47,4 @@ dotnet test jellyfin-anidoki-unit-tests/jellyfin-anidoki-unit-tests.csproj --con
 python3 scripts/release.py local
 ```
 
-`release.py local` builds an installable `bin/anidoki/` folder (DLL, `meta.json` and card artwork) versioned from the latest tag, such as `1.1.1.27` for 27 commits after `v1.1.1`. It never edits the project or `build.yaml`. Without git history or tags it falls back to the `build.yaml` version.
+`release.py local` builds an installable `bin/anidoki/` folder (DLL, `meta.json` and card artwork) versioned from the latest tag, such as `1.1.1.27` for 27 commits after `v1.1.1`. It never edits the project or `build.yaml`. Without git history or tags it falls back to the `build.yaml` placeholder, `0.0.0.0`.
