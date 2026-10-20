@@ -15,7 +15,6 @@ __pycache__/
 AGENTS.md
 CLAUDE.md
 /docs/superpowers/
-/docs/local/
 
 # Characterization output awaiting review
 *.received.txt
