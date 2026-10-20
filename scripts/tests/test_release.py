@@ -127,9 +127,28 @@ class ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             publish = Path(directory)
             (publish / 'jellyfin-anidoki.dll').write_bytes(b'test assembly')
-            for notes in (None, '', '  \n'):
+            for notes in (None, '', '  \n', '<!-- Release notes generated using configuration in .github/release.yml at abc123 -->\n'):
                 with self.subTest(notes=notes), self.assertRaisesRegex(ValueError, 'changelog'):
                     release.package(self.manifest, publish, publish / 'out', 'v0.1.0', 'traejiik/jellyfin-anidoki', changelog=notes)
+
+    def test_package_strips_generator_comment_from_grouped_notes(self):
+        notes = ('<!-- Release notes generated using configuration in .github/release.yml at abc123 -->\n\n'
+                 "## What's Changed\n### Fixes\n* Fix a sync by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/1\n\n\n"
+                 '**Full Changelog**: https://github.com/traejiik/jellyfin-anidoki/compare/v0.0.9...v0.1.0\n')
+        with tempfile.TemporaryDirectory() as directory:
+            publish = Path(directory)
+            (publish / 'jellyfin-anidoki.dll').write_bytes(b'test assembly')
+            image = publish / 'card.png'
+            image.write_bytes(b'card')
+            output = publish / 'out'
+            assets = release.package(self.manifest, publish, output, 'v0.1.0', 'traejiik/jellyfin-anidoki', changelog=notes, image_path=image)
+            with zipfile.ZipFile(assets['zip']) as package:
+                metadata = json.loads(package.read('meta.json'))
+            version = json.loads((output / 'manifest.json').read_text())[0]['versions'][0]
+            self.assertTrue(metadata['changelog'].startswith("## What's Changed\n### Fixes\n"))
+            self.assertEqual(version['changelog'], metadata['changelog'])
+            for text in (metadata['changelog'], (output / 'release-notes.md').read_text()):
+                self.assertNotIn('<!--', text)
 
     def test_tag_must_match_manifest_version(self):
         with tempfile.TemporaryDirectory() as directory:
