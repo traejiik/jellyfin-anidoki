@@ -35,7 +35,7 @@
 (function (script) {
     const view = script.previousElementSibling;
     const host = view.parentElement.closest('[data-role="page"]') || view;
-    import(ApiClient.getUrl('AniDoki/assets/user-settings.js'))
+    import(ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidokiAssetVersion ??= Date.now().toString(36)}/user-settings.js`))
         .then(module => module.default(view, host))
         .catch(() => { view.querySelector('[data-page-status]').textContent = 'Could not load AniDōki settings. Reload to try again.'; });
 })(document.currentScript);

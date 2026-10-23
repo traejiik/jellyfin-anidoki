@@ -2,7 +2,7 @@ export function createDiscordDraft(saved) { return { enabled: !!saved.enabled, w
 export function discordCommand(draft, saved) { return { enabled: !draft.clear && draft.enabled, webhookAction: draft.clear ? 'Clear' : draft.webhook.trim() ? 'Replace' : 'Keep', webhook: draft.clear ? null : draft.webhook.trim() || null, expectedRevision: saved.revision }; }
 export function discordDirty(draft, saved) { return draft.enabled !== saved.enabled || !!draft.webhook.trim() || draft.clear; }
 export default async function mountDiscord(root, common, cache, signal, isHostBusy) {
-    const find = id => root.querySelector(`#${id}`), api = globalThis.ApiClient;
+    const find = id => root.querySelector(`#${id}`);
     let saved = await common.json('AniDoki/user/discord/settings', { signal });
     if (signal.aborted) return;
     const webhook = find('discordWebhook');
@@ -52,7 +52,7 @@ export default async function mountDiscord(root, common, cache, signal, isHostBu
             if (sample.empty) { preview.append(common.element('p','doki-help',sample.message)); return; }
             const header = common.element('div','doki-discord-preview-header');
             const avatar = common.element('img','doki-discord-avatar');
-            avatar.src = api.getUrl('AniDoki/assets/anidoki-avatar.png'); avatar.alt = '';
+            avatar.src = common.assetUrl('anidoki-avatar.png'); avatar.alt = '';
             const badge = common.element('span','doki-discord-app','APP');
             const previewTime = new Date(sample.timestamp ?? Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const time = common.element('span','doki-discord-time',`Today at ${previewTime}`);

@@ -184,6 +184,7 @@ namespace jellyfin_anidoki.Api {
 
         [AllowAnonymous]
         [HttpGet("assets/{asset}")]
+        [HttpGet("assets/v/{version}/{asset}")]
         public IActionResult GetAsset([FromRoute] string asset) {
             string? resource = asset switch {
                 "styles.css" => "Anidoki.css",

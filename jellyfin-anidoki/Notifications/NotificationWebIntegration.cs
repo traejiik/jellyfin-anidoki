@@ -36,8 +36,8 @@ public static class NotificationWebIntegration {
         if (position < 0)
             return original;
         var path = BasePath.Trim('/');
-        var source = (path.Length == 0 ? "" : "/" + path) + "/AniDoki/assets/notifications.js?v=" +
-            typeof(NotificationWebIntegration).Assembly.ManifestModule.ModuleVersionId.ToString("N");
+        var source = (path.Length == 0 ? "" : "/" + path) + "/AniDoki/assets/v/" +
+            typeof(NotificationWebIntegration).Assembly.ManifestModule.ModuleVersionId.ToString("N") + "/notifications.js";
         var tag = "<script id=\"anidoki-notification-bootstrap\" type=\"module\" src=\"" + WebUtility.HtmlEncode(source) + "\"></script>";
         return original.Insert(position, tag);
     }
