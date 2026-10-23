@@ -10,7 +10,9 @@ export const providers = [
     { key: 'Simkl', name: 'Simkl', initials: 'SK' }
 ];
 export const providerName = key => providers.find(p => p.key === key)?.name ?? key;
-export const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/${name}`);
+// Asset URLs carry a per-load path segment so a caching proxy cannot serve another release's files;
+// relative module imports resolve inside the same segment. Entry points build the same URL before this loads.
+export const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidokiAssetVersion ??= Date.now().toString(36)}/${name}`);
 export const getTabs = () => [
     { href: 'configurationpage?name=AniDoki', name: 'Settings' },
     { href: 'configurationpage?name=AniDoki_ManualSync', name: 'Manual sync' }

@@ -1,3 +1,6 @@
+// Same URL as common.assetUrl, which cannot be used before common.js loads.
+const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidokiAssetVersion ??= Date.now().toString(36)}/${name}`);
+
 export default function (view) {
     let lifetime, saved, baseline, draft, users, parameters, selectedUser, busy = false, secretState = {}, storage;
     let common, state, previewGeneration = 0, previewTimer;
@@ -34,8 +37,8 @@ export default function (view) {
 
     async function start(signal) {
         [common, state] = await Promise.all([
-            import(ApiClient.getUrl('AniDoki/assets/common.js')),
-            import(ApiClient.getUrl('AniDoki/assets/config-state.js'))
+            import(assetUrl('common.js')),
+            import(assetUrl('config-state.js'))
         ]);
         if (signal.aborted) return;
         common.ensureStyles(); common.prepareStickyShell(root, signal); common.setTabs(common.TabGeneral, common.getTabs, view);

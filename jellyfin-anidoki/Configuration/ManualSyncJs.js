@@ -107,6 +107,9 @@ export function selectManualSyncSidebar(signal, doc = document) {
     mountObserver.observe(doc.body, { childList: true, subtree: true });
 }
 
+// Same URL as common.assetUrl, which cannot be used before common.js loads.
+const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidokiAssetVersion ??= Date.now().toString(36)}/${name}`);
+
 export default function (view) {
     let lifetime, common, users = [], config, busy = false, lastRun;
     const find = selector => view.querySelector(selector);
@@ -124,7 +127,7 @@ export default function (view) {
         });
     });
     async function start(signal) {
-        common = await import(ApiClient.getUrl('AniDoki/assets/common.js')); if (signal.aborted) return;
+        common = await import(assetUrl('common.js')); if (signal.aborted) return;
         common.ensureStyles(); common.setTabs(common.TabManualSync, common.getTabs, view);
         find('#runSync').disabled = true; common.status(find('[data-page-status]'), 'Loading users and linked trackers…');
         const result = await Promise.all([ApiClient.getUsers(), ApiClient.getPluginConfiguration(common.pluginId)]); if (signal.aborted) return;

@@ -234,7 +234,7 @@ export function startNotifications(win = window, doc = document) {
             else dispose(); return;
         }
         win.clearTimeout(bootstrapTimer); bootstrapTimer = null;
-        const style = node('link', ''); style.rel = 'stylesheet'; style.href = api.getUrl('AniDoki/assets/styles.css'); style.dataset.anidokiNotificationStyle = '';
+        const style = node('link', ''); style.rel = 'stylesheet'; style.href = api.getUrl(`AniDoki/assets/v/${globalThis.anidokiAssetVersion ??= Date.now().toString(36)}/styles.css`); style.dataset.anidokiNotificationStyle = '';
         doc.head.append(style); ready = true; poll();
     }
     doc.addEventListener('viewshow', navigation, { signal: lifetime.signal });

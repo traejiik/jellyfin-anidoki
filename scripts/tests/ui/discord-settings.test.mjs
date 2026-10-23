@@ -22,7 +22,7 @@ function fixture(preview) {
     globalThis.document={createElement:tag=>new Element(tag),createElementNS:(_,tag)=>new Element(tag)};
     const root={querySelector:selector=>nodes[selector.slice(1)]};const calls=[];
     const common={secretInput,json:async(path,options)=>{calls.push({path,options});return path.endsWith('/settings')?{enabled:false,hasWebhook:false,revision:0,publicAddressReady:true}:preview();},
-        request:()=>{throw new Error('No poster in this fixture');},element:(tag,css,text)=>new Element(tag,text),status:(node,text)=>node.textContent=text,errorMessage:async error=>error.message};
+        request:()=>{throw new Error('No poster in this fixture');},element:(tag,css,text)=>new Element(tag,text),status:(node,text)=>node.textContent=text,errorMessage:async error=>error.message,assetUrl:name=>`AniDoki/assets/v/test/${name}`};
     globalThis.ApiClient={getUrl:path=>path};return {nodes,root,common,calls};
 }
 test('Preview uses only reads and renders the bold linked show with required episode details',async()=>{

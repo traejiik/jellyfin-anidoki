@@ -1,6 +1,9 @@
 // Plugin Pages replaces its fetched fragment on each show. Preserve preferences
 // against its cached host view, and dispose the previous fragment's handlers.
 const cachedViews = new WeakMap();
+// Same URL as common.assetUrl, which cannot be used before common.js loads.
+const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidokiAssetVersion ??= Date.now().toString(36)}/${name}`);
+
 export default function (view, host = view) {
     const cache = cachedViews.get(host) ?? { saved: null, baseline: null, draft: null, busy: false };
     cachedViews.set(host, cache); cache.lifecycle?.abort(); cache.active?.abort();
@@ -32,7 +35,7 @@ export default function (view, host = view) {
     show();
 
     async function start(signal) {
-        [common, state] = await Promise.all([import(ApiClient.getUrl('AniDoki/assets/common.js')), import(ApiClient.getUrl('AniDoki/assets/config-state.js'))]);
+        [common, state] = await Promise.all([import(assetUrl('common.js')), import(assetUrl('config-state.js'))]);
         if (signal.aborted) return;
         common.ensureStyles(); common.prepareStickyShell(root, signal);
         const userId = ApiClient.getCurrentUserId();
@@ -57,7 +60,7 @@ export default function (view, host = view) {
             }
         }, { signal });
         common.observeSaveBar(root, signal); common.bindDraftWarning(view, () => dirty() || cache.discordDirty?.(), signal); setBusy(cache.busy);
-        const discord = await import(ApiClient.getUrl('AniDoki/assets/discord-settings.js'));
+        const discord = await import(common.assetUrl('discord-settings.js'));
         if (!signal.aborted) await discord.default(root, common, cache, signal, () => cache.busy);
     }
     function render(signal) {

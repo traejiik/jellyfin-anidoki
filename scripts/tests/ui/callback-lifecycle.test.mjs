@@ -75,9 +75,9 @@ async function setupAdmin(t, users = []) {
     setGlobal(t, 'ResizeObserver', class { observe() {} disconnect() {} });
     setGlobal(t, 'IntersectionObserver', class { observe() {} disconnect() {} });
     setGlobal(t, 'ApiClient', {
-        getUrl: path => path === 'AniDoki/assets/common.js'
+        getUrl: path => /^AniDoki\/assets\/v\/[^/]+\/common\.js$/.test(path)
             ? new URL('../../../jellyfin-anidoki/Configuration/CommonJs.js', import.meta.url).href
-            : path === 'AniDoki/assets/config-state.js'
+            : /^AniDoki\/assets\/v\/[^/]+\/config-state\.js$/.test(path)
                 ? new URL('../../../jellyfin-anidoki/Configuration/ConfigStateJs.js', import.meta.url).href
                 : `https://jellyfin.example.test/${path}`,
         getPluginConfiguration: async () => ({ callbackUrl: '', ProviderApiAuth: [], UserConfig: [] }),

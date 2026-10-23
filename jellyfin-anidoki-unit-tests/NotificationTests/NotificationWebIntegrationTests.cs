@@ -22,7 +22,7 @@ public class NotificationWebIntegrationTests {
         NotificationWebIntegration.BasePath = "/jellyfin";
         string original = "<HTML><body><script src='other.js'></script>hello</BODY></HTML>";
         string result = NotificationWebIntegration.Transform(new JObject { ["contents"] = original });
-        Assert.That(result, Does.Contain("/jellyfin/AniDoki/assets/notifications.js"));
+        Assert.That(result, Does.Match("/jellyfin/AniDoki/assets/v/[0-9a-f]{32}/notifications\\.js"));
         Assert.That(result, Does.Contain("<script src='other.js'></script>hello"));
         Assert.That(NotificationWebIntegration.Transform(new JObject { ["contents"] = result }), Is.EqualTo(result));
     }
@@ -34,7 +34,7 @@ public class NotificationWebIntegrationTests {
     [Test]
     public void RootPathAndNoOptionalAssemblyRemainSafe() {
         NotificationWebIntegration.BasePath = "";
-        Assert.That(NotificationWebIntegration.Transform(new JObject { ["contents"] = "<body></body>" }), Does.Contain("src=\"/AniDoki/assets/notifications.js"));
+        Assert.That(NotificationWebIntegration.Transform(new JObject { ["contents"] = "<body></body>" }), Does.Match("src=\"/AniDoki/assets/v/[0-9a-f]{32}/notifications\\.js\""));
         Assert.That(NotificationWebIntegration.Register(), Is.False);
         Assert.DoesNotThrow(() => NotificationWebIntegration.Remove());
     }
