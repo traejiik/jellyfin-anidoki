@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/traejiik/jellyfin-anidoki/development/docs/assets/anidoki-card.png",
     "versions": [
       {
+        "version": "1.3.4.0",
+        "targetAbi": "12.2.0.0",
+        "changelog": "## What's Changed\n### Fixes\n* Keep settings pages working behind caching reverse proxies by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/35\n\n\n**Full Changelog**: https://github.com/traejiik/jellyfin-anidoki/compare/v1.3.3...v1.3.4",
+        "timestamp": "2026-10-23T07:31:33Z",
+        "checksum": "46260592b313861ab52eb8de56a0d0b0",
+        "sourceUrl": "https://github.com/traejiik/jellyfin-anidoki/releases/download/v1.3.4/anidoki_1.3.4.0.zip"
+      },
+      {
         "version": "1.3.3.0",
         "targetAbi": "12.2.0.0",
         "changelog": "## What's Changed\n### Fixes\n* Keep the release-notes generator comment out of the Jellyfin changelog by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/31\n* Stop ad blockers and themes from hiding or narrowing the settings pages by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/33\n* Keep the AniD\u014dki menu entry after media playback by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/34\n### Documentation\n* Document how release versions are chosen and group release notes by label by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/30\n* Describe stock Jellyfin as the supported theme baseline by @traejiik in https://github.com/traejiik/jellyfin-anidoki/pull/32\n\n\n**Full Changelog**: https://github.com/traejiik/jellyfin-anidoki/compare/v1.3.2...v1.3.3",
