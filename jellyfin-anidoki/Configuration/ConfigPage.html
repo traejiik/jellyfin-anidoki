@@ -1,54 +1,54 @@
 <div id="TemplateConfigPage" data-role="page" class="page type-interior pluginConfigurationPage withTabs" data-controller="__plugin/AniDoki_ConfigPageJs">
     <div data-role="content">
         <div class="anidoki">
-            <header class="ad-header">
-                <div><h1>AniDōki</h1><p class="ad-help">Keep your users’ anime lists in step with what they watch in Jellyfin.</p></div>
-                <div class="ad-actions" id="configurationSummary"></div>
+            <header class="doki-header">
+                <div><h1>AniDōki</h1><p class="doki-help">Keep your users’ anime lists in step with what they watch in Jellyfin.</p></div>
+                <div class="doki-actions" id="configurationSummary"></div>
             </header>
-            <nav id="navigationTabs" class="ad-tabs" aria-label="Plugin pages"></nav>
-            <p class="ad-status" data-page-status role="status">Loading settings…</p>
+            <nav id="navigationTabs" class="doki-tabs" aria-label="Plugin pages"></nav>
+            <p class="doki-status" data-page-status role="status">Loading settings…</p>
             <form id="TemplateConfigForm" hidden>
-                <div class="ad-layout ad-content">
-                    <aside class="ad-rail"><p>On this page</p><nav class="ad-section-nav" aria-label="On this page">
-                        <a href="#server" data-section="#ad-server">Server address</a><a href="#providers" data-section="#ad-providers">Provider apps</a><a href="#behaviour" data-section="#ad-behaviour">Sync behaviour</a><a href="#users" data-section="#ad-users">Users</a><a href="#advanced" data-section="#ad-advanced">Advanced</a>
+                <div class="doki-layout doki-content">
+                    <aside class="doki-rail"><p>On this page</p><nav class="doki-section-nav" aria-label="On this page">
+                        <a href="#server" data-section="#doki-server">Server address</a><a href="#providers" data-section="#doki-providers">Provider apps</a><a href="#behaviour" data-section="#doki-behaviour">Sync behaviour</a><a href="#users" data-section="#doki-users">Users</a><a href="#advanced" data-section="#doki-advanced">Advanced</a>
                     </nav></aside>
-                    <main class="ad-stack">
-                        <section class="ad-panel" id="ad-server"><h2>Server address</h2><p class="ad-help">Where people reach Jellyfin. Include http(s), the port if needed, and any base path. Leave blank to use the detected local address.</p>
-                            <div class="ad-field"><label for="apiUrl">Public address</label><input class="ad-input ad-mono" id="apiUrl" data-field="callbackUrl" type="url" aria-describedby="addressStatus"><p id="addressStatus" class="ad-status" role="status"></p>
-                                <div class="ad-actions"><button type="button" class="ad-button ad-chip" id="useLocal">Use local</button><button type="button" class="ad-button ad-chip" id="useCurrent">Use current</button><a class="ad-button" id="addressCheck" target="_blank" rel="noopener noreferrer" hidden>Open address check</a></div>
-                                <p class="ad-help">The address check opens AniDōki’s marker page without Jellyfin credentials. It checks browser access, not external callback reachability.</p>
+                    <main class="doki-stack">
+                        <section class="doki-panel" id="doki-server"><h2>Server address</h2><p class="doki-help">Where people reach Jellyfin. Include http(s), the port if needed, and any base path. Leave blank to use the detected local address.</p>
+                            <div class="doki-field"><label for="apiUrl">Public address</label><input class="doki-input doki-mono" id="apiUrl" data-field="callbackUrl" type="url" aria-describedby="addressStatus"><p id="addressStatus" class="doki-status" role="status"></p>
+                                <div class="doki-actions"><button type="button" class="doki-button doki-chip" id="useLocal">Use local</button><button type="button" class="doki-button doki-chip" id="useCurrent">Use current</button><a class="doki-button" id="addressCheck" target="_blank" rel="noopener noreferrer" hidden>Open address check</a></div>
+                                <p class="doki-help">The address check opens AniDōki’s marker page without Jellyfin credentials. It checks browser access, not external callback reachability.</p>
                             </div>
-                            <div class="ad-field ad-callback"><label for="generalCallbackUrlInput">Callback URL</label><div class="ad-actions"><input class="ad-input ad-mono" id="generalCallbackUrlInput" readonly><button class="ad-button" id="copyCallback" type="button" disabled>Copy</button></div><p class="ad-help">Use this exact URL in your provider applications.</p></div>
+                            <div class="doki-field doki-callback"><label for="generalCallbackUrlInput">Callback URL</label><div class="doki-actions"><input class="doki-input doki-mono" id="generalCallbackUrlInput" readonly><button class="doki-button" id="copyCallback" type="button" disabled>Copy</button></div><p class="doki-help">Use this exact URL in your provider applications.</p></div>
                         </section>
-                        <section class="ad-panel" id="ad-providers"><h2>Provider apps</h2><p class="ad-help">Configure OAuth applications here. Kitsu uses per-user sign-in; Annict uses a personal token assigned under Users. Configuration completeness does not verify credentials.</p><div class="ad-provider-list" id="providerCards"></div><p class="ad-help">Saved secrets and tokens are kept in the AniDōki database in the Jellyfin data folder, not in the plugin configuration. Restrict access to that folder.</p></section>
-                        <section class="ad-panel" id="ad-behaviour"><h2>Sync behaviour</h2><p class="ad-help">Server-wide options for existing synchronization rules.</p>
-                            <label class="ad-check"><input class="ad-switch" type="checkbox" role="switch" data-field="enableUserPages" id="enableUserPages"><span><strong>Let users manage their tracking settings</strong><span class="ad-help">Requires Plugin Pages and a server restart after changing this option.</span></span></label>
-                            <label class="ad-check"><input class="ad-switch" type="checkbox" role="switch" data-field="watchedTickboxUpdatesProvider" id="watchedTickboxUpdatesProvider"><span><strong>Update trackers when marked watched</strong><span class="ad-help">Supported web clients ask before updating individual episodes. Clients without the prompt update automatically. Bulk marks in confirmation-enabled web sessions affect Jellyfin only.</span></span></label>
-                            <label class="ad-check"><input class="ad-switch" type="checkbox" role="switch" data-field="updateNsfw" id="UpdateNsfw"><span><strong>Include NSFW anime</strong><span class="ad-help">Allow the existing sync rules to update adult titles.</span></span></label>
+                        <section class="doki-panel" id="doki-providers"><h2>Provider apps</h2><p class="doki-help">Configure OAuth applications here. Kitsu uses per-user sign-in; Annict uses a personal token assigned under Users. Configuration completeness does not verify credentials.</p><div class="doki-provider-list" id="providerCards"></div><p class="doki-help">Saved secrets and tokens are kept in the AniDōki database in the Jellyfin data folder, not in the plugin configuration. Restrict access to that folder.</p></section>
+                        <section class="doki-panel" id="doki-behaviour"><h2>Sync behaviour</h2><p class="doki-help">Server-wide options for existing synchronization rules.</p>
+                            <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="enableUserPages" id="enableUserPages"><span><strong>Let users manage their tracking settings</strong><span class="doki-help">Requires Plugin Pages and a server restart after changing this option.</span></span></label>
+                            <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="watchedTickboxUpdatesProvider" id="watchedTickboxUpdatesProvider"><span><strong>Update trackers when marked watched</strong><span class="doki-help">Supported web clients ask before updating individual episodes. Clients without the prompt update automatically. Bulk marks in confirmation-enabled web sessions affect Jellyfin only.</span></span></label>
+                            <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="updateNsfw" id="UpdateNsfw"><span><strong>Include NSFW anime</strong><span class="doki-help">Allow the existing sync rules to update adult titles.</span></span></label>
                         </section>
-                        <section class="ad-panel ad-accounts-panel" id="ad-users">
-                            <div class="ad-panel-title"><h2>Users</h2><p class="ad-help">Manage each user’s linked accounts and tracking preferences. Account actions take effect immediately; preference edits wait for Save changes.</p></div>
-                            <div class="ad-panel-actions"><button class="ad-button" type="button" id="refreshAccounts">Refresh linked accounts</button><span class="ad-refresh-status" id="accountsRefreshStatus" role="status" hidden></span></div>
-                            <div class="ad-panel-body">
-                                <div class="ad-table-shell"><table class="ad-user-table" role="table"><thead><tr><th scope="col">Jellyfin user</th><th scope="col">Linked to</th><th scope="col"><span class="ad-sr-only">Actions</span></th></tr></thead><tbody id="userRows"></tbody></table></div>
-                                <section class="ad-user-panel" id="userPanel" aria-labelledby="selectedUserName" hidden>
-                                    <header class="ad-user-panel-header"><h3 id="selectedUserName" tabindex="-1"></h3><button class="ad-button" id="closeUserPanel" type="button" aria-label="Close user settings">Close</button></header>
-                                    <section class="ad-user-section"><h4>Linked accounts</h4><div id="userAccounts"></div></section>
-                                    <section class="ad-user-section"><h4>When you watch</h4><div id="userPreferences"></div></section>
-                                    <section class="ad-user-section"><h4>Libraries</h4><div id="userLibraries"></div></section>
+                        <section class="doki-panel doki-accounts-panel" id="doki-users">
+                            <div class="doki-panel-title"><h2>Users</h2><p class="doki-help">Manage each user’s linked accounts and tracking preferences. Account actions take effect immediately; preference edits wait for Save changes.</p></div>
+                            <div class="doki-panel-actions"><button class="doki-button" type="button" id="refreshAccounts">Refresh linked accounts</button><span class="doki-refresh-status" id="accountsRefreshStatus" role="status" hidden></span></div>
+                            <div class="doki-panel-body">
+                                <div class="doki-table-shell"><table class="doki-user-table" role="table"><thead><tr><th scope="col">Jellyfin user</th><th scope="col">Linked to</th><th scope="col"><span class="doki-sr-only">Actions</span></th></tr></thead><tbody id="userRows"></tbody></table></div>
+                                <section class="doki-user-panel" id="userPanel" aria-labelledby="selectedUserName" hidden>
+                                    <header class="doki-user-panel-header"><h3 id="selectedUserName" tabindex="-1"></h3><button class="doki-button" id="closeUserPanel" type="button" aria-label="Close user settings">Close</button></header>
+                                    <section class="doki-user-section"><h4>Linked accounts</h4><div id="userAccounts"></div></section>
+                                    <section class="doki-user-section"><h4>When you watch</h4><div id="userPreferences"></div></section>
+                                    <section class="doki-user-section"><h4>Libraries</h4><div id="userLibraries"></div></section>
                                 </section>
                             </div>
-                            <p class="ad-status ad-panel-feedback" id="accountsStatus" role="status"></p>
+                            <p class="doki-status doki-panel-feedback" id="accountsStatus" role="status"></p>
                         </section>
-                        <section class="ad-panel" id="ad-advanced"><h2>Advanced</h2><p class="ad-help">Optional redirects, matching service, export location, and authentication expiry.</p>
-                            <div class="ad-field"><label for="callbackRedirectUrlInput">After linking, redirect to</label><input class="ad-input ad-mono" id="callbackRedirectUrlInput" data-field="callbackRedirectUrl"><p class="ad-help">Supports {{LocalIpAddress}} and {{LocalPort}} substitutions.</p></div>
-                            <div class="ad-field"><label for="armServerBaseUrlInput">Anime matching service address</label><input class="ad-input ad-mono" id="armServerBaseUrlInput" data-field="armServerBaseUrl" type="url"><p class="ad-help">Leave blank for the default service.</p></div>
-                            <div class="ad-field"><label for="animeListSaveLocation">Anime list export folder</label><div class="ad-actions"><input class="ad-input ad-mono" id="animeListSaveLocation" data-field="animeListSaveLocation"><button class="ad-button" id="testAnimeListSaveLocation" type="button">Test folder</button></div><p class="ad-status" id="folderStatus" role="status"></p></div>
-                            <div class="ad-field"><label for="linkTimeExpire">Authentication link expiry (minutes)</label><input class="ad-input" id="linkTimeExpire" data-field="authenticationLinkExpireTimeMinutes" type="number" min="1" step="1"><p class="ad-help">The effective default is 1440 minutes (24 hours).</p></div>
+                        <section class="doki-panel" id="doki-advanced"><h2>Advanced</h2><p class="doki-help">Optional redirects, matching service, export location, and authentication expiry.</p>
+                            <div class="doki-field"><label for="callbackRedirectUrlInput">After linking, redirect to</label><input class="doki-input doki-mono" id="callbackRedirectUrlInput" data-field="callbackRedirectUrl"><p class="doki-help">Supports {{LocalIpAddress}} and {{LocalPort}} substitutions.</p></div>
+                            <div class="doki-field"><label for="armServerBaseUrlInput">Anime matching service address</label><input class="doki-input doki-mono" id="armServerBaseUrlInput" data-field="armServerBaseUrl" type="url"><p class="doki-help">Leave blank for the default service.</p></div>
+                            <div class="doki-field"><label for="animeListSaveLocation">Anime list export folder</label><div class="doki-actions"><input class="doki-input doki-mono" id="animeListSaveLocation" data-field="animeListSaveLocation"><button class="doki-button" id="testAnimeListSaveLocation" type="button">Test folder</button></div><p class="doki-status" id="folderStatus" role="status"></p></div>
+                            <div class="doki-field"><label for="linkTimeExpire">Authentication link expiry (minutes)</label><input class="doki-input" id="linkTimeExpire" data-field="authenticationLinkExpireTimeMinutes" type="number" min="1" step="1"><p class="doki-help">The effective default is 1440 minutes (24 hours).</p></div>
                         </section>
                     </main>
                 </div>
-                <div class="ad-save-bar" hidden><p class="ad-status" id="saveStatus" role="status">Unsaved changes</p><button class="ad-button" id="discardChanges" type="button">Discard</button><button class="ad-button ad-button-primary" id="saveChanges" type="submit">Save changes</button></div>
+                <div class="doki-save-bar" hidden><p class="doki-status" id="saveStatus" role="status">Unsaved changes</p><button class="doki-button" id="discardChanges" type="button">Discard</button><button class="doki-button doki-button-primary" id="saveChanges" type="submit">Save changes</button></div>
             </form>
         </div>
     </div>

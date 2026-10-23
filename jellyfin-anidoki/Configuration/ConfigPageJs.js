@@ -8,7 +8,7 @@ export default function (view) {
     const connected = userId => (saved.UserConfig?.find(user => user.UserId === userId)?.UserApiAuth ?? []).map(auth => auth.Name);
     const dirty = () => baseline && (state.changedValues(baseline, draft).length > 0 || [...libraryChoices.values()].some(choice => choice.mode === 'selected' && !choice.selected.length));
     const updateDirty = () => {
-        const changed = dirty(); find('.ad-save-bar').hidden = !changed;
+        const changed = dirty(); find('.doki-save-bar').hidden = !changed;
         if (changed && !busy) common.status(find('#saveStatus'), 'Unsaved changes');
     };
     const setBusy = value => {
@@ -168,9 +168,9 @@ export default function (view) {
         for (const provider of common.providers) {
             const record = draft.ProviderApiAuth.find(item => item.Name === provider.key);
             const savedRecord = baseline.ProviderApiAuth.find(item => item.Name === provider.key);
-            const row = common.element('details', 'ad-provider');
+            const row = common.element('details', 'doki-provider');
             const summary = common.element('summary');
-            const badge = common.element('span', 'ad-badge');
+            const badge = common.element('span', 'doki-badge');
             const refreshBadge = () => {
                 const unsaved = ['ClientId', 'ClientSecret', 'ClearClientSecret'].some(field => record[field] !== savedRecord?.[field]) || provider.key === 'Shikimori' && ['shikimoriAppName', 'shikimoriDomain'].some(field => draft[field] !== baseline[field]);
                 const hasSecret = Boolean(record.ClientSecret) || (secretState[provider.key] && !record.ClearClientSecret);
@@ -178,39 +178,39 @@ export default function (view) {
                 badge.textContent = unsaved ? `${readiness} · Unsaved` : readiness;
             };
             refreshBadge();
-            summary.append(common.providerIcon(provider), common.element('span', 'ad-provider-title', provider.name), badge); row.append(summary);
-            const body = common.element('div', 'ad-provider-body');
+            summary.append(common.providerIcon(provider), common.element('span', 'doki-provider-title', provider.name), badge); row.append(summary);
+            const body = common.element('div', 'doki-provider-body');
             if (['Kitsu', 'Annict'].includes(provider.key)) {
-                body.append(common.element('p', 'ad-help', provider.key === 'Kitsu' ? 'Kitsu does not need a server-wide OAuth app. Select a user below to sign in with their username and password.' : 'Annict uses a personal access token. Select the intended user below to link it; tokens are never copied to another user.'));
+                body.append(common.element('p', 'doki-help', provider.key === 'Kitsu' ? 'Kitsu does not need a server-wide OAuth app. Select a user below to sign in with their username and password.' : 'Annict uses a personal access token. Select the intended user below to link it; tokens are never copied to another user.'));
             } else {
-                const grid = common.element('div', 'ad-grid');
-                const idRoot = common.element('div', 'ad-field');
+                const grid = common.element('div', 'doki-grid');
+                const idRoot = common.element('div', 'doki-field');
                 const idLabel = common.element('label', '', 'Client ID');
-                const idInput = common.element('input', 'ad-input ad-mono');
+                const idInput = common.element('input', 'doki-input doki-mono');
                 idInput.type = 'text';
                 idInput.value = record.ClientId;
                 idInput.autocomplete = 'off';
-                idInput.id = `ad-${provider.key}-ClientId`;
+                idInput.id = `doki-${provider.key}-ClientId`;
                 idLabel.htmlFor = idInput.id;
                 idInput.addEventListener('input', () => { record.ClientId = idInput.value; refreshBadge(); updateDirty(); }, { signal });
                 idRoot.append(idLabel, idInput);
                 grid.append(idRoot);
 
-                const secretRoot = common.element('div', 'ad-field');
+                const secretRoot = common.element('div', 'doki-field');
                 const secretLabel = common.element('label', '', 'Client secret');
-                const input = common.element('input', 'ad-input ad-mono');
+                const input = common.element('input', 'doki-input doki-mono');
                 input.type = 'password';
                 input.value = record.ClientSecret;
                 input.autocomplete = 'off';
-                input.id = `ad-${provider.key}-ClientSecret`;
+                input.id = `doki-${provider.key}-ClientSecret`;
                 secretLabel.htmlFor = input.id;
-                const footer = common.element('div', 'ad-field-footer');
-                const clear = common.element('button', 'ad-button ad-button-quiet', 'Clear secret');
+                const footer = common.element('div', 'doki-field-footer');
+                const clear = common.element('button', 'doki-button doki-button-quiet', 'Clear secret');
                 clear.type = 'button';
                 clear.setAttribute('aria-label', `Clear ${provider.name} secret`);
-                const confirmation = common.element('div', 'ad-clear-confirm');
+                const confirmation = common.element('div', 'doki-clear-confirm');
                 confirmation.hidden = true;
-                confirmation.id = `ad-${provider.key}-clear-confirm`;
+                confirmation.id = `doki-${provider.key}-clear-confirm`;
                 clear.setAttribute('aria-controls', confirmation.id);
                 clear.setAttribute('aria-expanded', 'false');
                 const placeholder = () => {
@@ -225,9 +225,9 @@ export default function (view) {
                     refreshBadge();
                     updateDirty();
                 }, { signal });
-                confirmation.append(common.element('p', 'ad-help', `Clear the ${provider.name} secret when you save changes?`));
-                const actions = common.element('div', 'ad-actions');
-                const confirm = common.element('button', 'ad-button', 'Confirm clear');
+                confirmation.append(common.element('p', 'doki-help', `Clear the ${provider.name} secret when you save changes?`));
+                const actions = common.element('div', 'doki-actions');
+                const confirm = common.element('button', 'doki-button', 'Confirm clear');
                 confirm.type = 'button';
                 confirm.setAttribute('aria-label', `Confirm clear ${provider.name} secret`);
                 confirm.addEventListener('click', () => {
@@ -242,7 +242,7 @@ export default function (view) {
                     updateDirty();
                     input.focus();
                 }, { signal });
-                const keep = common.element('button', 'ad-button', 'Keep secret');
+                const keep = common.element('button', 'doki-button', 'Keep secret');
                 keep.type = 'button';
                 keep.addEventListener('click', () => { confirmation.hidden = true; clear.setAttribute('aria-expanded', 'false'); clear.focus(); }, { signal });
                 actions.append(confirm, keep);
@@ -256,12 +256,12 @@ export default function (view) {
                 body.append(grid);
                 if (provider.key === 'Shikimori') {
                     for (const [field, title] of [['shikimoriAppName', 'App name (User-Agent)'], ['shikimoriDomain', 'Shikimori domain']]) {
-                        const label = common.element('label', 'ad-field', title); const input = common.element('input', 'ad-input'); input.dataset.field = field; input.value = draft[field] ?? ''; label.append(input); body.append(label);
+                        const label = common.element('label', 'doki-field', title); const input = common.element('input', 'doki-input'); input.dataset.field = field; input.value = draft[field] ?? ''; label.append(input); body.append(label);
                         input.addEventListener('input', () => { draft[field] = input.value; refreshBadge(); }, { signal });
                     }
                 }
                 if (provider.key === 'Simkl') {
-                    const label = common.element('label', 'ad-check'); const input = common.element('input', 'ad-switch'); input.type = 'checkbox'; input.setAttribute('role', 'switch'); input.dataset.field = 'simklUpdateAll'; input.checked = draft.simklUpdateAll ?? false; label.append(input, common.element('span', '', 'Update all Simkl episodes up to the current point')); body.append(label);
+                    const label = common.element('label', 'doki-check'); const input = common.element('input', 'doki-switch'); input.type = 'checkbox'; input.setAttribute('role', 'switch'); input.dataset.field = 'simklUpdateAll'; input.checked = draft.simklUpdateAll ?? false; label.append(input, common.element('span', '', 'Update all Simkl episodes up to the current point')); body.append(label);
                 }
             }
             row.append(body); container.append(row);
@@ -271,13 +271,13 @@ export default function (view) {
     function renderUsers(signal) {
         find('#userRows').replaceChildren();
         const count = users.filter(user => connected(user.Id).length).length;
-        find('#configurationSummary').replaceChildren(common.element('span', 'ad-badge', `${count} ${count === 1 ? 'user' : 'users'} linked`));
-        if (!users.length) { const row = common.element('tr'); const cell = common.element('td', 'ad-help', 'No Jellyfin users found.'); cell.colSpan = 3; row.append(cell); find('#userRows').append(row); }
+        find('#configurationSummary').replaceChildren(common.element('span', 'doki-badge', `${count} ${count === 1 ? 'user' : 'users'} linked`));
+        if (!users.length) { const row = common.element('tr'); const cell = common.element('td', 'doki-help', 'No Jellyfin users found.'); cell.colSpan = 3; row.append(cell); find('#userRows').append(row); }
         for (const user of users) {
             const row = common.element('tr'); const title = common.element('td'); title.append(common.element('strong', '', user.Name));
-            const linked = common.element('td', 'ad-muted', connected(user.Id).map(common.providerName).join(', ') || 'No linked accounts');
+            const linked = common.element('td', 'doki-muted', connected(user.Id).map(common.providerName).join(', ') || 'No linked accounts');
             const actions = common.element('td');
-            const button = common.element('button', 'ad-button ad-icon-button'); button.append(common.icon('pencil')); button.type = 'button'; button.dataset.userId = user.Id; button.title = `Edit ${user.Name} tracking settings`; button.setAttribute('aria-label', `Manage ${user.Name}`); button.setAttribute('aria-controls', 'userPanel'); button.setAttribute('aria-expanded', String(selectedUser === user.Id));
+            const button = common.element('button', 'doki-button doki-icon-button'); button.append(common.icon('pencil')); button.type = 'button'; button.dataset.userId = user.Id; button.title = `Edit ${user.Name} tracking settings`; button.setAttribute('aria-label', `Manage ${user.Name}`); button.setAttribute('aria-controls', 'userPanel'); button.setAttribute('aria-expanded', String(selectedUser === user.Id));
             button.addEventListener('click', () => { selectedUser = user.Id; renderUser(signal); find('#userPanel').scrollIntoView({ block: 'start' }); find('#selectedUserName').focus({ preventScroll: true }); }, { signal });
             actions.append(button); row.append(title, linked, actions); find('#userRows').append(row);
         }
@@ -291,9 +291,9 @@ export default function (view) {
             action: (kind, provider, credentials) => accountAction(user.Id, kind, provider, credentials, signal) }, signal);
         find('#userPreferences').replaceChildren();
         for (const [field, title, help] of [['PlanToWatchOnly', 'Only update anime on Plan to watch', 'Limit changes to titles already on the user’s plan-to-watch list.'], ['RewatchCompleted', 'Rewatch completed anime', 'Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.'], ['ShowLogNotifications', 'Show tracker update toasts', 'Show confirmed updates after playback stops in the originating Jellyfin web session. Requires compatible File Transformation and a web refresh.']]) {
-            const label = common.element('label', 'ad-check'); const input = common.element('input', 'ad-switch'); input.type = 'checkbox'; input.setAttribute('role', 'switch'); input.checked = prefs[field];
+            const label = common.element('label', 'doki-check'); const input = common.element('input', 'doki-switch'); input.type = 'checkbox'; input.setAttribute('role', 'switch'); input.checked = prefs[field];
             input.addEventListener('change', () => { prefs[field] = input.checked; updateDirty(); }, { signal });
-            const text = common.element('span'); text.append(common.element('strong', '', title), common.element('span', 'ad-help', help)); label.append(input, text); find('#userPreferences').append(label);
+            const text = common.element('span'); text.append(common.element('strong', '', title), common.element('span', 'doki-help', help)); label.append(input, text); find('#userPreferences').append(label);
         }
         if (!libraryChoices.has(user.Id)) libraryChoices.set(user.Id, {});
         libraryValidators.set(user.Id, common.renderLibraries(find('#userLibraries'), prefs, parameters.libraries ?? [], signal, updateDirty, libraryChoices.get(user.Id)));
