@@ -73,7 +73,7 @@
    sourceEpisode:12,episodeTitle:'The Real Hero',state:'Pending',expiresUtc:new Date(Date.now()+120000).toISOString(),outcomes:[],reason:''});
   document.dispatchEvent(new Event('viewshow'));
  };panel.prepend(confirmation);
- const pause=document.createElement('button');pause.textContent='Pause fixture countdown';pause.onclick=()=>document.querySelectorAll('.ad-toast').forEach(x=>x.dispatchEvent(new Event('mouseenter')));panel.append(pause);
+ const pause=document.createElement('button');pause.textContent='Pause fixture countdown';pause.onclick=()=>document.querySelectorAll('.doki-toast').forEach(x=>x.dispatchEvent(new Event('mouseenter')));panel.append(pause);
  const fullscreen=document.createElement('button');fullscreen.textContent='Test container fullscreen';
  fullscreen.onclick=async()=>{
   const frame=document.createElement('section');frame.id='anidoki-fixture-fullscreen';frame.style.cssText='background:var(--jf-palette-background-default,#18202d);width:100%;height:100%;color:white';

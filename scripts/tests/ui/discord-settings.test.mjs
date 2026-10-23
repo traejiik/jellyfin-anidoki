@@ -56,7 +56,7 @@ test('webhook reveal preserves a pasted draft without sending a request', async 
     const env=fixture(()=>({empty:true}));const scope=new AbortController();
     await mountDiscord(env.root,env.common,{},scope.signal,()=>false);
     const input=env.nodes.discordWebhook;
-    assert.equal(input.parent.className,'ad-secret-input');
+    assert.equal(input.parent.className,'doki-secret-input');
     input.value='https://discord.com/api/webhooks/123456789012345678/visual-test-only';
     input.dispatchEvent(new Event('input'));
     const reveal=input.parent.children[1];reveal.dispatchEvent(new Event('click'));

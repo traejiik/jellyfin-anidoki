@@ -65,7 +65,7 @@ async function setupAdmin(t, users = []) {
     nodes.userPanel.hidden = true;
     nodes.accountsRefreshStatus.hidden = true;
     const root = new DomElement(), view = new DomElement(), bar = new DomElement(), pageStatus = new DomElement();
-    view.querySelector = selector => selector === '.anidoki' ? root : selector === '.ad-save-bar' ? bar
+    view.querySelector = selector => selector === '.anidoki' ? root : selector === '.doki-save-bar' ? bar
         : selector === '[data-page-status]' ? pageStatus : nodes[selector.slice(1)];
     view.querySelectorAll = selector => selector === '[data-field]' ? [nodes.apiUrl] : Object.values(nodes);
     root.querySelector = selector => view.querySelector(selector);

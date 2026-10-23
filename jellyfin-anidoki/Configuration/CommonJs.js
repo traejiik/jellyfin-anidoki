@@ -31,8 +31,8 @@ export function icon(name) {
     return svg;
 }
 export function secretInput(input, name, signal) {
-    const group = element('div', 'ad-secret-input');
-    const reveal = element('button', 'ad-reveal'); reveal.type = 'button';
+    const group = element('div', 'doki-secret-input');
+    const reveal = element('button', 'doki-reveal'); reveal.type = 'button';
     const update = () => {
         const visible = input.type === 'text';
         const label = `${visible ? 'Hide' : 'Show'} ${name} secret`;
@@ -44,7 +44,7 @@ export function secretInput(input, name, signal) {
     update(); group.append(input, reveal); return group;
 }
 export function providerIcon(provider) {
-    const image = element('img', 'ad-provider-logo');
+    const image = element('img', 'doki-provider-logo');
     image.src = assetUrl(`provider-${provider.key.toLowerCase()}.${provider.key === 'Annict' ? 'png' : 'svg'}`);
     image.alt = ''; image.width = 40; image.height = 40;
     return image;
@@ -53,7 +53,7 @@ export function refreshFeedback(node, refreshed) {
     node.replaceChildren(); node.hidden = !refreshed;
     if (refreshed) {
         node.title = 'Linked accounts refreshed';
-        node.append(icon('check'), element('span', 'ad-sr-only', 'Linked accounts refreshed'));
+        node.append(icon('check'), element('span', 'doki-sr-only', 'Linked accounts refreshed'));
     }
 }
 export function status(node, text, tone = '') {
@@ -122,7 +122,7 @@ export function safeExternalUrl(address) {
 }
 export function authorizationLink(container, url, name) {
     container.replaceChildren();
-    const link = element('a', 'ad-button', `Continue to ${name}`);
+    const link = element('a', 'doki-button', `Continue to ${name}`);
     link.href = safeExternalUrl(url); link.target = '_blank'; link.rel = 'noopener noreferrer';
     container.append(link);
 }
@@ -136,11 +136,11 @@ export function prepareStickyShell(root, signal) {
     // controls. Mark only this active plugin's content ancestors and restore on hide.
     const marked = [];
     for (let node = root.parentElement; node && node !== document.body; node = node.parentElement) {
-        if (node.matches('[data-role="content"]') && !node.classList.contains('ad-content-shell')) {
-            node.classList.add('ad-content-shell'); marked.push(node);
+        if (node.matches('[data-role="content"]') && !node.classList.contains('doki-content-shell')) {
+            node.classList.add('doki-content-shell'); marked.push(node);
         }
     }
-    signal.addEventListener('abort', () => marked.forEach(node => node.classList.remove('ad-content-shell')), { once: true });
+    signal.addEventListener('abort', () => marked.forEach(node => node.classList.remove('doki-content-shell')), { once: true });
 }
 // One listener set per active view. State is owned by the page factory and survives
 // viewhide only while Jellyfin retains that view in its cache.
@@ -159,12 +159,12 @@ export function mountPage(view, start) {
     return show;
 }
 export function observeSaveBar(root, signal) {
-    const bar = root.querySelector('.ad-save-bar'); if (!bar) return;
-    const observer = new ResizeObserver(() => root.style.setProperty('--ad-save-height', `${bar.offsetHeight + 48}px`));
+    const bar = root.querySelector('.doki-save-bar'); if (!bar) return;
+    const observer = new ResizeObserver(() => root.style.setProperty('--doki-save-height', `${bar.offsetHeight + 48}px`));
     observer.observe(bar); signal.addEventListener('abort', () => observer.disconnect(), { once: true });
 }
 export function bindNavigation(root, signal) {
-    const links = [...root.querySelectorAll('.ad-section-nav a')];
+    const links = [...root.querySelectorAll('.doki-section-nav a')];
     const revealPill = link => {
         const nav = link.parentElement;
         const edge = nav.getBoundingClientRect(), item = link.getBoundingClientRect();
@@ -197,7 +197,7 @@ export function bindDraftWarning(view, isDirty, signal) {
     // navigation links during this view's active lifetime without patching its router.
     document.addEventListener('click', event => {
         const link = event.target.closest?.('a[href]');
-        if (!link || link.closest('.ad-section-nav') || link.target === '_blank' || !isDirty()) return;
+        if (!link || link.closest('.doki-section-nav') || link.target === '_blank' || !isDirty()) return;
         const url = new URL(link.href, location.href);
         if (url.href === location.href || url.origin !== location.origin) return;
         if (!window.confirm('Leave this page? Unsaved changes may be lost if Jellyfin reloads it.')) {
@@ -212,33 +212,33 @@ let libraryGroupCounter = 0;
 
 export function renderLibraries(container, preferences, libraries, signal, onChange, choice = {}) {
     container.replaceChildren();
-    container.classList.add('ad-library-controls');
+    container.classList.add('doki-library-controls');
     choice.mode ??= preferences.LibraryToCheck.length ? 'selected' : 'all';
     choice.selected ??= [...preferences.LibraryToCheck];
     const group = `anidoki-libraries-${++libraryGroupCounter}`;
-    const modes = element('div', 'ad-library-modes');
-    const list = element('div', 'ad-library-list');
-    const message = element('p', 'ad-help ad-library-help');
+    const modes = element('div', 'doki-library-modes');
+    const list = element('div', 'doki-library-list');
+    const message = element('p', 'doki-help doki-library-help');
     const update = () => {
         list.hidden = choice.mode === 'all'; preferences.LibraryToCheck = choice.mode === 'all' ? [] : [...choice.selected];
         message.textContent = choice.mode === 'all' ? 'All current and future libraries are included.' : !choice.selected.length ? 'Pick at least one library, or choose All libraries.' : 'Unavailable selections stay saved until you remove them.';
         onChange();
     };
     for (const [value, title, help] of [['all', 'All libraries', 'Track matching anime across all current and future libraries.'], ['selected', 'Only the ones I pick', 'Track matching anime only in the libraries you select below.']]) {
-        const label = element('label', 'ad-scope-card'); const input = element('input');
+        const label = element('label', 'doki-scope-card'); const input = element('input');
         input.type = 'radio'; input.name = group; input.value = value; input.checked = choice.mode === value;
         input.addEventListener('change', () => { choice.mode = value; update(); }, { signal });
-        const text = element('span'); text.append(element('strong', '', title), element('span', 'ad-help', help));
+        const text = element('span'); text.append(element('strong', '', title), element('span', 'doki-help', help));
         label.append(input, text); modes.append(label);
     }
     const choices = libraries.map(library => ({ id: library.Id ?? library.ItemId, name: library.Name }));
     for (const id of choice.selected) if (!choices.some(item => item.id === id)) choices.push({ id, name: `Unavailable library (${id})` });
     for (const item of choices) {
-        const label = element('label', 'ad-library-choice'); const input = element('input', 'ad-choice-checkbox'); input.type = 'checkbox'; input.checked = choice.selected.includes(item.id);
+        const label = element('label', 'doki-library-choice'); const input = element('input', 'doki-choice-checkbox'); input.type = 'checkbox'; input.checked = choice.selected.includes(item.id);
         input.addEventListener('change', () => { choice.selected = input.checked ? [...new Set([...choice.selected, item.id])] : choice.selected.filter(id => id !== item.id); update(); }, { signal });
         label.append(input, element('span', '', item.name)); list.append(label);
     }
-    if (!choices.length) list.append(element('p', 'ad-help', 'No libraries are available.'));
+    if (!choices.length) list.append(element('p', 'doki-help', 'No libraries are available.'));
     container.append(modes, list, message); update();
     return () => choice.mode === 'all' || choice.selected.length > 0;
 }
@@ -247,12 +247,12 @@ export function renderAccounts(container, { linked, visible, admin = false, user
     container.replaceChildren();
     for (const provider of providers.filter(item => visible.includes(item.key) || linked.includes(item.key))) {
         const connected = linked.includes(provider.key);
-        const row = element('div', 'ad-account-row');
-        const title = element('div', 'ad-row-name'); title.append(element('strong', '', provider.name));
-        title.append(element('div', 'ad-help', connected ? 'Linked' : provider.key === 'Kitsu' ? 'Direct sign-in' : provider.key === 'Annict' ? 'Personal token' : 'Not linked'));
+        const row = element('div', 'doki-account-row');
+        const title = element('div', 'doki-row-name'); title.append(element('strong', '', provider.name));
+        title.append(element('div', 'doki-help', connected ? 'Linked' : provider.key === 'Kitsu' ? 'Direct sign-in' : provider.key === 'Annict' ? 'Personal token' : 'Not linked'));
         row.append(providerIcon(provider), title);
-        const feedback = element('p', 'ad-status'); feedback.setAttribute('role', 'status');
-        const detail = element('div', 'ad-account-detail'); detail.hidden = true;
+        const feedback = element('p', 'doki-status'); feedback.setAttribute('role', 'status');
+        const detail = element('div', 'doki-account-detail'); detail.hidden = true;
         const buttons = [];
         const run = async (kind, credentials = {}) => {
             buttons.forEach(button => button.disabled = true); status(feedback, 'Working…');
@@ -268,33 +268,33 @@ export function renderAccounts(container, { linked, visible, admin = false, user
             finally { if (!signal.aborted) buttons.forEach(button => button.disabled = false); }
         };
         const button = (label, handler) => {
-            const node = element('button', 'ad-button', label); node.type = 'button'; node.addEventListener('click', handler, { signal }); buttons.push(node); return node;
+            const node = element('button', 'doki-button', label); node.type = 'button'; node.addEventListener('click', handler, { signal }); buttons.push(node); return node;
         };
         if (connected) {
             row.append(button('Test', () => run('test')));
             row.append(button('Disconnect', () => {
-                detail.replaceChildren(element('p', 'ad-help', `Disconnect ${provider.name} for ${userName}? This takes effect immediately.`));
+                detail.replaceChildren(element('p', 'doki-help', `Disconnect ${provider.name} for ${userName}? This takes effect immediately.`));
                 detail.append(button('Confirm disconnect', () => run('disconnect')), button('Keep linked', () => detail.hidden = true)); detail.hidden = false;
             }));
         } else if (provider.key === 'Annict' && !admin) {
-            row.append(element('span', 'ad-help', 'Ask your administrator to link a personal token.'));
+            row.append(element('span', 'doki-help', 'Ask your administrator to link a personal token.'));
         } else if (provider.key === 'Kitsu' || provider.key === 'Annict') {
             row.append(button('Link', () => {
                 detail.replaceChildren();
                 const credentials = {};
-                const fields = element('div', 'ad-account-fields');
+                const fields = element('div', 'doki-account-fields');
                 for (const [key, label, type] of provider.key === 'Kitsu' ? [['Username', 'Kitsu username or email', 'text'], ['Password', 'Kitsu password', 'password']] : [['Token', `Annict token for ${userName}`, 'password']]) {
-                    const field = element('label', 'ad-field', label); const input = element('input', 'ad-input'); input.type = type; input.autocomplete = 'off'; field.append(input); fields.append(field); credentials[key] = input;
+                    const field = element('label', 'doki-field', label); const input = element('input', 'doki-input'); input.type = type; input.autocomplete = 'off'; field.append(input); fields.append(field); credentials[key] = input;
                 }
                 detail.append(fields);
-                if (provider.key === 'Annict') detail.append(element('p', 'ad-help', 'The token is kept in the AniDōki database on the server, not in the plugin configuration.'));
-                const actions = element('div', 'ad-actions');
+                if (provider.key === 'Annict') detail.append(element('p', 'doki-help', 'The token is kept in the AniDōki database on the server, not in the plugin configuration.'));
+                const actions = element('div', 'doki-actions');
                 const link = button('Link account', async () => {
                     const values = Object.fromEntries(Object.entries(credentials).map(([key, input]) => [key, input.value]));
                     if (Object.values(values).some(value => !value)) { status(feedback, 'Fill in all account fields.', 'error'); return; }
                     try { await run('link', values); } finally { for (const input of Object.values(credentials)) if (input.type === 'password') input.value = ''; }
                 });
-                link.classList.add('ad-button-primary');
+                link.classList.add('doki-button-primary');
                 actions.append(link, button('Close', () => { detail.replaceChildren(); detail.hidden = true; }));
                 detail.append(actions); detail.hidden = false;
                 signal.addEventListener('abort', () => { detail.replaceChildren(); }, { once: true });

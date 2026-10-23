@@ -12,20 +12,20 @@ export function startNotifications(win = window, doc = document) {
     }
     // The results box: one row per tracker result. The icon is CSS (data-icon) and is read out as the hidden word.
     function resultLines(lines) {
-        const list = node('ul', 'ad-toast-lines');
+        const list = node('ul', 'doki-toast-lines');
         for (const line of lines) {
-            const row = node('li', 'ad-toast-line'); row.dataset.tone = line.tone; row.dataset.icon = line.icon;
-            const body = node('span', 'ad-toast-line-body');
-            body.append(node('span', 'ad-sr-only', `${line.spoken}: `), node('span', 'ad-toast-line-main', line.entry || line.text));
+            const row = node('li', 'doki-toast-line'); row.dataset.tone = line.tone; row.dataset.icon = line.icon;
+            const body = node('span', 'doki-toast-line-body');
+            body.append(node('span', 'doki-sr-only', `${line.spoken}: `), node('span', 'doki-toast-line-main', line.entry || line.text));
             const sub = line.entry ? line.text : line.note;
-            if (sub) body.append(node('span', 'ad-toast-line-sub', sub));
+            if (sub) body.append(node('span', 'doki-toast-line-sub', sub));
             row.append(body); list.append(row);
         }
         return list;
     }
     const spokenLines = lines => lines.map(line => [line.spoken, line.entry, line.text, line.note].filter(Boolean).join(', '));
     function label(presentation) {
-        const element = node('div', 'ad-toast-label', presentation.heading);
+        const element = node('div', 'doki-toast-label', presentation.heading);
         if (presentation.icon) element.dataset.icon = presentation.icon;
         return element;
     }
@@ -48,8 +48,8 @@ export function startNotifications(win = window, doc = document) {
         for (const item of [...rendered.values(), ...manualRendered.values()]) unsupported ? item.timer.pause('fullscreen') : item.timer.resume('fullscreen');
     }
     function createHost() {
-        host = node('div', 'anidoki ad-notification-host');
-        announcement = node('div', 'ad-sr-only'); announcement.setAttribute('role', 'status'); announcement.setAttribute('aria-live', 'polite'); announcement.setAttribute('aria-atomic', 'true');
+        host = node('div', 'anidoki doki-notification-host');
+        announcement = node('div', 'doki-sr-only'); announcement.setAttribute('role', 'status'); announcement.setAttribute('aria-live', 'polite'); announcement.setAttribute('aria-atomic', 'true');
         host.append(announcement); mount();
     }
     function dismiss(id) {
@@ -66,14 +66,14 @@ export function startNotifications(win = window, doc = document) {
         for (const event of state.visible) {
             if (rendered.has(event.eventId)) continue;
             const presentation = buildPresentation(event); if (!presentation) continue;
-            const root = node('section', 'ad-toast'); root.dataset.tone = presentation.tone; const content = node('div', 'ad-toast-content');
-            content.append(label(presentation), node('h2', 'ad-toast-title', presentation.title));
-            if (presentation.detail) content.append(node('p', 'ad-toast-detail', presentation.detail));
+            const root = node('section', 'doki-toast'); root.dataset.tone = presentation.tone; const content = node('div', 'doki-toast-content');
+            content.append(label(presentation), node('h2', 'doki-toast-title', presentation.title));
+            if (presentation.detail) content.append(node('p', 'doki-toast-detail', presentation.detail));
             if (presentation.lines.length) content.append(resultLines(presentation.lines));
-            if (presentation.note) content.append(node('p', 'ad-toast-detail', presentation.note));
-            const close = node('button', 'ad-toast-close', '×'); close.type = 'button'; close.setAttribute('aria-label', 'Dismiss tracker update');
+            if (presentation.note) content.append(node('p', 'doki-toast-detail', presentation.note));
+            const close = node('button', 'doki-toast-close', '×'); close.type = 'button'; close.setAttribute('aria-label', 'Dismiss tracker update');
             close.addEventListener('click', () => dismiss(event.eventId), { signal: lifetime.signal });
-            const track = node('div', 'ad-toast-countdown'); track.setAttribute('aria-hidden', 'true'); const bar = node('div', 'ad-toast-countdown-fill'); track.append(bar);
+            const track = node('div', 'doki-toast-countdown'); track.setAttribute('aria-hidden', 'true'); const bar = node('div', 'doki-toast-countdown-fill'); track.append(bar);
             root.append(content, close, track);
             const timer = createVisibleTimer(); if (doc.hidden) timer.pause('hidden');
             root.addEventListener('mouseenter', () => timer.pause('hover'), { signal: lifetime.signal });
@@ -108,24 +108,24 @@ export function startNotifications(win = window, doc = document) {
             const id = operation.operationId, busy = commands.has(id), old = manualRendered.get(id);
             if (old?.revision === operation.revision && old.busy === busy) continue;
             const focused = old?.root.contains(doc.activeElement); old?.root.remove();
-            const p = buildManualMarkPresentation(operation), root = node('section', 'ad-toast ad-manual-toast'), content = node('div', 'ad-toast-content');
+            const p = buildManualMarkPresentation(operation), root = node('section', 'doki-toast doki-manual-toast'), content = node('div', 'doki-toast-content');
             root.dataset.state = operation.state; root.dataset.tone = p.tone;
             const heading = label(p);
-            if (p.spinner) { const spinner = node('span', 'ad-update-spinner'); spinner.setAttribute('aria-hidden','true'); heading.prepend(spinner); }
-            content.append(heading, node('h2', 'ad-toast-title', operation.sourceTitle));
-            if (operation.sourceEpisode != null || operation.episodeTitle) content.append(node('p','ad-toast-detail', [operation.sourceEpisode == null ? 'Episode number unavailable' : `Episode ${operation.sourceEpisode}`, operation.episodeTitle || 'Episode title unavailable'].join(' · ')));
-            const detail = p.detail ? node('p', 'ad-toast-detail', p.detail) : null;
+            if (p.spinner) { const spinner = node('span', 'doki-update-spinner'); spinner.setAttribute('aria-hidden','true'); heading.prepend(spinner); }
+            content.append(heading, node('h2', 'doki-toast-title', operation.sourceTitle));
+            if (operation.sourceEpisode != null || operation.episodeTitle) content.append(node('p','doki-toast-detail', [operation.sourceEpisode == null ? 'Episode number unavailable' : `Episode ${operation.sourceEpisode}`, operation.episodeTitle || 'Episode title unavailable'].join(' · ')));
+            const detail = p.detail ? node('p', 'doki-toast-detail', p.detail) : null;
             if (detail && !p.detailAfterLines) content.append(detail);
             if (p.lines.length) content.append(resultLines(p.lines));
             if (detail && p.detailAfterLines) content.append(detail);
             if (operation.state === 'Pending') {
-                const actions = node('div','ad-toast-actions');
+                const actions = node('div','doki-toast-actions');
                 for (const [text, action] of [['Update trackers','confirm'],['Dismiss','dismiss']]) {
-                    const button = node('button',action === 'confirm' ? 'ad-button ad-button-primary' : 'ad-button',text); button.type='button'; button.disabled=busy || manualUnavailable;
+                    const button = node('button',action === 'confirm' ? 'doki-button doki-button-primary' : 'doki-button',text); button.type='button'; button.disabled=busy || manualUnavailable;
                     button.addEventListener('click',()=>command(operation,action),{signal:lifetime.signal}); actions.append(button);
                 } content.append(actions);
             }
-            const close = node('button','ad-toast-close','×'); close.type='button'; close.disabled=busy;
+            const close = node('button','doki-toast-close','×'); close.type='button'; close.disabled=busy;
             close.setAttribute('aria-label', ['Pending','Queued'].includes(operation.state) ? 'Dismiss tracker confirmation' : 'Close tracker update');
             close.addEventListener('click',()=>{ if(['Pending','Queued'].includes(operation.state)) command(operation,'dismiss'); else { manual.hide(id); render(); } },{signal:lifetime.signal});
             root.append(content,close);
@@ -133,8 +133,8 @@ export function startNotifications(win = window, doc = document) {
             if (!p.terminal) timer.pause('active'); if(doc.hidden)timer.pause('hidden');
             let bar;
             if (p.terminal) {
-                const track = node('div','ad-toast-countdown'); track.setAttribute('aria-hidden','true');
-                bar = node('div','ad-toast-countdown-fill'); bar.style.transform = `scaleX(${timer.remaining() / 6000})`;
+                const track = node('div','doki-toast-countdown'); track.setAttribute('aria-hidden','true');
+                bar = node('div','doki-toast-countdown-fill'); bar.style.transform = `scaleX(${timer.remaining() / 6000})`;
                 track.append(bar); root.append(track);
             }
             root.addEventListener('mouseenter',()=>timer.pause('hover'),{signal:lifetime.signal});root.addEventListener('mouseleave',()=>timer.resume('hover'),{signal:lifetime.signal});

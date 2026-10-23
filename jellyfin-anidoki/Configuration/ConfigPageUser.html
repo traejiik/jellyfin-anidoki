@@ -1,33 +1,33 @@
 <div id="TemplateConfigPage" data-role="page" class="page type-interior">
-    <div data-role="content"><div class="anidoki ad-user-page">
-        <header class="ad-header"><div><h1>AniDōki Tracking settings</h1><p class="ad-help">Choose the accounts and libraries that follow what you watch.</p></div></header>
-        <p class="ad-status" data-page-status role="status">Loading your settings…</p>
+    <div data-role="content"><div class="anidoki doki-user-page">
+        <header class="doki-header"><div><h1>AniDōki Tracking settings</h1><p class="doki-help">Choose the accounts and libraries that follow what you watch.</p></div></header>
+        <p class="doki-status" data-page-status role="status">Loading your settings…</p>
         <form id="TemplateConfigForm" hidden>
-            <main class="ad-stack ad-content">
-                <section class="ad-panel ad-accounts-panel">
-                    <div class="ad-panel-title"><h2>Linked accounts</h2><p class="ad-help">Link, Test, and Disconnect take effect immediately. Discard only resets preference edits.</p></div>
-                    <div class="ad-panel-actions"><button class="ad-button" type="button" id="refreshAccounts">Refresh linked accounts</button><span class="ad-refresh-status" id="accountsRefreshStatus" role="status" hidden></span></div>
-                    <div class="ad-panel-body" id="linkedAccounts"></div><p class="ad-status ad-panel-feedback" id="accountsStatus" role="status"></p>
+            <main class="doki-stack doki-content">
+                <section class="doki-panel doki-accounts-panel">
+                    <div class="doki-panel-title"><h2>Linked accounts</h2><p class="doki-help">Link, Test, and Disconnect take effect immediately. Discard only resets preference edits.</p></div>
+                    <div class="doki-panel-actions"><button class="doki-button" type="button" id="refreshAccounts">Refresh linked accounts</button><span class="doki-refresh-status" id="accountsRefreshStatus" role="status" hidden></span></div>
+                    <div class="doki-panel-body" id="linkedAccounts"></div><p class="doki-status doki-panel-feedback" id="accountsStatus" role="status"></p>
                 </section>
-                <section class="ad-panel"><h2>When you watch</h2><p class="ad-help">These preferences apply to your existing tracking rules.</p>
-                    <label class="ad-check"><input class="ad-switch" type="checkbox" role="switch" id="PlanToWatchOnly"><span><strong>Only update anime on Plan to watch</strong><span class="ad-help">Limit changes to titles already on your plan-to-watch list.</span></span></label>
-                    <label class="ad-check"><input class="ad-switch" type="checkbox" role="switch" id="RewatchCompleted"><span><strong>Rewatch completed anime</strong><span class="ad-help" id="rewatchHelp">Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.</span></span></label>
+                <section class="doki-panel"><h2>When you watch</h2><p class="doki-help">These preferences apply to your existing tracking rules.</p>
+                    <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" id="PlanToWatchOnly"><span><strong>Only update anime on Plan to watch</strong><span class="doki-help">Limit changes to titles already on your plan-to-watch list.</span></span></label>
+                    <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" id="RewatchCompleted"><span><strong>Rewatch completed anime</strong><span class="doki-help" id="rewatchHelp">Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.</span></span></label>
                 </section>
-                <section class="ad-panel"><h2>Notifications</h2><p class="ad-help">Feedback after your tracker updates.</p><label class="ad-check"><input class="ad-switch" type="checkbox" role="switch" id="ShowLogNotifications"><span><strong>Show tracker update toasts</strong><span class="ad-help">Show confirmed updates after playback stops in this Jellyfin web session. Requires compatible File Transformation and a web refresh.</span></span></label></section>
-                <section class="ad-panel ad-discord-settings"><h2>Discord notifications</h2>
-                    <label class="ad-check"><input id="discordEnabled" class="ad-switch" type="checkbox" role="switch"><span><strong>Send updates to Discord</strong></span></label>
-                    <div class="ad-field"><label for="discordWebhook">Webhook link</label><div class="ad-discord-webhook-row"><div id="discordWebhookControl" class="ad-discord-webhook-input"><input id="discordWebhook" class="ad-input" type="password" autocomplete="off" spellcheck="false" autocapitalize="none" aria-describedby="discordHelp"></div><button type="button" id="clearDiscord" class="ad-button">Remove webhook</button></div></div>
-                    <p id="discordHelp" class="ad-help">AniDoki uses its own name and avatar. Your webhook is kept in the AniDōki database on the server.</p>
-                    <details id="discordPreviewToggle" class="ad-discord-preview-section">
-                        <summary>Preview<span class="ad-discord-preview-chevron" aria-hidden="true"></span></summary>
-                        <div id="discordPreview" class="ad-discord-preview" hidden></div>
+                <section class="doki-panel"><h2>Notifications</h2><p class="doki-help">Feedback after your tracker updates.</p><label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" id="ShowLogNotifications"><span><strong>Show tracker update toasts</strong><span class="doki-help">Show confirmed updates after playback stops in this Jellyfin web session. Requires compatible File Transformation and a web refresh.</span></span></label></section>
+                <section class="doki-panel doki-discord-settings"><h2>Discord notifications</h2>
+                    <label class="doki-check"><input id="discordEnabled" class="doki-switch" type="checkbox" role="switch"><span><strong>Send updates to Discord</strong></span></label>
+                    <div class="doki-field"><label for="discordWebhook">Webhook link</label><div class="doki-discord-webhook-row"><div id="discordWebhookControl" class="doki-discord-webhook-input"><input id="discordWebhook" class="doki-input" type="password" autocomplete="off" spellcheck="false" autocapitalize="none" aria-describedby="discordHelp"></div><button type="button" id="clearDiscord" class="doki-button">Remove webhook</button></div></div>
+                    <p id="discordHelp" class="doki-help">AniDoki uses its own name and avatar. Your webhook is kept in the AniDōki database on the server.</p>
+                    <details id="discordPreviewToggle" class="doki-discord-preview-section">
+                        <summary>Preview<span class="doki-discord-preview-chevron" aria-hidden="true"></span></summary>
+                        <div id="discordPreview" class="doki-discord-preview" hidden></div>
                     </details>
-                    <div class="ad-actions"><button type="button" id="saveDiscord" class="ad-button">Save Discord settings</button><button type="button" id="testDiscord" class="ad-button">Send test</button></div>
-                    <p id="discordStatus" class="ad-status" role="status"></p>
+                    <div class="doki-actions"><button type="button" id="saveDiscord" class="doki-button">Save Discord settings</button><button type="button" id="testDiscord" class="doki-button">Send test</button></div>
+                    <p id="discordStatus" class="doki-status" role="status"></p>
                 </section>
-                <section class="ad-panel"><h2>Libraries</h2><p class="ad-help">Choose which Jellyfin libraries AniDōki monitors for you.</p><div id="libraries"></div></section>
+                <section class="doki-panel"><h2>Libraries</h2><p class="doki-help">Choose which Jellyfin libraries AniDōki monitors for you.</p><div id="libraries"></div></section>
             </main>
-            <div class="ad-save-bar" hidden><p class="ad-status" id="saveStatus" role="status">Unsaved changes</p><button type="button" id="discardChanges" class="ad-button">Discard</button><button type="submit" class="ad-button ad-button-primary">Save changes</button></div>
+            <div class="doki-save-bar" hidden><p class="doki-status" id="saveStatus" role="status">Unsaved changes</p><button type="button" id="discardChanges" class="doki-button">Discard</button><button type="submit" class="doki-button doki-button-primary">Save changes</button></div>
         </form>
     </div></div>
 </div>

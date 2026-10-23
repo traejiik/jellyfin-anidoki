@@ -45,39 +45,39 @@ export default async function mountDiscord(root, common, cache, signal, isHostBu
         const generation = ++previewGeneration;
         const preview = find('discordPreview'); preview.hidden = !e.target.open; clearPoster(); preview.replaceChildren();
         if (preview.hidden) return;
-        preview.append(common.element('p','ad-help','Loading preview…'));
+        preview.append(common.element('p','doki-help','Loading preview…'));
         try {
             const sample = await common.json('AniDoki/user/discord/preview', { signal });
             if (signal.aborted || generation !== previewGeneration || !find('discordPreviewToggle').open) return; preview.replaceChildren();
-            if (sample.empty) { preview.append(common.element('p','ad-help',sample.message)); return; }
-            const header = common.element('div','ad-discord-preview-header');
-            const avatar = common.element('img','ad-discord-avatar');
+            if (sample.empty) { preview.append(common.element('p','doki-help',sample.message)); return; }
+            const header = common.element('div','doki-discord-preview-header');
+            const avatar = common.element('img','doki-discord-avatar');
             avatar.src = api.getUrl('AniDoki/assets/anidoki-avatar.png'); avatar.alt = '';
-            const badge = common.element('span','ad-discord-app','APP');
+            const badge = common.element('span','doki-discord-app','APP');
             const previewTime = new Date(sample.timestamp ?? Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const time = common.element('span','ad-discord-time',`Today at ${previewTime}`);
-            header.append(avatar,common.element('strong','ad-discord-name','AniDoki'),badge,time);
-            const body = common.element('div','ad-discord-preview-body'), text = common.element('div','ad-discord-preview-text'), title = common.element('strong','');
+            const time = common.element('span','doki-discord-time',`Today at ${previewTime}`);
+            header.append(avatar,common.element('strong','doki-discord-name','AniDoki'),badge,time);
+            const body = common.element('div','doki-discord-preview-body'), text = common.element('div','doki-discord-preview-text'), title = common.element('strong','');
             if (sample.showUrl && /^https?:\/\//.test(sample.showUrl)) { const link = common.element('a','',sample.showTitle); link.href = sample.showUrl; link.target = '_blank'; link.rel = 'noopener noreferrer'; title.append(link); }
             else title.textContent = sample.showTitle;
-            text.append(title, common.element('p','ad-discord-episode',sample.episodeLine));
+            text.append(title, common.element('p','doki-discord-episode',sample.episodeLine));
             for (const field of sample.fields ?? []) {
-                const result = common.element('div','ad-discord-result');
+                const result = common.element('div','doki-discord-result');
                 result.append(common.element('strong','',field.name), common.element('p','',field.value)); text.append(result);
             }
-            const footer = common.element('div','ad-discord-footer');
-            const footerAvatar = common.element('img','ad-discord-footer-avatar');
+            const footer = common.element('div','doki-discord-footer');
+            const footerAvatar = common.element('img','doki-discord-footer-avatar');
             footerAvatar.src = sample.footerIconUrl ?? ''; footerAvatar.alt = 'Jellyfin';
             footer.append(footerAvatar,common.element('span','',`${sample.serverName || 'Jellyfin'} · Today at ${previewTime}`));
             text.append(footer);
-            body.append(text); preview.append(header,body,common.element('p','ad-discord-example-note','Example tracker results · Preview only · No message sent'));
-            const posterStatus = common.element('small','ad-discord-poster-fallback','Poster unavailable.');body.append(posterStatus);
+            body.append(text); preview.append(header,body,common.element('p','doki-discord-example-note','Example tracker results · Preview only · No message sent'));
+            const posterStatus = common.element('small','doki-discord-poster-fallback','Poster unavailable.');body.append(posterStatus);
             if (sample.posterItemId) {
                 const response = await common.request(`AniDoki/user/discord/preview/poster?itemId=${encodeURIComponent(sample.posterItemId)}`, { signal });
                 const blob = await response.blob(); if (signal.aborted || generation !== previewGeneration || !find('discordPreviewToggle').open) return;
-                objectUrl = URL.createObjectURL(blob); const poster = common.element('img','ad-discord-poster'); poster.src = objectUrl; poster.alt = `${sample.showTitle} poster`; posterStatus.remove(); body.append(poster);
+                objectUrl = URL.createObjectURL(blob); const poster = common.element('img','doki-discord-poster'); poster.src = objectUrl; poster.alt = `${sample.showTitle} poster`; posterStatus.remove(); body.append(poster);
             }
-        } catch (error) { if (!signal.aborted && generation === previewGeneration && find('discordPreviewToggle').open) preview.append(common.element('p','ad-help','Poster or preview unavailable.')); }
+        } catch (error) { if (!signal.aborted && generation === previewGeneration && find('discordPreviewToggle').open) preview.append(common.element('p','doki-help','Poster or preview unavailable.')); }
     }, { signal });
     render(); if (saved.deliveryStatus) status(saved.deliveryStatus);
 }

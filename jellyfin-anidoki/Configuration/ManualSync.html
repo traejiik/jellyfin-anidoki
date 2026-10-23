@@ -1,30 +1,30 @@
 <div id="ManualSyncConfigPage" data-role="page" class="page type-interior pluginConfigurationPage withTabs" data-controller="__plugin/AniDoki_ManualSyncJs">
-    <div data-role="content"><div class="anidoki ad-sync-page">
-        <header class="ad-header"><div><h1>AniDōki</h1><p class="ad-help">Run the existing sync rules for a selected user.</p></div></header>
-        <nav id="navigationTabs" class="ad-tabs" aria-label="Plugin pages"></nav>
-        <p class="ad-status" data-page-status role="status">Loading users and linked trackers…</p>
-        <form id="ManualSyncConfigForm" hidden><section class="ad-panel">
-            <h2>Choose a direction</h2><p class="ad-help">Sync runs in the background and changes Jellyfin or tracker lists as it goes. You can leave this page; come back to see the result. Matching uses your installed metadata providers and AniDōki’s current tracking rules.</p>
-            <div class="ad-direction">
-                <label><input type="radio" name="syncAction" value="UpdateJellyfin" checked><span><strong>Tracker → Jellyfin</strong><span class="ad-help">Bring watched progress from one linked tracker into Jellyfin.</span></span></label>
-                <label><input type="radio" name="syncAction" value="UpdateProvider"><span><strong>Jellyfin → Trackers</strong><span class="ad-help">Send Jellyfin’s watched progress to linked trackers.</span></span></label>
+    <div data-role="content"><div class="anidoki doki-sync-page">
+        <header class="doki-header"><div><h1>AniDōki</h1><p class="doki-help">Run the existing sync rules for a selected user.</p></div></header>
+        <nav id="navigationTabs" class="doki-tabs" aria-label="Plugin pages"></nav>
+        <p class="doki-status" data-page-status role="status">Loading users and linked trackers…</p>
+        <form id="ManualSyncConfigForm" hidden><section class="doki-panel">
+            <h2>Choose a direction</h2><p class="doki-help">Sync runs in the background and changes Jellyfin or tracker lists as it goes. You can leave this page; come back to see the result. Matching uses your installed metadata providers and AniDōki’s current tracking rules.</p>
+            <div class="doki-direction">
+                <label><input type="radio" name="syncAction" value="UpdateJellyfin" checked><span><strong>Tracker → Jellyfin</strong><span class="doki-help">Bring watched progress from one linked tracker into Jellyfin.</span></span></label>
+                <label><input type="radio" name="syncAction" value="UpdateProvider"><span><strong>Jellyfin → Trackers</strong><span class="doki-help">Send Jellyfin’s watched progress to linked trackers.</span></span></label>
             </div>
-            <div class="ad-stack">
-                <div class="ad-field"><label for="selectSyncUser">Jellyfin user</label><select class="ad-input" id="selectSyncUser"></select></div>
-                <div id="inboundOptions" class="ad-stack">
-                    <div class="ad-field"><label for="selectSyncProvider">Linked tracker</label><select class="ad-input" id="selectSyncProvider"></select></div>
-                    <fieldset><legend>Import these statuses</legend><div class="ad-actions"><label class="ad-filter-choice"><input class="ad-choice-checkbox" id="completedStatus" type="checkbox" checked><span>Completed</span></label><label class="ad-filter-choice"><input class="ad-choice-checkbox" id="watchingStatus" type="checkbox" checked><span>Watching</span></label></div></fieldset>
+            <div class="doki-stack">
+                <div class="doki-field"><label for="selectSyncUser">Jellyfin user</label><select class="doki-input" id="selectSyncUser"></select></div>
+                <div id="inboundOptions" class="doki-stack">
+                    <div class="doki-field"><label for="selectSyncProvider">Linked tracker</label><select class="doki-input" id="selectSyncProvider"></select></div>
+                    <fieldset><legend>Import these statuses</legend><div class="doki-actions"><label class="doki-filter-choice"><input class="doki-choice-checkbox" id="completedStatus" type="checkbox" checked><span>Completed</span></label><label class="doki-filter-choice"><input class="doki-choice-checkbox" id="watchingStatus" type="checkbox" checked><span>Watching</span></label></div></fieldset>
                 </div>
-                <p class="ad-help" id="outboundScope" hidden>Runs for this user’s linked trackers using their current tracking rules.</p>
+                <p class="doki-help" id="outboundScope" hidden>Runs for this user’s linked trackers using their current tracking rules.</p>
             </div>
-            <div class="ad-sync-footer">
-                <p class="ad-status" id="formStatus" role="status"></p>
-                <div class="ad-actions">
-                    <a class="ad-button" id="settingsLink" href="#/configurationpage?name=AniDoki">Link accounts in Settings</a>
-                    <button class="ad-button ad-button-primary" id="runSync" type="submit" disabled>Run sync</button>
-                    <button class="ad-button" id="cancelSync" type="button" hidden>Cancel sync</button>
+            <div class="doki-sync-footer">
+                <p class="doki-status" id="formStatus" role="status"></p>
+                <div class="doki-actions">
+                    <a class="doki-button" id="settingsLink" href="#/configurationpage?name=AniDoki">Link accounts in Settings</a>
+                    <button class="doki-button doki-button-primary" id="runSync" type="submit" disabled>Run sync</button>
+                    <button class="doki-button" id="cancelSync" type="button" hidden>Cancel sync</button>
                 </div>
-                <p class="ad-status" id="runStatus" role="status"></p>
+                <p class="doki-status" id="runStatus" role="status"></p>
             </div>
         </section></form>
     </div></div>
