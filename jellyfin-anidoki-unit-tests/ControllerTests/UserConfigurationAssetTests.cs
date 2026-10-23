@@ -13,6 +13,7 @@ public partial class UserConfigurationTests {
     [TestCase("notification-state.js")]
     [TestCase("manual-mark-state.js")]
     [TestCase("outcome-lines.js")]
+    [TestCase("plugin-pages-guard.js")]
     public void PublicNotificationModulesAreEmbeddedAndUncachedWithoutPluginPages(string asset) {
         _plugin.Configuration.enableUserPages = false;
         var file = (FileStreamResult)_controller.GetAsset(asset);

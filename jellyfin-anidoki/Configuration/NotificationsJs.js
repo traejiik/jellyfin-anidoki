@@ -1,5 +1,6 @@
 import { buildPresentation, createNotificationState, createVisibleTimer } from './notification-state.js';
 import { buildManualMarkPresentation, createManualMarkState } from './manual-mark-state.js';
+import { guardPluginPagesEntry } from './plugin-pages-guard.js';
 
 // Independent from settings-page initialization; one runtime survives route changes.
 const runtimeKey = '__anidokiNotifications';
@@ -250,4 +251,7 @@ export function startNotifications(win = window, doc = document) {
     win.addEventListener('pageshow', () => { suspended = false; for (const entry of [...rendered.values(), ...manualRendered.values()]) entry.timer.resume('pagehide'); if (ready) schedule(0); else bootstrap(); }, { signal: lifetime.signal });
     win[runtimeKey] = { dispose }; bootstrap(); return win[runtimeKey];
 }
-if (typeof window !== 'undefined') startNotifications();
+if (typeof window !== 'undefined') {
+    startNotifications();
+    guardPluginPagesEntry();
+}
