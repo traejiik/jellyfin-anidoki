@@ -27,8 +27,11 @@ public sealed record EntryRef(ApiName Provider, int Id, string? AlternativeId, C
 /// <summary>The user's list state. <see cref="RewatchCount"/> is null when the provider does not report it.</summary>
 public sealed record ListState(TrackerStatus Status, int Progress, bool Rewatching, int? RewatchCount);
 
-/// <summary>An entry as read. <see cref="TotalEpisodes"/> is 0 when unknown; <see cref="List"/> is null when it is not on the list.</summary>
-public sealed record EntryState(EntryRef Entry, int TotalEpisodes, ListState? List, DateTimeOffset ReadAt);
+/// <summary>
+/// An entry as read. <see cref="TotalEpisodes"/> is 0 when unknown; <see cref="List"/> is null when it is not on the list;
+/// <see cref="Titles"/> is null when the provider returned none.
+/// </summary>
+public sealed record EntryState(EntryRef Entry, int TotalEpisodes, ListState? List, DateTimeOffset ReadAt, EntryTitles? Titles = null);
 
 public sealed record EntryTitles(string? Main, string? English, string? Japanese, IReadOnlyList<string> Synonyms);
 

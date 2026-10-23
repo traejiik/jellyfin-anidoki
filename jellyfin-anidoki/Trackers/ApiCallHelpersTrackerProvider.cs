@@ -25,7 +25,7 @@ public sealed class ApiCallHelpersTrackerProvider(ApiName name, IApiCallHelpers 
             : await client.GetAnime(entry.Id, entry.AlternativeId);
         if (anime == null)
             return null;
-        return new EntryState(entry, anime.NumEpisodes, ToListState(anime.MyListStatus), clock.GetUtcNow());
+        return new EntryState(entry, anime.NumEpisodes, ToListState(anime.MyListStatus), clock.GetUtcNow(), Titles(anime));
     }
 
     public async Task<IReadOnlyList<EntryCandidate>> Search(string title, CancellationToken cancellationToken) {
