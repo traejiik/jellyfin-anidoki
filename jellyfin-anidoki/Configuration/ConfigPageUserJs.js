@@ -8,7 +8,7 @@ export default function (view, host = view) {
     const root = view.querySelector('.anidoki'), find = selector => view.querySelector(selector);
     let common, state, validLibraries;
     const dirty = () => cache.baseline && (JSON.stringify(cache.baseline) !== JSON.stringify(cache.draft) || cache.libraryChoice?.mode === 'selected' && !cache.libraryChoice.selected.length);
-    const updateDirty = () => { find('.ad-save-bar').hidden = !dirty(); if (dirty() && !cache.busy) common.status(find('#saveStatus'), 'Unsaved changes'); };
+    const updateDirty = () => { find('.doki-save-bar').hidden = !dirty(); if (dirty() && !cache.busy) common.status(find('#saveStatus'), 'Unsaved changes'); };
     const connected = () => cache.saved.ConnectedProviders ?? cache.saved.connectedProviders ?? [];
     const unsupportedRewatch = () => connected().length > 0 && connected().every(provider => ['Simkl', 'Annict'].includes(provider));
     function setBusy(value) {
@@ -71,7 +71,7 @@ export default function (view, host = view) {
         const available = (cache.parameters.providerList ?? []).map(provider => provider.Key);
         const visible = [...new Set([...available, 'Kitsu', 'Annict', ...connected()])];
         common.renderAccounts(find('#linkedAccounts'), { linked: connected(), visible, userName: 'your account', action: (kind, provider, credentials) => accountAction(kind, provider, credentials, signal) }, signal);
-        for (const provider of connected()) if (!available.includes(provider) && !['Kitsu', 'Annict'].includes(provider)) find('#linkedAccounts').append(common.element('p', 'ad-help', `${common.providerName(provider)} is linked, but the server’s app setup is incomplete. Ask your administrator to check it.`));
+        for (const provider of connected()) if (!available.includes(provider) && !['Kitsu', 'Annict'].includes(provider)) find('#linkedAccounts').append(common.element('p', 'doki-help', `${common.providerName(provider)} is linked, but the server’s app setup is incomplete. Ask your administrator to check it.`));
         find('#RewatchCompleted').disabled = cache.busy || unsupportedRewatch();
         find('#rewatchHelp').textContent = unsupportedRewatch() ? 'Your linked trackers (Simkl / Annict) do not support this option. Its saved value is preserved.' : 'Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.';
     }
