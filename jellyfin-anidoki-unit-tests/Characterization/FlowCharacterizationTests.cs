@@ -33,6 +33,10 @@ public class FlowCharacterizationTests {
         await UnconfiguredShikimoriBeforeAniList();
         await InstanceReuseAcrossSeries();
         await MissingEpisodeNumber();
+        await SplitSeasonByIds();
+        await SplitSeasonUnknownLength();
+        await SplitSeasonNonSequel();
+        await LengthDisagreement13Vs12();
 
         ApprovedFile.Verify("flows", _output.ToString());
     }
@@ -141,6 +145,44 @@ public class FlowCharacterizationTests {
         harness.SeedAll(SyncHarness.Entry(SyncHarness.EntryId, "Fixture Show", 12, Watching(3)));
         var episode = harness.Library.Episode("Fixture Show", 1, null, new Dictionary<string, string> { ["AniList"] = SyncHarness.EntryId.ToString() });
         await Record("missing-episode-number", harness, episode);
+    }
+
+    // AniList splits a season AniDB keeps whole: a 1-episode entry, then the rest as a sequel.
+    private async Task SplitSeasonByIds() {
+        using var harness = NewHarness();
+        harness.SeedAll(
+            SyncHarness.Entry(SyncHarness.EntryId, "JoJo's Bizarre Adventure", 1, null, SyncHarness.Related(RelationType.Sequel, 501)),
+            SyncHarness.Entry(501, "JoJo's Bizarre Adventure Part 2", 12, null));
+        var episode = harness.Library.Episode("JoJo's Bizarre Adventure", 1, 3, new Dictionary<string, string> { ["AniList"] = SyncHarness.EntryId.ToString() });
+        await Record("split-season-by-ids", harness, episode);
+    }
+
+    // The second part is still airing, so its length is unknown (0).
+    private async Task SplitSeasonUnknownLength() {
+        using var harness = NewHarness();
+        harness.SeedAll(
+            SyncHarness.Entry(SyncHarness.EntryId, "JoJo's Bizarre Adventure", 1, Completed(1), SyncHarness.Related(RelationType.Sequel, 501)),
+            SyncHarness.Entry(501, "JoJo's Bizarre Adventure Part 2", 0, null));
+        var episode = harness.Library.Episode("JoJo's Bizarre Adventure", 1, 2, new Dictionary<string, string> { ["AniList"] = SyncHarness.EntryId.ToString() });
+        await Record("split-season-unknown-length", harness, episode);
+    }
+
+    // The rest of the season is linked as a side story, not a sequel, so no chain reaches it.
+    private async Task SplitSeasonNonSequel() {
+        using var harness = NewHarness();
+        harness.SeedAll(
+            SyncHarness.Entry(SyncHarness.EntryId, "JoJo's Bizarre Adventure", 1, null, SyncHarness.Related(RelationType.Side_Story, 501)),
+            SyncHarness.Entry(501, "JoJo's Bizarre Adventure Part 2", 12, null));
+        var episode = harness.Library.Episode("JoJo's Bizarre Adventure", 1, 3, new Dictionary<string, string> { ["AniList"] = SyncHarness.EntryId.ToString() });
+        await Record("split-season-non-sequel", harness, episode);
+    }
+
+    // Jellyfin has a 13th episode the tracker does not list (a recap or a TV special numbered in).
+    private async Task LengthDisagreement13Vs12() {
+        using var harness = NewHarness();
+        harness.SeedAll(SyncHarness.Entry(SyncHarness.EntryId, "JoJo's Bizarre Adventure", 12, Watching(12)));
+        var episode = harness.Library.Episode("JoJo's Bizarre Adventure", 1, 13, new Dictionary<string, string> { ["AniList"] = SyncHarness.EntryId.ToString() });
+        await Record("length-disagreement-13-vs-12", harness, episode);
     }
 
     private SyncHarness NewHarness() => new();

@@ -35,6 +35,9 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
     /// <summary>1-based numbers of write calls that return no receipt, as an unconfirmed request does.</summary>
     public HashSet<int> FailingWrites { get; } = new();
 
+    /// <summary>Every numeric-ID read, in order, including reads that return null.</summary>
+    public List<(int Id, bool Related)> Reads { get; } = new();
+
     private bool UsesAlternativeIds => provider is ApiName.Annict or ApiName.Shikimori;
 
     public Anime Add(Anime anime) {
@@ -51,6 +54,7 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
     }
 
     public Task<Anime> GetAnime(int id, string alternativeId = null, bool getRelated = false) {
+        Reads.Add((id, getRelated));
         if (provider == ApiName.Simkl || (UsesAlternativeIds && alternativeId == null) || FailingIds.Contains(id) || !_entries.TryGetValue(id, out var anime))
             return Task.FromResult<Anime>(null);
         return Task.FromResult(Copy(anime, forRead: true));

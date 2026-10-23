@@ -1,15 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Api;
-using jellyfin_anidoki.Api.Anilist;
-using jellyfin_anidoki.Api.Annict;
-using jellyfin_anidoki.Api.Kitsu;
-using jellyfin_anidoki.Api.Shikimori;
-using jellyfin_anidoki.Api.Simkl;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
@@ -17,8 +11,9 @@ using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.ManualMarks;
+using jellyfin_anidoki.Resolution;
+using jellyfin_anidoki.Trackers;
 using MediaBrowser.Common.Configuration;
-using MediaBrowser.Common.Net;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
@@ -31,17 +26,10 @@ using Microsoft.Extensions.Logging;
 namespace jellyfin_anidoki {
     public enum SyncUpdateSource { Playback, LegacyManual, ConfirmedManual }
     public class UpdateProviderStatus {
-        /// <summary>A movie counts as one watched episode. Held here so the library item's own IndexNumber is never changed.</summary>
-        private const int MovieProgress = 1;
-
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IApplicationPaths _applicationPaths;
-        private readonly IServerApplicationHost _serverApplicationHost;
-        private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IMemoryCache _memoryCache;
-        private readonly IAsyncDelayer _delayer;
-
         private readonly ILogger<UpdateProviderStatus> _logger;
+        private readonly TrackerClientFactory _clients;
+        private readonly SourceIdResolver _sourceIds;
+        private readonly ISourceResolver _resolver;
 
         internal IApiCallHelpers ApiCallHelpers;
         private UserConfig? _userConfig;
@@ -51,7 +39,6 @@ namespace jellyfin_anidoki {
         private readonly ILibraryManager _libraryManager;
 
         internal ApiName ApiName;
-        private readonly ILoggerFactory _loggerFactory;
         private AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse _apiIds = new();
 
         internal AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ResolvedIds => _apiIds;
@@ -60,10 +47,10 @@ namespace jellyfin_anidoki {
         /// Builds the provider client for a provider and user. Tests set this to substitute an in-memory tracker;
         /// production leaves it null so the real client is constructed.
         /// </summary>
-        internal Func<ApiName, UserConfig, IApiCallHelpers>? ApiCallHelpersFactory { get; set; }
-
-        private IApiCallHelpers CreateApiCallHelpers(ApiName provider, Func<IApiCallHelpers> createProductionClient) =>
-            ApiCallHelpersFactory?.Invoke(provider, _userConfig!) ?? createProductionClient();
+        internal Func<ApiName, UserConfig, IApiCallHelpers>? ApiCallHelpersFactory {
+            get => _clients.Override;
+            set => _clients.Override = value;
+        }
 
         public UpdateProviderStatus(ILibraryManager libraryManager,
             ILoggerFactory loggerFactory,
@@ -74,14 +61,10 @@ namespace jellyfin_anidoki {
             IMemoryCache memoryCache,
             IAsyncDelayer delayer) {
             _libraryManager = libraryManager;
-            _httpContextAccessor = httpContextAccessor;
-            _serverApplicationHost = serverApplicationHost;
-            _httpClientFactory = httpClientFactory;
-            _applicationPaths = applicationPaths;
             _logger = loggerFactory.CreateLogger<UpdateProviderStatus>();
-            _loggerFactory = loggerFactory;
-            _memoryCache = memoryCache;
-            _delayer = delayer;
+            _clients = new TrackerClientFactory(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, _logger);
+            _sourceIds = new SourceIdResolver(httpClientFactory, applicationPaths, loggerFactory, _logger);
+            _resolver = new AutomaticResolver(_logger);
         }
 
 
@@ -109,8 +92,6 @@ namespace jellyfin_anidoki {
             _animeType = null;
 
             var video = e as Video;
-            Episode episode = video as Episode;
-            Movie movie = video as Movie;
             if (video is Episode) {
                 _animeType = typeof(Episode);
             } else if (video is Movie) {
@@ -129,237 +110,24 @@ namespace jellyfin_anidoki {
             }
 
             if (LibraryCheck(_userConfig, _libraryManager, _logger, e) && video is Episode or Movie && playedToCompletion) {
-                if (video is Episode && (episode.IndexNumber == null || episode.Season.IndexNumber == null)) {
+                var source = SyncSource.From(video);
+                if (source == null) {
                     _logger.LogError("Video does not contain required index numbers to sync; skipping");
                     return;
                 }
 
-                // Diagnostics: prints exactly which provider IDs Jellyfin holds at
-                // each level, plus the season count that drives the absolute-episode path.
-                // Logged at Debug: this runs on every played episode, and the information
-                // is only useful when investigating a mis-resolution. The IsEnabled guard
-                // keeps the provider-ID dumps from being built when Debug is off.
-                if (_animeType == typeof(Episode) && _logger.IsEnabled(LogLevel.Debug)) {
-                    string Dump(Dictionary<string, string> ids) => ids == null || ids.Count == 0
-                        ? "<none>"
-                        : string.Join(", ", ids.Select(kv => $"{kv.Key}={kv.Value}"));
-                    _logger.LogDebug("[anidoki-diag] Series '{SeriesName}' providers: {SeriesProviderIds}", episode.Series?.Name, Dump(episode.Series?.ProviderIds));
-                    _logger.LogDebug("[anidoki-diag] Season {SeasonIndexNumber} providers: {SeasonProviderIds}", episode.Season?.IndexNumber, Dump(episode.Season?.ProviderIds));
-                    _logger.LogDebug("[anidoki-diag] Episode {EpisodeIndexNumber} '{EpisodeName}' providers: {EpisodeProviderIds}", episode.IndexNumber, episode.Name, Dump(episode.ProviderIds));
-                    _logger.LogDebug("[anidoki-diag] Series contains {SeasonCount} season(s)", episode.Series?.Children.OfType<Season>().Count());
-                    _logger.LogDebug("[anidoki-diag] Titles -> name: '{EpisodeSeriesName}', originalTitle: '{SeriesOriginalTitle}'", episode.SeriesName, episode.Series?.OriginalTitle ?? "<none>");
-                }
-
-                (int? aniDbId, int? episodeOffset) aniDbId = (null, null);
-                if (_animeType == typeof(Episode)
-                        ? episode.ProviderIds != null &&
-                          episode.Series.ProviderIds.ContainsKey("AniList") &&
-                          episode.Season.IndexNumber.Value == 1 &&
-                          int.TryParse(episode.Series.ProviderIds["AniList"], out int retrievedAniListId)
-                        : movie.ProviderIds != null &&
-                          movie.ProviderIds.ContainsKey("AniList") &&
-                          int.TryParse(movie.ProviderIds["AniList"], out retrievedAniListId)) {
-                    _logger.LogDebug("AniList ID found. Retrieving provider IDs from offline database...");
-                    _apiIds = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(_httpClientFactory.CreateClient(NamedClient.Default), _logger, retrievedAniListId, AnimeOfflineDatabaseHelpers.Source.Anilist);
-                    if (_apiIds is null) {
-                        _apiIds = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
-                            Anilist = retrievedAniListId
-                        };
-                        _logger.LogWarning("Did not get provider IDs, defaulting to episode provided AniList ID");
-                    } else {
-                        _logger.LogDebug("Retrieved provider IDs");
-                    }
-                } else if (_animeType == typeof(Episode)
-                               ? (AnimeListHelpers.HasProviderId(episode.Series.ProviderIds, "Tvdb") ||
-                                  AnimeListHelpers.HasProviderId(episode.Season.ProviderIds, "Anidb") ||
-                                  AnimeListHelpers.HasProviderId(episode.Series.ProviderIds, "Anidb"))
-                               : movie.ProviderIds != null &&
-                                 AnimeListHelpers.HasProviderId(movie.ProviderIds, "Anidb")) {
-                    AnimeListHelpers.AnimeListXml animeListXml = await AnimeListHelpers.GetAnimeListFileContents(_logger, _loggerFactory, _httpClientFactory, _applicationPaths);
-                    aniDbId = _animeType == typeof(Episode)
-                        ? await AnimeListHelpers.GetAniDbId(_logger, episode, episode.IndexNumber.Value, episode.Season.IndexNumber.Value, animeListXml)
-                        : await AnimeListHelpers.GetAniDbId(_logger, movie, MovieProgress, 1, animeListXml);
-                    if (aniDbId.aniDbId != null) {
-                        _logger.LogDebug("Retrieving provider IDs from offline database for AniDb ID {AniDbId}...", aniDbId.aniDbId.Value);
-                        _apiIds = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(_httpClientFactory.CreateClient(NamedClient.Default), _logger, aniDbId.aniDbId.Value, AnimeOfflineDatabaseHelpers.Source.Anidb);
-                        if (_apiIds is null) {
-                            _apiIds = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
-                                AniDb = aniDbId.aniDbId
-                            };
-                            _logger.LogWarning("Did not get provider IDs, defaulting to episode provided AniDb ID");
-                        } else {
-                            // Distinguish "ARM gave us a usable ID" from "ARM gave us a row
-                            // that carries none". Only the former avoids the title-search
-                            // fallback; reporting both as success would make the fallback look
-                            // like a bug in ID resolution rather than a gap in the database.
-                            if (_apiIds.Anilist is null or 0 && _apiIds.MyAnimeList is null or 0 && _apiIds.Kitsu is null or 0) {
-                                _logger.LogWarning("ARM server has a record for AniDb ID {AniDbId} but no tracker IDs; falling back to title search", aniDbId.aniDbId.Value);
-                            } else {
-                                _logger.LogDebug("Retrieved provider IDs");
-                            }
-                        }
-                    }
-                }
-
-                // Movies have no season, so resolved IDs apply to them directly. Specials (season 0) keep using
-                // title search, which finds the OVA by name.
-                bool useResolvedIds = _animeType == typeof(Movie) || episode.Season.IndexNumber.Value != 0;
-                int progress = _animeType == typeof(Episode)
-                    ? (aniDbId.episodeOffset != null
-                        ? episode.IndexNumber.Value - aniDbId.episodeOffset.Value
-                        : episode.IndexNumber.Value)
-                    : MovieProgress;
+                SourceIds sourceIds = await _sourceIds.Resolve(source);
+                _apiIds = sourceIds.Ids;
                 foreach (UserApiAuth userApiAuth in _userConfig.UserApiAuth) {
                     ApiName = userApiAuth.Name;
                     _logger.LogDebug("Using provider {ApiName}...", userApiAuth.Name);
-                    switch (userApiAuth.Name) {
-                        case ApiName.Mal:
-                            ApiCallHelpers = CreateApiCallHelpers(ApiName.Mal, () => new ApiCallHelpers(malApiCalls: new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
-                            if (_apiIds.MyAnimeList != null && _apiIds.MyAnimeList != 0 && useResolvedIds) {
-                                await CheckResolvedAnimeStatus(_apiIds.MyAnimeList.Value, progress);
-                                continue;
-                            }
-
-                            break;
-                        case ApiName.AniList:
-                            ApiCallHelpers = CreateApiCallHelpers(ApiName.AniList, () => new ApiCallHelpers(aniListApiCalls: new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
-                            if (_apiIds.Anilist != null && _apiIds.Anilist != 0 && useResolvedIds) {
-                                await CheckResolvedAnimeStatus(_apiIds.Anilist.Value, progress);
-                                continue;
-                            } else if (_animeType == typeof(Episode) ? episode.Series.ProviderIds.ContainsKey("AniList") && episode.Season.IndexNumber.Value == 1 : movie.ProviderIds.ContainsKey("AniList")) {
-                                if (_animeType == typeof(Episode) ? int.TryParse(episode.Series.ProviderIds["AniList"], out int aniListId) : int.TryParse(movie.ProviderIds["AniList"], out aniListId)) {
-                                    await CheckResolvedAnimeStatus(aniListId, progress);
-                                    continue;
-                                }
-                            }
-
-                            break;
-                        case ApiName.Kitsu:
-                            ApiCallHelpers = CreateApiCallHelpers(ApiName.Kitsu, () => new ApiCallHelpers(kitsuApiCalls: new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
-                            if (_apiIds.Kitsu != null && _apiIds.Kitsu != 0 && useResolvedIds) {
-                                await CheckResolvedAnimeStatus(_apiIds.Kitsu.Value, progress);
-                                continue;
-                            }
-
-                            break;
-                        case ApiName.Annict:
-                            // annict works differently to the other providers, so we have to go the traditional route
-                            ApiCallHelpers = CreateApiCallHelpers(ApiName.Annict, () => new ApiCallHelpers(annictApiCalls: new AnnictApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig)));
-                            break;
-                        case ApiName.Shikimori:
-                            string? shikimoriAppName = ConfigHelper.GetShikimoriAppName(_logger);
-                            // continue, not return: a missing app name must not skip the providers after it
-                            if (string.IsNullOrEmpty(shikimoriAppName))
-                                continue;
-                            ApiCallHelpers = CreateApiCallHelpers(ApiName.Shikimori, () => new ApiCallHelpers(shikimoriApiCalls: new ShikimoriApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, new Dictionary<string, string> { { "User-Agent", shikimoriAppName } }, _userConfig)));
-                            break;
-                        case ApiName.Simkl:
-                            string? simklClientId = ConfigHelper.GetSimklClientId(_logger);
-                            if (string.IsNullOrEmpty(simklClientId))
-                                continue;
-                            ApiCallHelpers = CreateApiCallHelpers(ApiName.Simkl, () => new ApiCallHelpers(simklApiCalls: new SimklApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, new Dictionary<string, string> { { "simkl-api-key", simklClientId } }, _userConfig)));
-                            // Movies stay off Simkl's ID path: its movie write has not been checked against a real account.
-                            if (((_apiIds.MyAnimeList != null && _apiIds.MyAnimeList != 0) ||
-                                 (_apiIds.Anilist != null && _apiIds.Anilist != 0) ||
-                                 (_apiIds.Kitsu != null && _apiIds.Kitsu != 0) ||
-                                 (_apiIds.AniDb != null && _apiIds.AniDb != 0)) &&
-                                _animeType == typeof(Episode) && useResolvedIds) {
-                                await CheckUserListAnimeStatus(_apiIds, progress, episode.SeriesName, false);
-                                continue;
-                            }
-
-                            break;
-                    }
-
-                    var animeType = _animeType == typeof(Episode) ? "series" : "movie";
-                    var searchTitle = _animeType == typeof(Episode) ? episode.SeriesName : video.Name;
-                    _logger.LogDebug("({ApiName}) Searching for {AnimeType}: {SearchTitle}", ApiName, animeType, searchTitle);
-                    List<Anime> animeList = await ApiCallHelpers.SearchAnime(_animeType == typeof(Episode) ? episode.SeriesName : video.Name);
-                    bool found = false;
-                    if (animeList != null) {
-                        foreach (var anime in animeList) {
-                            var checkMalId = ApiName == ApiName.Annict ||
-                                ApiName == ApiName.Shikimori && _apiIds.MyAnimeList != null && anime.Id > 0;
-                            if (checkMalId && _apiIds.MyAnimeList != null && anime.Id == _apiIds.MyAnimeList ||
-                                !checkMalId && TitleCheck(anime, episode, movie)) {
-                                _logger.LogDebug("({ApiName}) Found matching {AnimeType}: {Title}", ApiName, animeType, GetAnimeTitle(anime));
-                                Anime matchingAnime = anime;
-                                if (_animeType == typeof(Episode)) {
-                                    var episodeOffset = aniDbId.episodeOffset ?? 0;
-                                    int episodeNumber = episode.IndexNumber.Value;
-                                    if (episodeOffset < episodeNumber) {
-                                        episodeNumber -= episodeOffset;
-                                    }
-                                    if (!checkMalId) {
-                                        // should have already found the appropriate series/season/movie, no need to do other checks
-                                        if (episode?.Season.IndexNumber is > 1) {
-                                            // if this is not the first season, then we need to lookup the related season.
-                                            matchingAnime = await GetDifferentSeasonAnime(anime.Id, episode.Season.IndexNumber.Value, alternativeId: anime.AlternativeId);
-                                            if (matchingAnime == null) {
-                                                _logger.LogWarning("({ApiName}) Could not find next season", ApiName);
-                                                found = true;
-                                                break;
-                                            }
-
-                                            _logger.LogDebug("({ApiName}) Season being watched is {Title}", ApiName, GetAnimeTitle(matchingAnime));
-                                        } else if (episode?.Season.IndexNumber == 0) {
-                                            // the episode is an ova or special
-                                            matchingAnime = await GetOva(anime.Id, episode.Name, alternativeId: anime.AlternativeId);
-                                            if (matchingAnime == null) {
-                                                _logger.LogWarning("({ApiName}) Could not find OVA", ApiName);
-                                                found = true;
-                                                break;
-                                            }
-                                        } else if (matchingAnime.NumEpisodes > 0 && matchingAnime.NumEpisodes < episode?.IndexNumber.Value) {
-                                            // NumEpisodes is a non-nullable int, so an unknown
-                                            // episode count arrives as 0 - which is the norm for a
-                                            // currently-airing show. Without the > 0 guard this branch
-                                            // fires on every episode of every airing series that reaches
-                                            // the title-search fallback.
-                                            //
-                                            // Walking cannot produce a correct answer in that case
-                                            // regardless: the loop computes the next cour's episode
-                                            // number as episodeCount - totalEpisodesWatched, and
-                                            // totalEpisodesWatched accumulates season.NumEpisodes. With
-                                            // 0 the offset is always 0, so the raw episode number gets
-                                            // sent to the sequel. The arithmetic requires a known
-                                            // length, so an entry of unknown length is written as the
-                                            // first cour without walking.
-                                            _logger.LogDebug("({ApiName}) Watched episode passes total episodes in season! Checking for additional seasons/cours...", ApiName);
-                                            // either we have found the wrong series (highly unlikely) or it is a multi cour series/Jellyfin has grouped next season into the current.
-                                            int episodeCount = episode.IndexNumber.Value;
-                                            var (season, totalEpisodesWatched) = await WalkCours(matchingAnime, episodeCount);
-                                            if (season == null) {
-                                                _outcomeCollector?.Record(new ProviderWriteOutcome(ApiName, matchingAnime.AlternativeId ?? matchingAnime.Id.ToString(), GetAnimeTitle(matchingAnime),
-                                                    OutcomeKind.Unresolved, null, null, ApiName == ApiName.Annict, "resolve", false));
-                                                found = true;
-                                                break;
-                                            }
-
-                                            matchingAnime = season;
-                                            episodeNumber = episodeCount - totalEpisodesWatched;
-                                        }
-                                    }
-
-                                    await CheckUserListAnimeStatus(matchingAnime.Id, episodeNumber, overrideCheckRewatch: false, alternativeId: matchingAnime.AlternativeId);
-                                    found = true;
-                                    break;
-                                }
-
-                                if (_animeType == typeof(Movie)) {
-                                    await CheckUserListAnimeStatus(matchingAnime.Id, MovieProgress, overrideCheckRewatch: false, alternativeId: matchingAnime.AlternativeId);
-                                    found = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if (!found) {
-                        _outcomeCollector?.Record(new ProviderWriteOutcome(ApiName, "", searchTitle ?? "", OutcomeKind.Unresolved,
-                            null, null, ApiName == ApiName.Annict, "resolve", false));
-                        _logger.LogWarning("({ApiName}) Series not found", ApiName);
-                    }
+                    // continue, not return: an unconfigured provider must not skip the providers after it
+                    IApiCallHelpers? client = _clients.Create(userApiAuth.Name, _userConfig);
+                    if (client == null)
+                        continue;
+                    ApiCallHelpers = client;
+                    var resolution = await _resolver.Resolve(source, sourceIds, _clients.Adapt(userApiAuth.Name, client), CancellationToken.None);
+                    await SyncResolution(resolution);
                 }
             }
         }
@@ -380,65 +148,6 @@ namespace jellyfin_anidoki {
                     : anime.AlternativeTitles.Ja
                 : anime.Title;
             return title;
-        }
-
-        /// <summary>
-        /// Checks if the Jellyfin library entry matches the API names.
-        /// </summary>
-        /// <param name="anime">The API anime.</param>
-        /// <param name="episode">The episode if its a series.</param>
-        /// <param name="movie">The movie if its a single episode movie.</param>
-        /// <returns></returns>
-        private bool TitleCheck(Anime anime, Episode episode, Movie movie) {
-            // Try every title Jellyfin holds for the item, not just the display
-            // name. Metadata providers such as Shokofin populate OriginalTitle with the
-            // series' native title, and AniList carries a native title for effectively
-            // every entry - so this matches even when the romanisations disagree
-            // (e.g. AniDB "Otome Kaijuu Caramelise" vs AniList "Otome Kaijuu Caraméliser").
-            // It lets a library display English or romaji titles while still resolving
-            // correctly, instead of forcing the whole library into one naming scheme.
-            var candidateTitles = new List<string>();
-            if (_animeType == typeof(Episode)) {
-                candidateTitles.Add(episode.SeriesName);
-                if (episode.Series?.OriginalTitle != null)
-                    candidateTitles.Add(episode.Series.OriginalTitle);
-            } else {
-                candidateTitles.Add(movie.Name);
-                candidateTitles.Add(movie.OriginalTitle);
-            }
-
-            foreach (var title in candidateTitles) {
-                if (string.IsNullOrWhiteSpace(title))
-                    continue;
-                if (CompareStrings(anime.Title, title) ||
-                    (anime.AlternativeTitles.En != null && CompareStrings(anime.AlternativeTitles.En, title)) ||
-                    (anime.AlternativeTitles.Ja != null && CompareStrings(anime.AlternativeTitles.Ja, title)) ||
-                    (anime.AlternativeTitles.Synonyms != null && anime.AlternativeTitles.Synonyms.Any(synonym => CompareStrings(synonym, title)))) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Compare two strings, ignoring symbols and case.
-        /// </summary>
-        /// <param name="first">The first string.</param>
-        /// <param name="second">The second string.</param>
-        /// <returns>True if first string is equal to second string, false if not.</returns>
-        private bool CompareStrings(string first, string second) {
-            return String.Compare(first, second, CultureInfo.CurrentCulture, CompareOptions.IgnoreCase | CompareOptions.IgnoreSymbols) == 0;
-        }
-
-        /// <summary>
-        /// Check if a string exists in another, ignoring symbols and case.
-        /// </summary>
-        /// <param name="first">The first string.</param>
-        /// <param name="second">The second string.</param>
-        /// <returns>True if first string contains second string, false if not.</returns>
-        private bool ContainsExtended(string first, string second) {
-            return StringFormatter.RemoveSpecialCharacters(first).Contains(StringFormatter.RemoveSpecialCharacters(second), StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -498,29 +207,24 @@ namespace jellyfin_anidoki {
         }
 
         /// <summary>
-        /// Sync an entry resolved by ID. A tracker can split a season the ID databases keep whole (AniList splits Steel
-        /// Ball Run into "STAGE" entries AniDB lists as one), so an episode past the entry's known length follows the
-        /// sequel chain, as the title-search path does.
+        /// Turns a resolution into today's writes: earlier parts complete in chain order, then the played entry is read
+        /// again and decided on. PR 6b replaces this with the planner and executor.
         /// </summary>
-        private async Task CheckResolvedAnimeStatus(int animeId, int progress) {
-            Anime? detectedAnime = await GetAnime(animeId);
-            if (detectedAnime == null) {
-                _outcomeCollector?.Record(new ProviderWriteOutcome(ApiName, animeId.ToString(), "", OutcomeKind.Unresolved,
-                    null, null, ApiName == ApiName.Annict, "resolve", false));
-            } else if (_animeType == typeof(Episode) && detectedAnime.NumEpisodes > 0 && detectedAnime.NumEpisodes < progress) {
-                _logger.LogDebug("({ApiName}) Watched episode passes total episodes in the resolved entry! Checking for additional seasons/cours...", ApiName);
-                var (season, totalEpisodesWatched) = await WalkCours(detectedAnime, progress);
-                if (season == null) {
-                    _outcomeCollector?.Record(new ProviderWriteOutcome(ApiName, detectedAnime.AlternativeId ?? detectedAnime.Id.ToString(), GetAnimeTitle(detectedAnime),
-                        OutcomeKind.Unresolved, null, null, ApiName == ApiName.Annict, "resolve", false));
-                    return;
-                }
-
-                await CheckUserListAnimeStatus(season.Id, progress - totalEpisodesWatched, overrideCheckRewatch: false, alternativeId: season.AlternativeId);
-                return;
+        private async Task SyncResolution(SourceResolution resolution) {
+            foreach (var part in resolution.EarlierParts)
+                await CheckUserListAnimeStatus(part.Entry.Id, part.TargetEpisode, overrideCheckRewatch: false, alternativeId: part.Entry.AlternativeId);
+            switch (resolution) {
+                case Resolved { Played.Entry.Lookup: { } lookup } resolved:
+                    await CheckUserListAnimeStatus(_apiIds, resolved.Played.TargetEpisode, lookup.Title, overrideCheckRewatch: false);
+                    break;
+                case Resolved resolved:
+                    await CheckUserListAnimeStatus(resolved.Played.Entry.Id, resolved.Played.TargetEpisode, overrideCheckRewatch: false, alternativeId: resolved.Played.Entry.AlternativeId);
+                    break;
+                case Unresolved { Record: { } record }:
+                    _outcomeCollector?.Record(new ProviderWriteOutcome(ApiName, record.TargetId, record.Title, OutcomeKind.Unresolved,
+                        null, null, ApiName == ApiName.Annict, "resolve", false));
+                    break;
             }
-
-            await CheckUserListAnimeStatusBase(detectedAnime, progress, false);
         }
 
         private async Task CheckUserListAnimeStatusBase(Anime? detectedAnime, int episodeNumber, bool overrideCheckRewatch, string? alternativeId = null) {
@@ -876,99 +580,6 @@ namespace jellyfin_anidoki {
             return collector.ObserveWrite(ApiName, target, numberOfWatchedEpisodes, status,
                 numberOfTimesRewatched.HasValue ? "rewatch-count" : ApiName == ApiName.Annict ? "status" : "progress",
                 Write, meaningfulChange);
-        }
-
-        /// <summary>
-        /// Get further anime seasons. Jellyfin uses numbered seasons whereas MAL uses entirely different entities.
-        /// </summary>
-        /// <param name="animeId">ID of the anime to get the different season of.</param>
-        /// <param name="seasonNumber">Index of the season to get.</param>
-        /// <returns>The different seasons anime or null if unable to retrieve the relations.</returns>
-        internal async Task<Anime?> GetDifferentSeasonAnime(int animeId, int seasonNumber, string? alternativeId = null) {
-            _logger.LogDebug("({ApiName}) Attempting to get season {SeasonNumber}...", ApiName, seasonNumber);
-            Anime retrievedSeason = await ApiCallHelpers.GetAnime(animeId, getRelated: true, alternativeId: alternativeId);
-
-            if (retrievedSeason != null) {
-                int i = 1;
-                while (i != seasonNumber) {
-                    RelatedAnime? initialSeasonRelatedAnime = retrievedSeason.RelatedAnime?.FirstOrDefault(item => item.RelationType == RelationType.Sequel);
-                    if (initialSeasonRelatedAnime != null) {
-                        _logger.LogDebug("({ApiName}) Attempting to get season {SeasonNumber}...", ApiName, i + 1);
-                        Anime nextSeason = await ApiCallHelpers.GetAnime(initialSeasonRelatedAnime.Anime.Id, getRelated: true, alternativeId: initialSeasonRelatedAnime.Anime.AlternativeId);
-
-                        if (nextSeason == null) {
-                            // returning the season we already have would write progress to the wrong entry
-                            _logger.LogInformation("({ApiName}) Could not retrieve season {SeasonNumber}", ApiName, i + 1);
-                            return null;
-                        }
-
-                        retrievedSeason = nextSeason;
-                    } else {
-                        _logger.LogInformation("({ApiName}) Could not find any related anime sequel", ApiName);
-                        return null;
-                    }
-
-                    i++;
-                }
-
-                return retrievedSeason;
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Walk the sequel chain from the first cour until the cours cover the watched episode, completing each cour passed on the way.
-        /// </summary>
-        /// <param name="firstCour">The first cour of the series.</param>
-        /// <param name="episodeCount">The episode number as Jellyfin numbers it, counted across all cours.</param>
-        /// <returns>The cour reached and the episodes in the cours before it, or a null cour when no cour can hold the episode.</returns>
-        internal async Task<(Anime? season, int totalEpisodesWatched)> WalkCours(Anime firstCour, int episodeCount) {
-            int seasonEpisodeCounter = firstCour.NumEpisodes;
-            int totalEpisodesWatched = 0;
-            Anime season = firstCour;
-            while (seasonEpisodeCounter < episodeCount) {
-                // a cour of unknown length (usually still airing) can't be measured past, so it is the best target
-                if (season.NumEpisodes == 0)
-                    break;
-                // season is already the current cour, so its sequel is always exactly one hop away
-                var nextSeason = await GetDifferentSeasonAnime(season.Id, 2, alternativeId: season.AlternativeId);
-                if (nextSeason == null) {
-                    // the episode lies past every cour we could reach; writing it to the last one would exceed its length
-                    _logger.LogWarning("({ApiName}) Could not find a cour covering episode {EpisodeCount}; not updating", ApiName, episodeCount);
-                    return (null, totalEpisodesWatched);
-                }
-
-                seasonEpisodeCounter += nextSeason.NumEpisodes;
-                // complete the current season; we have surpassed it onto the next season/cour
-                totalEpisodesWatched += season.NumEpisodes;
-                await CheckUserListAnimeStatus(season.Id, season.NumEpisodes, overrideCheckRewatch: false, alternativeId: season.AlternativeId);
-                season = nextSeason;
-            }
-
-            return (season, totalEpisodesWatched);
-        }
-
-        private async Task<Anime> GetOva(int animeId, string episodeName, string? alternativeId = null) {
-            Anime anime = await ApiCallHelpers.GetAnime(animeId, getRelated: true, alternativeId: alternativeId);
-
-            if (anime != null) {
-                var listOfRelatedAnime = anime.RelatedAnime.Where(relation => relation.RelationType is RelationType.Side_Story or RelationType.Alternative_Version or RelationType.Alternative_Setting);
-                foreach (RelatedAnime relatedAnime in listOfRelatedAnime) {
-                    var detailedRelatedAnime = await ApiCallHelpers.GetAnime(relatedAnime.Anime.Id, alternativeId: relatedAnime.Anime.AlternativeId);
-                    if (detailedRelatedAnime is { Title: { }, AlternativeTitles: { En: { } } }) {
-                        if (ContainsExtended(detailedRelatedAnime.Title, episodeName) ||
-                            (detailedRelatedAnime.AlternativeTitles.En != null && ContainsExtended(detailedRelatedAnime.AlternativeTitles.En, episodeName)) ||
-                            (detailedRelatedAnime.AlternativeTitles.Ja != null && ContainsExtended(detailedRelatedAnime.AlternativeTitles.Ja, episodeName))) {
-                            // rough match
-                            return detailedRelatedAnime;
-                        }
-                    }
-                }
-            }
-
-            // no matches
-            return null;
         }
     }
 }

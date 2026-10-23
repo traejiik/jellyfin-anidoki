@@ -30,6 +30,7 @@ public class TrackerReadTests {
         Assert.That(state.TotalEpisodes, Is.EqualTo(12));
         Assert.That(state.ReadAt, Is.EqualTo(Now));
         Assert.That(state.List, Is.EqualTo(new ListState(TrackerStatus.Watching, 3, false, adapter.Capabilities.ReportsRewatchCount ? 1 : null)));
+        Assert.That(state.Titles?.Main, Is.EqualTo("Fixture Show"));
     }
 
     // Each client's conversion presents a rewatch in progress differently; all normalize to Completed + Rewatching.
