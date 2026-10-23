@@ -190,6 +190,7 @@ namespace jellyfin_anidoki.Api {
                 "notifications.js" => "NotificationsJs.js",
                 "notification-state.js" => "NotificationStateJs.js",
                 "manual-mark-state.js" => "ManualMarkStateJs.js",
+                "plugin-pages-guard.js" => "PluginPagesGuardJs.js",
                 "outcome-lines.js" => "OutcomeLinesJs.js",
                 "discord-settings.js" => "DiscordSettingsJs.js",
                 "anidoki-avatar.png" => "Images.anidoki-avatar.png",

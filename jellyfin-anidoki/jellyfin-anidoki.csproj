@@ -37,6 +37,8 @@
         <EmbeddedResource Include="Configuration\Images\anidoki-avatar.png" LogicalName="jellyfin_anidoki.Configuration.Images.anidoki-avatar.png"/>
         <None Remove="Configuration\ManualMarkStateJs.js"/>
         <EmbeddedResource Include="Configuration\ManualMarkStateJs.js"/>
+        <None Remove="Configuration\PluginPagesGuardJs.js"/>
+        <EmbeddedResource Include="Configuration\PluginPagesGuardJs.js"/>
         <None Remove="Configuration\NotificationStateJs.js"/>
         <EmbeddedResource Include="Configuration\NotificationStateJs.js"/>
         <None Remove="Configuration\OutcomeLinesJs.js"/>
