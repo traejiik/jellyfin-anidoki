@@ -23,7 +23,8 @@
 }
 .anidoki *, .anidoki *::before, .anidoki *::after { box-sizing: border-box; }
 .anidoki [hidden] { display: none !important; }
-.anidoki form { width: 100%; max-width: none; margin: 0; }
+/* Themes cap host settings forms (Netflin: .userPreferencesPage form { max-width: 42rem; margin-inline: 0 !important }). */
+.anidoki form { width: 100%; max-width: none !important; margin: 0 !important; }
 .anidoki h1, .anidoki h2, .anidoki h3, .anidoki p { margin: 0; }
 .anidoki h1 { font-size: clamp(1.8rem, 4vw, 2.25rem); line-height: 1.15; letter-spacing: -.025em; }
 .anidoki h2 { font-size: 1.25rem; line-height: 1.35; }
