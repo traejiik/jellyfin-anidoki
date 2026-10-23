@@ -87,3 +87,31 @@ Kitsu: no writes | no outcomes
 Annict: no writes | no outcomes
 Shikimori: no writes | no outcomes
 Simkl: no writes | no outcomes
+## split-season-by-ids
+Mal: write(id=500, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) + write(id=501, progress=2, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500, Confirmed:progress@501
+AniList: write(id=500, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) + write(id=501, progress=2, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500, Confirmed:progress@501
+Kitsu: write(id=500, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) + write(id=501, progress=2, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500, Confirmed:progress@501
+Annict: no writes | NoChange:status@alt-500
+Shikimori: write(id=500, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
+Simkl: write(id=500, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
+## split-season-unknown-length
+Mal: write(id=501, progress=1, status=Watching, rewatching=-, count=-, start=True, end=False) | Skipped:rewatch-disabled@500, Confirmed:progress@501
+AniList: write(id=501, progress=1, status=Watching, rewatching=-, count=-, start=True, end=False) | Skipped:rewatch-disabled@500, Confirmed:progress@501
+Kitsu: write(id=501, progress=1, status=Watching, rewatching=-, count=-, start=True, end=False) | Skipped:rewatch-disabled@500, Confirmed:progress@501
+Annict: no writes | Skipped:rewatch-disabled@alt-500
+Shikimori: no writes | Skipped:rewatch-disabled@alt-500
+Simkl: no writes | Skipped:rewatch-unsupported@500
+## split-season-non-sequel
+Mal: no writes | Unresolved:resolve@500
+AniList: no writes | Unresolved:resolve@500
+Kitsu: no writes | Unresolved:resolve@500
+Annict: no writes | NoChange:status@alt-500
+Shikimori: write(id=500, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
+Simkl: write(id=500, progress=3, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
+## length-disagreement-13-vs-12
+Mal: no writes | Unresolved:resolve@500
+AniList: no writes | Unresolved:resolve@500
+Kitsu: no writes | Unresolved:resolve@500
+Annict: no writes | NoChange:status@alt-500
+Shikimori: write(id=500, progress=13, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
+Simkl: write(id=500, progress=13, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
