@@ -67,7 +67,8 @@ public partial class UserConfigurationTests {
         Assert.Multiple(() => {
             Assert.That(result.StatusCode, Is.EqualTo(400));
             Assert.That(result.Content, Does.Contain("This sign-in link has expired").And.Contain("older than 2 hours"));
-            Assert.That(result.Content, marked ? Does.Contain("Simkl approved the sign-in") : Does.Contain("Your tracker approved the sign-in"));
+            Assert.That(result.Content, Does.Contain("The link you used is no longer valid"));
+            Assert.That(result.Content, marked ? Does.Contain("Select Link next to Simkl again") : Does.Contain("Select Link next to your tracker again"));
         });
     }
 
@@ -88,6 +89,23 @@ public partial class UserConfigurationTests {
             Assert.That(declined.Content, Does.Contain("AniList didn’t link your account"), "the link was still stored when the callback arrived");
             Assert.That(expired.Content, Does.Contain("older than 24 hours"));
         });
+    }
+
+    [TestCase(true, "#/configurationpage?name=AniDoki")]
+    [TestCase(false, "#/userpluginsettings.html?pageUrl=/AniDoki/settings")]
+    public async Task CallbackLeadsBackToThePageTheSignInStartedOn(bool fromAdmin, string expectedHref) {
+        _plugin.Configuration.enableUserPages = true;
+        string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.AniList, returnToAdmin: fromAdmin);
+        var result = (ContentResult)await _controller.AuthCallback(null, state, "access_denied");
+        Assert.That(result.Content, Does.Contain($"href=\"../web/index.html{expectedHref}\""));
+    }
+
+    [Test]
+    public void AdminSignInLinksReturnToTheAdminPage() {
+        ConfigureOAuthProvider(ApiName.AniList);
+        var result = (OkObjectResult)_controller.AuthorizeProvider(ApiName.AniList, _requester.Id);
+        string state = QueryHelpers.ParseQuery(new Uri((string)result.Value!).Query)["state"].ToString();
+        Assert.That(MemoryCacheHelper.ConsumeState(_memoryCache, state)?.ReturnToAdmin, Is.True);
     }
 
     [Test]
@@ -145,7 +163,7 @@ public class CallbackPageTests {
         string html = CallbackPage.Render(Model(outcome));
         Assert.Multiple(() => {
             Assert.That(CallbackPage.StatusCode(outcome), Is.EqualTo(status));
-            Assert.That(html, Does.Contain($"doki-cb-badge {tone}"));
+            Assert.That(html, Does.Contain($"doki-cb-link {tone}"));
             Assert.That(html, Does.Contain("assets/v/fixture/jellyfin.svg").And.Contain("assets/v/fixture/anidoki-avatar.png"));
             Assert.That(html, Does.Not.Contain("{{"), "every placeholder is filled");
             Assert.That(html, Does.Not.Match(@"class=""[^""]*\bad-"), "no ad-blocker-hidden class names");

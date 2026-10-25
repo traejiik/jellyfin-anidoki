@@ -71,7 +71,7 @@ internal static partial class CallbackPage {
         var (tone, badgeLabel, badgeIcon) = model.Outcome switch {
             CallbackOutcome.Linked => ("success", "Linked", Icons.Check),
             CallbackOutcome.Expired => ("warning", "Link expired", Icons.Clock),
-            CallbackOutcome.WrongServer => ("warning", "Different server", Icons.Server),
+            CallbackOutcome.WrongServer => ("warning", "Different server", Icons.Unlink),
             _ => ("error", "Not linked", Icons.Cross)
         };
 
@@ -86,24 +86,24 @@ internal static partial class CallbackPage {
                         $"AniDōki updates your {p} list as you finish episodes in Jellyfin.",
                         $"It never lowers progress you already have on {p}.",
                         $"To check the connection, select Test next to {p} in your AniDōki settings."));
-                footer = $"You can unlink {p} at any time from your AniDōki settings in Jellyfin. It’s safe to close this tab.";
+                footer = $"You can unlink {p} at any time in your AniDōki settings.";
                 primary = "Back to AniDōki settings";
                 break;
             case CallbackOutcome.Expired:
                 title = "Sign-in link expired";
                 heading = "This sign-in link has expired";
-                lead = Lead($"{P} approved the sign-in, but AniDōki no longer recognises the link it came from, so nothing was linked.");
+                lead = Lead("The link you used is no longer valid, so nothing was linked.");
                 body = Note("A sign-in link stops working when", List(
                     "it has already been used, for example the page was refreshed or opened twice",
                     $"it is older than {Encode(Duration(model.LinkExpiryMinutes))}, the link expiry your administrator set",
                     "Jellyfin restarted between selecting Link and approving"));
-                footer = $"Start again from your AniDōki settings in Jellyfin and select Link next to {p}.";
+                footer = $"Select Link next to {p} again to get a new sign-in link.";
                 primary = "Start again in AniDōki settings";
                 break;
             case CallbackOutcome.WrongServer:
                 title = "Sign-in reached a different server";
                 heading = "This sign-in started on another server";
-                lead = Lead($"{P} sent you back to this Jellyfin server, but you selected Link on a different one. The {p} app’s redirect URL usually points to the wrong server.");
+                lead = Lead($"{P} sent you to this Jellyfin server, but the sign-in started on a different one. Usually the {p} app’s redirect URL points to the wrong server.");
                 body = RedirectField(model.RedirectUrl)
                     + Note("To fix it", List(ordered: true,
                         $"Ask your Jellyfin administrator to set the {p} app’s redirect URL to the address above.",
@@ -158,9 +158,9 @@ internal static partial class CallbackPage {
 
     private static string ProviderLogo(ApiName? provider, string assets, string encodedName) {
         if (provider is not { } known)
-            return $"<div class=\"doki-cb-provider doki-cb-unknown\" role=\"img\" aria-label=\"Tracker\">{Icons.Link}</div>";
+            return $"<div class=\"doki-cb-tile doki-cb-provider doki-cb-unknown\" role=\"img\" aria-label=\"Tracker\">{Icons.Link}</div>";
         string file = known == ApiName.Annict ? "provider-annict.png" : $"provider-{known.ToString().ToLowerInvariant()}.svg";
-        return $"<div class=\"doki-cb-provider\"><img src=\"{assets}{file}\" alt=\"{encodedName}\"></div>";
+        return $"<div class=\"doki-cb-tile doki-cb-provider\"><img src=\"{assets}{file}\" alt=\"{encodedName}\"></div>";
     }
 
     private static string Account(string? jellyfinUser, string tone, string encodedLabel, string encodedState) {
@@ -211,10 +211,10 @@ internal static partial class CallbackPage {
     };
 
     private static class Icons {
-        private const string Open = "<svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">";
+        private const string Open = "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">";
         internal const string Check = Open + "<path d=\"M20 6 9 17l-5-5\"/></svg>";
         internal const string Clock = Open + "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/></svg>";
-        internal const string Server = Open + "<rect x=\"3\" y=\"4\" width=\"18\" height=\"7\" rx=\"2\"/><rect x=\"3\" y=\"13\" width=\"18\" height=\"7\" rx=\"2\"/><path d=\"M7 7.5h.01M7 16.5h.01\"/></svg>";
+        internal const string Unlink = Open + "<path d=\"m18.84 12.25 1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"m5.17 11.75-1.71 1.71a5 5 0 0 0 7.07 7.07l1.71-1.71\"/><path d=\"M8 2v3M2 8h3M16 22v-3M22 16h-3\"/></svg>";
         internal const string Cross = Open + "<path d=\"M18 6 6 18M6 6l12 12\"/></svg>";
         internal const string Link = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7\"/><path d=\"M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7\"/></svg>";
         internal const string User = "<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg>";

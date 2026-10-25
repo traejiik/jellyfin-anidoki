@@ -76,11 +76,11 @@ namespace jellyfin_anidoki.Api {
             _redirectBaseAddress = baseAddress;
         }
 
-        public string BuildAuthorizeRequestUrl(Guid userId) {
+        public string BuildAuthorizeRequestUrl(Guid userId, bool returnToAdmin = false) {
             string redirectUrl = Uri.EscapeDataString(CallbackUrlHelper.Build(_redirectBaseAddress));
             // MAL only supports the plain PKCE method, so the challenge is the verifier; it stays secret by being per link
             string? codeVerifier = _provider == ApiName.Mal ? GeneratePkce() : null;
-            string state = MemoryCacheHelper.GenerateState(_memoryCache, userId, _provider, codeVerifier, _serverId);
+            string state = MemoryCacheHelper.GenerateState(_memoryCache, userId, _provider, codeVerifier, _serverId, returnToAdmin);
             switch (_provider) {
                 case ApiName.Mal:
                     return $"{_authApiUrl}/authorize?response_type=code&client_id={_providerApiAuth.ClientId}&code_challenge={codeVerifier}&code_challenge_method=plain&redirect_uri={redirectUrl}&state={state}";

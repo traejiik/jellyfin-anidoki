@@ -11,26 +11,33 @@
 body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: #101010; color: #f5f5f5; font-family: "Noto Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5; }
 a { color: #3dbbec; }
 .doki-cb-bar { height: 64px; padding: 0 32px; display: flex; align-items: center; gap: 10px; background: #181818; border-bottom: 1px solid #2a2a2a; }
-.doki-cb-bar img { width: 30px; height: 30px; }
-.doki-cb-bar span { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.doki-cb-bar img { width: 28px; height: 28px; }
+.doki-cb-bar span { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
 .doki-cb-main { flex: 1 1 auto; padding: 48px 16px 40px; display: flex; justify-content: center; }
 .doki-cb-column { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 28px; }
 .doki-cb-hero { display: flex; flex-direction: column; align-items: center; gap: 20px; text-align: center; }
-.doki-cb-logos { display: flex; align-items: center; justify-content: center; gap: 20px; }
-.doki-cb-provider { width: 72px; height: 72px; padding: 14px; border-radius: 18px; background: #ffffff; display: flex; align-items: center; justify-content: center; }
-.doki-cb-provider.doki-cb-unknown { background: #1e1e1e; border: 1px solid #333333; color: #b9b9b9; }
+/* Logo row: one tile size; the provider meets the Jellyfin + AniDōki pair across a status line. */
+.doki-cb-logos { --tile: 64px; display: flex; align-items: center; justify-content: center; }
+.doki-cb-tile { position: relative; flex: 0 0 auto; width: var(--tile); height: var(--tile); border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.doki-cb-provider { padding: 12px; background: #ffffff; }
+.doki-cb-provider.doki-cb-unknown { padding: 18px; background: #1e1e1e; box-shadow: inset 0 0 0 1px #333333; color: #b9b9b9; }
 .doki-cb-provider img, .doki-cb-provider svg { width: 100%; height: 100%; object-fit: contain; }
-.doki-cb-badge { width: 32px; height: 32px; flex: 0 0 auto; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-.doki-cb-badge.doki-cb-success { background: #34d399; color: #062a1d; }
-.doki-cb-badge.doki-cb-warning { background: #fbbf24; color: #2e2104; }
-.doki-cb-badge.doki-cb-error { background: #f87171; color: #340a0e; }
-.doki-cb-us { display: flex; align-items: center; gap: 6px; padding: 7px; border-radius: 22px; background: #1e1e1e; border: 1px solid #333333; color: #b9b9b9; }
-.doki-cb-us .doki-cb-jellyfin { width: 56px; height: 56px; padding: 12px; border-radius: 15px; background: #101010; }
-.doki-cb-us .doki-cb-anidoki { width: 56px; height: 56px; border-radius: 15px; object-fit: cover; }
+.doki-cb-link { --tone: #6ee7b7; --tone-bg: #10291f; position: relative; width: 76px; height: var(--tile); flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
+.doki-cb-link::before { content: ""; position: absolute; left: 6px; right: 6px; top: 50%; border-top: 2px solid var(--tone); opacity: 0.55; }
+.doki-cb-link.doki-cb-warning { --tone: #fcd34d; --tone-bg: #2c2208; }
+.doki-cb-link.doki-cb-error { --tone: #fca5a5; --tone-bg: #2d1214; }
+.doki-cb-link.doki-cb-warning::before, .doki-cb-link.doki-cb-error::before { border-top-style: dashed; }
+.doki-cb-badge { position: relative; width: 26px; height: 26px; border-radius: 50%; background: var(--tone-bg); color: var(--tone); box-shadow: 0 0 0 1.5px var(--tone), 0 0 0 5px #101010; display: flex; align-items: center; justify-content: center; }
+.doki-cb-us { display: flex; align-items: center; }
+.doki-cb-jellyfin { padding: 14px; background: #1c1c1c; box-shadow: inset 0 0 0 1px #333333; }
+.doki-cb-jellyfin img { width: 100%; height: 100%; }
+.doki-cb-anidoki { margin-left: -14px; background: #121726; box-shadow: 0 0 0 3px #101010; overflow: hidden; }
+/* The logo file includes its wordmark: enlarge it around the AD mark and clip just below the mark. */
+.doki-cb-anidoki img { position: absolute; width: 165%; height: 165%; left: -33%; top: -18%; clip-path: inset(0 0 34% 0); }
 .doki-cb-hero h1 { margin: 0; font-size: 26px; line-height: 1.3; font-weight: 600; }
 .doki-cb-hero p { margin: 0; max-width: 520px; font-size: 15px; line-height: 1.6; color: #b9b9b9; }
 .doki-cb-account { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border: 1px solid #333333; border-radius: 12px; background: #181818; }
-.doki-cb-avatar { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 10px; background: #00a4dc; color: #04141c; display: flex; align-items: center; justify-content: center; }
+.doki-cb-avatar { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; background: #00a4dc; color: #04141c; display: flex; align-items: center; justify-content: center; }
 .doki-cb-who { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; overflow-wrap: anywhere; }
 .doki-cb-who strong { font-size: 15px; font-weight: 500; }
 .doki-cb-who span, .doki-cb-state small { font-size: 13px; font-weight: 400; color: #b9b9b9; }
@@ -54,17 +61,22 @@ a { color: #3dbbec; }
 .doki-cb-footer { padding: 20px 16px 28px; background: #181818; border-top: 1px solid #2a2a2a; display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .doki-cb-footer p { margin: 0; width: 100%; max-width: 640px; font-size: 13px; line-height: 1.55; color: #b9b9b9; text-align: center; }
 .doki-cb-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-.doki-cb-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 10px 22px; border-radius: 8px; border: 1px solid #4a4a4a; background: transparent; color: #f5f5f5; font: inherit; font-size: 15px; font-weight: 500; text-decoration: none; cursor: pointer; }
-.doki-cb-button.doki-cb-primary { border-color: #00a4dc; background: #00a4dc; color: #04141c; font-weight: 600; }
+.doki-cb-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 10px 22px; border-radius: 8px; border: 1px solid #4a4a4a; background: transparent; color: #f5f5f5; font: inherit; font-size: 15px; font-weight: 500; text-decoration: none; cursor: pointer; transition: transform 160ms ease-out, background-color 150ms ease, border-color 150ms ease; }
+.doki-cb-button:active { transform: scale(0.97); }
+.doki-cb-button.doki-cb-primary { min-width: 240px; border-color: #00a4dc; background: #00a4dc; color: #04141c; font-weight: 600; }
+@media (hover: hover) and (pointer: fine) {
+  .doki-cb-button:hover { background: #262626; border-color: #5a5a5a; }
+  .doki-cb-button.doki-cb-primary:hover { background: #3dbbec; border-color: #3dbbec; }
+}
+@media (prefers-reduced-motion: reduce) { .doki-cb-button { transition: none; } .doki-cb-button:active { transform: none; } }
 .doki-cb-button:focus-visible, .doki-cb-copy input:focus-visible, .doki-cb-note summary:focus-visible { outline: 2px solid #7fd3f3; outline-offset: 2px; }
 .doki-cb-small { min-height: 44px; padding: 10px 14px; font-size: 14px; background: #262626; }
 [hidden] { display: none !important; }
 @media (max-width: 520px) {
   .doki-cb-bar { padding: 0 16px; }
   .doki-cb-main { padding-top: 32px; }
-  .doki-cb-logos { gap: 12px; }
-  .doki-cb-provider { width: 60px; height: 60px; padding: 12px; }
-  .doki-cb-us .doki-cb-jellyfin, .doki-cb-us .doki-cb-anidoki { width: 46px; height: 46px; }
+  .doki-cb-logos { --tile: 56px; }
+  .doki-cb-link { width: 60px; }
   .doki-cb-account { flex-wrap: wrap; }
   .doki-cb-state { align-items: flex-start; text-align: left; width: 100%; padding-left: 54px; }
   .doki-cb-actions { width: 100%; flex-direction: column; }
@@ -81,11 +93,10 @@ a { color: #3dbbec; }
     <div class="doki-cb-hero">
       <div class="doki-cb-logos">
         {{providerLogo}}
-        <div class="doki-cb-badge doki-cb-{{tone}}" role="img" aria-label="{{badgeLabel}}">{{badgeIcon}}</div>
+        <div class="doki-cb-link doki-cb-{{tone}}"><div class="doki-cb-badge" role="img" aria-label="{{badgeLabel}}">{{badgeIcon}}</div></div>
         <div class="doki-cb-us">
-          <img class="doki-cb-jellyfin" src="{{assets}}jellyfin.svg" alt="Jellyfin">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
-          <img class="doki-cb-anidoki" src="{{assets}}anidoki-avatar.png" alt="AniDōki">
+          <div class="doki-cb-tile doki-cb-jellyfin"><img src="{{assets}}jellyfin.svg" alt="Jellyfin"></div>
+          <div class="doki-cb-tile doki-cb-anidoki"><img src="{{assets}}anidoki-avatar.png" alt="AniDōki"></div>
         </div>
       </div>
       <h1>{{heading}}</h1>
@@ -98,15 +109,9 @@ a { color: #3dbbec; }
   <p>{{footer}}</p>
   <div class="doki-cb-actions">
     <a class="doki-cb-button doki-cb-primary" href="{{settingsHref}}">{{primary}}</a>
-    <button class="doki-cb-button" type="button" data-close>Close tab</button>
   </div>
-  <p data-close-hint hidden>Your browser kept this tab open. You can close it yourself.</p>
 </footer>
 <script>
-document.querySelector('[data-close]').addEventListener('click', () => {
-  window.close();
-  setTimeout(() => { document.querySelector('[data-close-hint]').hidden = false; }, 300);
-});
 for (const button of document.querySelectorAll('[data-copy]')) {
   button.addEventListener('click', async () => {
     const input = document.getElementById(button.dataset.copy);

@@ -125,7 +125,8 @@ export function safeExternalUrl(address) {
 export function authorizationLink(container, url, name) {
     container.replaceChildren();
     const link = element('a', 'doki-button', `Continue to ${name}`);
-    link.href = safeExternalUrl(url); link.target = '_blank'; link.rel = 'noopener noreferrer';
+    // Same tab: the callback page links back here, and the settings page reloads the linked accounts.
+    link.href = safeExternalUrl(url); link.rel = 'noreferrer';
     container.append(link);
 }
 export function ensureStyles() {

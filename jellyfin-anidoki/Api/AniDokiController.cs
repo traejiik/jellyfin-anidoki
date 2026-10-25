@@ -78,7 +78,7 @@ namespace jellyfin_anidoki.Api {
         [HttpGet]
         [Route("buildAuthorizeRequestUrl")]
         public string BuildAuthorizeRequestUrl(ApiName provider, string clientId, string clientSecret, string? url, Guid user) {
-            return new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer, new ProviderApiAuth { ClientId = clientId, ClientSecret = clientSecret }, url).BuildAuthorizeRequestUrl(user);
+            return new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer, new ProviderApiAuth { ClientId = clientId, ClientSecret = clientSecret }, url).BuildAuthorizeRequestUrl(user, returnToAdmin: true);
         }
 
         [Authorize(Policy = Policies.RequiresElevation)]
@@ -98,7 +98,7 @@ namespace jellyfin_anidoki.Api {
         [Authorize(Policy = Policies.RequiresElevation)]
         [HttpGet("authorize")]
         public ActionResult AuthorizeProvider([FromQuery] ApiName provider, [FromQuery] Guid user) =>
-            AuthorizeSavedProvider(provider, user);
+            AuthorizeSavedProvider(provider, user, returnToAdmin: true);
 
         [Authorize(Policy = Policies.RequiresElevation)]
         [HttpPost("passwordGrant")]
@@ -574,16 +574,16 @@ namespace jellyfin_anidoki.Api {
             if (!string.IsNullOrEmpty(error) || string.IsNullOrEmpty(code)) {
                 string? errorCode = CallbackPage.SafeErrorCode(error);
                 _logger.LogInformation("({ApiName}) Sign-in was not approved: {ErrorCode}", storedState.ApiName, errorCode ?? "no code returned");
-                return CallbackPageResult(error == "access_denied" ? CallbackOutcome.Declined : CallbackOutcome.ProviderError, storedState.ApiName, jellyfinUser, errorCode);
+                return CallbackPageResult(error == "access_denied" ? CallbackOutcome.Declined : CallbackOutcome.ProviderError, storedState.ApiName, jellyfinUser, errorCode, storedState.ReturnToAdmin);
             }
             try {
                 var token = await new ApiAuthentication(storedState.ApiName, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer).GetToken(storedState.UserId, code, codeVerifier: storedState.CodeVerifier);
                 if (token == null)
-                    return CallbackPageResult(CallbackOutcome.ProviderError, storedState.ApiName, jellyfinUser);
+                    return CallbackPageResult(CallbackOutcome.ProviderError, storedState.ApiName, jellyfinUser, returnToAdmin: storedState.ReturnToAdmin);
             } catch (Exception exception) {
                 // this endpoint is anonymous; only the OAuth error code reaches the page, the response stays in the server log
                 _logger.LogError("({ApiName}) Could not complete sign-in: {ErrorMessage}", storedState.ApiName, exception.Message);
-                return CallbackPageResult(CallbackOutcome.ProviderError, storedState.ApiName, jellyfinUser, CallbackPage.ErrorCodeFrom(exception.Message));
+                return CallbackPageResult(CallbackOutcome.ProviderError, storedState.ApiName, jellyfinUser, CallbackPage.ErrorCodeFrom(exception.Message), storedState.ReturnToAdmin);
             }
             if (!string.IsNullOrEmpty(Plugin.Instance?.PluginConfiguration.callbackRedirectUrl)) {
                 string replacedCallbackRedirectUrl = Plugin.Instance.PluginConfiguration.callbackRedirectUrl.Replace("{{LocalIpAddress}}", Request.HttpContext.Connection.LocalIpAddress != null ? Request.HttpContext.Connection.LocalIpAddress.ToString() : "localhost")
@@ -596,16 +596,16 @@ namespace jellyfin_anidoki.Api {
                 }
             }
 
-            return CallbackPageResult(CallbackOutcome.Linked, storedState.ApiName, jellyfinUser);
+            return CallbackPageResult(CallbackOutcome.Linked, storedState.ApiName, jellyfinUser, returnToAdmin: storedState.ReturnToAdmin);
         }
 
-        private ContentResult CallbackPageResult(CallbackOutcome outcome, ApiName? provider, string? jellyfinUser, string? errorCode = null) {
+        private ContentResult CallbackPageResult(CallbackOutcome outcome, ApiName? provider, string? jellyfinUser, string? errorCode = null, bool returnToAdmin = false) {
             var configuration = Plugin.Instance?.PluginConfiguration;
             string callbackBase = string.IsNullOrWhiteSpace(configuration?.callbackUrl)
                 ? CallbackUrlHelper.GetLocalBaseAddress(_serverApplicationHost, HttpContext)
                 : configuration.callbackUrl;
             // Relative to {base}/AniDoki/authCallback, so a Jellyfin base path needs no handling here.
-            string settingsHref = configuration?.enableUserPages == true
+            string settingsHref = configuration?.enableUserPages == true && !returnToAdmin
                 ? "../web/index.html#/userpluginsettings.html?pageUrl=/AniDoki/settings"
                 : "../web/index.html#/configurationpage?name=AniDoki";
             string assets = $"assets/v/{typeof(Plugin).Assembly.ManifestModule.ModuleVersionId:N}/";
@@ -692,7 +692,7 @@ namespace jellyfin_anidoki.Api {
             return auth;
         }
 
-        private ActionResult AuthorizeSavedProvider(ApiName provider, Guid user) {
+        private ActionResult AuthorizeSavedProvider(ApiName provider, Guid user, bool returnToAdmin = false) {
             if (user == Guid.Empty)
                 return BadRequest("A Jellyfin user is required");
             var jellyfinUser = _userManager.GetUser(User, user);
@@ -704,7 +704,7 @@ namespace jellyfin_anidoki.Api {
             try {
                 var authentication = new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost,
                     _httpContextAccessor, _loggerFactory, _memoryCache, _delayer, auth);
-                string url = authentication.BuildAuthorizeRequestUrl(jellyfinUser.Id);
+                string url = authentication.BuildAuthorizeRequestUrl(jellyfinUser.Id, returnToAdmin);
                 if (GetOrCreateUserConfiguration(jellyfinUser.Id) == null)
                     return StatusCode(500, "Plugin configuration not loaded");
                 return Ok(url);
