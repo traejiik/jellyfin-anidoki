@@ -40,6 +40,8 @@ public partial class UserConfigurationTests {
         using var stream = file.FileStream;
         using var reader = XmlReader.Create(stream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit });
         var document = XDocument.Load(reader);
+        // A fill may reference a gradient defined in the same file, never anything outside it.
+        var localIds = document.Descendants().Attributes("id").Select(id => $"url(#{id.Value})").ToHashSet();
         Assert.Multiple(() => {
             Assert.That(file.ContentType, Is.EqualTo("image/svg+xml"));
             Assert.That(document.Root!.Name, Is.EqualTo(XName.Get("svg", "http://www.w3.org/2000/svg")));
@@ -48,7 +50,7 @@ public partial class UserConfigurationTests {
             Assert.That(document.Descendants().Attributes().Any(attribute =>
                 attribute.Name.LocalName.StartsWith("on", StringComparison.OrdinalIgnoreCase) ||
                 attribute.Name.LocalName is "href" or "src" ||
-                attribute.Value.Contains("url(", StringComparison.OrdinalIgnoreCase)), Is.False);
+                (attribute.Value.Contains("url(", StringComparison.OrdinalIgnoreCase) && !localIds.Contains(attribute.Value))), Is.False);
         });
     }
 

@@ -22,6 +22,9 @@ license is retained in `LICENSE-Simple-Icons.txt`. Trademark rights are unaffect
 | `jellyfin.svg` | [jellyfin.svg](https://github.com/simple-icons/simple-icons/blob/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/jellyfin.svg) | https://jellyfin.org/docs/general/contributing/branding.html | `#00A4DC` |
 
 `jellyfin.svg` is not a tracker logo: the sign-in callback page shows it beside AniDōki's.
+Its path is unchanged; instead of a flat fill it uses Jellyfin's brand gradient, purple
+`#AA5CC3` to blue `#00A4DC` from top left to bottom right, as in the official icon
+([Jellyfin branding](https://jellyfin.org/docs/general/contributing/branding.html)).
 
 The path drawing, title, and viewBox are unchanged. The only SVG modification is
 an explicit root fill using the brand color from Simple Icons' metadata. Each SVG
