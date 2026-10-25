@@ -19,6 +19,9 @@ license is retained in `LICENSE-Simple-Icons.txt`. Trademark rights are unaffect
 | `provider-kitsu.svg` | [kitsu.svg](https://github.com/simple-icons/simple-icons/blob/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/kitsu.svg) | https://kitsu.io | `#FD755C` |
 | `provider-shikimori.svg` | [shikimori.svg](https://github.com/simple-icons/simple-icons/blob/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/shikimori.svg) | https://shikimori.one | `#343434` |
 | `provider-simkl.svg` | [simkl.svg](https://github.com/simple-icons/simple-icons/blob/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/simkl.svg) | https://simkl.com | `#000000` |
+| `jellyfin.svg` | [jellyfin.svg](https://github.com/simple-icons/simple-icons/blob/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/jellyfin.svg) | https://jellyfin.org/docs/general/contributing/branding.html | `#00A4DC` |
+
+`jellyfin.svg` is not a tracker logo: the sign-in callback page shows it beside AniDōki's.
 
 The path drawing, title, and viewBox are unchanged. The only SVG modification is
 an explicit root fill using the brand color from Simple Icons' metadata. Each SVG

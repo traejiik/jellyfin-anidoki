@@ -17,8 +17,8 @@ public class MemoryCacheHelper {
     internal const string XRateLimitRemainingHeader = "X-RateLimit-Remaining";
     internal const string XRateLimitResetHeader = "X-RateLimit-Reset";
 
-    public static string GenerateState(IMemoryCache memoryCache, Guid userId, ApiName provider, string? codeVerifier = null) {
-        var key = Guid.NewGuid().ToString().Replace("-", "");
+    public static string GenerateState(IMemoryCache memoryCache, Guid userId, ApiName provider, string? codeVerifier = null, string? serverId = null) {
+        var key = CallbackState.Create(serverId, provider);
         memoryCache.Set(key, new StoredState {
             ApiName = provider,
             UserId = userId,

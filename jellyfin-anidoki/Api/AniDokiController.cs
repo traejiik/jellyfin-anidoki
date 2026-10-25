@@ -204,6 +204,7 @@ namespace jellyfin_anidoki.Api {
                 "provider-annict.png" => "Images.provider-annict.png",
                 "provider-shikimori.svg" => "Images.provider-shikimori.svg",
                 "provider-simkl.svg" => "Images.provider-simkl.svg",
+                "jellyfin.svg" => "Images.jellyfin.svg",
                 _ => null
             };
             if (resource == null)
@@ -560,20 +561,29 @@ namespace jellyfin_anidoki.Api {
         [AllowAnonymous]
         [HttpGet]
         [Route("authCallback")]
-        public async Task<IActionResult> AuthCallback(string code, string? state) {
-            if (state == null)
-                return BadRequest("State is empty");
-            StoredState? storedState = MemoryCacheHelper.ConsumeState(_memoryCache, state);
-            if (storedState == null)
-                return BadRequest("User not found or link already used/expired, try again");
+        public async Task<IActionResult> AuthCallback(string? code, string? state, string? error = null) {
+            StoredState? storedState = string.IsNullOrEmpty(state) ? null : MemoryCacheHelper.ConsumeState(_memoryCache, state);
+            CallbackState.TryReadOrigin(state, out _, out ApiName? markedProvider);
+            if (storedState == null) {
+                bool elsewhere = CallbackState.IsFromOtherServer(state, _serverApplicationHost.SystemId);
+                _logger.LogInformation("({ApiName}) Sign-in callback had no matching link: {Reason}", markedProvider, elsewhere ? "issued by another server" : "expired or already used");
+                return CallbackPageResult(elsewhere ? CallbackOutcome.WrongServer : CallbackOutcome.Expired, markedProvider, null);
+            }
+
+            string? jellyfinUser = _userManager.GetUserById(storedState.UserId)?.Username;
+            if (!string.IsNullOrEmpty(error) || string.IsNullOrEmpty(code)) {
+                string? errorCode = CallbackPage.SafeErrorCode(error);
+                _logger.LogInformation("({ApiName}) Sign-in was not approved: {ErrorCode}", storedState.ApiName, errorCode ?? "no code returned");
+                return CallbackPageResult(error == "access_denied" ? CallbackOutcome.Declined : CallbackOutcome.ProviderError, storedState.ApiName, jellyfinUser, errorCode);
+            }
             try {
                 var token = await new ApiAuthentication(storedState.ApiName, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer).GetToken(storedState.UserId, code, codeVerifier: storedState.CodeVerifier);
                 if (token == null)
-                    return StatusCode(500, "Could not authenticate");
-            } catch (Exception error) {
-                // this endpoint is anonymous; provider responses stay in the server log
-                _logger.LogError("({ApiName}) Could not complete sign-in: {ErrorMessage}", storedState.ApiName, error.Message);
-                return StatusCode(500, "Could not authenticate; check the Jellyfin log for details");
+                    return CallbackPageResult(CallbackOutcome.ProviderError, storedState.ApiName, jellyfinUser);
+            } catch (Exception exception) {
+                // this endpoint is anonymous; only the OAuth error code reaches the page, the response stays in the server log
+                _logger.LogError("({ApiName}) Could not complete sign-in: {ErrorMessage}", storedState.ApiName, exception.Message);
+                return CallbackPageResult(CallbackOutcome.ProviderError, storedState.ApiName, jellyfinUser, CallbackPage.ErrorCodeFrom(exception.Message));
             }
             if (!string.IsNullOrEmpty(Plugin.Instance?.PluginConfiguration.callbackRedirectUrl)) {
                 string replacedCallbackRedirectUrl = Plugin.Instance.PluginConfiguration.callbackRedirectUrl.Replace("{{LocalIpAddress}}", Request.HttpContext.Connection.LocalIpAddress != null ? Request.HttpContext.Connection.LocalIpAddress.ToString() : "localhost")
@@ -586,7 +596,27 @@ namespace jellyfin_anidoki.Api {
                 }
             }
 
-            return new ObjectResult("Success! Received access token! You can test your authentication in AniDoki Configuration!") { StatusCode = 200 };
+            return CallbackPageResult(CallbackOutcome.Linked, storedState.ApiName, jellyfinUser);
+        }
+
+        private ContentResult CallbackPageResult(CallbackOutcome outcome, ApiName? provider, string? jellyfinUser, string? errorCode = null) {
+            var configuration = Plugin.Instance?.PluginConfiguration;
+            string callbackBase = string.IsNullOrWhiteSpace(configuration?.callbackUrl)
+                ? CallbackUrlHelper.GetLocalBaseAddress(_serverApplicationHost, HttpContext)
+                : configuration.callbackUrl;
+            // Relative to {base}/AniDoki/authCallback, so a Jellyfin base path needs no handling here.
+            string settingsHref = configuration?.enableUserPages == true
+                ? "../web/index.html#/userpluginsettings.html?pageUrl=/AniDoki/settings"
+                : "../web/index.html#/configurationpage?name=AniDoki";
+            string assets = $"assets/v/{typeof(Plugin).Assembly.ManifestModule.ModuleVersionId:N}/";
+            var model = new CallbackPageModel(outcome, provider, jellyfinUser, assets, settingsHref,
+                CallbackUrlHelper.Build(callbackBase), errorCode, configuration?.authenticationLinkExpireTimeMinutes ?? 1440);
+            Response.Headers.CacheControl = "no-store";
+            return new ContentResult {
+                Content = CallbackPage.Render(model),
+                ContentType = "text/html; charset=utf-8",
+                StatusCode = CallbackPage.StatusCode(outcome)
+            };
         }
 
         [AllowAnonymous]

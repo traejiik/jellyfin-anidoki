@@ -28,9 +28,11 @@ namespace jellyfin_anidoki.Api {
         private readonly ProviderApiAuth _providerApiAuth;
         private readonly IMemoryCache _memoryCache;
         private readonly IAsyncDelayer _delayer;
+        private readonly string? _serverId;
 
         public ApiAuthentication(ApiName provider, IHttpClientFactory httpClientFactory, IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, ILoggerFactory loggerFactory, IMemoryCache memoryCache, IAsyncDelayer delayer, ProviderApiAuth? overrideProviderApiAuth = null, string? overrideRedirectUrl = null) {
             _provider = provider;
+            _serverId = serverApplicationHost.SystemId;
 
             switch (provider) {
                 case ApiName.Mal:
@@ -78,7 +80,7 @@ namespace jellyfin_anidoki.Api {
             string redirectUrl = Uri.EscapeDataString(CallbackUrlHelper.Build(_redirectBaseAddress));
             // MAL only supports the plain PKCE method, so the challenge is the verifier; it stays secret by being per link
             string? codeVerifier = _provider == ApiName.Mal ? GeneratePkce() : null;
-            string state = MemoryCacheHelper.GenerateState(_memoryCache, userId, _provider, codeVerifier);
+            string state = MemoryCacheHelper.GenerateState(_memoryCache, userId, _provider, codeVerifier, _serverId);
             switch (_provider) {
                 case ApiName.Mal:
                     return $"{_authApiUrl}/authorize?response_type=code&client_id={_providerApiAuth.ClientId}&code_challenge={codeVerifier}&code_challenge_method=plain&redirect_uri={redirectUrl}&state={state}";

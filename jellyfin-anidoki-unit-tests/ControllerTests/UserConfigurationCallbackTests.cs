@@ -41,14 +41,16 @@ public partial class UserConfigurationTests {
             Assert.That(_requesterConfig.UserApiAuth[0].AccessToken == "new-fixture-access", Is.True);
             if (redirect)
                 Assert.That((result as RedirectResult)?.Url, Is.EqualTo("http://127.0.0.1:8096/done"));
-            else
-                Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(200));
+            else {
+                Assert.That((result as ContentResult)?.StatusCode, Is.EqualTo(200));
+                Assert.That((result as ContentResult)?.Content, Does.Contain("MyAnimeList is linked to AniDōki").And.Contain("requester"));
+            }
         });
     }
 
-    [TestCase(HttpStatusCode.Unauthorized, "{\"error\":\"invalid_grant\"}")]
+    [TestCase(HttpStatusCode.Unauthorized, "{\"error\":\"invalid_grant\",\"error_description\":\"fixture-provider-detail\"}")]
     [TestCase(HttpStatusCode.OK, "{}")]
-    [TestCase(HttpStatusCode.OK, "{\"error\":\"invalid_grant\"}")]
+    [TestCase(HttpStatusCode.OK, "{\"error\":\"invalid_grant\",\"error_description\":\"fixture-provider-detail\"}")]
     [TestCase(HttpStatusCode.OK, "{\"access_token\":\"\"}")]
     public async Task FailedOAuthCallbackDoesNotClaimSuccessOrRedirect(HttpStatusCode responseCode, string responseBody) {
         _plugin.Configuration.callbackRedirectUrl = "https://host/done";
@@ -56,8 +58,10 @@ public partial class UserConfigurationTests {
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal, "fixture-verifier");
         var result = await _controller.AuthCallback("fixture-code", state);
         Assert.Multiple(() => {
-            Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(500));
-            Assert.That((result as ObjectResult)?.Value as string, Does.Not.Contain("invalid_grant"));
+            Assert.That((result as ContentResult)?.StatusCode, Is.EqualTo(500));
+            Assert.That((result as ContentResult)?.Content, Does.Contain("MyAnimeList didn’t accept the sign-in"));
+            // the anonymous page may name the OAuth error code, never the provider's response body
+            Assert.That((result as ContentResult)?.Content, Does.Not.Contain("fixture-provider-detail").And.Not.Contain("error_description"));
             Assert.That(_requesterConfig.UserApiAuth[0].AccessToken == "requester-mal-fixture", Is.True);
             Assert.That(_requesterConfig.UserApiAuth[0].RefreshToken == "requester-refresh-fixture", Is.True);
             Assert.That(MemoryCacheHelper.ConsumeState(_memoryCache, state), Is.Null);
@@ -99,7 +103,7 @@ public partial class UserConfigurationTests {
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal);
         var result = await _controller.AuthCallback("fixture-code", state);
         Assert.Multiple(() => {
-            Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(500));
+            Assert.That((result as ContentResult)?.StatusCode, Is.EqualTo(500));
             Assert.That(contacted, Is.False);
         });
     }
@@ -111,6 +115,6 @@ public partial class UserConfigurationTests {
         SetSuccessfulKitsuHttp();
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Shikimori);
         var result = await _controller.AuthCallback("fixture-code", state);
-        Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(500));
+        Assert.That((result as ContentResult)?.StatusCode, Is.EqualTo(500));
     }
 }

@@ -73,6 +73,10 @@
         <EmbeddedResource Include="Configuration\Images\provider-shikimori.svg" LogicalName="jellyfin_anidoki.Configuration.Images.provider-shikimori.svg"/>
         <None Remove="Configuration\Images\provider-simkl.svg"/>
         <EmbeddedResource Include="Configuration\Images\provider-simkl.svg" LogicalName="jellyfin_anidoki.Configuration.Images.provider-simkl.svg"/>
+        <None Remove="Configuration\Images\jellyfin.svg"/>
+        <EmbeddedResource Include="Configuration\Images\jellyfin.svg" LogicalName="jellyfin_anidoki.Configuration.Images.jellyfin.svg"/>
+        <None Remove="Configuration\CallbackPage.html"/>
+        <EmbeddedResource Include="Configuration\CallbackPage.html"/>
         <EmbeddedResource Include="Configuration\Images\PROVIDER-ASSETS.md" LogicalName="jellyfin_anidoki.Configuration.Images.PROVIDER-ASSETS.md"/>
         <EmbeddedResource Include="Configuration\Images\LICENSE-Simple-Icons.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Simple-Icons.txt"/>
         <EmbeddedResource Include="Configuration\Images\LICENSE-Annict.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Annict.txt"/>
