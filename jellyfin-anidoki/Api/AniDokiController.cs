@@ -610,7 +610,7 @@ namespace jellyfin_anidoki.Api {
                 : "../web/index.html#/configurationpage?name=AniDoki";
             string assets = $"assets/v/{typeof(Plugin).Assembly.ManifestModule.ModuleVersionId:N}/";
             var model = new CallbackPageModel(outcome, provider, jellyfinUser, assets, settingsHref,
-                CallbackUrlHelper.Build(callbackBase), errorCode, configuration?.authenticationLinkExpireTimeMinutes ?? 1440);
+                CallbackUrlHelper.Build(callbackBase), errorCode, MemoryCacheHelper.LinkExpiryMinutes(configuration?.authenticationLinkExpireTimeMinutes));
             Response.Headers.CacheControl = "no-store";
             return new ContentResult {
                 Content = CallbackPage.Render(model),

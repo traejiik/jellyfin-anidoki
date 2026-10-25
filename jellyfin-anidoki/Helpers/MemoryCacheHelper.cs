@@ -23,9 +23,18 @@ public class MemoryCacheHelper {
             ApiName = provider,
             UserId = userId,
             CodeVerifier = codeVerifier
-        }, DateTimeOffset.Now.AddMinutes(Plugin.Instance?.Configuration.authenticationLinkExpireTimeMinutes ?? 1440));
+        }, DateTimeOffset.Now.AddMinutes(LinkExpiryMinutes(Plugin.Instance?.Configuration.authenticationLinkExpireTimeMinutes)));
         return key;
     }
+
+    internal const long DefaultLinkExpiryMinutes = 1440;
+
+    /// <summary>
+    /// A configuration that never saved the expiry holds 0; treat that, like any value below 1,
+    /// as the 24-hour default the settings page shows, or every sign-in link would expire at once.
+    /// </summary>
+    internal static long LinkExpiryMinutes(long? configured) =>
+        configured is > 0 ? configured.Value : DefaultLinkExpiryMinutes;
 
     public static StoredState? ConsumeState(IMemoryCache memoryCache, string key) {
         StoredState? storedState = memoryCache.Get<StoredState>(key);

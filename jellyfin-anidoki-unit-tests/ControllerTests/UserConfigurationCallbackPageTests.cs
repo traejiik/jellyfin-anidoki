@@ -77,6 +77,19 @@ public partial class UserConfigurationTests {
         Assert.That(result.Content, Does.Contain("This sign-in link has expired"));
     }
 
+    [TestCase(0)]
+    [TestCase(-5)]
+    public async Task UnsavedLinkExpiryKeepsTheLinkUsableAndShowsTheDefault(long configured) {
+        _plugin.Configuration.authenticationLinkExpireTimeMinutes = configured;
+        string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.AniList);
+        var declined = (ContentResult)await _controller.AuthCallback(null, state, "access_denied");
+        var expired = (ContentResult)await _controller.AuthCallback("fixture-code", state);
+        Assert.Multiple(() => {
+            Assert.That(declined.Content, Does.Contain("AniList didn’t link your account"), "the link was still stored when the callback arrived");
+            Assert.That(expired.Content, Does.Contain("older than 24 hours"));
+        });
+    }
+
     [Test]
     public void SignInLinksCarryThisServersMarkerAndProvider() {
         _serverHost.SetupGet(host => host.SystemId).Returns(ThisServer);
