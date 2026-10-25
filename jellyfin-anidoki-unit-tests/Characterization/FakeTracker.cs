@@ -38,6 +38,9 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
     /// <summary>Every numeric-ID read, in order, including reads that return null.</summary>
     public List<(int Id, bool Related)> Reads { get; } = new();
 
+    /// <summary>How many cross-ID reads (Simkl's lookup) were made, including reads that return null.</summary>
+    public int CrossIdReads { get; private set; }
+
     private bool UsesAlternativeIds => provider is ApiName.Annict or ApiName.Shikimori;
 
     public Anime Add(Anime anime) {
@@ -62,6 +65,7 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
 
     // Only Simkl resolves through cross IDs; every fixture keys its entry by the MAL ID.
     public Task<Anime> GetAnime(AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, string title, bool getRelated = false) {
+        CrossIdReads++;
         if (provider != ApiName.Simkl || ids?.MyAnimeList is not int id || FailingIds.Contains(id) || !_entries.TryGetValue(id, out var anime))
             return Task.FromResult<Anime>(null);
         return Task.FromResult(Copy(anime, forRead: true));

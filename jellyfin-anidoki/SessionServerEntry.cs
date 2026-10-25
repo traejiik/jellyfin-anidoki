@@ -98,7 +98,7 @@ namespace jellyfin_anidoki {
             var collector = new PlaybackOutcomeCollector(operation.Record);
             var updateProviderStatus = new UpdateProviderStatus(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
             try {
-                await updateProviderStatus.UpdateInsideGate(item, userId, true, collector, SyncUpdateSource.Playback);
+                await updateProviderStatus.UpdateInsideGate(item, userId, true, collector, SyncUpdateSource.Playback, operation.CancellationToken);
             } finally {
                 if (collector.HasConfirmedChange)
                     _manualMarks?.Supersede(userId, item.Id);

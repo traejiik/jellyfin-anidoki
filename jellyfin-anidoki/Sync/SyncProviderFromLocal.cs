@@ -5,8 +5,10 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
+using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using Jellyfin.Database.Implementations.Entities;
@@ -35,6 +37,9 @@ public class SyncProviderFromLocal(
     private readonly Guid _userId = Guid.Parse(userId);
     private readonly ILogger<SyncProviderFromLocal> _logger = loggerFactory.CreateLogger<SyncProviderFromLocal>();
 
+    /// <summary>Passed to the updater's <see cref="UpdateProviderStatus.ApiCallHelpersFactory"/>; tests substitute a tracker.</summary>
+    internal Func<ApiName, UserConfig, IApiCallHelpers> ApiCallHelpersFactory { get; set; }
+
     /// <summary>
     /// Sends the latest watched episode of every season to the user's trackers. Runs inside an operation, which
     /// already holds the user's sync gate.
@@ -56,7 +61,9 @@ public class SyncProviderFromLocal(
     }
 
     internal async Task SyncEpisodes(IReadOnlyList<Episode> targets, OperationContext operation) {
-        var updateProviderStatus = new UpdateProviderStatus(libraryManager, loggerFactory, httpContextAccessor, serverApplicationHost, httpClientFactory, applicationPaths, memoryCache, delayer);
+        var updateProviderStatus = new UpdateProviderStatus(libraryManager, loggerFactory, httpContextAccessor, serverApplicationHost, httpClientFactory, applicationPaths, memoryCache, delayer) {
+            ApiCallHelpersFactory = ApiCallHelpersFactory
+        };
         var collector = new PlaybackOutcomeCollector(operation.Record);
         operation.ReportProgress(0, targets.Count);
         for (int i = 0; i < targets.Count; i++) {
@@ -70,7 +77,10 @@ public class SyncProviderFromLocal(
             } else {
                 try {
                     // UpdateInsideGate, not Update: the operation already holds this user's gate.
-                    await updateProviderStatus.UpdateInsideGate(episode, _userId, true, collector, SyncUpdateSource.Playback);
+                    await updateProviderStatus.UpdateInsideGate(episode, _userId, true, collector, SyncUpdateSource.Playback, operation.CancellationToken);
+                } catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested) {
+                    operation.Message = $"Cancelled after {i} of {Seasons(targets.Count)}. Updates already sent were kept.";
+                    throw;
                 } catch (Exception e) {
                     _logger.LogError("(Sync) Could not sync item; error: {ErrorMessage}", e.Message);
                 }

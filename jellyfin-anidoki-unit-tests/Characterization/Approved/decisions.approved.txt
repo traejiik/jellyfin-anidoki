@@ -192,27 +192,27 @@ Mal | dropped p=3 | e=12 n=12 | ptw=on rewatch=on | Playback => no writes | Skip
 Mal | dropped p=3 | e=12 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | Skipped:plan-to-watch-only@500
 Mal | completed p=12 x1 | e=12 n=12 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Mal | completed p=12 x1 | e=12 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Mal | completed p=12 x1 | e=12 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=12, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=12, status=Completed, rewatching=False, count=2, start=False, end=False) | NoChange:progress@500, Confirmed:rewatch-count@500
+Mal | completed p=12 x1 | e=12 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=12, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=12, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:rewatch-count@500
 Mal | completed p=12 x1 | e=12 n=12 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Mal | completed p=12 x1 | e=12 n=12 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Mal | completed p=12 x1 | e=12 n=12 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Mal | completed p=12 x1 | e=12 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=12, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=12, status=Completed, rewatching=False, count=2, start=False, end=False) | NoChange:progress@500, Confirmed:rewatch-count@500
+Mal | completed p=12 x1 | e=12 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=12, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=12, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:rewatch-count@500
 Mal | completed p=12 x1 | e=12 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Mal | rewatching p=3 x1 | e=12 n=12 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Mal | rewatching p=3 x1 | e=12 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Mal | rewatching p=3 x1 | e=12 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=12, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=12, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:progress@500, Confirmed:rewatch-count@500
+Mal | rewatching p=3 x1 | e=12 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=12, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=12, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:rewatch-count@500
 Mal | rewatching p=3 x1 | e=12 n=12 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Mal | rewatching p=3 x1 | e=12 n=12 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Mal | rewatching p=3 x1 | e=12 n=12 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Mal | rewatching p=3 x1 | e=12 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=12, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=12, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:progress@500, Confirmed:rewatch-count@500
+Mal | rewatching p=3 x1 | e=12 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=12, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=12, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:rewatch-count@500
 Mal | rewatching p=3 x1 | e=12 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Mal | completed p=3 x1 | e=12 n=12 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Mal | completed p=3 x1 | e=12 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Mal | completed p=3 x1 | e=12 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=12, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=12, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:progress@500, Confirmed:rewatch-count@500
+Mal | completed p=3 x1 | e=12 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=12, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=12, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:rewatch-count@500
 Mal | completed p=3 x1 | e=12 n=12 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Mal | completed p=3 x1 | e=12 n=12 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Mal | completed p=3 x1 | e=12 n=12 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Mal | completed p=3 x1 | e=12 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=12, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=12, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:progress@500, Confirmed:rewatch-count@500
+Mal | completed p=3 x1 | e=12 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=12, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=12, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:rewatch-count@500
 Mal | completed p=3 x1 | e=12 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Mal | not-on-list | e=1 n=1 | ptw=off rewatch=off | Playback => write(id=500, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@500
 Mal | not-on-list | e=1 n=1 | ptw=off rewatch=off | ConfirmedManual => write(id=500, progress=1, status=Completed, rewatching=-, count=-, start=True, end=True) | Confirmed:progress@500
@@ -264,27 +264,27 @@ Mal | dropped p=3 | e=1 n=1 | ptw=on rewatch=on | Playback => no writes | NoChan
 Mal | dropped p=3 | e=1 n=1 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Mal | completed p=1 x1 | e=1 n=1 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Mal | completed p=1 x1 | e=1 n=1 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Mal | completed p=1 x1 | e=1 n=1 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=False, count=2, start=False, end=False) | NoChange:progress@500, Confirmed:rewatch-count@500
+Mal | completed p=1 x1 | e=1 n=1 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:rewatch-count@500
 Mal | completed p=1 x1 | e=1 n=1 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Mal | completed p=1 x1 | e=1 n=1 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Mal | completed p=1 x1 | e=1 n=1 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Mal | completed p=1 x1 | e=1 n=1 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=False, count=2, start=False, end=False) | NoChange:progress@500, Confirmed:rewatch-count@500
+Mal | completed p=1 x1 | e=1 n=1 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:rewatch-count@500
 Mal | completed p=1 x1 | e=1 n=1 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Mal | rewatching p=3 x1 | e=1 n=1 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Mal | rewatching p=3 x1 | e=1 n=1 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Mal | rewatching p=3 x1 | e=1 n=1 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:progress@500, Confirmed:rewatch-count@500
+Mal | rewatching p=3 x1 | e=1 n=1 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:rewatch-count@500
 Mal | rewatching p=3 x1 | e=1 n=1 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Mal | rewatching p=3 x1 | e=1 n=1 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Mal | rewatching p=3 x1 | e=1 n=1 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Mal | rewatching p=3 x1 | e=1 n=1 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:progress@500, Confirmed:rewatch-count@500
+Mal | rewatching p=3 x1 | e=1 n=1 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:rewatch-count@500
 Mal | rewatching p=3 x1 | e=1 n=1 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Mal | completed p=3 x1 | e=1 n=1 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Mal | completed p=3 x1 | e=1 n=1 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Mal | completed p=3 x1 | e=1 n=1 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:progress@500, Confirmed:rewatch-count@500
+Mal | completed p=3 x1 | e=1 n=1 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:rewatch-count@500
 Mal | completed p=3 x1 | e=1 n=1 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Mal | completed p=3 x1 | e=1 n=1 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Mal | completed p=3 x1 | e=1 n=1 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Mal | completed p=3 x1 | e=1 n=1 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:progress@500, Confirmed:rewatch-count@500
+Mal | completed p=3 x1 | e=1 n=1 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=False, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=False, count=2, start=False, end=False) | Confirmed:rewatch-count@500
 Mal | completed p=3 x1 | e=1 n=1 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Mal | not-on-list | e=5 n=0 | ptw=off rewatch=off | Playback => write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
 Mal | not-on-list | e=5 n=0 | ptw=off rewatch=off | ConfirmedManual => write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
@@ -408,11 +408,11 @@ AniList | dropped p=3 | e=1 n=12 | ptw=on rewatch=on | Playback => no writes | N
 AniList | dropped p=3 | e=1 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 AniList | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 AniList | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-AniList | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500, Confirmed:progress@500
+AniList | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 AniList | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 AniList | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 AniList | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-AniList | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500, Confirmed:progress@500
+AniList | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 AniList | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 AniList | rewatching p=3 x1 | e=1 n=12 | ptw=off rewatch=off | Playback => no writes | NoChange:already-watched@500
 AniList | rewatching p=3 x1 | e=1 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
@@ -424,11 +424,11 @@ AniList | rewatching p=3 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => no writ
 AniList | rewatching p=3 x1 | e=1 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 AniList | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 AniList | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-AniList | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500, Confirmed:progress@500
+AniList | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 AniList | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 AniList | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 AniList | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-AniList | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500, Confirmed:progress@500
+AniList | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 AniList | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 AniList | not-on-list | e=5 n=12 | ptw=off rewatch=off | Playback => write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
 AniList | not-on-list | e=5 n=12 | ptw=off rewatch=off | ConfirmedManual => write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
@@ -480,11 +480,11 @@ AniList | dropped p=3 | e=5 n=12 | ptw=on rewatch=on | Playback => no writes | S
 AniList | dropped p=3 | e=5 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | Skipped:plan-to-watch-only@500
 AniList | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 AniList | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-AniList | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500, Confirmed:progress@500
+AniList | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 AniList | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 AniList | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 AniList | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-AniList | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500, Confirmed:progress@500
+AniList | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 AniList | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 AniList | rewatching p=3 x1 | e=5 n=12 | ptw=off rewatch=off | Playback => write(id=500, progress=5, status=Rewatching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
 AniList | rewatching p=3 x1 | e=5 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
@@ -696,11 +696,11 @@ AniList | dropped p=3 | e=5 n=0 | ptw=on rewatch=on | Playback => no writes | Sk
 AniList | dropped p=3 | e=5 n=0 | ptw=on rewatch=on | ConfirmedManual => no writes | Skipped:plan-to-watch-only@500
 AniList | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 AniList | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-AniList | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=on | Playback => write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500, Confirmed:progress@500
+AniList | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=on | Playback => write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 AniList | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 AniList | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 AniList | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-AniList | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=on | Playback => write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500, Confirmed:progress@500
+AniList | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=on | Playback => write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) + write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 AniList | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 AniList | rewatching p=3 x1 | e=5 n=0 | ptw=off rewatch=off | Playback => write(id=500, progress=5, status=Rewatching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
 AniList | rewatching p=3 x1 | e=5 n=0 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
@@ -768,11 +768,11 @@ Kitsu | dropped p=3 | e=1 n=12 | ptw=on rewatch=on | Playback => no writes | NoC
 Kitsu | dropped p=3 | e=1 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Kitsu | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Kitsu | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Kitsu | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Rewatching, rewatching=True, count=2, start=False, end=False) | Confirmed:rewatch-count@500
+Kitsu | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Rewatching, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 Kitsu | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Kitsu | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Kitsu | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Kitsu | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Rewatching, rewatching=True, count=2, start=False, end=False) | Confirmed:rewatch-count@500
+Kitsu | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Rewatching, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 Kitsu | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Kitsu | rewatching p=3 x1 | e=1 n=12 | ptw=off rewatch=off | Playback => no writes | NoChange:already-watched@500
 Kitsu | rewatching p=3 x1 | e=1 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
@@ -784,11 +784,11 @@ Kitsu | rewatching p=3 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => no writes
 Kitsu | rewatching p=3 x1 | e=1 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Kitsu | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Kitsu | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Kitsu | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Rewatching, rewatching=True, count=2, start=False, end=False) | Confirmed:rewatch-count@500
+Kitsu | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Rewatching, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 Kitsu | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Kitsu | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Kitsu | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Kitsu | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Rewatching, rewatching=True, count=2, start=False, end=False) | Confirmed:rewatch-count@500
+Kitsu | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Rewatching, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 Kitsu | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Kitsu | not-on-list | e=5 n=12 | ptw=off rewatch=off | Playback => write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
 Kitsu | not-on-list | e=5 n=12 | ptw=off rewatch=off | ConfirmedManual => write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
@@ -840,11 +840,11 @@ Kitsu | dropped p=3 | e=5 n=12 | ptw=on rewatch=on | Playback => no writes | Ski
 Kitsu | dropped p=3 | e=5 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | Skipped:plan-to-watch-only@500
 Kitsu | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Kitsu | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Kitsu | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=5, status=Rewatching, rewatching=True, count=2, start=False, end=False) | Confirmed:rewatch-count@500
+Kitsu | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=5, status=Rewatching, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 Kitsu | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Kitsu | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Kitsu | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Kitsu | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=5, status=Rewatching, rewatching=True, count=2, start=False, end=False) | Confirmed:rewatch-count@500
+Kitsu | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=5, status=Rewatching, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 Kitsu | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Kitsu | rewatching p=3 x1 | e=5 n=12 | ptw=off rewatch=off | Playback => write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
 Kitsu | rewatching p=3 x1 | e=5 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
@@ -1056,11 +1056,11 @@ Kitsu | dropped p=3 | e=5 n=0 | ptw=on rewatch=on | Playback => no writes | Skip
 Kitsu | dropped p=3 | e=5 n=0 | ptw=on rewatch=on | ConfirmedManual => no writes | Skipped:plan-to-watch-only@500
 Kitsu | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Kitsu | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Kitsu | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=on | Playback => write(id=500, progress=5, status=Rewatching, rewatching=True, count=2, start=False, end=False) | Confirmed:rewatch-count@500
+Kitsu | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=on | Playback => write(id=500, progress=5, status=Rewatching, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 Kitsu | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Kitsu | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@500
 Kitsu | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
-Kitsu | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=on | Playback => write(id=500, progress=5, status=Rewatching, rewatching=True, count=2, start=False, end=False) | Confirmed:rewatch-count@500
+Kitsu | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=on | Playback => write(id=500, progress=5, status=Rewatching, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@500
 Kitsu | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@500
 Kitsu | rewatching p=3 x1 | e=5 n=0 | ptw=off rewatch=off | Playback => write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@500
 Kitsu | rewatching p=3 x1 | e=5 n=0 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@500
@@ -1448,11 +1448,11 @@ Shikimori | dropped p=3 | e=1 n=12 | ptw=on rewatch=on | Playback => no writes |
 Shikimori | dropped p=3 | e=1 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
 Shikimori | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@alt-500
 Shikimori | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
-Shikimori | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@alt-500
+Shikimori | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Rewatching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
 Shikimori | completed p=12 x1 | e=1 n=12 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
 Shikimori | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@alt-500
 Shikimori | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
-Shikimori | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@alt-500
+Shikimori | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Rewatching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
 Shikimori | completed p=12 x1 | e=1 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
 Shikimori | rewatching p=3 x1 | e=1 n=12 | ptw=off rewatch=off | Playback => no writes | NoChange:already-watched@alt-500
 Shikimori | rewatching p=3 x1 | e=1 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
@@ -1464,11 +1464,11 @@ Shikimori | rewatching p=3 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => no wr
 Shikimori | rewatching p=3 x1 | e=1 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
 Shikimori | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@alt-500
 Shikimori | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
-Shikimori | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@alt-500
+Shikimori | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=1, status=Rewatching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
 Shikimori | completed p=3 x1 | e=1 n=12 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
 Shikimori | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@alt-500
 Shikimori | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
-Shikimori | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@alt-500
+Shikimori | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=1, status=Rewatching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
 Shikimori | completed p=3 x1 | e=1 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
 Shikimori | not-on-list | e=5 n=12 | ptw=off rewatch=off | Playback => write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
 Shikimori | not-on-list | e=5 n=12 | ptw=off rewatch=off | ConfirmedManual => write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
@@ -1520,11 +1520,11 @@ Shikimori | dropped p=3 | e=5 n=12 | ptw=on rewatch=on | Playback => no writes |
 Shikimori | dropped p=3 | e=5 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | Skipped:plan-to-watch-only@alt-500
 Shikimori | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@alt-500
 Shikimori | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
-Shikimori | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@alt-500
+Shikimori | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=on | Playback => write(id=500, progress=5, status=Rewatching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
 Shikimori | completed p=12 x1 | e=5 n=12 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
 Shikimori | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@alt-500
 Shikimori | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
-Shikimori | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@alt-500
+Shikimori | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=on | Playback => write(id=500, progress=5, status=Rewatching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
 Shikimori | completed p=12 x1 | e=5 n=12 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
 Shikimori | rewatching p=3 x1 | e=5 n=12 | ptw=off rewatch=off | Playback => write(id=500, progress=5, status=Rewatching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
 Shikimori | rewatching p=3 x1 | e=5 n=12 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
@@ -1736,11 +1736,11 @@ Shikimori | dropped p=3 | e=5 n=0 | ptw=on rewatch=on | Playback => no writes | 
 Shikimori | dropped p=3 | e=5 n=0 | ptw=on rewatch=on | ConfirmedManual => no writes | Skipped:plan-to-watch-only@alt-500
 Shikimori | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=off | Playback => no writes | Skipped:rewatch-disabled@alt-500
 Shikimori | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
-Shikimori | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=on | Playback => write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@alt-500
+Shikimori | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=on | Playback => write(id=500, progress=5, status=Rewatching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
 Shikimori | completed p=12 x1 | e=5 n=0 | ptw=off rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
 Shikimori | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=off | Playback => no writes | Skipped:rewatch-disabled@alt-500
 Shikimori | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
-Shikimori | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=on | Playback => write(id=500, progress=5, status=Completed, rewatching=True, count=-, start=False, end=False) | Confirmed:progress@alt-500
+Shikimori | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=on | Playback => write(id=500, progress=5, status=Rewatching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
 Shikimori | completed p=12 x1 | e=5 n=0 | ptw=on rewatch=on | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
 Shikimori | rewatching p=3 x1 | e=5 n=0 | ptw=off rewatch=off | Playback => write(id=500, progress=5, status=Rewatching, rewatching=-, count=-, start=False, end=False) | Confirmed:progress@alt-500
 Shikimori | rewatching p=3 x1 | e=5 n=0 | ptw=off rewatch=off | ConfirmedManual => no writes | NoChange:manual-forward-only@alt-500
