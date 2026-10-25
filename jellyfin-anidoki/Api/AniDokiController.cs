@@ -246,7 +246,14 @@ namespace jellyfin_anidoki.Api {
                 if (token == null)
                     return StatusCode(500, "Could not authenticate");
             } catch (Exception e) {
-                return StatusCode(500, $"Could not authenticate; {e.Message}");
+                // The provider's response stays in the log; the settings page gets a sentence it can show as is.
+                _logger.LogWarning("({ApiName}) Sign-in with password failed: {ErrorMessage}", provider, e.Message);
+                string name = Notifications.Discord.DiscordOutcomeText.ProviderName(provider);
+                if (CallbackPage.ErrorCodeFrom(e.Message) == "invalid_grant")
+                    return BadRequest(provider == ApiName.Kitsu
+                        ? "Kitsu didn’t accept that email and password. Kitsu signs in with your account email, not your username."
+                        : $"{name} didn’t accept those sign-in details.");
+                return StatusCode(500, $"Couldn’t sign in to {name}. Try again in a moment; if it keeps failing, the Jellyfin log has the details.");
             }
 
             if (provider == ApiName.Kitsu) {

@@ -391,8 +391,9 @@ public partial class UserConfigurationTests {
         var previousAuth = _requesterConfig.UserApiAuth.Single(auth => auth.Name == ApiName.AniList).AccessToken;
         var result = await _controller.PasswordGrantAuthentication(ApiName.AniList, _requester.Id.ToString(), "fixture-user", "fixture-password");
         Assert.Multiple(() => {
-            Assert.That(result, Is.TypeOf<ObjectResult>());
-            Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(500));
+            Assert.That(result, Is.InstanceOf<ObjectResult>());
+            Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(400));
+            Assert.That((result as ObjectResult)?.Value as string, Is.EqualTo("AniList didn’t accept those sign-in details."));
             Assert.That(_requesterConfig.UserApiAuth.Single(auth => auth.Name == ApiName.AniList).AccessToken == previousAuth, Is.True);
         });
     }
@@ -414,7 +415,8 @@ public partial class UserConfigurationTests {
         var result = await _controller.PasswordGrantAuthentication(ApiName.Kitsu,
             _requester.Id.ToString(), "fixture-user", "fixture-password");
         Assert.Multiple(() => {
-            Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(500));
+            Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(400));
+            Assert.That((result as ObjectResult)?.Value as string, Does.StartWith("Kitsu didn’t accept that email and password").And.Not.Contain("{"));
             Assert.That(profileCalls, Is.Zero);
             Assert.That(_requesterConfig.UserApiAuth.Single(auth => auth.Name == ApiName.Kitsu).AccessToken == "previous-kitsu-fixture", Is.True);
         });
