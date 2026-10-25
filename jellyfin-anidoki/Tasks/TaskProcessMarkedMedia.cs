@@ -113,7 +113,7 @@ public class TaskProcessMarkedMedia {
         var collector = new PlaybackOutcomeCollector(operation.Record);
         var updateProviderStatus = new UpdateProviderStatus(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
         try {
-            await updateProviderStatus.UpdateInsideGate(item, userId, true, collector, SyncUpdateSource.LegacyManual);
+            await updateProviderStatus.UpdateInsideGate(item, userId, true, collector, SyncUpdateSource.LegacyManual, operation.CancellationToken);
         } finally {
             _discord?.Enqueue(SyncOperationSummary.Capture(item, userId, operation.OperationId, SyncNotificationTrigger.LegacyManual, collector));
         }

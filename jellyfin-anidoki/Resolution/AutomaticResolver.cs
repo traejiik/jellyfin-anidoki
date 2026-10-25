@@ -164,7 +164,7 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
     }
 
     private static ResolvedTarget Played(ChainLink link, int episode) =>
-        new(link.Entry, episode, TargetRole.Played, TitleMatching.Display(link.Titles));
+        new(link.Entry, episode, TargetRole.Played, TitleMatching.Display(link.Titles), link.State);
 
     private static UnresolvedRecord Record(ChainLink link) =>
         new(link.Entry.AlternativeId ?? link.Entry.Id.ToString(), TitleMatching.Display(link.Titles));

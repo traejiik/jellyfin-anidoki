@@ -8,8 +8,9 @@ using Microsoft.Extensions.Logging;
 namespace jellyfin_anidoki.Resolution;
 
 /// <summary>An entry in a relation chain: what the segmenter needs from a read entry or a search candidate.</summary>
-public sealed record ChainLink(EntryRef Entry, int TotalEpisodes, EntryTitles? Titles) {
-    public static ChainLink Of(EntryState state) => new(state.Entry, state.TotalEpisodes, state.Titles);
+/// <param name="State">The read entry; null for a search candidate, which was never read.</param>
+public sealed record ChainLink(EntryRef Entry, int TotalEpisodes, EntryTitles? Titles, EntryState? State = null) {
+    public static ChainLink Of(EntryState state) => new(state.Entry, state.TotalEpisodes, state.Titles, state);
 
     public static ChainLink Of(EntryCandidate candidate) => new(candidate.Entry, candidate.TotalEpisodes, candidate.Titles);
 }
@@ -83,7 +84,7 @@ public sealed class RelationChainSegmenter(ITrackerProvider tracker, ILogger log
             counter += next.TotalEpisodes;
             // complete the current cour; the episode lies past it
             total += current.TotalEpisodes;
-            parts.Add(new ResolvedTarget(current.Entry, current.TotalEpisodes, TargetRole.EarlierPart, TitleMatching.Display(current.Titles)));
+            parts.Add(new ResolvedTarget(current.Entry, current.TotalEpisodes, TargetRole.EarlierPart, TitleMatching.Display(current.Titles), current.State));
             current = ChainLink.Of(next);
         }
 

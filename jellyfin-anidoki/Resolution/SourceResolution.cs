@@ -14,7 +14,9 @@ public enum TargetRole { Played, EarlierPart }
 
 /// <param name="TargetEpisode">The episode number on this entry (for an earlier part, its length).</param>
 /// <param name="Title">The tracker's display title, for logs and outcomes.</param>
-public sealed record ResolvedTarget(EntryRef Entry, int TargetEpisode, TargetRole Role, string Title);
+/// <param name="State">The entry as resolution read it, list state included; null when resolution saw only a search
+/// result or a cross-ID match, and the executor reads it.</param>
+public sealed record ResolvedTarget(EntryRef Entry, int TargetEpisode, TargetRole Role, string Title, EntryState? State = null);
 
 /// <summary>What to record when resolution fails. Null on <see cref="Unresolved"/> means record nothing, as today.</summary>
 public sealed record UnresolvedRecord(string TargetId, string Title);

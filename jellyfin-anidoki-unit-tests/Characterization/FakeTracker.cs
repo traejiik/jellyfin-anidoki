@@ -38,6 +38,9 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
     /// <summary>Every numeric-ID read, in order, including reads that return null.</summary>
     public List<(int Id, bool Related)> Reads { get; } = new();
 
+    /// <summary>How many cross-ID reads (Simkl's lookup) were made, including reads that return null.</summary>
+    public int CrossIdReads { get; private set; }
+
     private bool UsesAlternativeIds => provider is ApiName.Annict or ApiName.Shikimori;
 
     public Anime Add(Anime anime) {
@@ -62,6 +65,7 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
 
     // Only Simkl resolves through cross IDs; every fixture keys its entry by the MAL ID.
     public Task<Anime> GetAnime(AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, string title, bool getRelated = false) {
+        CrossIdReads++;
         if (provider != ApiName.Simkl || ids?.MyAnimeList is not int id || FailingIds.Contains(id) || !_entries.TryGetValue(id, out var anime))
             return Task.FromResult<Anime>(null);
         return Task.FromResult(Copy(anime, forRead: true));
@@ -115,7 +119,7 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
             RelationType = related.RelationType,
             Anime = new Anime { Id = related.Anime.Id, AlternativeId = AlternativeIdFor(related.Anime) }
         }).ToList(),
-        MyListStatus = source.MyListStatus == null ? null : new MyListStatus {
+        MyListStatus = forRead && provider == ApiName.Kitsu ? KitsuStatus(source.MyListStatus) : source.MyListStatus == null ? null : new MyListStatus {
             Status = source.MyListStatus.Status,
             NumEpisodesWatched = source.MyListStatus.NumEpisodesWatched,
             IsRewatching = source.MyListStatus.IsRewatching,
@@ -123,6 +127,21 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
             RewatchCount = forRead && provider == ApiName.Mal ? null : source.MyListStatus.RewatchCount
         }
     };
+
+    /// <summary>
+    /// Kitsu's client returns an empty status (Watching, 0, no count) for an entry not on the list, and
+    /// ReconsumeCount ?? 0 for one that is, so a Kitsu read never carries a null status or, on the list, a null count.
+    /// </summary>
+    private static MyListStatus KitsuStatus(MyListStatus stored) {
+        if (stored == null || (stored.Status == Status.Watching && stored.NumEpisodesWatched == 0 && !stored.IsRewatching && stored.RewatchCount == null))
+            return new MyListStatus();
+        return new MyListStatus {
+            Status = stored.Status,
+            NumEpisodesWatched = stored.NumEpisodesWatched,
+            IsRewatching = stored.IsRewatching,
+            RewatchCount = stored.RewatchCount ?? 0
+        };
+    }
 
     private string AlternativeIdFor(Anime anime) => anime.AlternativeId ?? (UsesAlternativeIds ? $"alt-{anime.Id}" : null);
 }

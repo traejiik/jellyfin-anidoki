@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki;
 using jellyfin_anidoki.Api.Anilist;
@@ -11,6 +12,10 @@ using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Notifications;
+using jellyfin_anidoki.Execution;
+using jellyfin_anidoki.Planning;
+using jellyfin_anidoki.Resolution;
+using jellyfin_anidoki.Trackers;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Library;
@@ -199,20 +204,13 @@ public class AniList {
             new() { RequestMethod = HttpMethod.Post, ResponseCode = HttpStatusCode.OK,
                 ResponseContent = "{\"data\":{\"SaveMediaListEntry\":null},\"errors\":[{\"message\":\"rejected\"}]}" }
         });
-        var updater = new UpdateProviderStatus(new Mock<ILibraryManager>().Object, _loggerFactory,
-            _httpContextAccessor.Object, _serverApplicationHost.Object, _httpClientFactory,
-            new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object) {
-            ApiName = ApiName.AniList,
-            ApiCallHelpers = new ApiCallHelpers(aniListApiCalls: _aniListApiCalls)
-        };
+        var tracker = new ApiCallHelpersTrackerProvider(ApiName.AniList, new ApiCallHelpers(aniListApiCalls: _aniListApiCalls), TimeProvider.System);
+        var entry = new EntryRef(ApiName.AniList, 1, null);
+        var state = new EntryState(entry, 12, new ListState(TrackerStatus.Completed, 12, false, 0), DateTimeOffset.UtcNow,
+            new EntryTitles("Rewatch", null, null, []));
         var collector = new PlaybackOutcomeCollector();
-        await updater.UpdateAnimeStatus(new Anime {
-            Id = 1,
-            Title = "Rewatch",
-            NumEpisodes = 12,
-            MyListStatus = new MyListStatus { NumEpisodesWatched = 12, Status = Status.Completed }
-        },
-            1, setRewatching: true, collector: collector);
+        await new Executor(tracker, new PlanRules(false, true), PlanPolicy.Automatic, collector, TimeProvider.System, NullLogger.Instance)
+            .Execute(new Resolved(new ResolvedTarget(entry, 1, TargetRole.Played, "Rewatch", state), ResolvedBy.Ids, []), CancellationToken.None);
 
         Assert.That(requests, Is.EqualTo(2));
         Assert.That(collector.Outcomes, Has.Length.EqualTo(2));

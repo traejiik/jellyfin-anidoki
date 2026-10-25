@@ -157,4 +157,15 @@ public class RelationChainSegmenterTests {
 
         Assert.That(fake.Writes, Is.Empty);
     }
+
+    [Test]
+    public async Task WalkPassesEachCourStateToItsEarlierPart() {
+        var (segmenter, first, _) = await Cours(ApiName.Mal, 12, 12, 12, 12);
+
+        var walk = await segmenter.Walk(first, 30, None);
+
+        Assert.That(walk.EarlierParts.Select(part => part.State?.Entry), Is.EqualTo(walk.EarlierParts.Select(part => part.Entry)));
+        Assert.That(walk.EarlierParts[0].State, Is.SameAs(first.State));
+        Assert.That(walk.Target!.State!.Entry, Is.EqualTo(walk.Target.Entry));
+    }
 }
