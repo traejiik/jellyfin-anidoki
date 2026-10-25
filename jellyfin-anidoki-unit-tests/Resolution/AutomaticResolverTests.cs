@@ -338,4 +338,62 @@ public class AutomaticResolverTests {
         else
             AssertUnresolved(resolution, "no-title-match", new UnresolvedRecord("", Show));
     }
+
+    [Test]
+    public async Task ResolvedIdCarriesTheReadState() {
+        var resolution = await Resolve(ApiName.AniList, Episode(1, 5), AllIds(),
+            SyncHarness.Entry(500, Show, 12, new MyListStatus { Status = Status.Watching, NumEpisodesWatched = 3, RewatchCount = 0 }));
+
+        var state = ((Resolved)resolution).Played.State;
+        Assert.That((state?.Entry.Id, state?.TotalEpisodes, state?.List), Is.EqualTo((500, 12, new ListState(TrackerStatus.Watching, 3, false, 0))));
+    }
+
+    [Test]
+    public async Task ResolvedIdWalkCarriesEveryCourState() {
+        var resolution = await Resolve(ApiName.AniList, Episode(1, 3), AllIds(), Entry(500, Show, 1, Sequel(501)), Entry(501, Show + " Part 2", 12));
+
+        Assert.That(resolution.EarlierParts.Single().State?.Entry.Id, Is.EqualTo(500));
+        Assert.That(((Resolved)resolution).Played.State?.Entry.Id, Is.EqualTo(501));
+    }
+
+    [Test]
+    public async Task TitleMatchLeavesTheReadToTheExecutor() {
+        Searching(ApiName.Mal, [Entry(600, Show, 12)]);
+        var played = await Resolve(ApiName.Mal, Episode(1, 3), Ids());
+        Assert.That(((Resolved)played).Played.State, Is.Null);
+
+        _fake = null;
+        Searching(ApiName.Mal, [Entry(900, "Fixture Movie", 1)]);
+        var movie = await Resolve(ApiName.Mal, SyncSource.From(_library.Movie("Fixture Movie"))!, Ids());
+        Assert.That(((Resolved)movie).Played.State, Is.Null);
+    }
+
+    [Test]
+    public async Task TitleWalkCarriesStatesAfterTheFirstCour() {
+        Searching(ApiName.Mal, [Entry(700, Show, 12, Sequel(701))], Entry(701, "Part 2", 12));
+
+        var resolution = await Resolve(ApiName.Mal, Episode(1, 15), Ids());
+
+        Assert.That(resolution.EarlierParts.Single().State, Is.Null);
+        Assert.That(((Resolved)resolution).Played.State?.Entry.Id, Is.EqualTo(701));
+    }
+
+    [Test]
+    public async Task LaterSeasonAndSpecialCarryTheirState() {
+        Searching(ApiName.Mal, [Entry(600, Show, 12, Sequel(601))], Entry(601, "S2", 12, Sequel(602)), Entry(602, "S3", 12));
+        var season = await Resolve(ApiName.Mal, Episode(3, 7), Ids(offset: 2));
+        Assert.That(((Resolved)season).Played.State?.Entry.Id, Is.EqualTo(602));
+
+        _fake = null;
+        SeedSpecial("Fixture OVA");
+        var special = await Resolve(ApiName.Mal, Episode(0, 4, episodeName: "fixture ova"), Ids(offset: 1));
+        Assert.That(((Resolved)special).Played.State?.Entry.Id, Is.EqualTo(801));
+    }
+
+    [Test]
+    public async Task CrossIdsLeaveTheReadToTheExecutor() {
+        var resolution = await Resolve(ApiName.Simkl, Episode(1, 5), Ids(mal: 500), Entry(500, Show, 12));
+
+        Assert.That(((Resolved)resolution).Played.State, Is.Null);
+    }
 }
