@@ -34,8 +34,33 @@ public class TrackerApplyTests {
 
         var receipt = await adapter.Apply(await Read(adapter, provider), new EntryChange(5, TrackerStatus.Watching), CancellationToken.None);
 
-        Assert.That(Writes(tracker), Is.EqualTo(new[] { "write(id=500, progress=5, status=Watching, rewatching=-, count=-, start=False, end=False)" }));
+        Assert.That(Writes(tracker), Is.EqualTo(new[] { $"write(id=500, progress={(adapter.Capabilities.TracksProgress ? 5 : 1)}, status=Watching, rewatching=-, count=-, start=False, end=False)" }));
         Assert.That(receipt, Is.EqualTo(new WriteReceipt(adapter.Capabilities.TracksProgress ? 5 : null, TrackerStatus.Watching, null, 1, true)));
+    }
+
+    [TestCase(ApiName.Mal, "False")]
+    [TestCase(ApiName.AniList, "False")]
+    [TestCase(ApiName.Kitsu, "False")]
+    [TestCase(ApiName.Shikimori, "False")]
+    [TestCase(ApiName.Simkl, "False")]
+    [TestCase(ApiName.Annict, "-")]
+    public async Task CompletingAnEntryOnTheListClearsTheRewatchFlag(ApiName provider, string flag) {
+        var (adapter, tracker) = Adapter(provider);
+        Seed(tracker, Status.Watching, 11, false);
+
+        await adapter.Apply(await Read(adapter, provider), new EntryChange(12, TrackerStatus.Completed), CancellationToken.None);
+
+        Assert.That(Writes(tracker).Single(), Does.Contain($"status=Completed, rewatching={flag},"));
+    }
+
+    [TestCaseSource(nameof(Providers))]
+    public async Task AddingACompletedEntrySendsNoRewatchFlag(ApiName provider) {
+        var (adapter, tracker) = Adapter(provider);
+        tracker.Add(SyncHarness.Entry(500, "Fixture Show", 12, null));
+
+        await adapter.Apply(await Read(adapter, provider), new EntryChange(12, TrackerStatus.Completed), CancellationToken.None);
+
+        Assert.That(Writes(tracker).Single(), Does.Contain("rewatching=-"));
     }
 
     [TestCaseSource(nameof(Providers))]

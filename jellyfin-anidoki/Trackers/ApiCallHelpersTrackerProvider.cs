@@ -80,7 +80,8 @@ public sealed class ApiCallHelpersTrackerProvider(ApiName name, IApiCallHelpers 
                 throw new ArgumentException("A rewatch change must target Completed", nameof(change));
         }
         cancellationToken.ThrowIfCancellationRequested();
-        int progress = change.Progress;
+        // Status-only providers ignore progress; their status write has always sent 1.
+        int progress = Capabilities.TracksProgress ? change.Progress : 1;
         switch (change.Rewatch) {
             case RewatchTransition.Start:
                 switch (name) {
@@ -116,7 +117,9 @@ public sealed class ApiCallHelpersTrackerProvider(ApiName name, IApiCallHelpers 
                 var counted = await Write(current, progress, Status.Completed, false, finished.RewatchCount + 1, change, cancellationToken);
                 return counted ?? finished with { Complete = false };
             default:
-                return await Write(current, progress, ToClientStatus(change.Status), null, null, change, cancellationToken);
+                // Completing an entry already on the list clears any rewatch flag the provider kept, as the sync always has.
+                bool? cleared = change.Status == TrackerStatus.Completed && current.List != null && Capabilities.TracksProgress ? false : null;
+                return await Write(current, progress, ToClientStatus(change.Status), cleared, null, change, cancellationToken);
         }
     }
 
