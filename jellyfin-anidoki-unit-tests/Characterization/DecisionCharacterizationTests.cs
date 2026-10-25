@@ -69,6 +69,8 @@ public class DecisionCharacterizationTests {
         yield return ($"completed p={completedProgress} x1", new MyListStatus { Status = Status.Completed, NumEpisodesWatched = completedProgress, RewatchCount = 1 });
         if (provider is not (ApiName.Simkl or ApiName.Annict))
             yield return ("rewatching p=3 x1", Rewatching(provider));
+        // Completed with progress behind the played episode: the rewatch rules send it back to Watching, not into a rewatch.
+        yield return ("completed p=3 x1", new MyListStatus { Status = Status.Completed, NumEpisodesWatched = 3, RewatchCount = 1 });
     }
 
     private static MyListStatus Rewatching(ApiName provider) => provider switch {
