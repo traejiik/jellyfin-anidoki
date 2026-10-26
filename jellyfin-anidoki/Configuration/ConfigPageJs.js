@@ -184,7 +184,7 @@ export default function (view) {
             summary.append(common.providerIcon(provider), common.element('span', 'doki-provider-title', provider.name), badge); row.append(summary);
             const body = common.element('div', 'doki-provider-body');
             if (['Kitsu', 'Annict'].includes(provider.key)) {
-                body.append(common.element('p', 'doki-help', provider.key === 'Kitsu' ? 'Kitsu does not need a server-wide OAuth app. Select a user below to sign in with their username and password.' : 'Annict uses a personal access token. Select the intended user below to link it; tokens are never copied to another user.'));
+                body.append(common.element('p', 'doki-help', provider.key === 'Kitsu' ? 'Kitsu does not need a server-wide OAuth app. Select a user below to sign in with their Kitsu email and password.' : 'Annict uses a personal access token. Select the intended user below to link it; tokens are never copied to another user.'));
             } else {
                 const grid = common.element('div', 'doki-grid');
                 const idRoot = common.element('div', 'doki-field');

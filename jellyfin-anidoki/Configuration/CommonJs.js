@@ -125,7 +125,8 @@ export function safeExternalUrl(address) {
 export function authorizationLink(container, url, name) {
     container.replaceChildren();
     const link = element('a', 'doki-button', `Continue to ${name}`);
-    link.href = safeExternalUrl(url); link.target = '_blank'; link.rel = 'noopener noreferrer';
+    // Same tab: the callback page links back here, and the settings page reloads the linked accounts.
+    link.href = safeExternalUrl(url); link.rel = 'noreferrer';
     container.append(link);
 }
 export function ensureStyles() {
@@ -285,7 +286,7 @@ export function renderAccounts(container, { linked, visible, admin = false, user
                 detail.replaceChildren();
                 const credentials = {};
                 const fields = element('div', 'doki-account-fields');
-                for (const [key, label, type] of provider.key === 'Kitsu' ? [['Username', 'Kitsu username or email', 'text'], ['Password', 'Kitsu password', 'password']] : [['Token', `Annict token for ${userName}`, 'password']]) {
+                for (const [key, label, type] of provider.key === 'Kitsu' ? [['Username', 'Kitsu email', 'email'], ['Password', 'Kitsu password', 'password']] : [['Token', `Annict token for ${userName}`, 'password']]) {
                     const field = element('label', 'doki-field', label); const input = element('input', 'doki-input'); input.type = type; input.autocomplete = 'off'; field.append(input); fields.append(field); credentials[key] = input;
                 }
                 detail.append(fields);
