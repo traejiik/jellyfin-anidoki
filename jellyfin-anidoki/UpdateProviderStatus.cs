@@ -129,8 +129,8 @@ namespace jellyfin_anidoki {
         /// <returns></returns>
         public static bool LibraryCheck(UserConfig userConfig, ILibraryManager libraryManager, ILogger logger, BaseItem item) {
             try {
-                // user has no library filters
-                if (userConfig.LibraryToCheck is { Length: 0 }) {
+                // user has no library filters; a missing list (an older configuration) means the same
+                if (userConfig.LibraryToCheck is null or { Length: 0 }) {
                     return true;
                 }
 

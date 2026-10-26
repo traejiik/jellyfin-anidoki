@@ -37,6 +37,26 @@ public class UserConfigDefaultsTests {
         Assert.That(preference.GetBoolean(), Is.EqualTo(expected));
     }
 
+    [TestCase("<UserConfig />", new string[0])]
+    [TestCase("<UserConfig><LibraryToCheck /></UserConfig>", new string[0])]
+    [TestCase("<UserConfig><LibraryToCheck><string>library-a</string></LibraryToCheck></UserConfig>", new[] { "library-a" })]
+    public void SavedConfigurationWithoutALibraryListReadsAsAllLibraries(string xml, string[] expected) {
+        using var reader = new StringReader(xml);
+        var config = (UserConfig)new XmlSerializer(typeof(UserConfig)).Deserialize(reader)!;
+        Assert.That(config.LibraryToCheck, Is.Not.Null.And.EqualTo(expected));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void MissingOrEmptyLibraryListMonitorsEveryLibrary(bool missing) {
+        // Before the fix a missing list matched no library and every episode was ignored.
+        var library = new Moq.Mock<MediaBrowser.Controller.Library.ILibraryManager>(Moq.MockBehavior.Strict);
+        var config = new UserConfig { LibraryToCheck = missing ? null : Array.Empty<string>() };
+        bool monitored = jellyfin_anidoki.UpdateProviderStatus.LibraryCheck(config, library.Object,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, item: null);
+        Assert.That(monitored, Is.True);
+    }
+
     [Test]
     public void NewStoredUserRetainsExistingPreferenceDefaults() {
         var config = new UserConfig();

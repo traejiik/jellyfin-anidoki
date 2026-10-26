@@ -58,6 +58,10 @@ namespace jellyfin_anidoki.Models {
 
         public bool ShowLogNotifications { get; set; } = true;
 
-        public string[] LibraryToCheck { get; set; }
+        /// <summary>
+        /// Libraries to sync from; empty means all. Defaults to empty so a configuration saved
+        /// before this field existed reads as "all libraries", as the settings page shows it.
+        /// </summary>
+        public string[] LibraryToCheck { get; set; } = Array.Empty<string>();
     }
 }
