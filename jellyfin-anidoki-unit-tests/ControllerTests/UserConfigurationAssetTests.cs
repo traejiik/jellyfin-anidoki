@@ -55,6 +55,21 @@ public partial class UserConfigurationTests {
         });
     }
 
+    [TestCase("noto-sans-latin-400.woff2")]
+    [TestCase("noto-sans-latin-700.woff2")]
+    [TestCase("noto-sans-latin-ext-400.woff2")]
+    [TestCase("noto-sans-latin-ext-700.woff2")]
+    public void CallbackPageFontsAreEmbeddedWoff2(string asset) {
+        var file = (FileStreamResult)_controller.GetAsset(asset);
+        using var stream = file.FileStream;
+        var signature = new byte[4];
+        stream.ReadExactly(signature);
+        Assert.Multiple(() => {
+            Assert.That(file.ContentType, Is.EqualTo("font/woff2"));
+            Assert.That(System.Text.Encoding.ASCII.GetString(signature), Is.EqualTo("wOF2"));
+        });
+    }
+
     [Test]
     public void PublicAnnictLogoIsEmbeddedAsPngWhenUserPagesAreDisabled() {
         _plugin.Configuration.enableUserPages = false;

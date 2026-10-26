@@ -82,6 +82,18 @@
         <EmbeddedResource Include="Configuration\Images\PROVIDER-ASSETS.md" LogicalName="jellyfin_anidoki.Configuration.Images.PROVIDER-ASSETS.md"/>
         <EmbeddedResource Include="Configuration\Images\LICENSE-Simple-Icons.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Simple-Icons.txt"/>
         <EmbeddedResource Include="Configuration\Images\LICENSE-Annict.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Annict.txt"/>
+        <None Remove="Configuration\Fonts\noto-sans-latin-400.woff2"/>
+        <EmbeddedResource Include="Configuration\Fonts\noto-sans-latin-400.woff2" LogicalName="jellyfin_anidoki.Configuration.Fonts.noto-sans-latin-400.woff2"/>
+        <None Remove="Configuration\Fonts\noto-sans-latin-700.woff2"/>
+        <EmbeddedResource Include="Configuration\Fonts\noto-sans-latin-700.woff2" LogicalName="jellyfin_anidoki.Configuration.Fonts.noto-sans-latin-700.woff2"/>
+        <None Remove="Configuration\Fonts\noto-sans-latin-ext-400.woff2"/>
+        <EmbeddedResource Include="Configuration\Fonts\noto-sans-latin-ext-400.woff2" LogicalName="jellyfin_anidoki.Configuration.Fonts.noto-sans-latin-ext-400.woff2"/>
+        <None Remove="Configuration\Fonts\noto-sans-latin-ext-700.woff2"/>
+        <EmbeddedResource Include="Configuration\Fonts\noto-sans-latin-ext-700.woff2" LogicalName="jellyfin_anidoki.Configuration.Fonts.noto-sans-latin-ext-700.woff2"/>
+        <None Remove="Configuration\Fonts\LICENSE-Noto-Sans.txt"/>
+        <EmbeddedResource Include="Configuration\Fonts\LICENSE-Noto-Sans.txt" LogicalName="jellyfin_anidoki.Configuration.Fonts.LICENSE-Noto-Sans.txt"/>
+        <None Remove="Configuration\Fonts\FONTS.md"/>
+        <EmbeddedResource Include="Configuration\Fonts\FONTS.md" LogicalName="jellyfin_anidoki.Configuration.Fonts.FONTS.md"/>
         <EmbeddedResource Include="Configuration\Images\LICENSE-Jellyfin-branding.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Jellyfin-branding.txt"/>
     </ItemGroup>
 

@@ -206,6 +206,10 @@ namespace jellyfin_anidoki.Api {
                 "provider-simkl.svg" => "Images.provider-simkl.svg",
                 "jellyfin.svg" => "Images.jellyfin.svg",
                 "jellyfin-banner.svg" => "Images.jellyfin-banner.svg",
+                "noto-sans-latin-400.woff2" => "Fonts.noto-sans-latin-400.woff2",
+                "noto-sans-latin-700.woff2" => "Fonts.noto-sans-latin-700.woff2",
+                "noto-sans-latin-ext-400.woff2" => "Fonts.noto-sans-latin-ext-400.woff2",
+                "noto-sans-latin-ext-700.woff2" => "Fonts.noto-sans-latin-ext-700.woff2",
                 _ => null
             };
             if (resource == null)
