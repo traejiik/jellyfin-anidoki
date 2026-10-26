@@ -205,6 +205,7 @@ namespace jellyfin_anidoki.Api {
                 "provider-shikimori.svg" => "Images.provider-shikimori.svg",
                 "provider-simkl.svg" => "Images.provider-simkl.svg",
                 "jellyfin.svg" => "Images.jellyfin.svg",
+                "jellyfin-banner.svg" => "Images.jellyfin-banner.svg",
                 _ => null
             };
             if (resource == null)

@@ -164,7 +164,7 @@ public class CallbackPageTests {
         Assert.Multiple(() => {
             Assert.That(CallbackPage.StatusCode(outcome), Is.EqualTo(status));
             Assert.That(html, Does.Contain($"doki-cb-link {tone}"));
-            Assert.That(html, Does.Contain("assets/v/fixture/jellyfin.svg").And.Contain("assets/v/fixture/anidoki-avatar.png"));
+            Assert.That(html, Does.Contain("assets/v/fixture/jellyfin.svg").And.Contain("assets/v/fixture/jellyfin-banner.svg").And.Contain("assets/v/fixture/anidoki-avatar.png"));
             Assert.That(html, Does.Not.Contain("{{"), "every placeholder is filled");
             Assert.That(html, Does.Not.Match(@"class=""[^""]*\bad-"), "no ad-blocker-hidden class names");
         });

@@ -19,17 +19,28 @@ license is retained in `LICENSE-Simple-Icons.txt`. Trademark rights are unaffect
 | `provider-kitsu.svg` | [kitsu.svg](https://github.com/simple-icons/simple-icons/blob/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/kitsu.svg) | https://kitsu.io | `#FD755C` |
 | `provider-shikimori.svg` | [shikimori.svg](https://github.com/simple-icons/simple-icons/blob/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/shikimori.svg) | https://shikimori.one | `#343434` |
 | `provider-simkl.svg` | [simkl.svg](https://github.com/simple-icons/simple-icons/blob/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/simkl.svg) | https://simkl.com | `#000000` |
-| `jellyfin.svg` | [jellyfin.svg](https://github.com/simple-icons/simple-icons/blob/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/jellyfin.svg) | https://jellyfin.org/docs/general/contributing/branding.html | `#00A4DC` |
-
-`jellyfin.svg` is not a tracker logo: the sign-in callback page shows it beside AniDōki's.
-Its path is unchanged; instead of a flat fill it uses Jellyfin's brand gradient, purple
-`#AA5CC3` to blue `#00A4DC` from top left to bottom right, as in the official icon
-([Jellyfin branding](https://jellyfin.org/docs/general/contributing/branding.html)).
 
 The path drawing, title, and viewBox are unchanged. The only SVG modification is
 an explicit root fill using the brand color from Simple Icons' metadata. Each SVG
 was inspected: it contains only an SVG root, title, and path, with no scripts,
 event handlers, external resources, stylesheets, or embedded images.
+
+## Jellyfin
+
+The sign-in callback page shows Jellyfin's own icon and banner, unmodified copies of
+the official artwork in [jellyfin-ux](https://github.com/jellyfin/jellyfin-ux) at
+revision `69a2b7b1237732a134dd501ff55b9404cf2d1601` (retrieved 2026-10-26):
+
+| Local file | Source file |
+| --- | --- |
+| `jellyfin.svg` | [branding/SVG/icon-transparent.svg](https://github.com/jellyfin/jellyfin-ux/blob/69a2b7b1237732a134dd501ff55b9404cf2d1601/branding/SVG/icon-transparent.svg) |
+| `jellyfin-banner.svg` | [branding/SVG/banner-dark.svg](https://github.com/jellyfin/jellyfin-ux/blob/69a2b7b1237732a134dd501ff55b9404cf2d1601/branding/SVG/banner-dark.svg) (the version for dark backgrounds) |
+
+Copyright belongs to the Jellyfin contributors. The artwork is licensed under
+**Creative Commons Attribution-ShareAlike 4.0 International**; each file keeps its
+license block and the full license is retained in `LICENSE-Jellyfin-branding.txt`.
+Both were inspected: they contain only a gradient, paths, and a title, with no
+scripts, event handlers, stylesheets, or external resources.
 
 ## Annict
 
