@@ -31,6 +31,8 @@ public partial class UserConfigurationTests {
     [TestCase("provider-kitsu.svg")]
     [TestCase("provider-shikimori.svg")]
     [TestCase("provider-simkl.svg")]
+    [TestCase("jellyfin.svg")]
+    [TestCase("jellyfin-banner.svg")]
     public void PublicProviderSvgAssetsAreEmbeddedAndContainOnlyLocalDrawingData(string asset) {
         _plugin.Configuration.enableUserPages = false;
         var result = _controller.GetAsset(asset);
@@ -39,6 +41,8 @@ public partial class UserConfigurationTests {
         using var stream = file.FileStream;
         using var reader = XmlReader.Create(stream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit });
         var document = XDocument.Load(reader);
+        // A fill may reference a gradient defined in the same file, never anything outside it.
+        var localIds = document.Descendants().Attributes("id").Select(id => $"url(#{id.Value})").ToHashSet();
         Assert.Multiple(() => {
             Assert.That(file.ContentType, Is.EqualTo("image/svg+xml"));
             Assert.That(document.Root!.Name, Is.EqualTo(XName.Get("svg", "http://www.w3.org/2000/svg")));
@@ -47,7 +51,22 @@ public partial class UserConfigurationTests {
             Assert.That(document.Descendants().Attributes().Any(attribute =>
                 attribute.Name.LocalName.StartsWith("on", StringComparison.OrdinalIgnoreCase) ||
                 attribute.Name.LocalName is "href" or "src" ||
-                attribute.Value.Contains("url(", StringComparison.OrdinalIgnoreCase)), Is.False);
+                (attribute.Value.Contains("url(", StringComparison.OrdinalIgnoreCase) && !localIds.Contains(attribute.Value))), Is.False);
+        });
+    }
+
+    [TestCase("noto-sans-latin-400.woff2")]
+    [TestCase("noto-sans-latin-700.woff2")]
+    [TestCase("noto-sans-latin-ext-400.woff2")]
+    [TestCase("noto-sans-latin-ext-700.woff2")]
+    public void CallbackPageFontsAreEmbeddedWoff2(string asset) {
+        var file = (FileStreamResult)_controller.GetAsset(asset);
+        using var stream = file.FileStream;
+        var signature = new byte[4];
+        stream.ReadExactly(signature);
+        Assert.Multiple(() => {
+            Assert.That(file.ContentType, Is.EqualTo("font/woff2"));
+            Assert.That(System.Text.Encoding.ASCII.GetString(signature), Is.EqualTo("wOF2"));
         });
     }
 

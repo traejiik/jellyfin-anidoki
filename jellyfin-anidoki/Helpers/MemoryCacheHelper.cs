@@ -17,15 +17,25 @@ public class MemoryCacheHelper {
     internal const string XRateLimitRemainingHeader = "X-RateLimit-Remaining";
     internal const string XRateLimitResetHeader = "X-RateLimit-Reset";
 
-    public static string GenerateState(IMemoryCache memoryCache, Guid userId, ApiName provider, string? codeVerifier = null) {
-        var key = Guid.NewGuid().ToString().Replace("-", "");
+    public static string GenerateState(IMemoryCache memoryCache, Guid userId, ApiName provider, string? codeVerifier = null, string? serverId = null, bool returnToAdmin = false) {
+        var key = CallbackState.Create(serverId, provider);
         memoryCache.Set(key, new StoredState {
             ApiName = provider,
             UserId = userId,
-            CodeVerifier = codeVerifier
-        }, DateTimeOffset.Now.AddMinutes(Plugin.Instance?.Configuration.authenticationLinkExpireTimeMinutes ?? 1440));
+            CodeVerifier = codeVerifier,
+            ReturnToAdmin = returnToAdmin
+        }, DateTimeOffset.Now.AddMinutes(LinkExpiryMinutes(Plugin.Instance?.Configuration.authenticationLinkExpireTimeMinutes)));
         return key;
     }
+
+    internal const long DefaultLinkExpiryMinutes = 1440;
+
+    /// <summary>
+    /// A configuration that never saved the expiry holds 0; treat that, like any value below 1,
+    /// as the 24-hour default the settings page shows, or every sign-in link would expire at once.
+    /// </summary>
+    internal static long LinkExpiryMinutes(long? configured) =>
+        configured is > 0 ? configured.Value : DefaultLinkExpiryMinutes;
 
     public static StoredState? ConsumeState(IMemoryCache memoryCache, string key) {
         StoredState? storedState = memoryCache.Get<StoredState>(key);
