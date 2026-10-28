@@ -148,3 +148,13 @@ jobs:
           done
           echo "Could not update development after three attempts."
           exit 1
+      - name: Refresh the combined plugin repository
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.PLUGIN_REPOSITORY_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "PLUGIN_REPOSITORY_TOKEN is not set; the plugin repository refreshes on its hourly schedule."
+            exit 0
+          fi
+          gh api --method POST repos/traejiik/jellyfin-tjk-plugins/dispatches -f event_type=plugin-released
