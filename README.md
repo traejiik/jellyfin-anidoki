@@ -62,18 +62,24 @@ The following services are currently supported:
 
 The following are needed for the plugin to run:
 
-- [Jellyfin 12.2](https://github.com/jellyfin/jellyfin/releases/tag/v12.2)
-- [File Transformation plugin](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation)
-- [Plugin Pages plugin](https://github.com/IAmParadox27/jellyfin-plugin-pages)
+- [Jellyfin 12.2](https://github.com/jellyfin/jellyfin/releases/tag/v12.2) or newer.
+- [File Transformation plugin](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) for toast notifications.
+- [Plugin Pages plugin](https://github.com/IAmParadox27/jellyfin-plugin-pages) for User Configuration pages.
 
 AniDōki is designed for stock Jellyfin 12.2 and works with any theme: its pages keep the same layout and take only their colours and font from the active theme. Themes and [KefinTweaks](https://github.com/ranaldsgift/KefinTweaks/releases) (5.0 and later) are optional, and AniDōki does not require either.
 
 ### Automatic (recommended)
 
 1. Navigate to Settings > Admin Dashboard > Plugins > Repositories
-2. Add a new repository with a `Repository URL` of `https://raw.githubusercontent.com/traejiik/jellyfin-anidoki/development/manifest.json`. The name can be `AniDoki`, `Jellyfin AniDoki` or anything you like.
+2. Add a new repository with the name `TJK Plugins`(or anything you like) and a `Repository URL` of:
+
+   ```link
+   https://raw.githubusercontent.com/traejiik/jellyfin-tjk-plugins/main/manifest.json
+   ```
+
 3. Save, refresh and navigate to Catalogue.
-4. AniDōki should be present. Click on it and install the latest version.
+4. Select **AniDōki** and install the latest compatible version.
+5. Restart Jellyfin, then open **AniDōki** in the dashboard’s plugin section.
 
 ### Manual
 
