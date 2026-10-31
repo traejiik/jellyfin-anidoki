@@ -24,6 +24,11 @@ export function element(tag, className, text) {
     if (text !== undefined) node.textContent = text;
     return node;
 }
+// Top-bar summary on the admin pages: how many Jellyfin users have at least one linked tracker.
+export function linkedUsersBadge(users, userConfig = []) {
+    const count = users.filter(user => userConfig.find(item => item.UserId === user.Id)?.UserApiAuth?.length).length;
+    return element('span', 'doki-badge', `${count} ${count === 1 ? 'user' : 'users'} linked`);
+}
 export function icon(name) {
     const namespace = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(namespace, 'svg');

@@ -273,8 +273,7 @@ export default function (view) {
     }
     function renderUsers(signal) {
         find('#userRows').replaceChildren();
-        const count = users.filter(user => connected(user.Id).length).length;
-        find('#configurationSummary').replaceChildren(common.element('span', 'doki-badge', `${count} ${count === 1 ? 'user' : 'users'} linked`));
+        find('#configurationSummary').replaceChildren(common.linkedUsersBadge(users, saved.UserConfig));
         if (!users.length) { const row = common.element('tr'); const cell = common.element('td', 'doki-help', 'No Jellyfin users found.'); cell.colSpan = 3; row.append(cell); find('#userRows').append(row); }
         for (const user of users) {
             const row = common.element('tr'); const title = common.element('td'); title.append(common.element('strong', '', user.Name));

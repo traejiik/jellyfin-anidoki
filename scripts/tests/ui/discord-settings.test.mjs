@@ -16,7 +16,7 @@ class Element extends EventTarget {
 const flatten = node => [node,...node.children.flatMap(flatten)];
 const flush = () => new Promise(resolve=>setImmediate(resolve));
 function fixture(preview) {
-    const ids=['discordEnabled','discordWebhook','discordWebhookControl','discordHelp','saveDiscord','clearDiscord','testDiscord','discordStatus','discordPreview','discordPreviewToggle'];
+    const ids=['discordEnabled','discordWebhook','discordWebhookControl','discordHelp','discordDetail','clearDiscord','testDiscord','discordStatus','discordPreview','discordPreviewToggle'];
     const nodes=Object.fromEntries(ids.map(id=>[id,new Element()]));
     nodes.discordWebhook.type='password';nodes.discordWebhookControl.append(nodes.discordWebhook);
     globalThis.document={createElement:tag=>new Element(tag),createElementNS:(_,tag)=>new Element(tag)};
@@ -73,4 +73,38 @@ test('editing a webhook does not rewrite its value and reset native editing stat
     Object.defineProperty(input,'value',{get:()=>value,set:next=>{value=next;writes++;},configurable:true});
     value='pasted draft';input.dispatchEvent(new Event('input'));
     assert.equal(writes,0);assert.equal(input.value,'pasted draft');scope.abort();
+});
+
+test('the Discord detail shows only while the switch is on, and turning it off drops a webhook draft', async () => {
+    const env=fixture(()=>({empty:true}));const scope=new AbortController();const cache={};let changes=0;
+    await mountDiscord(env.root,env.common,cache,scope.signal,()=>false,()=>changes++);
+    assert.equal(env.nodes.discordDetail.hidden,true);
+    env.nodes.discordEnabled.checked=true;env.nodes.discordEnabled.dispatchEvent(new Event('change'));
+    assert.equal(env.nodes.discordDetail.hidden,false);
+    env.nodes.discordWebhook.value='https://discord.com/api/webhooks/1/draft';env.nodes.discordWebhook.dispatchEvent(new Event('input'));
+    env.nodes.discordEnabled.checked=false;env.nodes.discordEnabled.dispatchEvent(new Event('change'));
+    assert.equal(env.nodes.discordDetail.hidden,true);assert.equal(cache.discordDraft.webhook,'');
+    assert.equal(cache.discordDirty(),false);assert.equal(changes,3);scope.abort();
+});
+
+test('the page save sends the Discord command once and leaves nothing dirty', async () => {
+    const env=fixture(()=>({empty:true}));const scope=new AbortController();const cache={};
+    await mountDiscord(env.root,env.common,cache,scope.signal,()=>false);
+    env.nodes.discordEnabled.checked=true;env.nodes.discordEnabled.dispatchEvent(new Event('change'));
+    env.nodes.discordWebhook.value='https://discord.com/api/webhooks/1/new';env.nodes.discordWebhook.dispatchEvent(new Event('input'));
+    env.common.json=async(path,options)=>{env.calls.push({path,options});return {enabled:true,hasWebhook:true,revision:1,publicAddressReady:true};};
+    await cache.discordSave(scope.signal);
+    const put=env.calls.filter(c=>c.options?.method==='PUT');
+    assert.equal(put.length,1);assert.equal(put[0].options.body.webhookAction,'Replace');
+    assert.equal(cache.discordDirty(),false);assert.equal(env.nodes.discordDetail.hidden,false);
+    await cache.discordSave(scope.signal);assert.equal(env.calls.filter(c=>c.options?.method==='PUT').length,1);scope.abort();
+});
+
+test('the page discard restores the saved Discord state', async () => {
+    const env=fixture(()=>({empty:true}));const scope=new AbortController();const cache={};
+    await mountDiscord(env.root,env.common,cache,scope.signal,()=>false);
+    env.nodes.discordEnabled.checked=true;env.nodes.discordEnabled.dispatchEvent(new Event('change'));
+    assert.equal(cache.discordDirty(),true);
+    cache.discordDiscard();
+    assert.equal(cache.discordDirty(),false);assert.equal(env.nodes.discordEnabled.checked,false);assert.equal(env.nodes.discordDetail.hidden,true);scope.abort();
 });

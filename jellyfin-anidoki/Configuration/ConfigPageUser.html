@@ -1,32 +1,41 @@
 <div id="TemplateConfigPage" data-role="page" class="page type-interior">
     <div data-role="content"><div class="anidoki doki-user-page">
-        <header class="doki-header"><div><h1>AniDōki Tracking settings</h1><p class="doki-help">Choose the accounts and libraries that follow what you watch.</p></div></header>
+        <div class="doki-topbar"><div class="doki-identity"><svg class="doki-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span>AniDōki</span></div><div class="doki-actions" id="trackingSummary"></div></div>
+        <header class="doki-header"><div><h1>Tracking Settings</h1><p class="doki-help">Choose the accounts and libraries that follow what you watch.</p></div></header>
         <p class="doki-status" data-page-status role="status">Loading your settings…</p>
         <form id="TemplateConfigForm" hidden>
-            <main class="doki-stack doki-content">
-                <section class="doki-panel doki-accounts-panel">
-                    <div class="doki-panel-title"><h2>Linked accounts</h2><p class="doki-help">Link, Test, and Disconnect take effect immediately. Discard only resets preference edits.</p></div>
-                    <div class="doki-panel-actions"><button class="doki-button" type="button" id="refreshAccounts">Refresh linked accounts</button><span class="doki-refresh-status" id="accountsRefreshStatus" role="status" hidden></span></div>
-                    <div class="doki-panel-body" id="linkedAccounts"></div><p class="doki-status doki-panel-feedback" id="accountsStatus" role="status"></p>
-                </section>
-                <section class="doki-panel"><h2>When you watch</h2><p class="doki-help">These preferences apply to your existing tracking rules.</p>
-                    <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" id="PlanToWatchOnly"><span><strong>Only update anime on Plan to watch</strong><span class="doki-help">Limit changes to titles already on your plan-to-watch list.</span></span></label>
-                    <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" id="RewatchCompleted"><span><strong>Rewatch completed anime</strong><span class="doki-help" id="rewatchHelp">Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.</span></span></label>
-                </section>
-                <section class="doki-panel"><h2>Notifications</h2><p class="doki-help">Feedback after your tracker updates.</p><label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" id="ShowLogNotifications"><span><strong>Show tracker update toasts</strong><span class="doki-help">Show confirmed updates after playback stops in this Jellyfin web session. Requires compatible File Transformation and a web refresh.</span></span></label></section>
-                <section class="doki-panel doki-discord-settings"><h2>Discord notifications</h2>
-                    <label class="doki-check"><input id="discordEnabled" class="doki-switch" type="checkbox" role="switch"><span><strong>Send updates to Discord</strong></span></label>
-                    <div class="doki-field"><label for="discordWebhook">Webhook link</label><div class="doki-discord-webhook-row"><div id="discordWebhookControl" class="doki-discord-webhook-input"><input id="discordWebhook" class="doki-input" type="password" autocomplete="off" spellcheck="false" autocapitalize="none" aria-describedby="discordHelp"></div><button type="button" id="clearDiscord" class="doki-button">Remove webhook</button></div></div>
-                    <p id="discordHelp" class="doki-help">AniDoki uses its own name and avatar. Your webhook is kept in the AniDōki database on the server.</p>
-                    <details id="discordPreviewToggle" class="doki-discord-preview-section">
-                        <summary>Preview<span class="doki-discord-preview-chevron" aria-hidden="true"></span></summary>
-                        <div id="discordPreview" class="doki-discord-preview" hidden></div>
-                    </details>
-                    <div class="doki-actions"><button type="button" id="saveDiscord" class="doki-button">Save Discord settings</button><button type="button" id="testDiscord" class="doki-button">Send test</button></div>
-                    <p id="discordStatus" class="doki-status" role="status"></p>
-                </section>
-                <section class="doki-panel"><h2>Libraries</h2><p class="doki-help">Choose which Jellyfin libraries AniDōki monitors for you.</p><div id="libraries"></div></section>
-            </main>
+            <div class="doki-layout doki-content">
+                <aside class="doki-rail"><p>On this page</p><nav class="doki-section-nav" aria-label="On this page">
+                    <a href="#accounts" data-section="#doki-accounts">Linked accounts</a><a href="#watch" data-section="#doki-watch">When you watch</a><a href="#notifications" data-section="#doki-notifications">Notifications</a><a href="#libraries" data-section="#doki-libraries">Libraries</a>
+                </nav></aside>
+                <main class="doki-stack">
+                    <section class="doki-panel doki-accounts-panel" id="doki-accounts">
+                        <div class="doki-panel-title"><h2>Linked accounts</h2><p class="doki-help">Link, Test, and Disconnect take effect immediately. Discard only resets preference edits.</p></div>
+                        <div class="doki-panel-actions"><button class="doki-button" type="button" id="refreshAccounts">Refresh linked accounts</button><span class="doki-refresh-status" id="accountsRefreshStatus" role="status" hidden></span></div>
+                        <div class="doki-panel-body" id="linkedAccounts"></div><p class="doki-status doki-panel-feedback" id="accountsStatus" role="status"></p>
+                    </section>
+                    <section class="doki-panel" id="doki-watch"><h2>When you watch</h2><p class="doki-help">These preferences apply to your existing tracking rules.</p>
+                        <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" id="PlanToWatchOnly"><span><strong>Only update anime on Plan to watch</strong><span class="doki-help">Limit changes to titles already on your plan-to-watch list.</span></span></label>
+                        <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" id="RewatchCompleted"><span><strong>Rewatch completed anime</strong><span class="doki-help" id="rewatchHelp">Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.</span></span></label>
+                    </section>
+                    <section class="doki-panel" id="doki-notifications"><h2>Notifications</h2><p class="doki-help">Feedback after your tracker updates.</p>
+                        <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" id="ShowLogNotifications"><span><strong>Show tracker update toasts</strong><span class="doki-help">Show confirmed updates after playback stops in this Jellyfin web session. Requires compatible File Transformation and a web refresh.</span></span></label>
+                        <label class="doki-check"><input id="discordEnabled" class="doki-switch" type="checkbox" role="switch" aria-controls="discordDetail"><span><strong>Send updates to Discord</strong><span class="doki-help">Post each confirmed update to a Discord channel through a webhook.</span></span></label>
+                        <!-- Shown only while Discord is on. Saved with the rest of the page. -->
+                        <div id="discordDetail" class="doki-account-detail doki-discord-settings" hidden>
+                            <div class="doki-field"><label for="discordWebhook">Webhook link</label><div class="doki-discord-webhook-row"><div id="discordWebhookControl" class="doki-discord-webhook-input"><input id="discordWebhook" class="doki-input" type="password" autocomplete="off" spellcheck="false" autocapitalize="none" aria-describedby="discordHelp"></div><button type="button" id="clearDiscord" class="doki-button">Remove webhook</button></div></div>
+                            <p id="discordHelp" class="doki-help">AniDoki uses its own name and avatar. Your webhook is kept in the AniDōki database on the server.</p>
+                            <details id="discordPreviewToggle" class="doki-discord-preview-section">
+                                <summary>Preview<span class="doki-discord-preview-chevron" aria-hidden="true"></span></summary>
+                                <div id="discordPreview" class="doki-discord-preview" hidden></div>
+                            </details>
+                            <div class="doki-actions"><button type="button" id="testDiscord" class="doki-button">Send test</button></div>
+                            <p id="discordStatus" class="doki-status" role="status"></p>
+                        </div>
+                    </section>
+                    <section class="doki-panel" id="doki-libraries"><h2>Libraries</h2><p class="doki-help">Choose which Jellyfin libraries AniDōki monitors for you.</p><div id="libraries"></div></section>
+                </main>
+            </div>
             <div class="doki-save-bar" hidden><p class="doki-status" id="saveStatus" role="status">Unsaved changes</p><button type="button" id="discardChanges" class="doki-button">Discard</button><button type="submit" class="doki-button doki-button-primary">Save changes</button></div>
         </form>
     </div></div>
