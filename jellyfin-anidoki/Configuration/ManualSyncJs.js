@@ -132,6 +132,7 @@ export default function (view) {
         find('#runSync').disabled = true; common.status(find('[data-page-status]'), 'Loading users and linked trackers…');
         const result = await Promise.all([ApiClient.getUsers(), ApiClient.getPluginConfiguration(common.pluginId)]); if (signal.aborted) return;
         [users, config] = result;
+        find('#configurationSummary').replaceChildren(common.linkedUsersBadge(users, config.UserConfig));
         const selected = find('#selectSyncUser').value; common.populateUserList(view, users, '#selectSyncUser');
         if (users.some(user => user.Id === selected)) find('#selectSyncUser').value = selected;
         find('#ManualSyncConfigForm').hidden = false;

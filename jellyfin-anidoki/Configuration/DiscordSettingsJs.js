@@ -1,7 +1,9 @@
 export function createDiscordDraft(saved) { return { enabled: !!saved.enabled, webhook: '', clear: false }; }
 export function discordCommand(draft, saved) { return { enabled: !draft.clear && draft.enabled, webhookAction: draft.clear ? 'Clear' : draft.webhook.trim() ? 'Replace' : 'Keep', webhook: draft.clear ? null : draft.webhook.trim() || null, expectedRevision: saved.revision }; }
 export function discordDirty(draft, saved) { return draft.enabled !== saved.enabled || !!draft.webhook.trim() || draft.clear; }
-export default async function mountDiscord(root, common, cache, signal, isHostBusy) {
+// Discord settings save with the rest of the page: the page's Save changes calls cache.discordSave
+// and Discard calls cache.discordDiscard. onChange lets the page show or hide its save bar.
+export default async function mountDiscord(root, common, cache, signal, isHostBusy, onChange = () => {}) {
     const find = id => root.querySelector(`#${id}`);
     let saved = await common.json('AniDoki/user/discord/settings', { signal });
     if (signal.aborted) return;
@@ -9,14 +11,23 @@ export default async function mountDiscord(root, common, cache, signal, isHostBu
     find('discordWebhookControl').replaceChildren(common.secretInput(webhook, 'Discord webhook', signal));
     const draft = cache.discordDraft ??= createDiscordDraft(saved);
     cache.discordDirty = () => discordDirty(draft, saved);
+    cache.discordSave = async saveSignal => {
+        if (!discordDirty(draft, saved)) return;
+        saved = await common.json('AniDoki/user/discord/settings', { method: 'PUT', body: discordCommand(draft, saved), signal: saveSignal });
+        Object.assign(draft, createDiscordDraft(saved)); status(''); render();
+    };
+    cache.discordDiscard = () => { Object.assign(draft, createDiscordDraft(saved)); status(''); render(); };
+    cache.discordRefresh = () => render();
     let busy = false, objectUrl, previewGeneration = 0;
     const status = (text, kind) => common.status(find('discordStatus'), text, kind);
+    const changed = () => { render(); onChange(); };
     function render() {
         find('discordEnabled').checked = draft.enabled;
+        find('discordDetail').hidden = !draft.enabled;
         if (webhook.value !== draft.webhook) webhook.value = draft.webhook;
         find('discordWebhook').placeholder = saved.hasWebhook ? 'Webhook saved · leave blank to keep it' : 'https://discord.com/api/webhooks/…';
         find('discordHelp').textContent = saved.publicAddressReady ? 'AniDoki uses its own name and avatar. Your webhook is kept in the AniDōki database on the server.' : 'Ask your administrator to set the server Public address. AniDoki uses its own name and avatar.';
-        for (const id of ['discordEnabled','discordWebhook','saveDiscord','clearDiscord','testDiscord']) find(id).disabled = busy;
+        for (const id of ['discordEnabled','discordWebhook','clearDiscord','testDiscord']) find(id).disabled = busy;
         find('testDiscord').disabled = busy || !saved.hasWebhook || discordDirty(draft, saved);
         find('clearDiscord').disabled = busy || !saved.hasWebhook && !draft.webhook;
     }
@@ -25,16 +36,12 @@ export default async function mountDiscord(root, common, cache, signal, isHostBu
         try { await callback(); } catch (error) { if (!signal.aborted) status(await common.errorMessage(error), 'error'); }
         finally { busy = false; if (!signal.aborted) render(); }
     }
-    find('discordEnabled').addEventListener('change', e => { draft.enabled = e.target.checked; draft.clear = false; render(); }, { signal });
-    find('discordWebhook').addEventListener('input', e => { draft.webhook = e.target.value; draft.clear = false; render(); }, { signal });
-    find('clearDiscord').addEventListener('click', () => { draft.clear = true; draft.enabled = false; draft.webhook = ''; status('Webhook removal is pending. Save Discord settings to remove it.'); render(); }, { signal });
-    find('saveDiscord').addEventListener('click', () => action(async () => {
-        status('Saving Discord settings…');
-        saved = await common.json('AniDoki/user/discord/settings', { method: 'PUT', body: discordCommand(draft, saved), signal });
-        if (signal.aborted) return; Object.assign(draft, createDiscordDraft(saved)); status('Discord settings saved.', 'success');
-    }), { signal });
+    // Turning Discord off drops an unsaved webhook edit, so the hidden field never saves by surprise.
+    find('discordEnabled').addEventListener('change', e => { draft.enabled = e.target.checked; draft.clear = false; if (!draft.enabled) draft.webhook = ''; changed(); }, { signal });
+    find('discordWebhook').addEventListener('input', e => { draft.webhook = e.target.value; draft.clear = false; changed(); }, { signal });
+    find('clearDiscord').addEventListener('click', () => { draft.clear = true; draft.webhook = ''; status('Webhook removal is pending. Save changes to remove it and turn off Discord updates.'); changed(); }, { signal });
     find('testDiscord').addEventListener('click', () => action(async () => {
-        if (discordDirty(draft, saved)) throw new Error('Save your Discord changes before sending a test.');
+        if (discordDirty(draft, saved)) throw new Error('Save changes before sending a test.');
         status('Waiting for Discord to confirm the test…');
         const result = await common.json('AniDoki/user/discord/test', { method: 'POST', body: { expectedRevision: saved.revision }, signal });
         if (!signal.aborted) status(result.message, result.confirmed ? 'success' : 'error');
