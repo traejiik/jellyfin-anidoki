@@ -43,3 +43,12 @@ Git and excluded from the Docker build context. They remain available locally.
 differ from the active README banner and horizontal catalog card. The active
 card is `anidoki-card.png`; release and manual-install packages copy it without
 changing its filename.
+
+## README banner
+
+The README keeps its full-width navy banner at 240 px high. The banner embeds
+the unchanged `anidoki-stacked.svg` in a centered 240 × 240 image area with
+`preserveAspectRatio="xMidYMid meet"`, matching Task Timeline's banner layout.
+The explicit square image area keeps the logo proportional at different README
+widths. It replaces the previous raster image and fade mask; the background,
+README dimensions, and standalone logo masters are unchanged.
