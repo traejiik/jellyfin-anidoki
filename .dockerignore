@@ -5,3 +5,6 @@ dist/
 test-results/
 **/__pycache__/
 .idea/
+
+# Local-only branding previews and optional exports.
+docs/assets/branding/generated/

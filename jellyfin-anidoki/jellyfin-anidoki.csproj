@@ -33,8 +33,8 @@
         <EmbeddedResource Include="Configuration\NotificationsJs.js"/>
         <None Remove="Configuration\DiscordSettingsJs.js"/>
         <EmbeddedResource Include="Configuration\DiscordSettingsJs.js"/>
-        <None Remove="Configuration\Images\anidoki-avatar.png"/>
-        <EmbeddedResource Include="Configuration\Images\anidoki-avatar.png" LogicalName="jellyfin_anidoki.Configuration.Images.anidoki-avatar.png"/>
+        <None Remove="Configuration\Images\branding\anidoki-avatar.png"/>
+        <EmbeddedResource Include="Configuration\Images\branding\anidoki-avatar.png" LogicalName="jellyfin_anidoki.Configuration.Images.anidoki-avatar.png"/>
         <None Remove="Configuration\ManualMarkStateJs.js"/>
         <EmbeddedResource Include="Configuration\ManualMarkStateJs.js"/>
         <None Remove="Configuration\PluginPagesGuardJs.js"/>

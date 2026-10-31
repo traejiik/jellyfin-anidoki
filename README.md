@@ -1,7 +1,7 @@
 <h1 align="center">AniDōki</h1>
 <h2 align="center">A Jellyfin Plugin</h2>
 
-<p align="center"><img src="docs/assets/anidoki-banner.svg" width="100%" height="240" alt="AniDōki logo: interwoven A and D with synchronization arrows"></p>
+<p align="center"><img src="docs/assets/branding/anidoki-banner.svg" width="100%" height="240" alt="AniDōki logo: interwoven A and D with synchronization arrows"></p>
 
 > [!IMPORTANT]
 > ***Credit:***  

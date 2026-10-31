@@ -83,7 +83,7 @@ class ReleaseTests(unittest.TestCase):
                 target = root / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ROOT / name, target)
-            image = root / 'docs/assets/anidoki-card.png'
+            image = root / 'docs/assets/branding/anidoki-card.png'
             image.parent.mkdir(parents=True)
             image_bytes = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=')
             image.write_bytes(image_bytes)
@@ -279,6 +279,8 @@ class LocalBuildTests(unittest.TestCase):
             self.assertEqual(metadata['version'], version)
             self.assertEqual(metadata['changelog'], f'Development build {informational}')
             self.assertEqual(metadata['targetAbi'], release.read_build_metadata(ROOT)['targetAbi'])
+            self.assertEqual((output / 'anidoki-card.png').read_bytes(),
+                             (ROOT / 'docs/assets/branding/anidoki-card.png').read_bytes())
             self.assertEqual(metadata['imagePath'], 'anidoki-card.png')
             self.assertEqual(metadata['guid'], json.loads((ROOT / 'manifest.json').read_text())[0]['guid'])
 

@@ -142,7 +142,7 @@ def local_package(root, output_dir, publish_dir=None):
     """Build an installable plugin folder (DLL, meta.json, card) for a development build."""
     plugin = validate_repository(root)[0]
     version, informational = dev_version(root)
-    image_path = root / 'docs/assets' / CARD_IMAGE
+    image_path = root / 'docs/assets/branding' / CARD_IMAGE
     if not image_path.is_file():
         raise ValueError(f'Plugin card artwork is missing: {image_path}')
     with tempfile.TemporaryDirectory() as temporary:
@@ -182,7 +182,7 @@ def package(manifest, publish_dir, output_dir, tag, repository, changelog=None, 
     assembly = publish_dir / DLL
     if not assembly.is_file():
         raise ValueError(f'Published plugin DLL is missing: {assembly}')
-    image_path = image_path if image_path is not None else Path(__file__).resolve().parents[1] / 'docs/assets' / CARD_IMAGE
+    image_path = image_path if image_path is not None else Path(__file__).resolve().parents[1] / 'docs/assets/branding' / CARD_IMAGE
     if not image_path.is_file():
         raise ValueError(f'Plugin card artwork is missing: {image_path}')
     image_bytes = image_path.read_bytes()
@@ -270,7 +270,7 @@ def main():
         if args.command == 'package':
             if not all((args.tag, args.repository, args.publish_dir, args.changelog_file)):
                 parser.error('package requires --tag, --repository, --publish-dir, and --changelog-file')
-            assets = package(manifest, args.publish_dir, args.output or Path('dist'), args.tag, args.repository, changelog=args.changelog_file.read_text(), image_path=args.root / 'docs/assets' / CARD_IMAGE)
+            assets = package(manifest, args.publish_dir, args.output or Path('dist'), args.tag, args.repository, changelog=args.changelog_file.read_text(), image_path=args.root / 'docs/assets/branding' / CARD_IMAGE)
             print(f'Created {assets["zip"]}')
         else:
             print('Plugin identity, build metadata, and project versions match; feed history is independent.')
