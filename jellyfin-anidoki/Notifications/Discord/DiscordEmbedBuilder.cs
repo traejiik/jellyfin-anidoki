@@ -4,7 +4,7 @@ using System.Text;
 namespace jellyfin_anidoki.Notifications.Discord;
 
 public static class DiscordEmbedBuilder {
-    public const string AvatarUrl = "https://raw.githubusercontent.com/traejiik/jellyfin-anidoki/2c4d36d516dfa2ea4540f63bc9953ef9c50b6238/docs/assets/anidoki-logo.png";
+    public const string AvatarUrl = "https://raw.githubusercontent.com/traejiik/jellyfin-anidoki/development/docs/assets/anidoki-logo.png?v=173e675a742d";
     public const string JellyfinLogoUrl = "https://raw.githubusercontent.com/jellyfin/jellyfin-ux/master/logos/PNG-4x/jellyfin-icon--color-on-dark.png";
     internal static string Limit(string? value, int max) => string.Concat((value ?? "").EnumerateRunes().Take(max).Select(r => r.ToString()));
     internal static string Escape(string? value) => string.Concat((value ?? "").Where(c => !char.IsControl(c))).Replace("\\", "\\\\").Replace("*", "\\*").Replace("_", "\\_").Replace("`", "\\`").Replace("[", "\\[").Replace("]", "\\]").Replace("@", "@\u200b");
