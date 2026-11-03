@@ -44,14 +44,14 @@ public sealed class OperationContext {
         }
     }
 
-    public void Record(ProviderWriteOutcome outcome) {
+    public void Record(ProviderWriteOutcome outcome, OutcomeDetail? detail = null) {
         int sequence;
         lock (_outcomes) {
             _outcomes.Add(outcome);
             sequence = _outcomes.Count;
         }
         try {
-            _store.AddAction(OperationId, sequence, outcome);
+            _store.AddAction(OperationId, sequence, outcome, detail);
         } catch (Exception error) when (error is InvalidOperationException or SqliteException) {
             _logger.LogWarning("Could not record an outcome for operation {OperationId}: {ErrorMessage}", OperationId, error.Message);
         }

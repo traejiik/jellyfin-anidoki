@@ -10,84 +10,92 @@ using Microsoft.Extensions.Logging;
 
 namespace jellyfin_anidoki.Execution;
 
+/// <summary>The Jellyfin side of an action, for its history row.</summary>
+public sealed record ActionSource(Guid ItemId, int Episode);
+
 /// <summary>
 /// Runs one provider's resolution: earlier parts in chain order, then the played target. Reads only what resolution did
 /// not, plans each target, writes through <see cref="ITrackerProvider.Apply"/>, and records one outcome per target
-/// (two when a multi-call write stopped part way). PR 7 adds the staleness re-check here.
+/// (two when a multi-call write stopped part way).
 /// </summary>
 public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPolicy policy, PlaybackOutcomeCollector? outcomes,
-    TimeProvider clock, ILogger logger) {
+    TimeProvider clock, ILogger logger, ActionSource? source = null) {
     private readonly ProviderQuirks _quirks = ProviderQuirks.For(tracker.Name);
 
     private bool StatusOnly => !tracker.Capabilities.TracksProgress;
 
+    /// <summary>One target and how it was found, carried so every record of it can say so.</summary>
+    private sealed record ActionTrace(ResolvedTarget Target, ResolvedBy By, string? Note);
+
     public async Task Execute(SourceResolution resolution, CancellationToken cancellationToken) {
         foreach (var part in resolution.EarlierParts)
-            await ExecuteTarget(part, cancellationToken);
+            await ExecuteTarget(new ActionTrace(part, ResolvedBy.SequelChain, resolution.Note), cancellationToken);
         switch (resolution) {
             case Resolved resolved:
-                await ExecuteTarget(resolved.Played, cancellationToken);
+                await ExecuteTarget(new ActionTrace(resolved.Played, resolved.By, resolved.Note), cancellationToken);
                 break;
-            case Unresolved { Record: { } record }:
-                Record(record.TargetId, record.Title, OutcomeKind.Unresolved, "resolve");
+            case Unresolved { Record: { } record } unresolved:
+                Record(record.TargetId, record.Title, OutcomeKind.Unresolved, "resolve",
+                    detail: new OutcomeDetail(source?.ItemId, source?.Episode, null, null, unresolved.Note ?? unresolved.Reason, null, null));
                 break;
         }
     }
 
-    private async Task ExecuteTarget(ResolvedTarget target, CancellationToken cancellationToken) {
+    private async Task ExecuteTarget(ActionTrace trace, CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
+        ResolvedTarget target = trace.Target;
         EntryState? state = target.State ?? await tracker.ReadEntry(target.Entry, cancellationToken);
         if (state == null) {
-            logger.LogInformation("({ApiName}) Could not retrieve the matched anime from the provider; not updating", tracker.Name);
-            EntryRef entry = target.Entry;
-            Record(entry.AlternativeId ?? (entry.Lookup == null ? entry.Id.ToString() : ""), entry.Lookup?.Title ?? "",
-                OutcomeKind.Unresolved, "resolve");
+            RecordUnreadable(trace);
             return;
         }
 
-        var decision = Planner.Plan(new PlanInput(target.TargetEpisode, state, rules, policy, tracker.Capabilities, _quirks,
-            clock.GetUtcNow().LocalDateTime));
+        var decision = Plan(target, state);
         switch (decision) {
             case Write write:
-                await Apply(write, cancellationToken);
+                await Apply(write, state, trace, cancellationToken);
                 break;
             case NoChange noChange:
-                RecordDecision(state, OutcomeKind.NoChange, noChange.Reason);
+                RecordDecision(state, OutcomeKind.NoChange, noChange.Reason, trace);
                 break;
             case Skip skip:
-                RecordDecision(state, OutcomeKind.Skipped, skip.Reason);
+                RecordDecision(state, OutcomeKind.Skipped, skip.Reason, trace);
                 break;
         }
     }
 
-    private async Task Apply(Write write, CancellationToken cancellationToken) {
+    private PlanDecision Plan(ResolvedTarget target, EntryState state) =>
+        Planner.Plan(new PlanInput(target.TargetEpisode, state, rules, policy, tracker.Capabilities, _quirks, clock.GetUtcNow().LocalDateTime));
+
+    private async Task Apply(Write write, EntryState read, ActionTrace trace, CancellationToken cancellationToken) {
         EntryState planned = write.PlannedAgainst;
         logger.LogDebug("({ApiName}) Planned {Change} for {Title}", tracker.Name, write.Change, TitleMatching.Display(planned.Titles));
+        OutcomeDetail detail = Detail(trace, write.Change, read);
         bool meaningful = Meaningful(write.Change, planned);
         WriteReceipt? receipt;
         try {
             receipt = await tracker.Apply(planned, write.Change, cancellationToken);
         } catch {
-            RecordWrite(planned, OutcomeKind.Unconfirmed, write.Reason, null, false);
+            RecordWrite(planned, OutcomeKind.Unconfirmed, write.Reason, null, false, detail);
             throw;
         }
 
         if (receipt == null) {
             logger.LogError("({ApiName}) Could not update anime status", tracker.Name);
-            RecordWrite(planned, OutcomeKind.Unconfirmed, write.Reason, null, false);
+            RecordWrite(planned, OutcomeKind.Unconfirmed, write.Reason, null, false, detail);
             return;
         }
 
         bool changed = meaningful && Changed(receipt, planned);
         if (receipt.Complete) {
-            RecordWrite(planned, changed ? OutcomeKind.Confirmed : OutcomeKind.NoChange, write.Reason, receipt, changed);
+            RecordWrite(planned, changed ? OutcomeKind.Confirmed : OutcomeKind.NoChange, write.Reason, receipt, changed, detail);
             return;
         }
 
         // the first call was acknowledged and a later one was not: record both, as the per-call writes did
         logger.LogError("({ApiName}) Could not finish updating anime status", tracker.Name);
-        RecordWrite(planned, changed ? OutcomeKind.Confirmed : OutcomeKind.NoChange, StatusOnly ? "status" : "progress", receipt, changed);
-        RecordWrite(planned, OutcomeKind.Unconfirmed, write.Reason, null, false);
+        RecordWrite(planned, changed ? OutcomeKind.Confirmed : OutcomeKind.NoChange, StatusOnly ? "status" : "progress", receipt, changed, detail);
+        RecordWrite(planned, OutcomeKind.Unconfirmed, write.Reason, null, false, detail);
     }
 
     /// <summary>Whether the change differs from the state it was planned against (was ObserveAnimeWrite's meaningfulChange).</summary>
@@ -116,24 +124,35 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
             (!StatusOnly && receipt.RewatchCount.HasValue && receipt.RewatchCount != (list.RewatchCount ?? 0));
     }
 
-    private void RecordWrite(EntryState planned, OutcomeKind kind, string step, WriteReceipt? receipt, bool changed) {
+    private OutcomeDetail Detail(ActionTrace trace, EntryChange? change = null, EntryState? read = null, string? note = null) =>
+        // Titles are already on the row, and a long synonym list would repeat on every action.
+        new(source?.ItemId, source?.Episode, trace.Target.TargetEpisode, trace.By, note ?? trace.Note, change, read == null ? null : read with { Titles = null });
+
+    private void RecordUnreadable(ActionTrace trace) {
+        logger.LogInformation("({ApiName}) Could not retrieve the matched anime from the provider; not updating", tracker.Name);
+        EntryRef entry = trace.Target.Entry;
+        Record(entry.AlternativeId ?? (entry.Lookup == null ? entry.Id.ToString() : ""), entry.Lookup?.Title ?? "",
+            OutcomeKind.Unresolved, "resolve", detail: Detail(trace, note: "not-found"));
+    }
+
+    private void RecordWrite(EntryState planned, OutcomeKind kind, string step, WriteReceipt? receipt, bool changed, OutcomeDetail detail) {
         Status? status = receipt?.Status switch {
             null => null,
             TrackerStatus.Completed when receipt.Rewatching == true => Status.Rewatching,
             { } acknowledged => ApiCallHelpersTrackerProvider.ToClientStatus(acknowledged)
         };
         // write outcomes have always used the main title, else the English one
-        Record(TargetId(planned), planned.Titles?.Main ?? planned.Titles?.English ?? "", kind, step, receipt?.Progress, status, changed);
+        Record(TargetId(planned), planned.Titles?.Main ?? planned.Titles?.English ?? "", kind, step, receipt?.Progress, status, changed, detail);
     }
 
-    private void RecordDecision(EntryState state, OutcomeKind kind, string step) =>
-        Record(TargetId(state), TitleMatching.Display(state.Titles), kind, step);
+    private void RecordDecision(EntryState state, OutcomeKind kind, string step, ActionTrace trace) =>
+        Record(TargetId(state), TitleMatching.Display(state.Titles), kind, step, detail: Detail(trace, read: state));
 
     private void Record(string targetId, string title, OutcomeKind kind, string step, int? progress = null, Status? status = null,
-        bool changed = false) {
+        bool changed = false, OutcomeDetail? detail = null) {
         logger.LogInformation("({ApiName}) {Title}: {Kind} ({Step})", tracker.Name, title, kind, step);
         outcomes?.Record(new ProviderWriteOutcome(tracker.Name, targetId, title, kind, StatusOnly ? null : progress, status, StatusOnly,
-            step, changed));
+            step, changed), detail);
     }
 
     private static string TargetId(EntryState state) => state.Entry.AlternativeId ?? state.Entry.Id.ToString();

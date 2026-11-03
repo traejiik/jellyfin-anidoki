@@ -80,6 +80,96 @@ public class ExecutorTests {
 
     private static string[] Writes(FakeTracker fake) => fake.Writes.Select(write => write.ToString()).ToArray();
 
+    private static readonly ActionSource Source = new(Guid.Parse("11111111-1111-1111-1111-111111111111"), 14);
+
+    private static async Task<List<(ProviderWriteOutcome Outcome, OutcomeDetail? Detail)>> Recorded(ITrackerProvider tracker,
+        SourceResolution resolution, TimeProvider? clock = null) {
+        var recorded = new List<(ProviderWriteOutcome, OutcomeDetail?)>();
+        var collector = new PlaybackOutcomeCollector((outcome, detail) => recorded.Add((outcome, detail)));
+        await new Executor(tracker, Off, PlanPolicy.Automatic, collector, clock ?? new FixedTime(Now), NullLogger.Instance, Source)
+            .Execute(resolution, CancellationToken.None);
+        return recorded;
+    }
+
+    [Test]
+    public async Task AWriteRecordsItsSourceTargetAndPlan() {
+        var (tracker, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+
+        var detail = (await Recorded(tracker, Played(ApiName.AniList, 5))).Single().Detail!;
+
+        Assert.That((detail.SourceItem, detail.SourceEpisode, detail.TargetEpisode, detail.By, detail.Note),
+            Is.EqualTo(((Guid?)Source.ItemId, (int?)14, (int?)5, (ResolvedBy?)ResolvedBy.Ids, (string?)null)));
+        Assert.That(detail.PlannedChange, Is.EqualTo(tracker.Changes.Single()));
+        Assert.That(detail.PlannedAgainst!.List!.Progress, Is.EqualTo(3));
+        Assert.That(detail.PlannedAgainst.Titles, Is.Null);
+    }
+
+    [Test]
+    public async Task ADecisionRecordsWhatItReadAndNoChange() {
+        var (tracker, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 8)));
+
+        var detail = (await Recorded(tracker, Played(ApiName.AniList, 5))).Single().Detail!;
+
+        Assert.That(detail.PlannedChange, Is.Null);
+        Assert.That(detail.PlannedAgainst!.List!.Progress, Is.EqualTo(8));
+    }
+
+    [Test]
+    public async Task TheSnapshotIsTheEntryAsReadNotAsTheQuirkSeesIt() {
+        // Kitsu's planner quirk treats a missing entry as Watching at 0; Undo must see that it was not on the list.
+        var (tracker, _) = Seed(ApiName.Kitsu, Entry(500, 12, new MyListStatus()));
+
+        var detail = (await Recorded(tracker, Played(ApiName.Kitsu, 5))).Single().Detail!;
+
+        Assert.That(detail.PlannedChange, Is.Not.Null);
+        Assert.That(detail.PlannedAgainst!.List, Is.Null);
+    }
+
+    [Test]
+    public async Task EarlierPartsRecordTheSequelChain() {
+        var (tracker, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 0)), Entry(501, 12, ListStatus(Status.Watching, 0)));
+        var resolution = new Resolved(Target(ApiName.AniList, 2, 501), ResolvedBy.Ids, [Target(ApiName.AniList, 12, 500, role: TargetRole.EarlierPart)]);
+
+        var details = (await Recorded(tracker, resolution)).Select(item => item.Detail!).ToArray();
+
+        Assert.That(details.Select(detail => (detail.By, detail.TargetEpisode)),
+            Is.EqualTo(new (ResolvedBy?, int?)[] { (ResolvedBy.SequelChain, 12), (ResolvedBy.Ids, 2) }));
+    }
+
+    [Test]
+    public async Task UnresolvedRecordsItsReasonAsTheNote() {
+        var (tracker, _) = Seed(ApiName.AniList);
+
+        var detail = (await Recorded(tracker, new Unresolved("no-title-match", new UnresolvedRecord("", "Fixture Show"), []))).Single().Detail!;
+
+        Assert.That((detail.SourceEpisode, detail.TargetEpisode, detail.By, detail.Note, detail.PlannedChange),
+            Is.EqualTo(((int?)14, (int?)null, (ResolvedBy?)null, (string?)"no-title-match", (EntryChange?)null)));
+    }
+
+    [Test]
+    public async Task AnUnreadableTargetRecordsNotFound() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        fake.FailingIds.Add(500);
+
+        var detail = (await Recorded(tracker, Played(ApiName.AniList, 5))).Single().Detail!;
+
+        Assert.That((detail.Note, detail.TargetEpisode), Is.EqualTo(((string?)"not-found", (int?)5)));
+    }
+
+    [Test]
+    public async Task BothPartsOfAPartialWriteCarryThePlan() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Completed, 12, count: 1)));
+        fake.FailingWrites.Add(2);
+        var recorded = new List<OutcomeDetail?>();
+        var collector = new PlaybackOutcomeCollector((_, detail) => recorded.Add(detail));
+
+        await new Executor(tracker, RewatchOn, PlanPolicy.Automatic, collector, new FixedTime(Now), NullLogger.Instance, Source)
+            .Execute(Played(ApiName.AniList, 1), CancellationToken.None);
+
+        Assert.That(recorded, Has.Count.EqualTo(2));
+        Assert.That(recorded.Select(detail => detail!.PlannedChange), Is.All.Not.Null);
+    }
+
     [Test]
     public async Task ConfirmedWriteRecordsTheReceipt() {
         var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
