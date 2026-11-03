@@ -20,9 +20,9 @@ public sealed class ApiCallHelpersTrackerProvider(ApiName name, IApiCallHelpers 
 
     public async Task<EntryState?> ReadEntry(EntryRef entry, CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
-        Anime? anime = entry.Lookup != null
-            ? await client.GetAnime(ToClientIds(entry.Lookup.Ids), entry.Lookup.Title)
-            : await client.GetAnime(entry.Id, entry.AlternativeId);
+        Anime? anime = await Reading(() => entry.Lookup != null
+            ? client.GetAnime(ToClientIds(entry.Lookup.Ids), entry.Lookup.Title)
+            : client.GetAnime(entry.Id, entry.AlternativeId), cancellationToken);
         if (anime == null)
             return null;
         return new EntryState(entry, anime.NumEpisodes, ToListState(anime.MyListStatus), clock.GetUtcNow(), Titles(anime));
@@ -30,7 +30,7 @@ public sealed class ApiCallHelpersTrackerProvider(ApiName name, IApiCallHelpers 
 
     public async Task<IReadOnlyList<EntryCandidate>> Search(string title, CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
-        List<Anime>? results = await client.SearchAnime(title);
+        List<Anime>? results = await Reading(() => client.SearchAnime(title), cancellationToken);
         return (results ?? [])
             .Select(anime => new EntryCandidate(new EntryRef(name, anime.Id, anime.AlternativeId), Titles(anime), anime.NumEpisodes))
             .ToArray();
@@ -40,7 +40,7 @@ public sealed class ApiCallHelpersTrackerProvider(ApiName name, IApiCallHelpers 
         cancellationToken.ThrowIfCancellationRequested();
         if (entry.Lookup != null)
             return null;
-        Anime? anime = await client.GetAnime(entry.Id, entry.AlternativeId, getRelated: true);
+        Anime? anime = await Reading(() => client.GetAnime(entry.Id, entry.AlternativeId, getRelated: true), cancellationToken);
         if (anime == null)
             return null;
         return (anime.RelatedAnime ?? [])
@@ -61,7 +61,7 @@ public sealed class ApiCallHelpersTrackerProvider(ApiName name, IApiCallHelpers 
             case ApiName.Simkl:
                 if (ids.AniList is not > 0 && ids.Mal is not > 0 && ids.Kitsu is not > 0 && ids.AniDb is not > 0)
                     return null;
-                Anime? anime = await client.GetAnime(ToClientIds(ids), title);
+                Anime? anime = await Reading(() => client.GetAnime(ToClientIds(ids), title), cancellationToken);
                 return anime == null ? null : new EntryRef(name, anime.Id, anime.AlternativeId, new CrossReference(ids, title, kind));
             default:
                 // Annict and Shikimori are matched on the MAL ID among their search results.
@@ -73,6 +73,41 @@ public sealed class ApiCallHelpersTrackerProvider(ApiName name, IApiCallHelpers 
     }
 
     public async Task<WriteReceipt?> Apply(EntryState current, EntryChange change, CancellationToken cancellationToken) {
+        using var calls = TrackerCallScope.Begin();
+        WriteReceipt? receipt;
+        try {
+            receipt = await ApplyCalls(current, change, cancellationToken);
+        } catch (Exception error) when (calls.Failure is not null && error is not ArgumentException && !cancellationToken.IsCancellationRequested) {
+            // A failed request the client went on to use. Nothing more was sent after it.
+            if (!calls.ResponseReceived)
+                return null;
+            throw new TrackerFailureException(calls.Failure.Value, error);
+        }
+
+        // A receipt means part of the write landed; the executor records it as partial.
+        if (receipt == null && calls.Failure is { } failure && calls.ResponseReceived)
+            throw new TrackerFailureException(failure);
+        return receipt;
+    }
+
+    /// <summary>A read fails closed: a failed sub-request must not look like an entry that is not on the list.</summary>
+    private static async Task<T?> Reading<T>(Func<Task<T>> read, CancellationToken cancellationToken) where T : class {
+        using var calls = TrackerCallScope.Begin();
+        T? result;
+        try {
+            result = await read();
+        } catch (Exception error) when (calls.Failure is not null && !cancellationToken.IsCancellationRequested) {
+            if (calls.Failure == TrackerFailureKind.NotFound)
+                return null;
+            throw new TrackerFailureException(calls.Failure.Value, error);
+        }
+
+        if (calls.Failure is { } failure && failure != TrackerFailureKind.NotFound)
+            throw new TrackerFailureException(failure);
+        return result;
+    }
+
+    private async Task<WriteReceipt?> ApplyCalls(EntryState current, EntryChange change, CancellationToken cancellationToken) {
         if (change.Rewatch != RewatchTransition.None) {
             if (!Capabilities.SupportsRewatch)
                 throw new ArgumentException($"{name} does not support rewatching", nameof(change));

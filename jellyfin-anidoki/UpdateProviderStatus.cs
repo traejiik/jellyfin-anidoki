@@ -113,8 +113,17 @@ namespace jellyfin_anidoki {
                     if (client == null)
                         continue;
                     ITrackerProvider tracker = _clients.Adapt(userApiAuth.Name, client);
-                    var resolution = await _resolver.Resolve(source, sourceIds, tracker, cancellationToken);
-                    await new Executor(tracker, rules, policy, collector, _clock, _logger, new ActionSource(video.Id, source.EpisodeNumber)).Execute(resolution, cancellationToken);
+                    var executor = new Executor(tracker, rules, policy, collector, _clock, _logger, new ActionSource(video.Id, source.EpisodeNumber));
+                    SourceResolution resolution;
+                    try {
+                        resolution = await _resolver.Resolve(source, sourceIds, tracker, cancellationToken);
+                    } catch (TrackerFailureException failure) {
+                        // continue, not rethrow: one provider's failure must not stop the providers after it
+                        executor.RecordResolutionFailure(failure, source.SearchTitle ?? "");
+                        continue;
+                    }
+
+                    await executor.Execute(resolution, cancellationToken);
                 }
             }
         }

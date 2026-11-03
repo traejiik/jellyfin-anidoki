@@ -25,14 +25,21 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
 
     private readonly ProviderQuirks _quirks = ProviderQuirks.For(tracker.Name);
 
+    // The plan of the target being written, so a failed write can record it. Null until a write starts.
+    private EntryChange? _plannedChange;
+    private EntryState? _plannedRead;
+
     private bool StatusOnly => !tracker.Capabilities.TracksProgress;
 
     /// <summary>One target and how it was found, carried so every record of it can say so.</summary>
     private sealed record ActionTrace(ResolvedTarget Target, ResolvedBy By, string? Note);
 
     public async Task Execute(SourceResolution resolution, CancellationToken cancellationToken) {
-        foreach (var part in resolution.EarlierParts)
-            await ExecuteTarget(new ActionTrace(part, ResolvedBy.SequelChain, resolution.Note), cancellationToken);
+        foreach (var part in resolution.EarlierParts) {
+            if (!await ExecuteTarget(new ActionTrace(part, ResolvedBy.SequelChain, resolution.Note), cancellationToken))
+                return;
+        }
+
         switch (resolution) {
             case Resolved resolved:
                 await ExecuteTarget(new ActionTrace(resolved.Played, resolved.By, resolved.Note), cancellationToken);
@@ -44,8 +51,20 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
         }
     }
 
-    private async Task ExecuteTarget(ActionTrace trace, CancellationToken cancellationToken) {
+    /// <returns>False when the provider should not be asked for anything else.</returns>
+    private async Task<bool> ExecuteTarget(ActionTrace trace, CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
+        _plannedChange = null;
+        _plannedRead = null;
+        try {
+            await ReadPlanWrite(trace, cancellationToken);
+            return true;
+        } catch (TrackerFailureException failure) {
+            return RecordFailure(failure, trace);
+        }
+    }
+
+    private async Task ReadPlanWrite(ActionTrace trace, CancellationToken cancellationToken) {
         ResolvedTarget target = trace.Target;
         EntryState? state = target.State ?? await tracker.ReadEntry(target.Entry, cancellationToken);
         if (state == null) {
@@ -103,12 +122,14 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
     private async Task Apply(Write write, EntryState read, ActionTrace trace, CancellationToken cancellationToken) {
         EntryState planned = write.PlannedAgainst;
         logger.LogDebug("({ApiName}) Planned {Change} for {Title}", tracker.Name, write.Change, TitleMatching.Display(planned.Titles));
+        _plannedChange = write.Change;
+        _plannedRead = read;
         OutcomeDetail detail = Detail(trace, write.Change, read);
         bool meaningful = Meaningful(write.Change, planned);
         WriteReceipt? receipt;
         try {
             receipt = await tracker.Apply(planned, write.Change, cancellationToken);
-        } catch {
+        } catch (Exception error) when (error is not TrackerFailureException) {
             RecordWrite(planned, OutcomeKind.Unconfirmed, write.Reason, null, false, detail);
             throw;
         }
@@ -167,6 +188,31 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
         Record(entry.AlternativeId ?? (entry.Lookup == null ? entry.Id.ToString() : ""), entry.Lookup?.Title ?? "",
             OutcomeKind.Unresolved, "resolve", detail: Detail(trace, note: "not-found"));
     }
+
+    /// <returns>Whether later targets should still run: only a missing entry leaves the provider usable.</returns>
+    private bool RecordFailure(TrackerFailureException failure, ActionTrace trace) {
+        EntryRef entry = trace.Target.Entry;
+        string targetId = entry.AlternativeId ?? (entry.Lookup == null ? entry.Id.ToString() : "");
+        var (kind, step) = Outcome(failure.Kind);
+        string? note = failure.Kind == TrackerFailureKind.NotFound ? "not-found" : null;
+        Record(targetId, trace.Target.Title, kind, step, detail: Detail(trace, _plannedChange, _plannedRead, note));
+        return failure.Kind == TrackerFailureKind.NotFound;
+    }
+
+    /// <summary>A failure before any target was known; it covers the whole provider for this source.</summary>
+    public void RecordResolutionFailure(TrackerFailureException failure, string title) {
+        var (kind, step) = Outcome(failure.Kind);
+        Record("", title, kind, step, detail: new OutcomeDetail(source?.ItemId, source?.Episode, null, null,
+            failure.Kind == TrackerFailureKind.NotFound ? "not-found" : null, null, null));
+    }
+
+    private static (OutcomeKind Kind, string Step) Outcome(TrackerFailureKind failure) => failure switch {
+        TrackerFailureKind.NotFound => (OutcomeKind.Unresolved, "resolve"),
+        TrackerFailureKind.Unauthorized => (OutcomeKind.Failed, "unauthorized"),
+        TrackerFailureKind.RateLimited => (OutcomeKind.Failed, "rate-limited"),
+        TrackerFailureKind.Transient => (OutcomeKind.Failed, "transient"),
+        _ => (OutcomeKind.Failed, "rejected")
+    };
 
     private void RecordWrite(EntryState planned, OutcomeKind kind, string step, WriteReceipt? receipt, bool changed, OutcomeDetail detail) {
         Status? status = receipt?.Status switch {

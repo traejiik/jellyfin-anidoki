@@ -36,8 +36,12 @@ internal sealed class SpyTracker(ITrackerProvider inner) : ITrackerProvider {
 
     public List<EntryState> Applied { get; } = new();
 
+    public TrackerFailureKind? ReadFailure { get; set; }
+
     public Task<EntryState?> ReadEntry(EntryRef entry, CancellationToken cancellationToken) {
         ReadCount++;
+        if (ReadFailure is { } failure)
+            throw new TrackerFailureException(failure);
         return ScriptedReads.TryDequeue(out var state) ? Task.FromResult(state) : inner.ReadEntry(entry, cancellationToken);
     }
 
@@ -287,6 +291,67 @@ public class ExecutorTests {
 
         Assert.That(tracker.ReadCount, Is.EqualTo(1));
         Assert.That(fake.Writes, Has.Count.EqualTo(2));
+    }
+
+    [TestCase(TrackerFailureKind.Unauthorized, "unauthorized")]
+    [TestCase(TrackerFailureKind.RateLimited, "rate-limited")]
+    [TestCase(TrackerFailureKind.Transient, "transient")]
+    [TestCase(TrackerFailureKind.Rejected, "rejected")]
+    public async Task AFailedReadIsRecordedAndStopsTheProvider(TrackerFailureKind kind, string step) {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 0)), Entry(501, 12, ListStatus(Status.Watching, 0)));
+        tracker.ReadFailure = kind;
+        var resolution = new Resolved(Target(ApiName.AniList, 2, 501), ResolvedBy.SequelChain, [Target(ApiName.AniList, 12, 500, role: TargetRole.EarlierPart)]);
+
+        var collector = await Run(tracker, resolution);
+
+        Assert.That(Summary(collector), Is.EqualTo(new[] { $"Failed:{step}@500" }));
+        Assert.That(fake.Writes, Is.Empty);
+        Assert.That(collector.Outcomes.Single().TargetTitle, Is.EqualTo("Fixture Show"));
+    }
+
+    [Test]
+    public async Task AWriteTheTrackerRefusedIsFailedNotUnconfirmed() {
+        var (tracker, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.OnApply = (_, _) => throw new TrackerFailureException(TrackerFailureKind.Rejected);
+
+        var collector = await Run(tracker, Played(ApiName.AniList, 5));
+
+        Assert.That(Summary(collector), Is.EqualTo(new[] { "Failed:rejected@500" }));
+    }
+
+    [Test]
+    public async Task AFailureRecordsTheTargetAndPlan() {
+        var (tracker, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.OnApply = (_, _) => throw new TrackerFailureException(TrackerFailureKind.Transient);
+
+        var detail = (await Recorded(tracker, Played(ApiName.AniList, 5))).Single().Detail!;
+
+        Assert.That((detail.TargetEpisode, detail.By), Is.EqualTo(((int?)5, (ResolvedBy?)ResolvedBy.Ids)));
+        Assert.That(detail.PlannedChange, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task AWriteToAMissingEntryIsUnresolvedAndTheNextTargetRuns() {
+        var (tracker, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 0)), Entry(501, 12, ListStatus(Status.Watching, 0)));
+        int calls = 0;
+        tracker.OnApply = (current, _) => ++calls == 1
+            ? throw new TrackerFailureException(TrackerFailureKind.NotFound)
+            : Task.FromResult<WriteReceipt?>(new WriteReceipt(2, TrackerStatus.Watching, null, null, true));
+        var resolution = new Resolved(Target(ApiName.AniList, 2, 501), ResolvedBy.SequelChain, [Target(ApiName.AniList, 12, 500, role: TargetRole.EarlierPart)]);
+
+        var recorded = await Recorded(tracker, resolution);
+
+        Assert.That(recorded.Select(item => $"{item.Outcome.Kind}:{item.Outcome.Step}"), Is.EqualTo(new[] { "Unresolved:resolve", "Confirmed:progress" }));
+        Assert.That(recorded[0].Detail!.Note, Is.EqualTo("not-found"));
+        Assert.That(calls, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void CancellationIsNotAFailure() {
+        var (tracker, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.OnApply = (_, _) => throw new OperationCanceledException();
+
+        Assert.That(async () => await Run(tracker, Played(ApiName.AniList, 5)), Throws.InstanceOf<OperationCanceledException>());
     }
 
     [Test]
