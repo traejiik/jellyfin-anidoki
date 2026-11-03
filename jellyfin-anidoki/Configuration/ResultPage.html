@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{title}} · AniDōki</title>
+<style>
+/* Custom CSS joins the theme layer below. Layered, its rules for the web client lose to this page, except the font, which only doki-base sets. */
+@layer doki-base, theme;
+/* Jellyfin's Modern layout font and weights, with the web client's subset ranges. */
+@font-face { font-family: "Noto Sans"; font-style: normal; font-weight: 400; font-display: swap; src: local("Noto Sans"), local("Noto Sans Regular"), url("{{assets}}noto-sans-latin-400.woff2") format("woff2"); unicode-range: u+00??, u+0131, u+0152-0153, u+02bb-02bc, u+02c6, u+02da, u+02dc, u+2000-206f, u+2074, u+20ac, u+2122, u+2191, u+2193, u+2212, u+2215, u+feff, u+fffd; }
+@font-face { font-family: "Noto Sans"; font-style: normal; font-weight: 400; font-display: swap; src: local("Noto Sans"), local("Noto Sans Regular"), url("{{assets}}noto-sans-latin-ext-400.woff2") format("woff2"); unicode-range: u+0100-024f, u+0259, u+1e??, u+2020, u+20a0-20ab, u+20ad-20cf, u+2113, u+2c60-2c7f, u+a720-a7ff; }
+@font-face { font-family: "Noto Sans"; font-style: normal; font-weight: 700; font-display: swap; src: local("Noto Sans"), local("Noto Sans Bold"), url("{{assets}}noto-sans-latin-700.woff2") format("woff2"); unicode-range: u+00??, u+0131, u+0152-0153, u+02bb-02bc, u+02c6, u+02da, u+02dc, u+2000-206f, u+2074, u+20ac, u+2122, u+2191, u+2193, u+2212, u+2215, u+feff, u+fffd; }
+@font-face { font-family: "Noto Sans"; font-style: normal; font-weight: 700; font-display: swap; src: local("Noto Sans"), local("Noto Sans Bold"), url("{{assets}}noto-sans-latin-ext-700.woff2") format("woff2"); unicode-range: u+0100-024f, u+0259, u+1e??, u+2020, u+20a0-20ab, u+20ad-20cf, u+2113, u+2c60-2c7f, u+a720-a7ff; }
+@layer doki-base { html { font-family: "Noto Sans", sans-serif; } }
+:root {
+  color-scheme: dark;
+  --stock-text: #f5f5f5;
+  --stock-muted: #b9b9b9;
+  --stock-ground: #101010;
+  --stock-success: #a2d9ae;
+  --stock-warning: #e5b96c;
+  --stock-error: #ffb4ab;
+  /* Same order as Anidoki.css: host theme, then Jellyfin's palette, then stock. */
+  --doki-text: var(--textColor, var(--jf-palette-text-primary, var(--stock-text)));
+  --doki-muted: var(--dimTextColor, var(--jf-palette-text-secondary, var(--stock-muted)));
+  --doki-accent: var(--accentColor, var(--jf-palette-primary-main, #00a4dc));
+  --doki-action: var(--btnSubmitColor, color-mix(in srgb, var(--doki-accent) 75%, #000));
+  --doki-edge: var(--borderColor, var(--jf-palette-divider, color-mix(in srgb, var(--doki-text) 18%, transparent)));
+  --doki-ground: var(--backgroundGradient, var(--jf-palette-background-default, var(--stock-ground)));
+  --doki-surface: color-mix(in srgb, var(--doki-text) 5%, transparent);
+  --doki-success: var(--jf-palette-success-light, var(--stock-success));
+  --doki-warning: var(--jf-palette-warning-light, var(--stock-warning));
+  --doki-error: var(--jf-palette-error-light, var(--stock-error));
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --stock-text: #000000;
+  --stock-muted: #4a4a4a;
+  --stock-ground: #f2f2f2;
+  --stock-success: #2e7d32;
+  --stock-warning: #8a5a00;
+  --stock-error: #c4242a;
+}
+* { box-sizing: border-box; }
+html { background: var(--stock-ground); }
+[data-theme-pending] body { visibility: hidden; }
+body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: var(--doki-ground); color: var(--doki-text); font-size: 14px; line-height: 20px; -webkit-font-smoothing: antialiased; }
+/* Themes overlay the web client from here (Netflin's bottom gradient would dim the button). */
+body::before, body::after { content: none; }
+.doki-cb-bar { flex: none; height: 64px; padding: 0 24px; display: flex; align-items: center; background: var(--doki-surface); border-bottom: 1px solid var(--doki-edge); }
+.doki-cb-banner { display: block; height: 34px; width: auto; }
+/* The banner's wordmark is white, so Light uses the icon with theme-coloured text. */
+.doki-cb-wordmark { display: none; align-items: center; gap: 8px; font-size: 20px; font-weight: 700; }
+.doki-cb-wordmark img { display: block; width: 28px; height: 28px; }
+[data-theme="light"] .doki-cb-banner { display: none; }
+[data-theme="light"] .doki-cb-wordmark { display: flex; }
+.doki-cb-main { flex: 1 1 auto; width: 100%; max-width: 648px; margin: 0 auto; padding: 64px 24px; display: flex; flex-direction: column; gap: 24px; }
+.doki-cb-main.doki-cb-centred { justify-content: center; gap: 8px; }
+.doki-cb-hero { margin-bottom: 4px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.doki-cb-centred .doki-cb-hero { margin-bottom: 0; }
+.doki-cb-logos { --tile: 64px; --line: 32px; margin-bottom: 24px; display: flex; align-items: center; justify-content: center; }
+.doki-cb-tile { flex: none; width: var(--tile); height: var(--tile); padding: 12px; border: 1px solid var(--doki-edge); border-radius: 14px; background: var(--doki-surface); display: flex; align-items: center; justify-content: center; }
+.doki-cb-tile img { display: block; width: 100%; height: 100%; }
+.doki-cb-tile + .doki-cb-tile { margin-left: 8px; }
+.doki-cb-tile.doki-cb-anidoki { padding: 8px; }
+.doki-cb-tile.doki-cb-provider { border: 0; background: #ffffff; }
+.doki-cb-tile.doki-cb-provider img { object-fit: contain; }
+.doki-cb-tile.doki-cb-unknown { color: var(--doki-muted); }
+.doki-cb-tile.doki-cb-unknown svg { width: 28px; height: 28px; }
+.doki-cb-link { flex: none; display: flex; align-items: center; color: var(--tone); }
+.doki-cb-link::before, .doki-cb-link::after { content: ""; width: var(--line); border-top: 2px dashed currentColor; }
+.doki-cb-link.doki-cb-success::before, .doki-cb-link.doki-cb-success::after { border-top-style: solid; }
+.doki-cb-success { --tone: var(--doki-success); }
+.doki-cb-warning { --tone: var(--doki-warning); }
+.doki-cb-error { --tone: var(--doki-error); }
+h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
+.doki-cb-lead { margin: 8px 0 0; max-width: 520px; font-size: 16px; line-height: 24px; color: var(--doki-muted); overflow-wrap: anywhere; }
+.doki-cb-facts { margin: 0; background: var(--doki-surface); border: 1px solid var(--doki-edge); border-radius: 14px; }
+.doki-cb-facts > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 14px 20px; }
+.doki-cb-facts > div + div { border-top: 1px solid var(--doki-edge); }
+.doki-cb-facts dt { color: var(--doki-muted); }
+.doki-cb-facts dd { margin: 0; overflow-wrap: anywhere; }
+.doki-cb-facts .doki-cb-result { color: var(--tone); font-weight: 700; }
+.doki-cb-field { display: flex; flex-direction: column; gap: 8px; }
+.doki-cb-field label { font-weight: 700; }
+.doki-cb-copy { display: flex; flex-wrap: wrap; gap: 8px; }
+.doki-cb-copy input { flex: 1 1 180px; min-width: 0; height: 44px; padding: 0 12px; border: 1px solid var(--doki-edge); border-radius: 10px; background: var(--doki-surface); color: var(--doki-text); font: 13px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.doki-cb-copy button { flex: none; min-width: 96px; height: 44px; padding: 0 12px; border: 1px solid var(--doki-edge); border-radius: 10px; background: var(--doki-surface); color: var(--doki-text); font: inherit; cursor: pointer; transition: transform 160ms ease-out, border-color 150ms ease; }
+.doki-cb-note { display: flex; flex-direction: column; gap: 8px; }
+.doki-cb-note h2 { margin: 0; font-size: 14px; line-height: 20px; font-weight: 700; }
+.doki-cb-note p { margin: 0; color: var(--doki-muted); }
+.doki-cb-note ul, .doki-cb-note ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--doki-muted); }
+.doki-cb-note details { font-size: 13px; line-height: 18px; color: var(--doki-muted); }
+.doki-cb-note summary { cursor: pointer; color: var(--doki-text); }
+.doki-cb-note code { display: block; margin-top: 8px; font: 12px ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+.doki-cb-actions { margin-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.doki-cb-centred .doki-cb-actions { margin-top: 0; }
+.doki-cb-actions p { margin: 0; color: var(--doki-muted); }
+.doki-cb-centred .doki-cb-actions p { font-size: 16px; line-height: 24px; }
+.doki-cb-primary { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 20px; border: 1px solid var(--doki-accent); border-radius: 10px; background: var(--doki-action); color: #ffffff; font-weight: 700; text-decoration: none; transition: transform 160ms ease-out, background-color 150ms ease; }
+.doki-cb-primary:active, .doki-cb-copy button:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) {
+  .doki-cb-primary:hover { background: var(--doki-accent); }
+  .doki-cb-copy button:hover { border-color: var(--doki-accent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .doki-cb-primary, .doki-cb-copy button { transition: none; }
+  .doki-cb-primary:active, .doki-cb-copy button:active { transform: none; }
+}
+:is(a, button, input, summary):focus-visible { outline: 2px solid var(--doki-accent); outline-offset: 2px; }
+@media (max-width: 520px) {
+  .doki-cb-bar { padding: 0 16px; }
+  .doki-cb-main { padding: 32px 16px; }
+  .doki-cb-logos { --tile: 56px; --line: 20px; }
+  .doki-cb-tile { padding: 10px; }
+  .doki-cb-tile.doki-cb-anidoki { padding: 7px; }
+}
+</style>
+<script>
+// These pages sit outside the web client, so its per-user theme setting has to be read here. Only stock Light changes the fallbacks.
+try {
+  const server = JSON.parse(localStorage.getItem('jellyfin_credentials'))?.Servers?.find(item => item.UserId);
+  if (server && localStorage.getItem(`${server.UserId}-appTheme`) === 'light') document.documentElement.dataset.theme = 'light';
+} catch { /* Storage is blocked: stay dark. */ }
+// Themes often @import from a CDN, and a slow one must not leave this page blank. Wait briefly, then show the stock colours; the theme still applies if it arrives later.
+const reveal = () => document.documentElement.removeAttribute('data-theme-pending');
+const theme = document.createElement('style');
+theme.onload = theme.onerror = reveal;
+theme.textContent = '@import url("../Branding/Css.css") layer(theme);';
+document.documentElement.setAttribute('data-theme-pending', '');
+setTimeout(reveal, 1500);
+document.head.append(theme);
+</script>
+</head>
+<body>
+<header class="doki-cb-bar">
+  <img class="doki-cb-banner" src="{{assets}}jellyfin-banner.svg" alt="Jellyfin">
+  <span class="doki-cb-wordmark"><img src="{{assets}}jellyfin.svg" alt="">Jellyfin</span>
+</header>
+<main class="doki-cb-main{{mainClass}}">
+  <div class="doki-cb-hero">
+    <div class="doki-cb-logos">
+      {{connection}}
+      <div class="doki-cb-tile"><img src="{{assets}}jellyfin.svg" alt="Jellyfin"></div>
+      <div class="doki-cb-tile doki-cb-anidoki"><img src="{{assets}}anidoki-symbol.svg" alt="AniDōki"></div>
+    </div>
+    <h1>{{heading}}</h1>
+    {{lead}}
+  </div>
+  {{body}}
+  <div class="doki-cb-actions">
+    {{actions}}
+  </div>
+</main>
+<script>
+// navigator.clipboard only exists on HTTPS or localhost; Jellyfin is often reached over http on a LAN address.
+async function copyInput(input) {
+  input.select();
+  if (navigator.clipboard) {
+    try { await navigator.clipboard.writeText(input.value); return true; } catch { /* Blocked: try the selection. */ }
+  }
+  try { return document.execCommand('copy'); } catch { return false; }
+}
+for (const button of document.querySelectorAll('[data-copy]')) {
+  button.addEventListener('click', async () => {
+    const copied = await copyInput(document.getElementById(button.dataset.copy));
+    button.textContent = copied ? 'Copied' : 'Copy it manually';
+  });
+}
+</script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Configuration;
@@ -69,6 +70,17 @@ public partial class UserConfigurationTests {
             Assert.That(result.Content, Does.Contain("This sign-in link has expired").And.Contain("older than 2 hours"));
             Assert.That(result.Content, Does.Contain("The link you used is no longer valid"));
             Assert.That(result.Content, marked ? Does.Contain("Select Link next to Simkl again") : Does.Contain("Select Link next to your tracker again"));
+        });
+    }
+
+    [Test]
+    public void AddressCheckIsAnUncachedPage() {
+        var result = _controller.ApiUrlTest();
+        Assert.Multiple(() => {
+            Assert.That(result.StatusCode, Is.EqualTo(200));
+            Assert.That(result.ContentType, Does.StartWith("text/html"));
+            Assert.That(result.Content, Does.Contain("This is the correct address").And.Match("assets/v/[0-9a-f]{32}/jellyfin\\.svg"));
+            Assert.That(_controller.Response.Headers.CacheControl.ToString(), Is.EqualTo("no-store"));
         });
     }
 
@@ -164,10 +176,48 @@ public class CallbackPageTests {
         Assert.Multiple(() => {
             Assert.That(CallbackPage.StatusCode(outcome), Is.EqualTo(status));
             Assert.That(html, Does.Contain($"doki-cb-link {tone}"));
-            Assert.That(html, Does.Contain("assets/v/fixture/jellyfin.svg").And.Contain("assets/v/fixture/jellyfin-banner.svg").And.Contain("assets/v/fixture/anidoki-avatar.png"));
+            Assert.That(html, Does.Contain("assets/v/fixture/jellyfin.svg").And.Contain("assets/v/fixture/jellyfin-banner.svg").And.Contain("assets/v/fixture/anidoki-symbol.svg"));
             Assert.That(html, Does.Not.Contain("{{"), "every placeholder is filled");
             Assert.That(html, Does.Not.Match(@"class=""[^""]*\bad-"), "no ad-blocker-hidden class names");
         });
+    }
+
+    [TestCase(CallbackOutcome.Linked, "fixture-user", new[] { "Tracker", "Jellyfin account", "Result" })]
+    [TestCase(CallbackOutcome.Declined, "fixture-user", new[] { "Tracker", "Jellyfin account", "Result" })]
+    [TestCase(CallbackOutcome.ProviderError, "fixture-user", new[] { "Tracker", "Jellyfin account", "Result" })]
+    [TestCase(CallbackOutcome.Expired, null, new[] { "Tracker", "Result" })]
+    [TestCase(CallbackOutcome.WrongServer, null, new[] { "Tracker", "Result" })]
+    public void FactsTableListsWhatThePageKnows(CallbackOutcome outcome, string? user, string[] labels) {
+        string html = CallbackPage.Render(Model(outcome, user));
+        var found = Regex.Matches(html, "<dt>(.*?)</dt>").Select(match => match.Groups[1].Value);
+        Assert.That(found, Is.EqualTo(labels));
+    }
+
+    [Test]
+    public void UnknownTrackerHasNoFactsTable() {
+        string html = CallbackPage.Render(Model(CallbackOutcome.Expired, null) with { Provider = null });
+        Assert.Multiple(() => {
+            Assert.That(html, Does.Not.Contain("<dl"));
+            Assert.That(html, Does.Contain("doki-cb-unknown").And.Contain("Select Link next to your tracker again"));
+        });
+    }
+
+    [Test]
+    public void AddressCheckShowsOnlyTheConfirmation() {
+        string html = CallbackPage.RenderAddressCheck("assets/v/fixture/");
+        Assert.Multiple(() => {
+            Assert.That(html, Does.Contain("This is the correct address").And.Contain("You can close this tab."));
+            Assert.That(html, Does.Contain("assets/v/fixture/jellyfin.svg").And.Contain("assets/v/fixture/anidoki-symbol.svg"));
+            Assert.That(html, Does.Not.Contain("class=\"doki-cb-tile doki-cb-provider").And.Not.Contain("class=\"doki-cb-link").And.Not.Contain("class=\"doki-cb-primary"));
+            Assert.That(html, Does.Not.Contain("{{"), "every placeholder is filled");
+        });
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ResultPagesInheritTheServersCustomCss(bool addressCheck) {
+        string html = addressCheck ? CallbackPage.RenderAddressCheck("assets/v/fixture/") : CallbackPage.Render(Model(CallbackOutcome.Linked));
+        Assert.That(html, Does.Contain("@import url(\"../Branding/Css.css\") layer(theme);"));
     }
 
     [TestCase(30, "30 minutes")]
