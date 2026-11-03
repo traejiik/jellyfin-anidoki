@@ -67,8 +67,13 @@ public sealed class AniDokiDatabase {
             read.CommandText = "SELECT COALESCE(MAX(version), 0) FROM schema_version";
             current = (long)read.ExecuteScalar()!;
         }
-        if (current > StorageMigrations.Latest)
-            throw new InvalidOperationException($"its schema version {current} is newer than this plugin supports ({StorageMigrations.Latest})");
+        if (current > StorageMigrations.Latest) {
+            // Later additive migrations leave min_reader alone, so this version can keep using the tables it knows.
+            if (MinimumReader(connection, transaction) is not { } minimum || minimum > StorageMigrations.Latest)
+                throw new InvalidOperationException($"its schema version {current} is newer than this plugin supports ({StorageMigrations.Latest})");
+            transaction.Commit();
+            return;
+        }
         foreach (var (version, sql) in StorageMigrations.All.Where(migration => migration.Version > current)) {
             Execute(connection, transaction, sql);
             using var record = connection.CreateCommand();
@@ -78,6 +83,18 @@ public sealed class AniDokiDatabase {
             record.ExecuteNonQuery();
         }
         transaction.Commit();
+    }
+
+    private static long? MinimumReader(SqliteConnection connection, SqliteTransaction transaction) {
+        using var exists = connection.CreateCommand();
+        exists.Transaction = transaction;
+        exists.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'schema_compat'";
+        if ((long)exists.ExecuteScalar()! == 0)
+            return null;
+        using var read = connection.CreateCommand();
+        read.Transaction = transaction;
+        read.CommandText = "SELECT MAX(min_reader) FROM schema_compat";
+        return read.ExecuteScalar() is long minimum ? minimum : null;
     }
 
     private static void Execute(SqliteConnection connection, SqliteTransaction transaction, string sql) {

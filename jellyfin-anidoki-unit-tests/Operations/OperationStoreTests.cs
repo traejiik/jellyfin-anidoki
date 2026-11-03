@@ -2,9 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
+using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Storage;
+using jellyfin_anidoki.Trackers;
 using NUnit.Framework;
 using static jellyfin_anidoki_unit_tests.Operations.OperationTestSupport;
 
@@ -58,6 +61,49 @@ public class OperationStoreTests {
         Assert.That(view.StartedUtc, Is.Not.Null);
         Assert.That(view.FinishedUtc, Is.Not.Null);
         Assert.That(view.Counts, Is.EquivalentTo(new Dictionary<string, int> { ["Confirmed"] = 2, ["NoChange"] = 1 }));
+    }
+
+    [Test]
+    public void ActionDetailIsStoredInItsColumns() {
+        var (store, _) = Create(_directory);
+        Guid id = Guid.NewGuid();
+        Guid item = Guid.NewGuid();
+        store.Create(id, Guid.NewGuid(), OperationKind.Playback, "x");
+        var entry = new EntryRef(ApiName.AniList, 500, null);
+        var read = new DateTimeOffset(2026, 11, 3, 12, 0, 0, TimeSpan.Zero);
+        var detail = new OutcomeDetail(item, 14, 2, ResolvedBy.SequelChain, "note",
+            new EntryChange(2, TrackerStatus.Watching, RewatchTransition.None),
+            new EntryState(entry, 12, new ListState(TrackerStatus.Watching, 1, false, 0), read));
+
+        store.AddAction(id, 1, Outcome(OutcomeKind.Confirmed, true), detail);
+
+        using var connection = new AniDokiDatabase(Path.Combine(_directory, "anidoki.db")).Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT source_item, source_episode, target_episode, resolved_by, resolution_note, planned_change, planned_against FROM operation_actions";
+        using var reader = command.ExecuteReader();
+        Assert.That(reader.Read(), Is.True);
+        Assert.That(reader.GetString(0), Is.EqualTo(item.ToString("D")));
+        Assert.That(reader.GetInt32(1), Is.EqualTo(14));
+        Assert.That(reader.GetInt32(2), Is.EqualTo(2));
+        Assert.That(reader.GetString(3), Is.EqualTo("SequelChain"));
+        Assert.That(reader.GetString(4), Is.EqualTo("note"));
+        Assert.That(ActionJson.Read<EntryChange>(reader.GetString(5)), Is.EqualTo(detail.PlannedChange));
+        Assert.That(reader.GetString(5), Does.Contain("\"Watching\""));
+        Assert.That(ActionJson.Read<EntryState>(reader.GetString(6)), Is.EqualTo(detail.PlannedAgainst));
+    }
+
+    [Test]
+    public void AnActionWithoutDetailLeavesTheColumnsEmpty() {
+        var (store, _) = Create(_directory);
+        Guid id = Guid.NewGuid();
+        store.Create(id, Guid.NewGuid(), OperationKind.Playback, "x");
+
+        store.AddAction(id, 1, Outcome(OutcomeKind.NoChange));
+
+        using var connection = new AniDokiDatabase(Path.Combine(_directory, "anidoki.db")).Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM operation_actions WHERE source_item IS NULL AND planned_change IS NULL AND planned_against IS NULL";
+        Assert.That((long)command.ExecuteScalar()!, Is.EqualTo(1));
     }
 
     [Test]

@@ -49,6 +49,17 @@ internal static class StorageMigrations {
                 meaningful INTEGER NOT NULL,
                 PRIMARY KEY (operation_id, seq)
             );
+            """),
+        (4, """
+            ALTER TABLE operation_actions ADD COLUMN source_item TEXT;
+            ALTER TABLE operation_actions ADD COLUMN source_episode INTEGER;
+            ALTER TABLE operation_actions ADD COLUMN target_episode INTEGER;
+            ALTER TABLE operation_actions ADD COLUMN resolved_by TEXT;
+            ALTER TABLE operation_actions ADD COLUMN resolution_note TEXT;
+            ALTER TABLE operation_actions ADD COLUMN planned_change TEXT;
+            ALTER TABLE operation_actions ADD COLUMN planned_against TEXT;
+            CREATE TABLE schema_compat (min_reader INTEGER NOT NULL);
+            INSERT INTO schema_compat (min_reader) VALUES (4);
             """)
     ];
 

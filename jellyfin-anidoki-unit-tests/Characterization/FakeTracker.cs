@@ -7,6 +7,7 @@ using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Trackers;
 
 namespace jellyfin_anidoki_unit_tests.Characterization;
 
@@ -41,6 +42,19 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
     /// <summary>How many cross-ID reads (Simkl's lookup) were made, including reads that return null.</summary>
     public int CrossIdReads { get; private set; }
 
+    /// <summary>Reported on every read, as a real client's failed request does. Null reports nothing.</summary>
+    public TrackerFailureKind? ReadFailure { get; set; }
+
+    /// <summary>Reported on each write listed in <see cref="FailingWrites"/>.</summary>
+    public TrackerFailureKind? WriteFailure { get; set; }
+
+    private bool ReadFails() {
+        if (ReadFailure is not { } kind)
+            return false;
+        TrackerCallScope.Report(kind);
+        return true;
+    }
+
     private bool UsesAlternativeIds => provider is ApiName.Annict or ApiName.Shikimori;
 
     public Anime Add(Anime anime) {
@@ -49,7 +63,7 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
     }
 
     public Task<List<Anime>> SearchAnime(string query) {
-        if (provider == ApiName.Simkl)
+        if (ReadFails() || provider == ApiName.Simkl)
             return Task.FromResult<List<Anime>>(null);
         return Task.FromResult(SearchResults
             .Select(result => Copy(_entries.TryGetValue(result.Id, out var stored) ? stored : result, forRead: true))
@@ -58,7 +72,7 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
 
     public Task<Anime> GetAnime(int id, string alternativeId = null, bool getRelated = false) {
         Reads.Add((id, getRelated));
-        if (provider == ApiName.Simkl || (UsesAlternativeIds && alternativeId == null) || FailingIds.Contains(id) || !_entries.TryGetValue(id, out var anime))
+        if (ReadFails() || provider == ApiName.Simkl || (UsesAlternativeIds && alternativeId == null) || FailingIds.Contains(id) || !_entries.TryGetValue(id, out var anime))
             return Task.FromResult<Anime>(null);
         return Task.FromResult(Copy(anime, forRead: true));
     }
@@ -66,7 +80,7 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
     // Only Simkl resolves through cross IDs; every fixture keys its entry by the MAL ID.
     public Task<Anime> GetAnime(AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, string title, bool getRelated = false) {
         CrossIdReads++;
-        if (provider != ApiName.Simkl || ids?.MyAnimeList is not int id || FailingIds.Contains(id) || !_entries.TryGetValue(id, out var anime))
+        if (ReadFails() || provider != ApiName.Simkl || ids?.MyAnimeList is not int id || FailingIds.Contains(id) || !_entries.TryGetValue(id, out var anime))
             return Task.FromResult<Anime>(null);
         return Task.FromResult(Copy(anime, forRead: true));
     }
@@ -80,8 +94,11 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
         Writes.Add(new RecordedWrite(animeId, numberOfWatchedEpisodes, status, isRewatching, numberOfTimesRewatched,
             startDate != null, endDate != null));
         WriteContexts.Add(new WriteContext(alternativeId, ids?.MyAnimeList, isShow));
-        if (FailingWrites.Contains(Writes.Count))
+        if (FailingWrites.Contains(Writes.Count)) {
+            if (WriteFailure is { } failure)
+                TrackerCallScope.Report(failure);
             return Task.FromResult<UpdateAnimeStatusResponse>(null);
+        }
         int? previousCount = null;
         if (_entries.TryGetValue(animeId, out var stored)) {
             previousCount = stored.MyListStatus?.RewatchCount;

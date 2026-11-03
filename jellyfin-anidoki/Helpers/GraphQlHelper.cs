@@ -1,4 +1,5 @@
 #nullable disable
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
@@ -10,6 +11,7 @@ using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Trackers;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -19,9 +21,18 @@ namespace jellyfin_anidoki.Helpers {
     public class GraphQlHelper {
         public static async Task<HttpResponseMessage> Request(HttpClient httpClient, ILogger logger, ApiName provider, IMemoryCache memoryCache, IAsyncDelayer delayer, string query, Dictionary<string, object> variables = null) {
             await MemoryCacheHelper.CheckRateLimiting(provider, logger, memoryCache, delayer);
-            var call = await httpClient.PostAsync("https://graphql.anilist.co", new StringContent(JsonSerializer.Serialize(new GraphQl { Query = query, Variables = variables }), Encoding.UTF8, "application/json"));
+            HttpResponseMessage call;
+            try {
+                call = await httpClient.PostAsync("https://graphql.anilist.co", new StringContent(JsonSerializer.Serialize(new GraphQl { Query = query, Variables = variables }), Encoding.UTF8, "application/json"));
+            } catch (Exception error) when (error is HttpRequestException or TaskCanceledException) {
+                TrackerCallScope.Report(TrackerFailureKind.Transient, responseReceived: false);
+                throw;
+            }
             MemoryCacheHelper.CheckResponseHeadersForRateLimiting(call, logger, provider, memoryCache);
-            return call.IsSuccessStatusCode ? call : null;
+            if (call.IsSuccessStatusCode)
+                return call;
+            TrackerCallScope.Report(TrackerCallScope.FromStatus(call.StatusCode));
+            return null;
         }
 
         public static async Task<HttpResponseMessage> AuthenticatedRequest(IHttpClientFactory httpClientFactory, ILoggerFactory loggerFactory, IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, IMemoryCache memoryCache, IAsyncDelayer delayer, UserConfig userConfig, string query, ApiName provider, Dictionary<string, object> variables = null) {
