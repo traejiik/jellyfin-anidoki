@@ -11,6 +11,7 @@ using jellyfin_anidoki.Planning;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki_unit_tests.Characterization;
+using jellyfin_anidoki_unit_tests.Operations;
 using jellyfin_anidoki_unit_tests.Trackers;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
@@ -28,7 +29,17 @@ internal sealed class SpyTracker(ITrackerProvider inner) : ITrackerProvider {
 
     public ProviderCapabilities Capabilities => inner.Capabilities;
 
-    public Task<EntryState?> ReadEntry(EntryRef entry, CancellationToken cancellationToken) => inner.ReadEntry(entry, cancellationToken);
+    /// <summary>Answers reads in order before falling through to the wrapped tracker.</summary>
+    public Queue<EntryState?> ScriptedReads { get; } = new();
+
+    public int ReadCount { get; private set; }
+
+    public List<EntryState> Applied { get; } = new();
+
+    public Task<EntryState?> ReadEntry(EntryRef entry, CancellationToken cancellationToken) {
+        ReadCount++;
+        return ScriptedReads.TryDequeue(out var state) ? Task.FromResult(state) : inner.ReadEntry(entry, cancellationToken);
+    }
 
     public Task<IReadOnlyList<EntryCandidate>> Search(string title, CancellationToken cancellationToken) => inner.Search(title, cancellationToken);
 
@@ -40,6 +51,7 @@ internal sealed class SpyTracker(ITrackerProvider inner) : ITrackerProvider {
 
     public Task<WriteReceipt?> Apply(EntryState current, EntryChange change, CancellationToken cancellationToken) {
         Changes.Add(change);
+        Applied.Add(current);
         return OnApply != null ? OnApply(current, change) : inner.Apply(current, change, cancellationToken);
     }
 }
@@ -168,6 +180,113 @@ public class ExecutorTests {
 
         Assert.That(recorded, Has.Count.EqualTo(2));
         Assert.That(recorded.Select(detail => detail!.PlannedChange), Is.All.Not.Null);
+    }
+
+    private static EntryState StateAt(int progress, int id = 500) =>
+        new(Ref(ApiName.AniList, id), 12, new ListState(TrackerStatus.Watching, progress, false, null), Now,
+            new EntryTitles("Fixture Show", null, null, []));
+
+    private static Resolved PlayedFrom(EntryState state, int episode) =>
+        new(Target(ApiName.AniList, episode, state: state), ResolvedBy.Ids, []);
+
+    private static readonly MutableTime Later = new(Now.AddSeconds(61));
+
+    [Test]
+    public async Task AReadAtSixtySecondsIsStillFresh() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+
+        await Recorded(tracker, PlayedFrom(StateAt(3), 5), new MutableTime(Now.AddSeconds(60)));
+
+        Assert.That(tracker.ReadCount, Is.EqualTo(0));
+        Assert.That(fake.Writes, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task AStaleUnchangedReadIsCheckedOnceThenWritten() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.ScriptedReads.Enqueue(StateAt(3));
+
+        var recorded = await Recorded(tracker, PlayedFrom(StateAt(3), 5), Later);
+
+        Assert.That(tracker.ReadCount, Is.EqualTo(1));
+        Assert.That(fake.Writes, Has.Count.EqualTo(1));
+        Assert.That(recorded.Single().Outcome.Kind, Is.EqualTo(OutcomeKind.Confirmed));
+    }
+
+    [Test]
+    public async Task AStaleReadThatMovedPastTheEpisodeIsReplannedAndNotWritten() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.ScriptedReads.Enqueue(StateAt(7));
+
+        var recorded = await Recorded(tracker, PlayedFrom(StateAt(3), 5), Later);
+
+        Assert.That(fake.Writes, Is.Empty);
+        Assert.That(tracker.ReadCount, Is.EqualTo(1));
+        var (outcome, detail) = recorded.Single();
+        Assert.That((outcome.Kind, outcome.Step), Is.EqualTo((OutcomeKind.NoChange, "already-watched")));
+        Assert.That(detail!.PlannedAgainst!.List!.Progress, Is.EqualTo(7));
+    }
+
+    [Test]
+    public async Task AStaleReadThatStillNeedsAWriteIsPlannedAgainstTheNewState() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.ScriptedReads.Enqueue(StateAt(4));
+        tracker.ScriptedReads.Enqueue(StateAt(4));
+
+        var recorded = await Recorded(tracker, PlayedFrom(StateAt(3), 5), Later);
+
+        Assert.That(tracker.ReadCount, Is.EqualTo(2));
+        Assert.That(fake.Writes, Has.Count.EqualTo(1));
+        Assert.That(tracker.Applied.Single().List!.Progress, Is.EqualTo(4));
+        Assert.That(recorded.Single().Detail!.PlannedAgainst!.List!.Progress, Is.EqualTo(4));
+    }
+
+    [Test]
+    public async Task AnEntryThatKeepsChangingIsFailedAsStale() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.ScriptedReads.Enqueue(StateAt(4));
+        tracker.ScriptedReads.Enqueue(StateAt(4) with { List = new ListState(TrackerStatus.Watching, 4, true, null) });
+
+        var recorded = await Recorded(tracker, PlayedFrom(StateAt(3), 5), Later);
+
+        Assert.That(fake.Writes, Is.Empty);
+        var outcome = recorded.Single().Outcome;
+        Assert.That((outcome.Kind, outcome.Step, outcome.TargetId), Is.EqualTo((OutcomeKind.Failed, "stale", "500")));
+    }
+
+    [Test]
+    public async Task AStaleReadThatCannotBeRepeatedIsUnresolved() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.ScriptedReads.Enqueue(null);
+
+        var recorded = await Recorded(tracker, PlayedFrom(StateAt(3), 5), Later);
+
+        Assert.That(fake.Writes, Is.Empty);
+        Assert.That(recorded.Single().Outcome.Kind, Is.EqualTo(OutcomeKind.Unresolved));
+    }
+
+    [Test]
+    public async Task AStaleDecisionWithNothingToWriteIsNotReadAgain() {
+        var (tracker, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 8)));
+
+        var recorded = await Recorded(tracker, PlayedFrom(StateAt(8), 5), Later);
+
+        Assert.That(tracker.ReadCount, Is.EqualTo(0));
+        Assert.That(recorded.Single().Outcome.Kind, Is.EqualTo(OutcomeKind.NoChange));
+    }
+
+    [Test]
+    public async Task EachTargetIsCheckedOnItsOwnRead() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 0)), Entry(501, 12, ListStatus(Status.Watching, 0)));
+        tracker.ScriptedReads.Enqueue(StateAt(0));
+        var fresh = StateAt(0, 501) with { ReadAt = Later.Now };
+        var resolution = new Resolved(Target(ApiName.AniList, 2, 501, state: fresh), ResolvedBy.SequelChain,
+            [Target(ApiName.AniList, 12, 500, StateAt(0), TargetRole.EarlierPart)]);
+
+        await Recorded(tracker, resolution, Later);
+
+        Assert.That(tracker.ReadCount, Is.EqualTo(1));
+        Assert.That(fake.Writes, Has.Count.EqualTo(2));
     }
 
     [Test]

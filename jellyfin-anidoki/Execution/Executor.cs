@@ -16,10 +16,13 @@ public sealed record ActionSource(Guid ItemId, int Episode);
 /// <summary>
 /// Runs one provider's resolution: earlier parts in chain order, then the played target. Reads only what resolution did
 /// not, plans each target, writes through <see cref="ITrackerProvider.Apply"/>, and records one outcome per target
-/// (two when a multi-call write stopped part way).
+/// (two when a multi-call write stopped part way). A read older than <see cref="StaleAfter"/> is repeated before writing from it.
 /// </summary>
 public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPolicy policy, PlaybackOutcomeCollector? outcomes,
     TimeProvider clock, ILogger logger, ActionSource? source = null) {
+    /// <summary>A read older than this is read again before anything is written from it.</summary>
+    public static readonly TimeSpan StaleAfter = TimeSpan.FromSeconds(60);
+
     private readonly ProviderQuirks _quirks = ProviderQuirks.For(tracker.Name);
 
     private bool StatusOnly => !tracker.Capabilities.TracksProgress;
@@ -51,6 +54,32 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
         }
 
         var decision = Plan(target, state);
+        if (decision is Write && clock.GetUtcNow() - state.ReadAt > StaleAfter) {
+            EntryState? fresh = await tracker.ReadEntry(target.Entry, cancellationToken);
+            if (fresh == null) {
+                RecordUnreadable(trace);
+                return;
+            }
+
+            bool moved = !SameEntry(state, fresh);
+            logger.LogDebug("({ApiName}) Read again before writing a stale plan; entry changed: {Moved}", tracker.Name, moved);
+            state = fresh;
+            decision = Plan(target, fresh);
+            if (moved && decision is Write) {
+                // Something else is updating this entry right now, so make sure it has settled before writing over it.
+                EntryState? settled = await tracker.ReadEntry(target.Entry, cancellationToken);
+                if (settled == null) {
+                    RecordUnreadable(trace);
+                    return;
+                }
+
+                if (!SameEntry(fresh, settled)) {
+                    RecordDecision(settled, OutcomeKind.Failed, "stale", trace);
+                    return;
+                }
+            }
+        }
+
         switch (decision) {
             case Write write:
                 await Apply(write, state, trace, cancellationToken);
@@ -63,6 +92,10 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
                 break;
         }
     }
+
+    // Titles and ReadAt are left out: a re-read always has a new ReadAt, and titles do not affect a plan.
+    private static bool SameEntry(EntryState first, EntryState second) =>
+        first.TotalEpisodes == second.TotalEpisodes && first.List == second.List;
 
     private PlanDecision Plan(ResolvedTarget target, EntryState state) =>
         Planner.Plan(new PlanInput(target.TargetEpisode, state, rules, policy, tracker.Capabilities, _quirks, clock.GetUtcNow().LocalDateTime));
