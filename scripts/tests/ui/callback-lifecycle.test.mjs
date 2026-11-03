@@ -29,6 +29,7 @@ class DomElement {
     setAttribute(name, value) { this[name] = value; }
     removeAttribute(name) { delete this[name]; }
     focus() { DomElement.focused = this; }
+    select() { this.selected = true; }
     scrollIntoView() {}
     querySelectorAll(selector) {
         return this.children.flatMap(child => [ ...(child.tag === selector ? [child] : []), ...child.querySelectorAll(selector) ]);
@@ -138,6 +139,51 @@ test('a deferred callback error does not update a hidden view', async t => {
     await pendingPreview;
     assert.equal(page.nodes.addressStatus.textContent, text);
     assert.equal(page.nodes.apiUrl['aria-invalid'], invalid);
+});
+
+async function setupCopy(t, { clipboard, execCommand }) {
+    const page = await setupAdmin(t);
+    page.editAddress('https://host.example.test');
+    await page.runPreview();
+    page.nodes.copyCallback.textContent = 'Copy';
+    setGlobal(t, 'navigator', { clipboard });
+    document.execCommand = execCommand;
+    return page;
+}
+
+test('copy falls back to the selection on an insecure origin, where the clipboard API is missing', async t => {
+    let selectedWhenCopied;
+    const page = await setupCopy(t, {
+        clipboard: undefined,
+        execCommand(command) { selectedWhenCopied = command === 'copy' && page.nodes.generalCallbackUrlInput.selected; return true; }
+    });
+    page.nodes.copyCallback.emit('click');
+    await waitFor(() => page.nodes.copyCallback.textContent === 'Copied');
+    assert.equal(selectedWhenCopied, true);
+    assert.equal(page.nodes.addressStatus.dataset.tone, 'success');
+    page.runPreview();
+    assert.equal(page.nodes.copyCallback.textContent, 'Copy', 'The label returns once the confirmation has been seen');
+});
+
+test('copy uses the clipboard API when the origin allows it', async t => {
+    let written;
+    const page = await setupCopy(t, {
+        clipboard: { writeText: async text => { written = text; } },
+        execCommand() { assert.fail('The fallback must not run after a successful clipboard write'); }
+    });
+    page.nodes.copyCallback.emit('click');
+    await waitFor(() => page.nodes.copyCallback.textContent === 'Copied');
+    assert.equal(written, 'https://host.example.test/AniDoki/authCallback');
+});
+
+test('a copy that fails both ways says so and keeps the button label', async t => {
+    const page = await setupCopy(t, {
+        clipboard: { writeText: async () => { throw new Error('Blocked'); } },
+        execCommand: () => false
+    });
+    page.nodes.copyCallback.emit('click');
+    await waitFor(() => page.nodes.addressStatus.dataset.tone === 'error');
+    assert.equal(page.nodes.copyCallback.textContent, 'Copy');
 });
 
 test('refresh success waits for the actual response and retains an unsaved address', async t => {

@@ -3,7 +3,7 @@ const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidoki
 
 export default function (view) {
     let lifetime, saved, baseline, draft, users, parameters, selectedUser, busy = false, secretState = {}, storage;
-    let common, state, previewGeneration = 0, previewTimer;
+    let common, state, previewGeneration = 0, previewTimer, copiedTimer;
     const libraryValidators = new Map();
     const libraryChoices = new Map();
     const root = view.querySelector('.anidoki');
@@ -105,12 +105,13 @@ export default function (view) {
             }
         }, { signal });
         find('#copyCallback').addEventListener('click', async () => {
-            try {
-                await navigator.clipboard.writeText(find('#generalCallbackUrlInput').value);
-                if (!signal.aborted) common.status(find('#addressStatus'), 'Callback copied.', 'success');
-            } catch {
-                if (!signal.aborted) common.status(find('#addressStatus'), 'Could not copy. Select the callback and copy it manually.', 'error');
-            }
+            const copied = await common.copyInput(find('#generalCallbackUrlInput'));
+            if (signal.aborted) return;
+            if (!copied) { common.status(find('#addressStatus'), 'Could not copy. Select the callback and copy it manually.', 'error'); return; }
+            common.status(find('#addressStatus'), 'Callback copied.', 'success');
+            find('#copyCallback').textContent = 'Copied';
+            clearTimeout(copiedTimer);
+            copiedTimer = setTimeout(() => { find('#copyCallback').textContent = 'Copy'; }, 2000);
         }, { signal });
         find('#testAnimeListSaveLocation').addEventListener('click', async () => {
             const location = draft.animeListSaveLocation ?? '';

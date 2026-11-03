@@ -115,12 +115,18 @@ a { color: #3dbbec; }
   </div>
 </footer>
 <script>
+// navigator.clipboard only exists on HTTPS or localhost; Jellyfin is often reached over http on a LAN address.
+async function copyInput(input) {
+  input.select();
+  if (navigator.clipboard) {
+    try { await navigator.clipboard.writeText(input.value); return true; } catch { /* Blocked: try the selection. */ }
+  }
+  try { return document.execCommand('copy'); } catch { return false; }
+}
 for (const button of document.querySelectorAll('[data-copy]')) {
   button.addEventListener('click', async () => {
-    const input = document.getElementById(button.dataset.copy);
-    input.select();
-    try { await navigator.clipboard.writeText(input.value); button.lastChild.textContent = ' Copied'; }
-    catch { document.execCommand('copy'); }
+    const copied = await copyInput(document.getElementById(button.dataset.copy));
+    button.lastChild.textContent = copied ? ' Copied' : ' Copy it manually';
   });
 }
 </script>
