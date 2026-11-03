@@ -3,7 +3,7 @@ const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidoki
 
 export default function (view) {
     let lifetime, saved, baseline, draft, users, parameters, selectedUser, busy = false, secretState = {}, storage;
-    let common, state, previewGeneration = 0, previewTimer, copiedTimer;
+    let common, state, previewGeneration = 0, previewTimer, copiedTimer, localAddress = '';
     const libraryValidators = new Map();
     const libraryChoices = new Map();
     const root = view.querySelector('.anidoki');
@@ -96,14 +96,8 @@ export default function (view) {
             }
         }, { signal });
         find('#useCurrent').addEventListener('click', () => fillAddress(ApiClient.serverAddress(), signal), { signal });
-        find('#useLocal').addEventListener('click', async () => {
-            const generation = ++previewGeneration;
-            try { const result = await common.json('AniDoki/callbackPreview', { signal }); if (!signal.aborted && generation === previewGeneration) fillAddress(result.baseAddress, signal); }
-            catch (error) {
-                const message = await common.errorMessage(error);
-                if (!signal.aborted && generation === previewGeneration) common.status(find('#addressStatus'), message, 'error');
-            }
-        }, { signal });
+        find('#useLocal').addEventListener('click', () => fillAddress(localAddress, signal), { signal });
+        loadLocalAddress(signal);
         find('#copyCallback').addEventListener('click', async () => {
             const copied = await common.copyInput(find('#generalCallbackUrlInput'));
             if (signal.aborted) return;
@@ -111,7 +105,10 @@ export default function (view) {
             common.status(find('#addressStatus'), 'Callback copied.', 'success');
             find('#copyCallback').textContent = 'Copied';
             clearTimeout(copiedTimer);
-            copiedTimer = setTimeout(() => { find('#copyCallback').textContent = 'Copy'; }, 2000);
+            copiedTimer = setTimeout(() => {
+                find('#copyCallback').textContent = 'Copy';
+                if (find('#generalCallbackUrlInput').value) common.status(find('#addressStatus'), 'Preview ready');
+            }, 2000);
         }, { signal });
         find('#testAnimeListSaveLocation').addEventListener('click', async () => {
             const location = draft.animeListSaveLocation ?? '';
@@ -134,9 +131,30 @@ export default function (view) {
     function fillAddress(address, signal) {
         draft.callbackUrl = address; find('#apiUrl').value = address; updateDirty(); schedulePreview(signal);
     }
+    // A failed lookup only hides the row: the address can still be typed, and saving it blank still works.
+    async function loadLocalAddress(signal) {
+        try {
+            const result = await common.json('AniDoki/callbackPreview', { signal });
+            if (!signal.aborted) { localAddress = result.baseAddress; renderDetected(); }
+        } catch { /* The row stays hidden. */ }
+    }
+    function renderDetected() {
+        const trimmed = address => (address ?? '').trim().replace(/\/+$/, '');
+        // A blank address means the server uses its local one.
+        const inUse = trimmed(draft.callbackUrl) || trimmed(localAddress);
+        for (const [id, address] of [['useCurrent', ApiClient.serverAddress()], ['useLocal', localAddress]]) {
+            const used = Boolean(address) && trimmed(address) === inUse;
+            find(`#${id}Value`).textContent = address;
+            find(`#${id}InUse`).hidden = !used;
+            find(`#${id}`).setAttribute('aria-pressed', String(used));
+        }
+        find('#useLocal').hidden = !localAddress;
+    }
     function schedulePreview(signal) {
         clearTimeout(previewTimer); const generation = ++previewGeneration;
-        find('#generalCallbackUrlInput').value = ''; find('#copyCallback').disabled = true; find('#addressCheck').hidden = true;
+        renderDetected();
+        find('#generalCallbackUrlInput').value = ''; find('#copyCallback').disabled = true; common.status(find('#addressStatus'), '');
+        find('#addressCheck').removeAttribute('href'); find('#addressCheck').setAttribute('aria-disabled', 'true');
         previewTimer = setTimeout(async () => {
             try {
                 const result = await common.json(`AniDoki/callbackPreview?address=${encodeURIComponent(draft.callbackUrl ?? '')}`, { signal });
@@ -145,8 +163,8 @@ export default function (view) {
                 find('#generalCallbackUrlInput').value = result.callbackUrl;
                 find('#copyCallback').disabled = busy;
                 const marker = new URL(common.safeExternalUrl(result.baseAddress)); marker.pathname = marker.pathname.replace(/\/$/, '') + '/AniDoki/apiUrlTest';
-                find('#addressCheck').href = marker.href; find('#addressCheck').hidden = false;
-                common.status(find('#addressStatus'), 'Callback preview ready.');
+                find('#addressCheck').href = marker.href; find('#addressCheck').removeAttribute('aria-disabled');
+                common.status(find('#addressStatus'), 'Preview ready');
             } catch (error) {
                 const message = await common.errorMessage(error);
                 if (!signal.aborted && generation === previewGeneration) {

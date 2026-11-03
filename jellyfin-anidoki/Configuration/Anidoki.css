@@ -123,6 +123,18 @@
 .anidoki .doki-input[aria-invalid="true"] { outline: 2px solid var(--tjk-error); }
 .anidoki .doki-input[readonly] { color: var(--doki-muted); }
 .anidoki .doki-callback { padding: 18px; border: 1px dashed var(--doki-edge); border-radius: var(--tjk-radius-md); background: rgb(0 0 0 / .1); }
+.anidoki .doki-callback-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 16px; }
+.anidoki .doki-callback-head label { font-weight: 600; font-size: .875rem; }
+.anidoki .doki-copy-button { flex: none; width: 96px; }
+.anidoki .doki-test-link { flex: none; }
+.anidoki .doki-test-link[aria-disabled="true"] { opacity: .55; cursor: default; pointer-events: none; }
+.anidoki .doki-detected { display: flex; flex-direction: column; gap: 6px; margin-top: 7px; }
+.anidoki .doki-detected-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 16px; width: 100%; min-height: 44px; padding: 8px 13px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: transparent; color: var(--doki-text); font-size: .875rem; text-align: left; cursor: pointer; }
+.anidoki .doki-detected-row:hover { border-color: var(--doki-accent); }
+.anidoki .doki-detected-row[aria-pressed="true"] { background: var(--doki-pill); }
+.anidoki .doki-detected-row:disabled { opacity: .55; cursor: default; }
+.anidoki .doki-detected-name { display: inline-flex; align-items: center; gap: 8px; }
+.anidoki .doki-detected-row .doki-mono { font-size: .8125rem; overflow-wrap: anywhere; }
 .anidoki .doki-secret-input { position: relative; width: 100%; }
 .anidoki .doki-secret-input .doki-input { padding-inline-end: 56px; }
 .anidoki .doki-reveal { display: grid; place-items: center; position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--tjk-radius-md); background: transparent; color: var(--doki-muted); cursor: pointer; }
