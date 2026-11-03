@@ -29,6 +29,7 @@ class DomElement {
     setAttribute(name, value) { this[name] = value; }
     removeAttribute(name) { delete this[name]; }
     focus() { DomElement.focused = this; }
+    select() { this.selected = true; }
     scrollIntoView() {}
     querySelectorAll(selector) {
         return this.children.flatMap(child => [ ...(child.tag === selector ? [child] : []), ...child.querySelectorAll(selector) ]);
@@ -52,9 +53,12 @@ function setGlobal(t, name, value) {
     });
 }
 
-async function setupAdmin(t, users = []) {
+const BrowserAddress = 'https://browser.example.test';
+const LocalAddress = 'http://192.0.2.10:8096';
+
+async function setupAdmin(t, users = [], localLookup = async () => Response.json({ baseAddress: LocalAddress })) {
     const ids = ['TemplateConfigForm', 'configurationSummary', 'providerCards', 'userRows', 'userPanel',
-        'saveStatus', 'refreshAccounts', 'useCurrent', 'useLocal', 'copyCallback', 'generalCallbackUrlInput',
+        'saveStatus', 'refreshAccounts', 'useCurrent', 'useCurrentValue', 'useCurrentInUse', 'useLocal', 'useLocalValue', 'useLocalInUse', 'copyCallback', 'generalCallbackUrlInput',
         'addressCheck', 'addressStatus', 'testAnimeListSaveLocation', 'folderStatus', 'discardChanges',
         'apiUrl', 'saveChanges', 'navigationTabs', 'accountsRefreshStatus', 'accountsStatus',
         'closeUserPanel', 'selectedUserName', 'userAccounts', 'userPreferences', 'userLibraries'];
@@ -82,7 +86,8 @@ async function setupAdmin(t, users = []) {
                 : `https://jellyfin.example.test/${path}`,
         getPluginConfiguration: async () => ({ callbackUrl: '', ProviderApiAuth: [], UserConfig: [] }),
         getUsers: async () => users,
-        setRequestHeaders() {}
+        setRequestHeaders() {},
+        serverAddress: () => BrowserAddress
     });
     let stream;
     const failedResponse = new Response(new ReadableStream({ start(controller) { stream = controller; } }), { status: 400 });
@@ -90,6 +95,7 @@ async function setupAdmin(t, users = []) {
         if (url.endsWith('/parameters')) return Response.json({ libraries: [] });
         if (url.endsWith('/providerSecrets')) return Response.json([]);
         if (url.endsWith('/storage')) return Response.json({ available: true, message: null });
+        if (url.endsWith('/callbackPreview')) return localLookup();
         const address = new URL(url).searchParams.get('address');
         return address ? Response.json({ baseAddress: address, callbackUrl: `${address}/AniDoki/authCallback` }) : failedResponse;
     });
@@ -119,10 +125,10 @@ test('a deferred old callback error cannot replace a newer valid preview', async
     await waitFor(() => page.failedResponse.body.locked);
     page.editAddress('https://newer.example.test/base');
     await page.runPreview();
-    assert.equal(page.nodes.addressStatus.textContent, 'Callback preview ready.');
+    assert.equal(page.nodes.addressStatus.textContent, 'Preview ready');
     page.finishError();
     await oldPreview;
-    assert.equal(page.nodes.addressStatus.textContent, 'Callback preview ready.');
+    assert.equal(page.nodes.addressStatus.textContent, 'Preview ready');
     assert.equal(page.nodes.apiUrl['aria-invalid'], 'false');
     assert.equal(page.nodes.generalCallbackUrlInput.value, 'https://newer.example.test/base/AniDoki/authCallback');
 });
@@ -138,6 +144,99 @@ test('a deferred callback error does not update a hidden view', async t => {
     await pendingPreview;
     assert.equal(page.nodes.addressStatus.textContent, text);
     assert.equal(page.nodes.apiUrl['aria-invalid'], invalid);
+});
+
+async function setupCopy(t, { clipboard, execCommand }) {
+    const page = await setupAdmin(t);
+    page.editAddress('https://host.example.test');
+    await page.runPreview();
+    page.nodes.copyCallback.textContent = 'Copy';
+    setGlobal(t, 'navigator', { clipboard });
+    document.execCommand = execCommand;
+    return page;
+}
+
+test('copy falls back to the selection on an insecure origin, where the clipboard API is missing', async t => {
+    let selectedWhenCopied;
+    const page = await setupCopy(t, {
+        clipboard: undefined,
+        execCommand(command) { selectedWhenCopied = command === 'copy' && page.nodes.generalCallbackUrlInput.selected; return true; }
+    });
+    page.nodes.copyCallback.emit('click');
+    await waitFor(() => page.nodes.copyCallback.textContent === 'Copied');
+    assert.equal(selectedWhenCopied, true);
+    assert.equal(page.nodes.addressStatus.dataset.tone, 'success');
+    page.runPreview();
+    assert.equal(page.nodes.copyCallback.textContent, 'Copy', 'The label returns once the confirmation has been seen');
+    assert.equal(page.nodes.addressStatus.textContent, 'Preview ready');
+});
+
+test('copy uses the clipboard API when the origin allows it', async t => {
+    let written;
+    const page = await setupCopy(t, {
+        clipboard: { writeText: async text => { written = text; } },
+        execCommand() { assert.fail('The fallback must not run after a successful clipboard write'); }
+    });
+    page.nodes.copyCallback.emit('click');
+    await waitFor(() => page.nodes.copyCallback.textContent === 'Copied');
+    assert.equal(written, 'https://host.example.test/AniDoki/authCallback');
+});
+
+test('a copy that fails both ways says so and keeps the button label', async t => {
+    const page = await setupCopy(t, {
+        clipboard: { writeText: async () => { throw new Error('Blocked'); } },
+        execCommand: () => false
+    });
+    page.nodes.copyCallback.emit('click');
+    await waitFor(() => page.nodes.addressStatus.dataset.tone === 'error');
+    assert.equal(page.nodes.copyCallback.textContent, 'Copy');
+});
+
+test('the detected addresses show their values and mark the one in use', async t => {
+    const page = await setupAdmin(t);
+    await waitFor(() => page.nodes.useLocalValue.textContent === LocalAddress);
+    assert.equal(page.nodes.useCurrentValue.textContent, BrowserAddress);
+    assert.equal(page.nodes.useLocal.hidden, false);
+    assert.equal(page.nodes.useLocal['aria-pressed'], 'true', 'A blank address uses the local one');
+    assert.equal(page.nodes.useLocalInUse.hidden, false);
+    assert.equal(page.nodes.useCurrentInUse.hidden, true);
+
+    page.nodes.useCurrent.emit('click');
+    assert.equal(page.nodes.apiUrl.value, BrowserAddress);
+    assert.equal(page.nodes.useCurrent['aria-pressed'], 'true');
+    assert.equal(page.nodes.useLocal['aria-pressed'], 'false');
+
+    page.editAddress(`${LocalAddress}/`);
+    assert.equal(page.nodes.useLocal['aria-pressed'], 'true', 'A trailing slash is the same address');
+    page.editAddress('https://other.example.test');
+    assert.equal(page.nodes.useCurrent['aria-pressed'], 'false');
+    assert.equal(page.nodes.useLocal['aria-pressed'], 'false');
+
+    page.nodes.useLocal.emit('click');
+    assert.equal(page.nodes.apiUrl.value, LocalAddress);
+});
+
+test('a failed local address lookup hides only that row', async t => {
+    let lookedUp = false;
+    const page = await setupAdmin(t, [], async () => { lookedUp = true; return new Response('Unavailable', { status: 500 }); });
+    await waitFor(() => lookedUp);
+    await nextTurn();
+    assert.equal(page.nodes.useLocal.hidden, true);
+    assert.equal(page.nodes.useCurrent.hidden, undefined);
+    assert.equal(page.nodes.useCurrentValue.textContent, BrowserAddress);
+    assert.notEqual(page.nodes.addressStatus.dataset.tone, 'error', 'The address can still be typed, so this is not an error');
+});
+
+test('the address test link only works while the address is valid', async t => {
+    const page = await setupAdmin(t);
+    page.editAddress('https://host.example.test/base');
+    assert.equal(page.nodes.addressCheck.href, undefined);
+    assert.equal(page.nodes.addressCheck['aria-disabled'], 'true');
+    await page.runPreview();
+    assert.equal(page.nodes.addressCheck.href, 'https://host.example.test/base/AniDoki/apiUrlTest');
+    assert.equal(page.nodes.addressCheck['aria-disabled'], undefined);
+    page.editAddress('https://host.example.test/other');
+    assert.equal(page.nodes.addressCheck.href, undefined, 'An old address must not stay clickable while the new one is checked');
 });
 
 test('refresh success waits for the actual response and retains an unsaved address', async t => {

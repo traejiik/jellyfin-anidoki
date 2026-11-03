@@ -35,6 +35,8 @@
         <EmbeddedResource Include="Configuration\DiscordSettingsJs.js"/>
         <None Remove="Configuration\Images\branding\anidoki-avatar.png"/>
         <EmbeddedResource Include="Configuration\Images\branding\anidoki-avatar.png" LogicalName="jellyfin_anidoki.Configuration.Images.anidoki-avatar.png"/>
+        <None Remove="Configuration\Images\branding\anidoki-symbol.svg"/>
+        <EmbeddedResource Include="Configuration\Images\branding\anidoki-symbol.svg" LogicalName="jellyfin_anidoki.Configuration.Images.anidoki-symbol.svg"/>
         <None Remove="Configuration\ManualMarkStateJs.js"/>
         <EmbeddedResource Include="Configuration\ManualMarkStateJs.js"/>
         <None Remove="Configuration\PluginPagesGuardJs.js"/>
@@ -77,8 +79,8 @@
         <EmbeddedResource Include="Configuration\Images\jellyfin.svg" LogicalName="jellyfin_anidoki.Configuration.Images.jellyfin.svg"/>
         <None Remove="Configuration\Images\jellyfin-banner.svg"/>
         <EmbeddedResource Include="Configuration\Images\jellyfin-banner.svg" LogicalName="jellyfin_anidoki.Configuration.Images.jellyfin-banner.svg"/>
-        <None Remove="Configuration\CallbackPage.html"/>
-        <EmbeddedResource Include="Configuration\CallbackPage.html"/>
+        <None Remove="Configuration\ResultPage.html"/>
+        <EmbeddedResource Include="Configuration\ResultPage.html"/>
         <EmbeddedResource Include="Configuration\Images\PROVIDER-ASSETS.md" LogicalName="jellyfin_anidoki.Configuration.Images.PROVIDER-ASSETS.md"/>
         <EmbeddedResource Include="Configuration\Images\LICENSE-Simple-Icons.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Simple-Icons.txt"/>
         <EmbeddedResource Include="Configuration\Images\LICENSE-Annict.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Annict.txt"/>

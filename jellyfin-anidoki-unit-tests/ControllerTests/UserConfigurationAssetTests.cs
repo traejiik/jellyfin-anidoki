@@ -33,6 +33,7 @@ public partial class UserConfigurationTests {
     [TestCase("provider-simkl.svg")]
     [TestCase("jellyfin.svg")]
     [TestCase("jellyfin-banner.svg")]
+    [TestCase("anidoki-symbol.svg")]
     public void PublicProviderSvgAssetsAreEmbeddedAndContainOnlyLocalDrawingData(string asset) {
         _plugin.Configuration.enableUserPages = false;
         var result = _controller.GetAsset(asset);

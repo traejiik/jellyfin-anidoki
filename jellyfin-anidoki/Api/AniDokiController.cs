@@ -195,6 +195,7 @@ namespace jellyfin_anidoki.Api {
                 "outcome-lines.js" => "OutcomeLinesJs.js",
                 "discord-settings.js" => "DiscordSettingsJs.js",
                 "anidoki-avatar.png" => "Images.anidoki-avatar.png",
+                "anidoki-symbol.svg" => "Images.anidoki-symbol.svg",
                 "common.js" => "CommonJs.js",
                 "config-state.js" => "ConfigStateJs.js",
                 "user-settings.js" => "ConfigPageUserJs.js",
@@ -620,8 +621,7 @@ namespace jellyfin_anidoki.Api {
             string settingsHref = configuration?.enableUserPages == true && !returnToAdmin
                 ? "../web/index.html#/userpluginsettings.html?pageUrl=/AniDoki/settings"
                 : "../web/index.html#/configurationpage?name=AniDoki";
-            string assets = $"assets/v/{typeof(Plugin).Assembly.ManifestModule.ModuleVersionId:N}/";
-            var model = new CallbackPageModel(outcome, provider, jellyfinUser, assets, settingsHref,
+            var model = new CallbackPageModel(outcome, provider, jellyfinUser, ResultPageAssets, settingsHref,
                 CallbackUrlHelper.Build(callbackBase), errorCode, MemoryCacheHelper.LinkExpiryMinutes(configuration?.authenticationLinkExpireTimeMinutes));
             Response.Headers.CacheControl = "no-store";
             return new ContentResult {
@@ -634,9 +634,17 @@ namespace jellyfin_anidoki.Api {
         [AllowAnonymous]
         [HttpGet]
         [Route("apiUrlTest")]
-        public string ApiUrlTest() {
-            return "This is the correct URL.";
+        public ContentResult ApiUrlTest() {
+            Response.Headers.CacheControl = "no-store";
+            return new ContentResult {
+                Content = CallbackPage.RenderAddressCheck(ResultPageAssets),
+                ContentType = "text/html; charset=utf-8",
+                StatusCode = 200
+            };
         }
+
+        // Relative to {base}/AniDoki/, like the pages that use it.
+        private static string ResultPageAssets => $"assets/v/{typeof(Plugin).Assembly.ManifestModule.ModuleVersionId:N}/";
 
         private Parameters GetFrontendParameters(ParameterInclude[]? includes, bool onlyConfiguredProviders, bool onlyLibrariesUserHasAccessTo) {
             Parameters toReturn = new Parameters();

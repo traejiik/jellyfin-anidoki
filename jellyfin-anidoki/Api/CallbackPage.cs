@@ -36,8 +36,8 @@ internal sealed record CallbackPageModel(
 /// </summary>
 internal static partial class CallbackPage {
     private static readonly Lazy<string> Template = new(() => {
-        using var stream = typeof(CallbackPage).Assembly.GetManifestResourceStream($"{typeof(Plugin).Namespace}.Configuration.CallbackPage.html")
-            ?? throw new InvalidOperationException("CallbackPage.html is not embedded.");
+        using var stream = typeof(CallbackPage).Assembly.GetManifestResourceStream($"{typeof(Plugin).Namespace}.Configuration.ResultPage.html")
+            ?? throw new InvalidOperationException("ResultPage.html is not embedded.");
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     });
@@ -74,107 +74,119 @@ internal static partial class CallbackPage {
             CallbackOutcome.WrongServer => ("warning", "Different server", Icons.Unlink),
             _ => ("error", "Not linked", Icons.Cross)
         };
+        string facts = Facts(model, P, tone, model.Outcome == CallbackOutcome.Linked ? "Linked" : "Not linked");
 
-        string title, heading, lead, body, footer, primary;
+        string title, heading, lead, body, closing, primary;
         switch (model.Outcome) {
             case CallbackOutcome.Linked:
                 title = $"{P} linked";
                 heading = $"{P} is linked to AniDōki";
-                lead = "";
-                body = Account(model.JellyfinUser, "success", $"{P} account", "Linked")
+                lead = Lead($"AniDōki now updates your {p} list as you finish episodes in Jellyfin.");
+                body = facts
                     + Note("What happens next", List(
-                        $"AniDōki updates your {p} list as you finish episodes in Jellyfin.",
-                        $"It never lowers progress you already have on {p}.",
-                        $"To check the connection, select Test next to {p} in your AniDōki settings."));
-                footer = $"You can unlink {p} at any time in your AniDōki settings.";
+                        $"AniDōki never lowers progress you already have on {p}.",
+                        $"To check the connection, select Test next to {p} in your AniDōki settings.",
+                        $"You can unlink {p} at any time in your AniDōki settings."));
+                closing = "";
                 primary = "Back to AniDōki settings";
                 break;
             case CallbackOutcome.Expired:
                 title = "Sign-in link expired";
                 heading = "This sign-in link has expired";
                 lead = Lead("The link you used is no longer valid, so nothing was linked.");
-                body = Note("A sign-in link stops working when", List(
-                    "it has already been used, for example the page was refreshed or opened twice",
-                    $"it is older than {Encode(Duration(model.LinkExpiryMinutes))}, the link expiry your administrator set",
-                    "Jellyfin restarted between selecting Link and approving"));
-                footer = $"Select Link next to {p} again to get a new sign-in link.";
+                body = facts
+                    + Note("A sign-in link stops working when", List(
+                        "it has already been used, for example the page was refreshed or opened twice",
+                        $"it is older than {Encode(Duration(model.LinkExpiryMinutes))}, the link expiry your administrator set",
+                        "Jellyfin restarted between selecting Link and approving"));
+                closing = $"Select Link next to {p} again to get a new sign-in link.";
                 primary = "Start again in AniDōki settings";
                 break;
             case CallbackOutcome.WrongServer:
                 title = "Sign-in reached a different server";
                 heading = "This sign-in started on another server";
                 lead = Lead($"{P} sent you to this Jellyfin server, but the sign-in started on a different one. Usually the {p} app’s redirect URL points to the wrong server.");
-                body = RedirectField(model.RedirectUrl)
+                body = facts
+                    + RedirectField(model.RedirectUrl)
                     + Note("To fix it", List(ordered: true,
                         $"Ask your Jellyfin administrator to set the {p} app’s redirect URL to the address above.",
                         "Open AniDōki settings on this server and select Link again."));
-                footer = $"Nothing was linked, and no {p} data was stored on this server.";
+                closing = $"Nothing was linked, and no {p} data was stored on this server.";
                 primary = "Open AniDōki settings here";
                 break;
             case CallbackOutcome.Declined:
                 title = $"{P} not linked";
                 heading = $"{P} didn’t link your account";
                 lead = Lead($"Access was declined on {p}, so AniDōki can’t update your list there. If that was a mistake, try again and choose Allow.");
-                body = Account(model.JellyfinUser, "error", "", $"{P} not linked")
+                body = facts
                     + Note("Still not working?",
                         $"<p>If this keeps happening after you choose Allow, ask your Jellyfin administrator to check the {p} app’s client ID and secret in AniDōki settings.</p>"
                         + Details(model.ErrorCode));
-                footer = "Nothing was linked. Your other trackers are unaffected.";
+                closing = "Nothing was linked. Your other trackers are unaffected.";
                 primary = "Try again in AniDōki settings";
                 break;
             default:
                 title = $"{P} not linked";
                 heading = $"{P} didn’t accept the sign-in";
                 lead = Lead($"{P} returned an error while AniDōki was finishing the link, so nothing was linked.");
-                body = Account(model.JellyfinUser, "error", "", $"{P} not linked")
+                body = facts
                     + Note("What to try",
                         List(
                             "Select Link again from your AniDōki settings.",
                             $"If it keeps failing, ask your Jellyfin administrator to check the {p} app’s client ID, secret and redirect URL in AniDōki settings.")
                         + Details(model.ErrorCode));
-                footer = "Nothing was linked. Your other trackers are unaffected.";
+                closing = "Nothing was linked. Your other trackers are unaffected.";
                 primary = "Try again in AniDōki settings";
                 break;
         }
 
-        return Template.Value
-            .Replace("{{providerLogo}}", ProviderLogo(model.Provider, assets, P))
-            .Replace("{{tone}}", tone)
-            .Replace("{{badgeLabel}}", badgeLabel)
-            .Replace("{{badgeIcon}}", badgeIcon)
+        string connection = ProviderLogo(model.Provider, assets, P)
+            + $"<div class=\"doki-cb-link doki-cb-{tone}\" role=\"img\" aria-label=\"{badgeLabel}\">{badgeIcon}</div>";
+        string actions = Closing(closing) + $"<a class=\"doki-cb-primary\" href=\"{Encode(model.SettingsHref)}\">{primary}</a>";
+        return Fill(title, "", connection, heading, lead, body, actions, assets);
+    }
+
+    /// <summary>The page the address check in AniDōki settings opens. Reaching it is the whole result.</summary>
+    internal static string RenderAddressCheck(string assets) =>
+        Fill("Correct address", " doki-cb-centred", "", "This is the correct address", "", "", Closing("You can close this tab."), Encode(assets));
+
+    private static string Fill(string title, string mainClass, string connection, string heading, string lead, string body, string actions, string assets) =>
+        Template.Value
             .Replace("{{title}}", title)
+            .Replace("{{mainClass}}", mainClass)
+            .Replace("{{connection}}", connection)
             .Replace("{{heading}}", heading)
             .Replace("{{lead}}", lead)
             .Replace("{{body}}", body)
-            .Replace("{{footer}}", footer)
-            .Replace("{{primary}}", primary)
-            .Replace("{{settingsHref}}", Encode(model.SettingsHref))
+            .Replace("{{actions}}", actions)
             .Replace("{{assets}}", assets);
-    }
 
     private static string Encode(string value) => WebUtility.HtmlEncode(value);
 
-    private static string Lead(string encodedText) => $"<p>{encodedText}</p>";
+    private static string Lead(string encodedText) => $"<p class=\"doki-cb-lead\">{encodedText}</p>";
+
+    private static string Closing(string encodedText) => encodedText.Length == 0 ? "" : $"<p>{encodedText}</p>";
 
     private static string ProviderLogo(ApiName? provider, string assets, string encodedName) {
         if (provider is not { } known)
-            return $"<div class=\"doki-cb-tile doki-cb-provider doki-cb-unknown\" role=\"img\" aria-label=\"Tracker\">{Icons.Link}</div>";
+            return $"<div class=\"doki-cb-tile doki-cb-unknown\" role=\"img\" aria-label=\"Tracker\">{Icons.Link}</div>";
         string file = known == ApiName.Annict ? "provider-annict.png" : $"provider-{known.ToString().ToLowerInvariant()}.svg";
         return $"<div class=\"doki-cb-tile doki-cb-provider\"><img src=\"{assets}{file}\" alt=\"{encodedName}\"></div>";
     }
 
-    private static string Account(string? jellyfinUser, string tone, string encodedLabel, string encodedState) {
-        if (string.IsNullOrWhiteSpace(jellyfinUser))
+    /// <summary>Without a known tracker the table would only repeat the lead, so it is left out.</summary>
+    private static string Facts(CallbackPageModel model, string encodedProvider, string tone, string encodedResult) {
+        if (model.Provider == null)
             return "";
-        string state = encodedLabel.Length == 0
-            ? encodedState
-            : $"{encodedState}<small>{encodedLabel}</small>";
-        return "<div class=\"doki-cb-account\">"
-            + $"<div class=\"doki-cb-avatar\" aria-hidden=\"true\">{Icons.User}</div>"
-            + $"<div class=\"doki-cb-who\"><strong>{Encode(jellyfinUser)}</strong><span>Jellyfin account</span></div>"
-            + $"<div class=\"doki-cb-state doki-cb-{tone}\">{state}</div>"
-            + "</div>";
+        string account = string.IsNullOrWhiteSpace(model.JellyfinUser) ? "" : Fact("Jellyfin account", Encode(model.JellyfinUser));
+        return "<dl class=\"doki-cb-facts\">"
+            + Fact("Tracker", encodedProvider)
+            + account
+            + $"<div><dt>Result</dt><dd class=\"doki-cb-result doki-cb-{tone}\">{encodedResult}</dd></div>"
+            + "</dl>";
     }
+
+    private static string Fact(string encodedLabel, string encodedValue) => $"<div><dt>{encodedLabel}</dt><dd>{encodedValue}</dd></div>";
 
     private static string RedirectField(string? redirectUrl) {
         if (string.IsNullOrWhiteSpace(redirectUrl))
@@ -183,12 +195,12 @@ internal static partial class CallbackPage {
             + "<label for=\"redirectUrl\">Redirect URL for this server</label>"
             + "<div class=\"doki-cb-copy\">"
             + $"<input id=\"redirectUrl\" type=\"text\" readonly value=\"{Encode(redirectUrl)}\">"
-            + $"<button class=\"doki-cb-button doki-cb-small\" type=\"button\" data-copy=\"redirectUrl\">{Icons.Copy}<span> Copy</span></button>"
+            + "<button type=\"button\" data-copy=\"redirectUrl\">Copy</button>"
             + "</div></div>";
     }
 
     private static string Note(string encodedHeading, string innerHtml) =>
-        $"<section class=\"doki-cb-note\">{Icons.Info}<div><h2>{encodedHeading}</h2>{innerHtml}</div></section>";
+        $"<section class=\"doki-cb-note\"><h2>{encodedHeading}</h2>{innerHtml}</section>";
 
     private static string List(params string[] encodedItems) => List(false, encodedItems);
 
@@ -211,14 +223,11 @@ internal static partial class CallbackPage {
     };
 
     private static class Icons {
-        private const string Open = "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">";
+        private const string Open = "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">";
         internal const string Check = Open + "<path d=\"M20 6 9 17l-5-5\"/></svg>";
         internal const string Clock = Open + "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/></svg>";
         internal const string Unlink = Open + "<path d=\"m18.84 12.25 1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"m5.17 11.75-1.71 1.71a5 5 0 0 0 7.07 7.07l1.71-1.71\"/><path d=\"M8 2v3M2 8h3M16 22v-3M22 16h-3\"/></svg>";
         internal const string Cross = Open + "<path d=\"M18 6 6 18M6 6l12 12\"/></svg>";
         internal const string Link = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7\"/><path d=\"M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7\"/></svg>";
-        internal const string User = "<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg>";
-        internal const string Info = "<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 11v5M12 8h.01\"/></svg>";
-        internal const string Copy = "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"9\" y=\"9\" width=\"12\" height=\"12\" rx=\"2\"/><path d=\"M5 15V5a2 2 0 0 1 2-2h10\"/></svg>";
     }
 }

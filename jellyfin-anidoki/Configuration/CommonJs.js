@@ -66,6 +66,14 @@ export function refreshFeedback(node, refreshed) {
 export function status(node, text, tone = '') {
     node.textContent = text; node.dataset.tone = tone;
 }
+// navigator.clipboard only exists on HTTPS or localhost; Jellyfin is often reached over http on a LAN address.
+export async function copyInput(input) {
+    if (navigator.clipboard) {
+        try { await navigator.clipboard.writeText(input.value); return true; } catch { /* Blocked: try the selection. */ }
+    }
+    input.focus(); input.select();
+    try { return document.execCommand('copy'); } catch { return false; }
+}
 export function setTabs(selected, itemsFn = getTabs, view = document) {
     const root = view.querySelector('#navigationTabs');
     if (!root) return;
