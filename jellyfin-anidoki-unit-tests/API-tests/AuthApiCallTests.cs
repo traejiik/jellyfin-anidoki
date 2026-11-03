@@ -9,6 +9,7 @@ using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Trackers;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -68,5 +69,68 @@ public class AuthApiCallTests {
         foreach (var request in handler.Requests) {
             Assert.That(request.Headers.GetValues("X-Fixture").Count(), Is.EqualTo(1));
         }
+    }
+
+    private static async Task<(TrackerFailureKind? Kind, bool ResponseReceived)> Reported(params Func<HttpRequestMessage, HttpResponseMessage>[] responses) {
+        using var calls = TrackerCallScope.Begin();
+        var response = await Create(new SequenceHandler(responses)).AuthenticatedApiCall(ApiName.AniList, AuthApiCall.CallType.GET, "https://graphql.anilist.co");
+        Assert.That(response, Is.Null);
+        return (calls.Failure, calls.ResponseReceived);
+    }
+
+    [TestCase(HttpStatusCode.NotFound, TrackerFailureKind.NotFound)]
+    [TestCase(HttpStatusCode.InternalServerError, TrackerFailureKind.Transient)]
+    [TestCase(HttpStatusCode.BadGateway, TrackerFailureKind.Transient)]
+    [TestCase(HttpStatusCode.RequestTimeout, TrackerFailureKind.Transient)]
+    [TestCase(HttpStatusCode.BadRequest, TrackerFailureKind.Rejected)]
+    [TestCase(HttpStatusCode.Forbidden, TrackerFailureKind.Rejected)]
+    public async Task AFailedStatusReportsItsKind(HttpStatusCode status, TrackerFailureKind expected) =>
+        Assert.That(await Reported(_ => new HttpResponseMessage(status)), Is.EqualTo(((TrackerFailureKind?)expected, true)));
+
+    [Test]
+    public async Task ExhaustedRateLimitRetriesReportRateLimited() =>
+        Assert.That(await Reported(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests)),
+            Is.EqualTo(((TrackerFailureKind?)TrackerFailureKind.RateLimited, true)));
+
+    [Test]
+    public async Task AFailedRefreshReportsUnauthorized() =>
+        Assert.That(await Reported(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)),
+            Is.EqualTo(((TrackerFailureKind?)TrackerFailureKind.Unauthorized, true)));
+
+    [Test]
+    public async Task NoResponseReportsTransientAndSaysSo() =>
+        Assert.That(await Reported(_ => throw new HttpRequestException("connection reset")),
+            Is.EqualTo(((TrackerFailureKind?)TrackerFailureKind.Transient, false)));
+
+    [Test]
+    public async Task ASuccessfulRetryReportsNothing() {
+        using var calls = TrackerCallScope.Begin();
+        var handler = new SequenceHandler(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests), _ => new HttpResponseMessage(HttpStatusCode.OK));
+
+        await Create(handler).AuthenticatedApiCall(ApiName.AniList, AuthApiCall.CallType.GET, "https://graphql.anilist.co");
+
+        Assert.That(calls.Failure, Is.Null);
+    }
+
+    [Test]
+    public void AnOuterScopeSurvivesAnInnerOne() {
+        using var outer = TrackerCallScope.Begin();
+        using (var inner = TrackerCallScope.Begin()) {
+            TrackerCallScope.Report(TrackerFailureKind.Transient);
+            Assert.That(inner.Failure, Is.EqualTo(TrackerFailureKind.Transient));
+        }
+
+        Assert.That(outer.Failure, Is.Null);
+        TrackerCallScope.Report(TrackerFailureKind.Rejected);
+        Assert.That(outer.Failure, Is.EqualTo(TrackerFailureKind.Rejected));
+    }
+
+    [Test]
+    public void ANotFoundNeverHidesADefiniteFailure() {
+        using var calls = TrackerCallScope.Begin();
+        TrackerCallScope.Report(TrackerFailureKind.NotFound);
+        TrackerCallScope.Report(TrackerFailureKind.Transient);
+        TrackerCallScope.Report(TrackerFailureKind.NotFound);
+        Assert.That(calls.Failure, Is.EqualTo(TrackerFailureKind.Transient));
     }
 }

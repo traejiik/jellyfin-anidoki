@@ -9,6 +9,7 @@ using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Trackers;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
@@ -58,9 +59,11 @@ namespace jellyfin_anidoki.Api {
         public async Task<HttpResponseMessage?> AuthenticatedApiCall(ApiName provider, CallType callType, string url, FormUrlEncodedContent formUrlEncodedContent = null, StringContent stringContent = null, Dictionary<string, string>? requestHeaders = null) {
             int attempts = 0;
             int timeoutSeconds = Default429Timeout;
+            TrackerFailureKind lastFailure = TrackerFailureKind.Unauthorized;
             UserApiAuth? auth = UserConfig.UserApiAuth?.FirstOrDefault(item => item.Name == provider);
             if (auth == null) {
                 _logger.LogError("Could not find authentication details, please authenticate the plugin first");
+                TrackerCallScope.Report(TrackerFailureKind.Unauthorized);
                 return null;
             }
 
@@ -102,6 +105,7 @@ namespace jellyfin_anidoki.Api {
                 } catch (Exception e) {
                     // no response arrived, so the call can't be treated as a success; a write may still have landed
                     _logger.LogError("({Provider}) {CallType} {Url} failed before a response arrived: {ErrorMessage}", provider, callType, url, e.Message);
+                    TrackerCallScope.Report(TrackerFailureKind.Transient, responseReceived: false);
                     return null;
                 }
 
@@ -112,12 +116,14 @@ namespace jellyfin_anidoki.Api {
                 } else {
                     switch (responseMessage.StatusCode) {
                         case HttpStatusCode.Unauthorized:
+                            lastFailure = TrackerFailureKind.Unauthorized;
                             // token has probably expired; try refreshing it
                             UserApiAuth newAuth;
                             try {
                                 newAuth = await new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer).GetToken(UserConfig.UserId, refreshToken: auth.RefreshToken);
                             } catch (Exception e) {
                                 _logger.LogError("Could not re-authenticate: {ErrorMessage}, please manually re-authenticate the user via the AniDoki configuration page", e.Message);
+                                TrackerCallScope.Report(TrackerFailureKind.Unauthorized);
                                 return null;
                             }
 
@@ -126,6 +132,7 @@ namespace jellyfin_anidoki.Api {
                             attempts++;
                             break;
                         case HttpStatusCode.TooManyRequests:
+                            lastFailure = TrackerFailureKind.RateLimited;
                             _logger.LogWarning("({Provider}) API rate limit exceeded, retrying the API call again in {TimeoutSeconds} seconds...", provider, timeoutSeconds);
                             MemoryCacheHelper.SetRateLimitingForProvider(provider, _memoryCache, TimeSpan.FromSeconds(timeoutSeconds));
                             timeoutSeconds *= TimeoutIncrementMultiplier;
@@ -133,12 +140,14 @@ namespace jellyfin_anidoki.Api {
                             continue;
                         default:
                             _logger.LogError("Unable to complete {Provider} API call ({CallType} {Url}), reason: {StatusCode}, content: \n{ResponseBody}", provider, callType.ToString(), url, responseMessage.StatusCode, await responseMessage.Content.ReadAsStringAsync());
+                            TrackerCallScope.Report(TrackerCallScope.FromStatus(responseMessage.StatusCode));
                             return null;
                     }
                 }
             }
 
             _logger.LogError("Unable to authenticate the API call, re-authenticate the plugin");
+            TrackerCallScope.Report(lastFailure);
             return null;
         }
 
