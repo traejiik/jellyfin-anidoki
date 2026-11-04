@@ -83,7 +83,7 @@ public class TaskProcessMarkedMedia {
     private async Task Run(List<(Guid userId, Guid? seasonId, Video baseItem)> batch) {
         var (userId, _, firstItem) = batch[0];
         var userConfig = Plugin.Instance?.PluginConfiguration.UserConfig.FirstOrDefault(uc => uc.UserId == userId);
-        if (userConfig == null || !UpdateProviderStatus.LibraryCheck(userConfig, _libraryManager, _logger, firstItem))
+        if (userConfig == null || !LibraryFilter.Includes(userConfig, _libraryManager, _logger, firstItem))
             return;
         var target = batch.Where(item => !SyncHelper.MediaShouldBeIgnored(item.baseItem)).MaxBy(item => item.baseItem.IndexNumber);
         if (target.Equals(default((Guid, Guid?, Video)))) {
@@ -111,9 +111,9 @@ public class TaskProcessMarkedMedia {
 
     private async Task Update(Video item, Guid userId, OperationContext operation) {
         var collector = new PlaybackOutcomeCollector(operation.Record);
-        var updateProviderStatus = new UpdateProviderStatus(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
+        var pipeline = new SyncPipeline(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
         try {
-            await updateProviderStatus.UpdateInsideGate(item, userId, true, collector, SyncUpdateSource.LegacyManual, operation.CancellationToken);
+            await pipeline.Run(item, userId, true, collector, SyncUpdateSource.LegacyManual, operation.CancellationToken);
         } finally {
             _discord?.Enqueue(SyncOperationSummary.Capture(item, userId, operation.OperationId, SyncNotificationTrigger.LegacyManual, collector));
         }

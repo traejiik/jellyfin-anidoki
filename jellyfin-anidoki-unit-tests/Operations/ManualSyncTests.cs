@@ -11,6 +11,7 @@ using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Operations;
+using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki_unit_tests.Characterization;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Common.Configuration;
@@ -150,28 +151,24 @@ public class ManualSyncTests {
     }
 
     /// <summary>Delegates to a fake tracker and runs <see cref="OnSearch"/> before the first search answers.</summary>
-    private sealed class CancellingTracker(FakeTracker inner) : IApiCallHelpers {
+    private sealed class CancellingTracker(FakeTracker inner) : ITrackerClient {
         public Action? OnSearch { get; set; }
 
-        public Task<List<Anime>> SearchAnime(string query) {
+        public Task<List<Anime>?> SearchAnime(string query) {
             OnSearch?.Invoke();
             OnSearch = null;
             return inner.SearchAnime(query);
         }
 
-        public Task<Anime> GetAnime(int id, string? alternativeId = null, bool getRelated = false) => inner.GetAnime(id, alternativeId, getRelated);
+        public Task<Anime?> GetAnime(int id, string? alternativeId = null, bool getRelated = false) => inner.GetAnime(id, alternativeId, getRelated);
 
-        public Task<Anime> GetAnime(AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, string title, bool getRelated = false) =>
+        public Task<Anime?> GetAnime(AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, string title, bool getRelated = false) =>
             inner.GetAnime(ids, title, getRelated);
 
-        public Task<UpdateAnimeStatusResponse> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status, bool? isRewatching = null,
+        public Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status, bool? isRewatching = null,
             int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null, string? alternativeId = null,
             AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? ids = null, bool? isShow = null) =>
             inner.UpdateAnime(animeId, numberOfWatchedEpisodes, status, isRewatching, numberOfTimesRewatched, startDate, endDate, alternativeId, ids, isShow);
-
-        public Task<MalApiCalls.User> GetUser() => inner.GetUser();
-
-        public Task<List<Anime>> GetAnimeList(Status status, int? userId = null) => inner.GetAnimeList(status, userId);
     }
 
     // Cancelling while an item is syncing ends the run as cancelled; the item's error handler must not swallow it.
@@ -187,7 +184,7 @@ public class ManualSyncTests {
         var sync = new SyncProviderFromLocal(new Mock<IUserManager>().Object, harness.Library.Library.Object, NullLoggerFactory.Instance,
             new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(),
             new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, _user.Id.ToString()) {
-            ApiCallHelpersFactory = (_, _) => tracker
+            ClientOverride = (_, _) => tracker
         };
 
         OperationRunner.Handle handle;

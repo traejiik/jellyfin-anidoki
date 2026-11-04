@@ -92,7 +92,7 @@ public class SplitSeasonResolutionTests {
             new Dictionary<string, string> { ["AniList"] = SyncHarness.EntryId.ToString() });
         _harness.ConfigureUser(_user, false, false, provider);
         var collector = new PlaybackOutcomeCollector();
-        await _harness.NewUpdater().UpdateInsideGate(episode, _user, true, collector, SyncUpdateSource.Playback);
+        await _harness.NewUpdater().Run(episode, _user, true, collector, SyncUpdateSource.Playback);
         return collector.Outcomes.Where(outcome => outcome.Provider == provider).ToList();
     }
 

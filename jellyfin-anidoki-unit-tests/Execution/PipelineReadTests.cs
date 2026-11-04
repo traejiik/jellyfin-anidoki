@@ -9,7 +9,7 @@ using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.Execution;
 
-/// <summary>How many times one sync reads each tracker entry, end to end through UpdateProviderStatus.</summary>
+/// <summary>How many times one sync reads each tracker entry, end to end through SyncPipeline.</summary>
 [TestFixture, NonParallelizable]
 public class PipelineReadTests {
     private static readonly Dictionary<string, string> AniListId = new() { ["AniList"] = SyncHarness.EntryId.ToString() };

@@ -75,7 +75,7 @@ namespace jellyfin_anidoki {
 
         public void PlaybackStopped(object sender, PlaybackStopEventArgs e) {
             try {
-                // Unfinished playback never syncs (UpdateProviderStatus requires completion), so it starts no operation.
+                // Unfinished playback never syncs (SyncPipeline requires completion), so it starts no operation.
                 if (!e.PlayedToCompletion)
                     return;
                 if (SyncHelper.MediaShouldBeIgnored(e.Item)) {
@@ -96,9 +96,9 @@ namespace jellyfin_anidoki {
 
         private async Task RunPlayback(BaseItem item, Guid userId, PlaybackNotificationContext context, OperationContext operation) {
             var collector = new PlaybackOutcomeCollector(operation.Record);
-            var updateProviderStatus = new UpdateProviderStatus(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
+            var pipeline = new SyncPipeline(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
             try {
-                await updateProviderStatus.UpdateInsideGate(item, userId, true, collector, SyncUpdateSource.Playback, operation.CancellationToken);
+                await pipeline.Run(item, userId, true, collector, SyncUpdateSource.Playback, operation.CancellationToken);
             } finally {
                 if (collector.HasConfirmedChange)
                     _manualMarks?.Supersede(userId, item.Id);

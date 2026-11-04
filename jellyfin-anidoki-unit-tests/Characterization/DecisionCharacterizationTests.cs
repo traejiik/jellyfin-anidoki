@@ -12,7 +12,7 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests.Characterization;
 
 /// <summary>
-/// Records the decision UpdateProviderStatus makes for every combination of provider, list state, episode position,
+/// Records the decision SyncPipeline makes for every combination of provider, list state, episode position,
 /// user rules and trigger, through the ID-resolution path (season 1, AniList ID on the series).
 /// </summary>
 [TestFixture, NonParallelizable]
@@ -54,11 +54,11 @@ public class DecisionCharacterizationTests {
     }
 
     /// <summary>
-    /// List states as each provider's conversion presents them to UpdateProviderStatus.
+    /// List states as each provider's conversion presents them to SyncPipeline.
     /// </summary>
     private static IEnumerable<(string Label, MyListStatus? Status)> States(ApiName provider, int total) {
         int completedProgress = total > 0 ? total : 12;
-        // ApiCallHelpers.GetConvertedKitsuUserList returns an empty MyListStatus (Watching, progress 0) when the
+        // KitsuTrackerClient.GetConvertedUserList returns an empty MyListStatus (Watching, progress 0) when the
         // entry is not on the user's list; the other conversions leave it null.
         yield return ("not-on-list", provider == ApiName.Kitsu ? new MyListStatus() : null);
         yield return ("plan-to-watch p=0", new MyListStatus { Status = Status.Plan_to_watch, NumEpisodesWatched = 0 });

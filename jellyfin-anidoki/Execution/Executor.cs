@@ -218,7 +218,7 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
         Status? status = receipt?.Status switch {
             null => null,
             TrackerStatus.Completed when receipt.Rewatching == true => Status.Rewatching,
-            { } acknowledged => ApiCallHelpersTrackerProvider.ToClientStatus(acknowledged)
+            { } acknowledged => TrackerProvider.ToClientStatus(acknowledged)
         };
         // write outcomes have always used the main title, else the English one
         Record(TargetId(planned), planned.Titles?.Main ?? planned.Titles?.English ?? "", kind, step, receipt?.Progress, status, changed, detail);

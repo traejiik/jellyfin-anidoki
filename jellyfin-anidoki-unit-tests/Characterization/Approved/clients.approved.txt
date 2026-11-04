@@ -1,0 +1,377 @@
+## Mal
+search
+  GET https://api.myanimelist.net/v2/anime?q=Fixture&fields=id%2Ctitle%2Calternative_titles%2Cnum_episodes%2Cstatus
+  threw ArgumentNullException
+read
+  GET https://api.myanimelist.net/v2/anime/500?fields=title%2Crelated_anime%2Cmy_list_status%2Cnum_episodes
+read related
+  GET https://api.myanimelist.net/v2/anime/500?fields=title%2Crelated_anime%2Cmy_list_status%2Cnum_episodes
+read without alternative id
+  GET https://api.myanimelist.net/v2/anime/500?fields=title%2Crelated_anime%2Cmy_list_status%2Cnum_episodes
+read by cross ids
+write Watching rewatching=-
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=watching&is_rewatching=false&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Watching rewatching=True
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=watching&is_rewatching=True&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Watching rewatching=False
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=watching&is_rewatching=false&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Completed rewatching=-
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=completed&is_rewatching=false&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Completed rewatching=True
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=completed&is_rewatching=True&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Completed rewatching=False
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=completed&is_rewatching=false&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write On_hold rewatching=-
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=on_hold&is_rewatching=false&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write On_hold rewatching=True
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=on_hold&is_rewatching=True&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write On_hold rewatching=False
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=on_hold&is_rewatching=false&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Dropped rewatching=-
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=dropped&is_rewatching=false&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Dropped rewatching=True
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=dropped&is_rewatching=True&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Dropped rewatching=False
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=dropped&is_rewatching=false&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Plan_to_watch rewatching=-
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=plan_to_watch&is_rewatching=false&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Plan_to_watch rewatching=True
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=plan_to_watch&is_rewatching=True&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Plan_to_watch rewatching=False
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=plan_to_watch&is_rewatching=false&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Rewatching rewatching=-
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=rewatching&is_rewatching=false&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Rewatching rewatching=True
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=rewatching&is_rewatching=True&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write Rewatching rewatching=False
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=rewatching&is_rewatching=false&num_times_rewatched=3&start_date=2026-01-02&finish_date=2026-02-03
+write without identifiers
+  PUT https://api.myanimelist.net/v2/anime/500/my_list_status num_watched_episodes=5&status=watching&is_rewatching=false
+## AniList
+search
+  POST https://graphql.anilist.co/ {"query":"query ($search: String!, $type: MediaType, $perPage: Int, $page: Int) {\n            Page(perPage: $perPage, page: $page) {\n                pageInfo {\n                    total\n                        perPage\n                    currentPage\n                        lastPage\n                    hasNextPage\n                }\n                media(search: $search, type: $type) {\n                    id\n                    title {\n                        romaji\n                            english\n                        native\n                            userPreferred\n                    },\n                    synonyms\n                    episodes\n                    status\n                    isAdult\n                }\n            }\n        }\n        ","variables":{"search":"Fixture","type":"ANIME","perPage":"50","page":"1"}}
+  threw NullReferenceException
+read
+  POST https://graphql.anilist.co/ {"query":"query ($id: Int) {\n          Media(id: $id) {\n            id\n            episodes\n            isAdult\n            title {\n              romaji\n              english\n              native\n              userPreferred\n            }\n            relations {\n              edges {\n                relationType\n                node {\n                  id\n                  title {\n                    romaji\n                    english\n                    native\n                    userPreferred\n                  }\n                }\n              }\n            }\n            mediaListEntry {\n              status\n              progress\n              repeat\n              startedAt {\n                day\n                month\n                year\n              }\n              completedAt {\n                day\n                month\n                year\n              }\n            }\n          }\n        }","variables":{"id":"500"}}
+  threw NullReferenceException
+read related
+  POST https://graphql.anilist.co/ {"query":"query ($id: Int) {\n          Media(id: $id) {\n            id\n            episodes\n            isAdult\n            title {\n              romaji\n              english\n              native\n              userPreferred\n            }\n            relations {\n              edges {\n                relationType\n                node {\n                  id\n                  title {\n                    romaji\n                    english\n                    native\n                    userPreferred\n                  }\n                }\n              }\n            }\n            mediaListEntry {\n              status\n              progress\n              repeat\n              startedAt {\n                day\n                month\n                year\n              }\n              completedAt {\n                day\n                month\n                year\n              }\n            }\n          }\n        }","variables":{"id":"500"}}
+  threw NullReferenceException
+read without alternative id
+  POST https://graphql.anilist.co/ {"query":"query ($id: Int) {\n          Media(id: $id) {\n            id\n            episodes\n            isAdult\n            title {\n              romaji\n              english\n              native\n              userPreferred\n            }\n            relations {\n              edges {\n                relationType\n                node {\n                  id\n                  title {\n                    romaji\n                    english\n                    native\n                    userPreferred\n                  }\n                }\n              }\n            }\n            mediaListEntry {\n              status\n              progress\n              repeat\n              startedAt {\n                day\n                month\n                year\n              }\n              completedAt {\n                day\n                month\n                year\n              }\n            }\n          }\n        }","variables":{"id":"500"}}
+  threw NullReferenceException
+read by cross ids
+write Watching rewatching=-
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"CURRENT","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Watching rewatching=True
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"CURRENT","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Watching rewatching=False
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"CURRENT","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Completed rewatching=-
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"COMPLETED","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Completed rewatching=True
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"REPEATING","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Completed rewatching=False
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"COMPLETED","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write On_hold rewatching=-
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"PAUSED","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write On_hold rewatching=True
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"PAUSED","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write On_hold rewatching=False
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"PAUSED","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Dropped rewatching=-
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"DROPPED","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Dropped rewatching=True
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"DROPPED","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Dropped rewatching=False
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"DROPPED","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Plan_to_watch rewatching=-
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"PLANNING","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Plan_to_watch rewatching=True
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"PLANNING","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Plan_to_watch rewatching=False
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"PLANNING","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Rewatching rewatching=-
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"REPEATING","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Rewatching rewatching=True
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"REPEATING","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write Rewatching rewatching=False
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $repeat: Int,$startDay: Int, $startMonth: Int, $startYear: Int,$endDay: Int, $endMonth: Int, $endYear: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress, repeat: $repeat, startedAt: {day: $startDay, month: $startMonth, year: $startYear}, completedAt: {day: $endDay, month: $endMonth, year: $endYear}) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"REPEATING","progress":"5","repeat":"3","startDay":"2","startMonth":"1","startYear":"2026","endDay":"3","endMonth":"2","endYear":"2026"}}
+write without identifiers
+  POST https://graphql.anilist.co/ {"query":"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int) {\n          SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress) {\n            id\n            progress\n            status\n            repeat\n          }\n        }","variables":{"mediaId":"500","status":"CURRENT","progress":"5"}}
+## Kitsu
+search
+  GET https://kitsu.io/api/edge/anime?filter[text]=Fixture
+read
+  GET https://kitsu.io/api/edge/anime/500
+  GET https://kitsu.io/api/edge/anime/500/media-relationships?include=destination
+  threw NullReferenceException
+read related
+  GET https://kitsu.io/api/edge/anime/500
+  GET https://kitsu.io/api/edge/anime/500/media-relationships?include=destination
+  threw NullReferenceException
+read without alternative id
+  GET https://kitsu.io/api/edge/anime/500
+  GET https://kitsu.io/api/edge/anime/500/media-relationships?include=destination
+  threw NullReferenceException
+read by cross ids
+write Watching rewatching=-
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"current","progress":5,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Watching rewatching=True
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"current","progress":5,"reconsuming":true,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Watching rewatching=False
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"current","progress":5,"reconsuming":false,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Completed rewatching=-
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"completed","progress":5,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Completed rewatching=True
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"current","progress":5,"reconsuming":true,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Completed rewatching=False
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"completed","progress":5,"reconsuming":false,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write On_hold rewatching=-
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"on_hold","progress":5,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write On_hold rewatching=True
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"on_hold","progress":5,"reconsuming":true,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write On_hold rewatching=False
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"on_hold","progress":5,"reconsuming":false,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Dropped rewatching=-
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"dropped","progress":5,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Dropped rewatching=True
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"dropped","progress":5,"reconsuming":true,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Dropped rewatching=False
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"dropped","progress":5,"reconsuming":false,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Plan_to_watch rewatching=-
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"planned","progress":5,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Plan_to_watch rewatching=True
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"planned","progress":5,"reconsuming":true,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Plan_to_watch rewatching=False
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"planned","progress":5,"reconsuming":false,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Rewatching rewatching=-
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"completed","progress":5,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Rewatching rewatching=True
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"current","progress":5,"reconsuming":true,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write Rewatching rewatching=False
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"completed","progress":5,"reconsuming":false,"reconsumeCount":3,"startedAt":"2026-01-02T03:04:05Z","finishedAt":"2026-02-03T04:05:06Z"},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+write without identifiers
+  GET https://kitsu.io/api/edge/library-entries?filter[animeId]=500&filter[userId]=1
+  POST https://kitsu.io/api/edge/library-entries {"data":{"type":"libraryEntries","attributes":{"status":"current","progress":5},"relationships":{"anime":{"data":{"type":"anime","id":500}},"user":{"data":{"id":1,"type":"users"}}}}}
+## Annict
+search
+  POST https://api.annict.com/graphql {"query":"query ($title: String!) {\n            searchWorks(titles: [$title]) {\n                nodes {\n                    id\n                    titleEn\n                    malAnimeId\n                    viewerStatusState\n                    episodesCount\n                }\n            }\n        }\n        ","variables":{"title":"Fixture"}}
+  threw NullReferenceException
+read
+  POST https://api.annict.com/graphql {"query":"query ($id: ID!) {\n          node(id: $id) {\n            ... on Work {\n                id\n                titleEn\n                malAnimeId\n                viewerStatusState\n                episodesCount\n            }\n          }\n        }","variables":{"id":"alt-500"}}
+  threw NullReferenceException
+read related
+  POST https://api.annict.com/graphql {"query":"query ($id: ID!) {\n          node(id: $id) {\n            ... on Work {\n                id\n                titleEn\n                malAnimeId\n                viewerStatusState\n                episodesCount\n            }\n          }\n        }","variables":{"id":"alt-500"}}
+  threw NullReferenceException
+read without alternative id
+read by cross ids
+write Watching rewatching=-
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"WATCHING"}}
+write Watching rewatching=True
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"WATCHING"}}
+write Watching rewatching=False
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"WATCHING"}}
+write Completed rewatching=-
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"WATCHED"}}
+write Completed rewatching=True
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"WATCHED"}}
+write Completed rewatching=False
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"WATCHED"}}
+write On_hold rewatching=-
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"ON_HOLD"}}
+write On_hold rewatching=True
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"ON_HOLD"}}
+write On_hold rewatching=False
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"ON_HOLD"}}
+write Dropped rewatching=-
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"STOP_WATCHING"}}
+write Dropped rewatching=True
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"STOP_WATCHING"}}
+write Dropped rewatching=False
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"STOP_WATCHING"}}
+write Plan_to_watch rewatching=-
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"WANNA_WATCH"}}
+write Plan_to_watch rewatching=True
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"WANNA_WATCH"}}
+write Plan_to_watch rewatching=False
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"WANNA_WATCH"}}
+write Rewatching rewatching=-
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"WATCHED"}}
+write Rewatching rewatching=True
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"WATCHED"}}
+write Rewatching rewatching=False
+  POST https://api.annict.com/graphql {"query":"mutation ($workId: ID!, $state: StatusState!) {\n          updateStatus (input: {workId:$workId, state:$state}) {\n            clientMutationId\n          }\n        }","variables":{"workId":"alt-500","state":"WATCHED"}}
+write without identifiers
+## Shikimori
+search
+  POST https://shikimori.io/api/graphql {"query":"\n      query SearchAnime($search: String!, $page: Int!, $limit: Int!) {\n        animes(search: $search, page: $page, limit: $limit) {\n          ...AnimeFields\n        }\n      }\n\n      query GetAnime($id: String!, $getRelated: Boolean!) {\n        animes(ids: $id) {\n          ...AnimeFields\n\n          userRate {\n            ...UserRateFields\n          }\n\n          related @include(if: $getRelated) {\n            anime {\n              ...AnimeFields\n            }\n            relationEn\n          }\n        }\n      }\n\n      query GetUserAnimeList($mylist: MylistString!, $page: Int!, $limit: Int!) {\n        animes(mylist: $mylist, page: $page, limit: $limit) {\n          ...AnimeFields\n          userRate {\n            ...UserRateFields\n          }\n        }\n      }\n\n      fragment UserRateFields on UserRate {\n         status\n         rewatches\n         episodes\n      }\n\n      fragment AnimeFields on Anime {\n        id\n        malId\n        name\n        episodes\n        synonyms\n        russian\n        english\n        japanese\n        isCensored\n      }\n    ","operationName":"SearchAnime","variables":{"search":"Fixture","limit":50,"page":1}}
+read
+  POST https://shikimori.io/api/graphql {"query":"\n      query SearchAnime($search: String!, $page: Int!, $limit: Int!) {\n        animes(search: $search, page: $page, limit: $limit) {\n          ...AnimeFields\n        }\n      }\n\n      query GetAnime($id: String!, $getRelated: Boolean!) {\n        animes(ids: $id) {\n          ...AnimeFields\n\n          userRate {\n            ...UserRateFields\n          }\n\n          related @include(if: $getRelated) {\n            anime {\n              ...AnimeFields\n            }\n            relationEn\n          }\n        }\n      }\n\n      query GetUserAnimeList($mylist: MylistString!, $page: Int!, $limit: Int!) {\n        animes(mylist: $mylist, page: $page, limit: $limit) {\n          ...AnimeFields\n          userRate {\n            ...UserRateFields\n          }\n        }\n      }\n\n      fragment UserRateFields on UserRate {\n         status\n         rewatches\n         episodes\n      }\n\n      fragment AnimeFields on Anime {\n        id\n        malId\n        name\n        episodes\n        synonyms\n        russian\n        english\n        japanese\n        isCensored\n      }\n    ","operationName":"GetAnime","variables":{"id":"alt-500","getRelated":false}}
+read related
+  POST https://shikimori.io/api/graphql {"query":"\n      query SearchAnime($search: String!, $page: Int!, $limit: Int!) {\n        animes(search: $search, page: $page, limit: $limit) {\n          ...AnimeFields\n        }\n      }\n\n      query GetAnime($id: String!, $getRelated: Boolean!) {\n        animes(ids: $id) {\n          ...AnimeFields\n\n          userRate {\n            ...UserRateFields\n          }\n\n          related @include(if: $getRelated) {\n            anime {\n              ...AnimeFields\n            }\n            relationEn\n          }\n        }\n      }\n\n      query GetUserAnimeList($mylist: MylistString!, $page: Int!, $limit: Int!) {\n        animes(mylist: $mylist, page: $page, limit: $limit) {\n          ...AnimeFields\n          userRate {\n            ...UserRateFields\n          }\n        }\n      }\n\n      fragment UserRateFields on UserRate {\n         status\n         rewatches\n         episodes\n      }\n\n      fragment AnimeFields on Anime {\n        id\n        malId\n        name\n        episodes\n        synonyms\n        russian\n        english\n        japanese\n        isCensored\n      }\n    ","operationName":"GetAnime","variables":{"id":"alt-500","getRelated":true}}
+read without alternative id
+read by cross ids
+write Watching rewatching=-
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"watching","user_id":"1","target_type":"Anime"}}
+write Watching rewatching=True
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"watching","user_id":"1","target_type":"Anime"}}
+write Watching rewatching=False
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"watching","user_id":"1","target_type":"Anime"}}
+write Completed rewatching=-
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"completed","user_id":"1","target_type":"Anime"}}
+write Completed rewatching=True
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"completed","user_id":"1","target_type":"Anime"}}
+write Completed rewatching=False
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"completed","user_id":"1","target_type":"Anime"}}
+write On_hold rewatching=-
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"on_hold","user_id":"1","target_type":"Anime"}}
+write On_hold rewatching=True
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"on_hold","user_id":"1","target_type":"Anime"}}
+write On_hold rewatching=False
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"on_hold","user_id":"1","target_type":"Anime"}}
+write Dropped rewatching=-
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"dropped","user_id":"1","target_type":"Anime"}}
+write Dropped rewatching=True
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"dropped","user_id":"1","target_type":"Anime"}}
+write Dropped rewatching=False
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"dropped","user_id":"1","target_type":"Anime"}}
+write Plan_to_watch rewatching=-
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"planned","user_id":"1","target_type":"Anime"}}
+write Plan_to_watch rewatching=True
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"planned","user_id":"1","target_type":"Anime"}}
+write Plan_to_watch rewatching=False
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"planned","user_id":"1","target_type":"Anime"}}
+write Rewatching rewatching=-
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"rewatching","user_id":"1","target_type":"Anime"}}
+write Rewatching rewatching=True
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"rewatching","user_id":"1","target_type":"Anime"}}
+write Rewatching rewatching=False
+  POST https://shikimori.io/api/v2/user_rates {"user_rate":{"target_id":"alt-500","episodes":5,"rewatches":3,"status":"rewatching","user_id":"1","target_type":"Anime"}}
+write without identifiers
+## Simkl
+search
+read
+read related
+read without alternative id
+read by cross ids
+  GET https://api.simkl.com/search/id?client_id=client&anilist=11&kitsu=13&anidb=14&mal=12
+  GET https://api.simkl.com/anime/9?extended=full&client_id=client
+  GET https://api.simkl.com/sync/all-items/anime?extended=full
+  threw ArgumentNullException
+write Watching rewatching=-
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Watching rewatching=True
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Watching rewatching=False
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Completed rewatching=-
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Completed rewatching=True
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Completed rewatching=False
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write On_hold rewatching=-
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write On_hold rewatching=True
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write On_hold rewatching=False
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Dropped rewatching=-
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Dropped rewatching=True
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Dropped rewatching=False
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Plan_to_watch rewatching=-
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Plan_to_watch rewatching=True
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Plan_to_watch rewatching=False
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Rewatching rewatching=-
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Rewatching rewatching=True
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write Rewatching rewatching=False
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
+write without identifiers
+## Mal list
+user
+  GET https://api.myanimelist.net/v2/users/@me
+list Watching
+  GET https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status%2Cnum_episodes&status=watching
+list Completed
+  GET https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status%2Cnum_episodes&status=completed
+list On_hold
+  GET https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status%2Cnum_episodes&status=on_hold
+list Dropped
+  GET https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status%2Cnum_episodes&status=dropped
+list Plan_to_watch
+  GET https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status%2Cnum_episodes&status=plan_to_watch
+list Rewatching
+  GET https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status%2Cnum_episodes&status=rewatching
+list without user
+  GET https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status%2Cnum_episodes&status=watching
+## AniList list
+user
+  POST https://graphql.anilist.co/ {"query":"query {\n          Viewer {\n            id\n            name\n          }\n        }","variables":null}
+  threw NullReferenceException
+list Watching
+  POST https://graphql.anilist.co/ {"query":"query ($status: MediaListStatus, $userId: Int, $chunk: Int, $chunkSize: Int) {\n              MediaListCollection(userId: $userId, status: $status, chunk: $chunk, perChunk: $chunkSize, type: ANIME) {\n                hasNextChunk\n                lists {\n                  entries {\n                    media {\n                      id\n                      siteUrl\n                    }\n                    completedAt {\n                      day\n                      month\n                      year\n                    }\n                    progress\n                  }\n                }\n              }\n            }","variables":{"status":"CURRENT","userId":"7","chunkSize":"500","chunk":"1"}}
+list Completed
+  POST https://graphql.anilist.co/ {"query":"query ($status: MediaListStatus, $userId: Int, $chunk: Int, $chunkSize: Int) {\n              MediaListCollection(userId: $userId, status: $status, chunk: $chunk, perChunk: $chunkSize, type: ANIME) {\n                hasNextChunk\n                lists {\n                  entries {\n                    media {\n                      id\n                      siteUrl\n                    }\n                    completedAt {\n                      day\n                      month\n                      year\n                    }\n                    progress\n                  }\n                }\n              }\n            }","variables":{"status":"COMPLETED","userId":"7","chunkSize":"500","chunk":"1"}}
+list On_hold
+  POST https://graphql.anilist.co/ {"query":"query ($status: MediaListStatus, $userId: Int, $chunk: Int, $chunkSize: Int) {\n              MediaListCollection(userId: $userId, status: $status, chunk: $chunk, perChunk: $chunkSize, type: ANIME) {\n                hasNextChunk\n                lists {\n                  entries {\n                    media {\n                      id\n                      siteUrl\n                    }\n                    completedAt {\n                      day\n                      month\n                      year\n                    }\n                    progress\n                  }\n                }\n              }\n            }","variables":{"status":"PAUSED","userId":"7","chunkSize":"500","chunk":"1"}}
+list Dropped
+  POST https://graphql.anilist.co/ {"query":"query ($status: MediaListStatus, $userId: Int, $chunk: Int, $chunkSize: Int) {\n              MediaListCollection(userId: $userId, status: $status, chunk: $chunk, perChunk: $chunkSize, type: ANIME) {\n                hasNextChunk\n                lists {\n                  entries {\n                    media {\n                      id\n                      siteUrl\n                    }\n                    completedAt {\n                      day\n                      month\n                      year\n                    }\n                    progress\n                  }\n                }\n              }\n            }","variables":{"status":"DROPPED","userId":"7","chunkSize":"500","chunk":"1"}}
+list Plan_to_watch
+  POST https://graphql.anilist.co/ {"query":"query ($status: MediaListStatus, $userId: Int, $chunk: Int, $chunkSize: Int) {\n              MediaListCollection(userId: $userId, status: $status, chunk: $chunk, perChunk: $chunkSize, type: ANIME) {\n                hasNextChunk\n                lists {\n                  entries {\n                    media {\n                      id\n                      siteUrl\n                    }\n                    completedAt {\n                      day\n                      month\n                      year\n                    }\n                    progress\n                  }\n                }\n              }\n            }","variables":{"status":"PLANNING","userId":"7","chunkSize":"500","chunk":"1"}}
+list Rewatching
+  POST https://graphql.anilist.co/ {"query":"query ($status: MediaListStatus, $userId: Int, $chunk: Int, $chunkSize: Int) {\n              MediaListCollection(userId: $userId, status: $status, chunk: $chunk, perChunk: $chunkSize, type: ANIME) {\n                hasNextChunk\n                lists {\n                  entries {\n                    media {\n                      id\n                      siteUrl\n                    }\n                    completedAt {\n                      day\n                      month\n                      year\n                    }\n                    progress\n                  }\n                }\n              }\n            }","variables":{"status":"REPEATING","userId":"7","chunkSize":"500","chunk":"1"}}
+list without user
+## Kitsu list
+user
+list Watching
+  GET https://kitsu.io/api/edge/library-entries?filter[userId]=7&filter[kind]=anime&filter[status]=current&include=anime
+  threw NullReferenceException
+list Completed
+  GET https://kitsu.io/api/edge/library-entries?filter[userId]=7&filter[kind]=anime&filter[status]=completed&include=anime
+  threw NullReferenceException
+list On_hold
+  GET https://kitsu.io/api/edge/library-entries?filter[userId]=7&filter[kind]=anime&filter[status]=on_hold&include=anime
+  threw NullReferenceException
+list Dropped
+  GET https://kitsu.io/api/edge/library-entries?filter[userId]=7&filter[kind]=anime&filter[status]=dropped&include=anime
+  threw NullReferenceException
+list Plan_to_watch
+  GET https://kitsu.io/api/edge/library-entries?filter[userId]=7&filter[kind]=anime&filter[status]=planned&include=anime
+  threw NullReferenceException
+list Rewatching
+  GET https://kitsu.io/api/edge/library-entries?filter[userId]=7&filter[kind]=anime&filter[status]=current&include=anime
+  threw NullReferenceException
+list without user
+## settings on
+Mal search with NSFW
+  GET https://api.myanimelist.net/v2/anime?q=Fixture&nsfw=true&fields=id%2Ctitle%2Calternative_titles%2Cnum_episodes%2Cstatus
+  threw ArgumentNullException
+Simkl write updating every episode
+  POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}

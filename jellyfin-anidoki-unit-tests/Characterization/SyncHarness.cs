@@ -26,7 +26,7 @@ using Moq;
 namespace jellyfin_anidoki_unit_tests.Characterization;
 
 /// <summary>
-/// Runs <see cref="UpdateProviderStatus"/> against fake trackers and formats what each provider received and reported.
+/// Runs <see cref="SyncPipeline"/> against fake trackers and formats what each provider received and reported.
 /// </summary>
 internal sealed class SyncHarness : IDisposable {
     /// <summary>The ID the ARM fixture returns for every provider, and the ID most fixtures give their entry.</summary>
@@ -119,25 +119,25 @@ internal sealed class SyncHarness : IDisposable {
         ];
     }
 
-    public UpdateProviderStatus NewUpdater() => new(Library.Library.Object, new NullLoggerFactory(),
+    public SyncPipeline NewUpdater() => new(Library.Library.Object, new NullLoggerFactory(),
         new Mock<IHttpContextAccessor>().Object, new Mock<IServerApplicationHost>().Object, _http,
         new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object) {
-        ApiCallHelpersFactory = (provider, _) => Tracker(provider)
+        ClientOverride = (provider, _) => Tracker(provider)
     };
 
     /// <summary>Runs one sync and returns one line per provider: <c>Provider: writes | outcomes</c>.</summary>
-    public async Task<string> Run(UpdateProviderStatus updater, BaseItem item, Guid user, SyncUpdateSource source, params ApiName[] providers) {
+    public async Task<string> Run(SyncPipeline updater, BaseItem item, Guid user, SyncUpdateSource source, params ApiName[] providers) {
         var before = providers.ToDictionary(provider => provider, provider => Tracker(provider).Writes.Count);
         var collector = new PlaybackOutcomeCollector();
-        await updater.UpdateInsideGate(item, user, true, collector, source);
+        await updater.Run(item, user, true, collector, source);
         return string.Join("\n", providers.Select(provider => $"{provider}: {Describe(provider, before[provider], collector)}"));
     }
 
     /// <summary>Runs one sync for a single provider and returns <c>writes | outcomes</c>.</summary>
-    public async Task<string> RunSingle(UpdateProviderStatus updater, BaseItem item, Guid user, SyncUpdateSource source, ApiName provider) {
+    public async Task<string> RunSingle(SyncPipeline updater, BaseItem item, Guid user, SyncUpdateSource source, ApiName provider) {
         int before = Tracker(provider).Writes.Count;
         var collector = new PlaybackOutcomeCollector();
-        await updater.UpdateInsideGate(item, user, true, collector, source);
+        await updater.Run(item, user, true, collector, source);
         return Describe(provider, before, collector);
     }
 

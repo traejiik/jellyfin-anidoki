@@ -10,10 +10,10 @@ using jellyfin_anidoki.Models.Mal;
 namespace jellyfin_anidoki.Trackers;
 
 /// <summary>
-/// Adapts one provider's <see cref="IApiCallHelpers"/> client to <see cref="ITrackerProvider"/>. Provider differences in
-/// list state and write sequences live here. Phase 3 replaces the wrapped client with direct provider calls.
+/// Adapts one provider's <see cref="ITrackerClient"/> to <see cref="ITrackerProvider"/>. Differences in list state and
+/// write sequences live here, and the client holds the provider's own calls and conversions.
 /// </summary>
-public sealed class ApiCallHelpersTrackerProvider(ApiName name, IApiCallHelpers client, TimeProvider clock) : ITrackerProvider {
+public sealed class TrackerProvider(ApiName name, ITrackerClient client, TimeProvider clock) : ITrackerProvider {
     public ApiName Name => name;
 
     public ProviderCapabilities Capabilities { get; } = ProviderCapabilities.For(name);
@@ -91,7 +91,7 @@ public sealed class ApiCallHelpersTrackerProvider(ApiName name, IApiCallHelpers 
     }
 
     /// <summary>A read fails closed: a failed sub-request must not look like an entry that is not on the list.</summary>
-    private static async Task<T?> Reading<T>(Func<Task<T>> read, CancellationToken cancellationToken) where T : class {
+    private static async Task<T?> Reading<T>(Func<Task<T?>> read, CancellationToken cancellationToken) where T : class {
         using var calls = TrackerCallScope.Begin();
         T? result;
         try {

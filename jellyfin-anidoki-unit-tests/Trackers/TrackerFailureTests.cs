@@ -33,7 +33,7 @@ public class TrackerFailureTests {
             Task.FromResult(respond());
     }
 
-    private static ApiCallHelpersTrackerProvider Real(ApiName provider, Func<HttpResponseMessage> respond) {
+    private static TrackerProvider Real(ApiName provider, Func<HttpResponseMessage> respond) {
         var handler = new FixedResponse(respond);
         var http = new Mock<IHttpClientFactory>();
         http.Setup(factory => factory.CreateClient(It.IsAny<string>())).Returns(() => new HttpClient(handler, false));
@@ -46,22 +46,22 @@ public class TrackerFailureTests {
             UserApiAuth = [new UserApiAuth { Name = provider, AccessToken = "access", RefreshToken = "refresh" }],
             KeyPairs = [new KeyPairs { Key = "KitsuUserId", Value = "1" }, new KeyPairs { Key = "ShikimoriUserId", Value = "1" }]
         };
-        IApiCallHelpers client = provider switch {
-            ApiName.Mal => new ApiCallHelpers(malApiCalls: new MalApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
-            ApiName.AniList => new ApiCallHelpers(aniListApiCalls: new AniListApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
-            ApiName.Kitsu => new ApiCallHelpers(kitsuApiCalls: new KitsuApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
-            ApiName.Annict => new ApiCallHelpers(annictApiCalls: new AnnictApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
-            ApiName.Shikimori => new ApiCallHelpers(shikimoriApiCalls: new ShikimoriApiCalls(http.Object, loggers, host, context, cache, delayer, new Dictionary<string, string> { { "User-Agent", "tests" } }, user)),
-            ApiName.Simkl => new ApiCallHelpers(simklApiCalls: new SimklApiCalls(http.Object, loggers, host, context, cache, delayer, new Dictionary<string, string> { { "simkl-api-key", "client" } }, user)),
+        ITrackerClient client = provider switch {
+            ApiName.Mal => new MalTrackerClient(new MalApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
+            ApiName.AniList => new AniListTrackerClient(new AniListApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
+            ApiName.Kitsu => new KitsuTrackerClient(new KitsuApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
+            ApiName.Annict => new AnnictTrackerClient(new AnnictApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
+            ApiName.Shikimori => new ShikimoriTrackerClient(new ShikimoriApiCalls(http.Object, loggers, host, context, cache, delayer, new Dictionary<string, string> { { "User-Agent", "tests" } }, user)),
+            ApiName.Simkl => new SimklTrackerClient(new SimklApiCalls(http.Object, loggers, host, context, cache, delayer, new Dictionary<string, string> { { "simkl-api-key", "client" } }, user)),
             _ => throw new ArgumentOutOfRangeException(nameof(provider))
         };
-        return new ApiCallHelpersTrackerProvider(provider, client, new FixedTime(Now));
+        return new TrackerProvider(provider, client, new FixedTime(Now));
     }
 
-    private static ApiCallHelpersTrackerProvider Status(ApiName provider, HttpStatusCode status) =>
+    private static TrackerProvider Status(ApiName provider, HttpStatusCode status) =>
         Real(provider, () => new HttpResponseMessage(status));
 
-    private static ApiCallHelpersTrackerProvider NoResponse(ApiName provider) =>
+    private static TrackerProvider NoResponse(ApiName provider) =>
         Real(provider, () => throw new HttpRequestException("connection reset"));
 
     private static EntryState OnList(ApiName provider) =>

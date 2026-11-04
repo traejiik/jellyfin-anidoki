@@ -11,8 +11,10 @@ using jellyfin_anidoki.Api.Kitsu;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
+using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Operations;
+using jellyfin_anidoki.Trackers;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Net;
@@ -102,16 +104,16 @@ public class Sync {
     /// <param name="userId">ID of the user to get the anime list of.</param>
     /// <returns>Users' provider anime list.</returns>
     private async Task<List<Anime>> GetAnimeList(string userId) {
-        ApiCallHelpers apiCallHelpers = new ApiCallHelpers();
+        UserConfig config = Plugin.Instance.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == Guid.Parse(userId));
+        ITrackerListSource source = null;
         MalApiCalls.User user = new MalApiCalls.User();
         switch (_apiName) {
             case ApiName.Mal:
-                apiCallHelpers = new ApiCallHelpers(malApiCalls: new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, Plugin.Instance.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == Guid.Parse(userId))));
-
+                source = new MalTrackerClient(new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config));
                 break;
             case ApiName.AniList:
-                apiCallHelpers = new ApiCallHelpers(aniListApiCalls: new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, Plugin.Instance.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == Guid.Parse(userId))));
-                user = await apiCallHelpers.GetUser();
+                source = new AniListTrackerClient(new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config));
+                user = await source.GetUser();
                 if (user == null || user.Id == 0) {
                     _logger.LogError("(Sync) Could not retrieve user information. Cannot proceed");
                     return null;
@@ -119,9 +121,8 @@ public class Sync {
 
                 break;
             case ApiName.Kitsu:
-                apiCallHelpers = new ApiCallHelpers(kitsuApiCalls: new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, Plugin.Instance.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == Guid.Parse(userId))));
-                user = await apiCallHelpers.GetUser();
-
+                source = new KitsuTrackerClient(new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config));
+                user = await source.GetUser();
                 if (user == null || user.Id == 0) {
                     _logger.LogError("(Sync) Could not retrieve user information. Cannot proceed");
                     return null;
@@ -130,14 +131,17 @@ public class Sync {
                 break;
         }
 
+        if (source == null)
+            return null;
+
         switch (_status) {
             case SyncHelper.Status.Completed:
-                return await apiCallHelpers.GetAnimeList(Status.Completed, user?.Id);
+                return await source.GetAnimeList(Status.Completed, user?.Id);
             case SyncHelper.Status.Watching:
-                return await apiCallHelpers.GetAnimeList(Status.Watching, user?.Id);
+                return await source.GetAnimeList(Status.Watching, user?.Id);
             case SyncHelper.Status.Both:
-                List<Anime> completed = await apiCallHelpers.GetAnimeList(Status.Completed, user?.Id);
-                List<Anime> watching = await apiCallHelpers.GetAnimeList(Status.Watching, user?.Id);
+                List<Anime> completed = await source.GetAnimeList(Status.Completed, user?.Id);
+                List<Anime> watching = await source.GetAnimeList(Status.Watching, user?.Id);
                 if (completed != null && watching != null) {
                     return completed.Concat(watching).ToList();
                 }

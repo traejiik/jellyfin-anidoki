@@ -204,7 +204,7 @@ public class AniList {
             new() { RequestMethod = HttpMethod.Post, ResponseCode = HttpStatusCode.OK,
                 ResponseContent = "{\"data\":{\"SaveMediaListEntry\":null},\"errors\":[{\"message\":\"rejected\"}]}" }
         });
-        var tracker = new ApiCallHelpersTrackerProvider(ApiName.AniList, new ApiCallHelpers(aniListApiCalls: _aniListApiCalls), TimeProvider.System);
+        var tracker = new TrackerProvider(ApiName.AniList, new AniListTrackerClient(_aniListApiCalls), TimeProvider.System);
         var entry = new EntryRef(ApiName.AniList, 1, null);
         var state = new EntryState(entry, 12, new ListState(TrackerStatus.Completed, 12, false, 0), DateTimeOffset.UtcNow,
             new EntryTitles("Rewatch", null, null, []));
@@ -227,7 +227,7 @@ public class AniList {
             new() { RequestMethod = HttpMethod.Post, ResponseCode = HttpStatusCode.OK,
                 ResponseContent = "{\"data\":{\"SaveMediaListEntry\":{\"id\":123,\"status\":\"CURRENT\",\"progress\":4,\"repeat\":1}}}" }
         });
-        var result = await new ApiCallHelpers(aniListApiCalls: _aniListApiCalls).UpdateAnime(1, 5, Status.Completed,
+        var result = await new AniListTrackerClient(_aniListApiCalls).UpdateAnime(1, 5, Status.Completed,
             isRewatching: true, numberOfTimesRewatched: 2);
         Assert.That(result.AcknowledgedProgress, Is.EqualTo(4));
         Assert.That(result.AcknowledgedStatus, Is.EqualTo(Status.Watching));

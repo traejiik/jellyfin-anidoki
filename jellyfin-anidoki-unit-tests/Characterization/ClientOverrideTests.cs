@@ -9,6 +9,7 @@ using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Trackers;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Configuration;
@@ -24,7 +25,7 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests.Characterization;
 
 [TestFixture, NonParallelizable]
-public class ApiCallHelpersFactoryTests {
+public class ClientOverrideTests {
     private string _directory = null!;
     private Plugin _plugin = null!;
     private readonly Guid _user = Guid.NewGuid();
@@ -54,19 +55,19 @@ public class ApiCallHelpersFactoryTests {
                 UserApiAuth = [new UserApiAuth { Name = ApiName.AniList, AccessToken = "accessToken", RefreshToken = "refreshToken" }]
             }
         ];
-        var fake = new Mock<IApiCallHelpers>();
+        var fake = new Mock<ITrackerClient>();
         fake.Setup(f => f.SearchAnime("Seam Movie")).ReturnsAsync(new List<Anime>());
         var requested = new List<ApiName>();
-        var updater = new UpdateProviderStatus(new Mock<ILibraryManager>().Object, new NullLoggerFactory(),
+        var updater = new SyncPipeline(new Mock<ILibraryManager>().Object, new NullLoggerFactory(),
             new Mock<IHttpContextAccessor>().Object, new Mock<IServerApplicationHost>().Object, new Mock<IHttpClientFactory>().Object,
             new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object) {
-            ApiCallHelpersFactory = (provider, _) => {
+            ClientOverride = (provider, _) => {
                 requested.Add(provider);
                 return fake.Object;
             }
         };
 
-        await updater.UpdateInsideGate(new Movie { Id = Guid.NewGuid(), Name = "Seam Movie", ProviderIds = new Dictionary<string, string>() },
+        await updater.Run(new Movie { Id = Guid.NewGuid(), Name = "Seam Movie", ProviderIds = new Dictionary<string, string>() },
             _user, true, null, SyncUpdateSource.Playback);
 
         Assert.That(requested, Is.EqualTo(new[] { ApiName.AniList }));

@@ -43,7 +43,6 @@ namespace jellyfin_anidoki {
             _capabilities = capabilities;
             _userDataManager = userDataManager;
             _libraryManager = libraryManager;
-            loggerFactory.CreateLogger<UpdateProviderStatus>();
             _httpContextAccessor = httpContextAccessor;
             _serverApplicationHost = serverApplicationHost;
             _httpClientFactory = httpClientFactory;
