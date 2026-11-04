@@ -24,6 +24,9 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
         serviceCollection.AddSingleton<Operations.OperationRunner>();
         // Registered before the triggers so leftovers from the previous run are marked before new work is queued.
         serviceCollection.AddHostedService(provider => provider.GetRequiredService<Operations.OperationRunner>());
+        serviceCollection.AddSingleton(provider => new Matching.MatchStore(
+            Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath), provider.GetRequiredService<TimeProvider>()));
+        serviceCollection.AddHostedService<Matching.MatchSweepService>();
         serviceCollection.AddSingleton<ManualMarks.ManualMarkStore>();
         serviceCollection.AddSingleton<ManualMarks.ManualMarkQueue>();
         serviceCollection.AddSingleton(provider => {

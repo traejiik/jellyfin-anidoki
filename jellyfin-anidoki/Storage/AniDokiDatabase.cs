@@ -53,7 +53,7 @@ public sealed class AniDokiDatabase {
         var connection = new SqliteConnection(_connectionString);
         connection.Open();
         using var pragma = connection.CreateCommand();
-        pragma.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;";
+        pragma.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;";
         pragma.ExecuteNonQuery();
         return connection;
     }
