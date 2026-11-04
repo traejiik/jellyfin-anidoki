@@ -96,7 +96,7 @@ namespace jellyfin_anidoki {
                 return;
             }
 
-            if (LibraryCheck(userConfig, _libraryManager, _logger, e) && video is Episode or Movie && playedToCompletion) {
+            if (LibraryFilter.Includes(userConfig, _libraryManager, _logger, e) && video is Episode or Movie && playedToCompletion) {
                 var source = SyncSource.From(video);
                 if (source == null) {
                     _logger.LogError("Video does not contain required index numbers to sync; skipping");
@@ -125,41 +125,6 @@ namespace jellyfin_anidoki {
 
                     await executor.Execute(resolution, cancellationToken);
                 }
-            }
-        }
-
-        /// <summary>
-        /// Checks if the supplied item is in a folder the user wants to track for anime updates.
-        /// </summary>
-        /// <param name="userConfig">User config.</param>
-        /// <param name="libraryManager">Library manager instance.</param>
-        /// <param name="logger">Logger instance.</param>
-        /// <param name="item">Item to check location of.</param>
-        /// <returns></returns>
-        public static bool LibraryCheck(UserConfig userConfig, ILibraryManager libraryManager, ILogger logger, BaseItem item) {
-            try {
-                // user has no library filters; a missing list (an older configuration) means the same
-                if (userConfig.LibraryToCheck is null or { Length: 0 }) {
-                    return true;
-                }
-
-                // item is in a path of a folder the user wants to be monitored
-                var topParent = item.GetTopParent();
-                if (topParent is not null) {
-                    var allLocations = libraryManager.GetVirtualFolders()
-                        .Where(item => userConfig.LibraryToCheck.Contains(item.ItemId))
-                        .SelectMany(f => f.Locations)
-                        .ToHashSet();
-                    if (allLocations.Contains(topParent.Path)) {
-                        return true;
-                    }
-                }
-
-                logger.LogInformation("Item is in a folder the user does not want to be monitored; ignoring");
-                return false;
-            } catch (Exception e) {
-                logger.LogInformation("Library check ran into an issue: {ErrorMessage}", e.Message);
-                return false;
             }
         }
     }

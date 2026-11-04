@@ -83,7 +83,7 @@ public class TaskProcessMarkedMedia {
     private async Task Run(List<(Guid userId, Guid? seasonId, Video baseItem)> batch) {
         var (userId, _, firstItem) = batch[0];
         var userConfig = Plugin.Instance?.PluginConfiguration.UserConfig.FirstOrDefault(uc => uc.UserId == userId);
-        if (userConfig == null || !UpdateProviderStatus.LibraryCheck(userConfig, _libraryManager, _logger, firstItem))
+        if (userConfig == null || !LibraryFilter.Includes(userConfig, _libraryManager, _logger, firstItem))
             return;
         var target = batch.Where(item => !SyncHelper.MediaShouldBeIgnored(item.baseItem)).MaxBy(item => item.baseItem.IndexNumber);
         if (target.Equals(default((Guid, Guid?, Video)))) {

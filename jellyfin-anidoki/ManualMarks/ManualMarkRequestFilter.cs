@@ -24,7 +24,7 @@ public sealed class ManualMarkRequestFilter(AuthenticatedSessionResolver resolve
     // Mirrors playback sync: users without settings, or items outside their selected libraries, are never tracked.
     internal static bool IsTracked(Guid userId, MediaBrowser.Controller.Entities.BaseItem item, ILibraryManager library, ILogger logger) {
         var preferences = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(c => c.UserId == userId);
-        return preferences != null && UpdateProviderStatus.LibraryCheck(preferences, library, logger, item);
+        return preferences != null && LibraryFilter.Includes(preferences, library, logger, item);
     }
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next) {
