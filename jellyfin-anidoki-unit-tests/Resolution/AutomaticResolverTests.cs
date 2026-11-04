@@ -50,7 +50,7 @@ public class AutomaticResolverTests {
 
     private async Task<SourceResolution> Resolve(ApiName provider, SyncSource source, SourceIds ids, params Anime[] entries) {
         _fake ??= Tracker(provider, entries);
-        var tracker = new ReadOnlyTracker(new ApiCallHelpersTrackerProvider(provider, _fake, System.TimeProvider.System));
+        var tracker = new ReadOnlyTracker(new TrackerProvider(provider, _fake, System.TimeProvider.System));
         return await new AutomaticResolver(NullLogger.Instance).Resolve(source, ids, tracker, CancellationToken.None);
     }
 

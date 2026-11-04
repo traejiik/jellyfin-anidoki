@@ -9,6 +9,7 @@ using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Trackers;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Configuration;
@@ -54,7 +55,7 @@ public class ApiCallHelpersFactoryTests {
                 UserApiAuth = [new UserApiAuth { Name = ApiName.AniList, AccessToken = "accessToken", RefreshToken = "refreshToken" }]
             }
         ];
-        var fake = new Mock<IApiCallHelpers>();
+        var fake = new Mock<ITrackerClient>();
         fake.Setup(f => f.SearchAnime("Seam Movie")).ReturnsAsync(new List<Anime>());
         var requested = new List<ApiName>();
         var updater = new UpdateProviderStatus(new Mock<ILibraryManager>().Object, new NullLoggerFactory(),

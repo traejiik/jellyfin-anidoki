@@ -15,6 +15,7 @@ using jellyfin_anidoki.Models.Annict;
 using jellyfin_anidoki.Models.Kitsu;
 using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Models.Shikimori;
+using jellyfin_anidoki.Trackers;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -23,9 +24,9 @@ using Moq;
 using NUnit.Framework;
 using ILoggerFactory = Microsoft.Extensions.Logging.ILoggerFactory;
 
-namespace jellyfin_anidoki_unit_tests.HelperTests;
+namespace jellyfin_anidoki_unit_tests.Trackers;
 
-public class ApiCallHelperTests {
+public class TrackerClientConversionTests {
     private int nextKitsuId;
 
     [SetUp]
@@ -40,8 +41,7 @@ public class ApiCallHelperTests {
             mediaList.Add(GetAniListMedia(true));
         }
 
-        ApiCallHelpers apiCallHelpers = new ApiCallHelpers();
-        List<Anime> animeList = apiCallHelpers.AniListSearchAnimeConvertedList(mediaList, true);
+        List<Anime> animeList = AniListTrackerClient.ConvertSearchResults(mediaList, true);
         Assert.AreEqual(10, animeList.Count);
         // Assert that the anime list contains the expected anime objects
         for (int i = 0; i < animeList.Count; i++) {
@@ -61,7 +61,7 @@ public class ApiCallHelperTests {
             mediaList.Add(GetKitsuAnime(true));
         }
 
-        List<Anime> animeList = ApiCallHelpers.KitsuSearchAnimeConvertedList(mediaList);
+        List<Anime> animeList = KitsuTrackerClient.ConvertSearchResults(mediaList);
         Assert.AreEqual(10, animeList.Count);
         // Assert that the anime list contains the expected anime objects
         for (int i = 0; i < animeList.Count; i++) {
@@ -81,7 +81,7 @@ public class ApiCallHelperTests {
             mediaList.Add(GetAnnictAnime());
         }
 
-        List<Anime> animeList = ApiCallHelpers.AnnictSearchAnimeConvertedList(mediaList);
+        List<Anime> animeList = AnnictTrackerClient.ConvertSearchResults(mediaList);
         Assert.AreEqual(10, animeList.Count);
         // Assert that the anime list contains the expected anime objects
         for (int i = 0; i < animeList.Count; i++) {
@@ -99,7 +99,7 @@ public class ApiCallHelperTests {
             mediaList.Add(GetShikimoriAnime(true));
         }
 
-        List<Anime> animeList = ApiCallHelpers.ShikimoriSearchAnimeConvertedList(mediaList, true);
+        List<Anime> animeList = ShikimoriTrackerClient.ConvertSearchResults(mediaList, true);
         Assert.AreEqual(10, animeList.Count);
         // Assert that the anime list contains the expected anime objects
         for (int i = 0; i < animeList.Count; i++) {
@@ -125,7 +125,7 @@ public class ApiCallHelperTests {
             mediaList.Add(GetKitsuAnime(true));
         }
 
-        List<Anime> animeList = ApiCallHelpers.KitsuSearchAnimeConvertedList(mediaList);
+        List<Anime> animeList = KitsuTrackerClient.ConvertSearchResults(mediaList);
         Assert.AreEqual(10, animeList.Count);
         // Assert that the anime list contains the expected anime objects
         foreach (var anime in animeList) {
@@ -211,8 +211,8 @@ public class ApiCallHelperTests {
             KeyPairs = new List<KeyPairs> { new() { Key = "KitsuUserId", Value = "1" } }
         });
 
-        ApiCallHelpers apiCallHelpers = new ApiCallHelpers(kitsuApiCalls: kitsuApiCalls);
-        MyListStatus convertedResult = await apiCallHelpers.GetConvertedKitsuUserList(animeId);
+        var client = new KitsuTrackerClient(kitsuApiCalls);
+        MyListStatus convertedResult = await client.GetConvertedUserList(animeId);
 
         Assert.IsTrue(convertedResult.NumEpisodesWatched == expectedProgress);
         Assert.IsTrue(convertedResult.IsRewatching == expectedReconsuming);
@@ -239,9 +239,9 @@ public class ApiCallHelperTests {
         var context = new Mock<IHttpContextAccessor>().Object;
         var cache = new MemoryCache(new MemoryCacheOptions());
         var delay = new Mock<IAsyncDelayer>().Object;
-        var helpers = provider == ApiName.Kitsu
-            ? new ApiCallHelpers(kitsuApiCalls: new KitsuApiCalls(factory, loggers, host, context, cache, delay, config))
-            : new ApiCallHelpers(shikimoriApiCalls: new ShikimoriApiCalls(factory, loggers, host, context, cache, delay,
+        ITrackerClient helpers = provider == ApiName.Kitsu
+            ? new KitsuTrackerClient(new KitsuApiCalls(factory, loggers, host, context, cache, delay, config))
+            : new ShikimoriTrackerClient(new ShikimoriApiCalls(factory, loggers, host, context, cache, delay,
                 new Dictionary<string, string>(), config));
         var result = await helpers.UpdateAnime(1, 5, Status.Watching, isRewatching: true,
             numberOfTimesRewatched: 2, alternativeId: "1");

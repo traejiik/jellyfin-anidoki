@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Models.Mal;
@@ -12,12 +11,12 @@ using jellyfin_anidoki.Trackers;
 namespace jellyfin_anidoki_unit_tests.Characterization;
 
 /// <summary>
-/// An in-memory tracker standing in for one provider's <see cref="IApiCallHelpers"/>. It follows the limits of that
+/// An in-memory tracker standing in for one provider's <see cref="ITrackerClient"/>. It follows the limits of that
 /// provider's real client: Simkl cannot search or read by numeric ID, Annict and Shikimori read and write only with an
 /// alternative ID, Simkl writes need cross IDs and the media kind, and MAL reads never carry a rewatch count. Reads
 /// return copies; writes update the stored entry and are recorded in order.
 /// </summary>
-internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
+internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
     private readonly Dictionary<int, Anime> _entries = new();
 
     public ApiName Provider => provider;
@@ -120,11 +119,6 @@ internal sealed class FakeTracker(ApiName provider) : IApiCallHelpers {
             NumTimesRewatched = numberOfTimesRewatched ?? previousCount ?? 0
         });
     }
-
-    public Task<MalApiCalls.User> GetUser() => throw new NotSupportedException("Sync to trackers never reads the user.");
-
-    public Task<List<Anime>> GetAnimeList(Status status, int? userId = null) =>
-        throw new NotSupportedException("Sync to trackers never lists entries.");
 
     private Anime Copy(Anime source, bool forRead) => new() {
         Id = source.Id,

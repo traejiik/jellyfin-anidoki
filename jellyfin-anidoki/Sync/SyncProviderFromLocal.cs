@@ -11,6 +11,7 @@ using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
+using jellyfin_anidoki.Trackers;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
@@ -38,7 +39,7 @@ public class SyncProviderFromLocal(
     private readonly ILogger<SyncProviderFromLocal> _logger = loggerFactory.CreateLogger<SyncProviderFromLocal>();
 
     /// <summary>Passed to the updater's <see cref="UpdateProviderStatus.ApiCallHelpersFactory"/>; tests substitute a tracker.</summary>
-    internal Func<ApiName, UserConfig, IApiCallHelpers> ApiCallHelpersFactory { get; set; }
+    internal Func<ApiName, UserConfig, ITrackerClient> ApiCallHelpersFactory { get; set; }
 
     /// <summary>
     /// Sends the latest watched episode of every season to the user's trackers. Runs inside an operation, which
@@ -76,7 +77,6 @@ public class SyncProviderFromLocal(
                 _logger.LogDebug("(Sync) Ignoring {ItemName}; ignore tag detected", episode.Name);
             } else {
                 try {
-                    // UpdateInsideGate, not Update: the operation already holds this user's gate.
                     await updateProviderStatus.UpdateInsideGate(episode, _userId, true, collector, SyncUpdateSource.Playback, operation.CancellationToken);
                 } catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested) {
                     operation.Message = $"Cancelled after {i} of {Seasons(targets.Count)}. Updates already sent were kept.";

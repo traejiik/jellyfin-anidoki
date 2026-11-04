@@ -26,37 +26,37 @@ internal sealed class TrackerClientFactory(IHttpClientFactory httpClientFactory,
     IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, IMemoryCache memoryCache,
     IAsyncDelayer delayer, ILogger logger) {
     /// <summary>Tests set this to substitute an in-memory tracker; production leaves it null.</summary>
-    internal Func<ApiName, UserConfig, IApiCallHelpers>? Override { get; set; }
+    internal Func<ApiName, UserConfig, ITrackerClient>? Override { get; set; }
 
     /// <returns>The client, or null when the provider is not configured on this server.</returns>
-    public IApiCallHelpers? Create(ApiName provider, UserConfig user) {
+    public ITrackerClient? Create(ApiName provider, UserConfig user) {
         switch (provider) {
             case ApiName.Mal:
-                return Build(provider, user, () => new ApiCallHelpers(malApiCalls: new MalApiCalls(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, user)));
+                return Build(provider, user, () => new MalTrackerClient(new MalApiCalls(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, user)));
             case ApiName.AniList:
-                return Build(provider, user, () => new ApiCallHelpers(aniListApiCalls: new AniListApiCalls(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, user)));
+                return Build(provider, user, () => new AniListTrackerClient(new AniListApiCalls(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, user)));
             case ApiName.Kitsu:
-                return Build(provider, user, () => new ApiCallHelpers(kitsuApiCalls: new KitsuApiCalls(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, user)));
+                return Build(provider, user, () => new KitsuTrackerClient(new KitsuApiCalls(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, user)));
             case ApiName.Annict:
-                return Build(provider, user, () => new ApiCallHelpers(annictApiCalls: new AnnictApiCalls(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, user)));
+                return Build(provider, user, () => new AnnictTrackerClient(new AnnictApiCalls(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, user)));
             case ApiName.Shikimori:
                 string? shikimoriAppName = ConfigHelper.GetShikimoriAppName(logger);
                 if (string.IsNullOrEmpty(shikimoriAppName))
                     return null;
-                return Build(provider, user, () => new ApiCallHelpers(shikimoriApiCalls: new ShikimoriApiCalls(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, new Dictionary<string, string> { { "User-Agent", shikimoriAppName } }, user)));
+                return Build(provider, user, () => new ShikimoriTrackerClient(new ShikimoriApiCalls(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, new Dictionary<string, string> { { "User-Agent", shikimoriAppName } }, user)));
             case ApiName.Simkl:
                 string? simklClientId = ConfigHelper.GetSimklClientId(logger);
                 if (string.IsNullOrEmpty(simklClientId))
                     return null;
-                return Build(provider, user, () => new ApiCallHelpers(simklApiCalls: new SimklApiCalls(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, new Dictionary<string, string> { { "simkl-api-key", simklClientId } }, user)));
+                return Build(provider, user, () => new SimklTrackerClient(new SimklApiCalls(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, new Dictionary<string, string> { { "simkl-api-key", simklClientId } }, user)));
             default:
                 return null;
         }
     }
 
-    public ITrackerProvider Adapt(ApiName provider, IApiCallHelpers client) =>
-        new ApiCallHelpersTrackerProvider(provider, client, TimeProvider.System);
+    public ITrackerProvider Adapt(ApiName provider, ITrackerClient client) =>
+        new TrackerProvider(provider, client, TimeProvider.System);
 
-    private IApiCallHelpers Build(ApiName provider, UserConfig user, Func<IApiCallHelpers> createProductionClient) =>
+    private ITrackerClient Build(ApiName provider, UserConfig user, Func<ITrackerClient> createProductionClient) =>
         Override?.Invoke(provider, user) ?? createProductionClient();
 }

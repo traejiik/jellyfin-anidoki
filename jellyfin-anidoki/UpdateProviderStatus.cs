@@ -40,7 +40,7 @@ namespace jellyfin_anidoki {
         /// Builds the provider client for a provider and user. Tests set this to substitute an in-memory tracker;
         /// production leaves it null so the real client is constructed.
         /// </summary>
-        internal Func<ApiName, UserConfig, IApiCallHelpers>? ApiCallHelpersFactory {
+        internal Func<ApiName, UserConfig, ITrackerClient>? ApiCallHelpersFactory {
             get => _clients.Override;
             set => _clients.Override = value;
         }
@@ -109,7 +109,7 @@ namespace jellyfin_anidoki {
                 foreach (UserApiAuth userApiAuth in userConfig.UserApiAuth) {
                     _logger.LogDebug("Using provider {ApiName}...", userApiAuth.Name);
                     // continue, not return: an unconfigured provider must not skip the providers after it
-                    IApiCallHelpers? client = _clients.Create(userApiAuth.Name, userConfig);
+                    ITrackerClient? client = _clients.Create(userApiAuth.Name, userConfig);
                     if (client == null)
                         continue;
                     ITrackerProvider tracker = _clients.Adapt(userApiAuth.Name, client);

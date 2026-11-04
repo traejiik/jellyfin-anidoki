@@ -16,6 +16,7 @@ using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Trackers;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -51,7 +52,7 @@ public class ClientCharacterizationTests {
         }
     }
 
-    private static IApiCallHelpers Client(ApiName provider, Recorder recorder) {
+    private static ITrackerClient Client(ApiName provider, Recorder recorder) {
         var http = new Mock<IHttpClientFactory>();
         http.Setup(factory => factory.CreateClient(It.IsAny<string>())).Returns(() => new HttpClient(recorder, false));
         var loggers = new NullLoggerFactory();
@@ -64,12 +65,12 @@ public class ClientCharacterizationTests {
             KeyPairs = [new KeyPairs { Key = "KitsuUserId", Value = "1" }, new KeyPairs { Key = "ShikimoriUserId", Value = "1" }]
         };
         return provider switch {
-            ApiName.Mal => new ApiCallHelpers(malApiCalls: new MalApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
-            ApiName.AniList => new ApiCallHelpers(aniListApiCalls: new AniListApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
-            ApiName.Kitsu => new ApiCallHelpers(kitsuApiCalls: new KitsuApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
-            ApiName.Annict => new ApiCallHelpers(annictApiCalls: new AnnictApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
-            ApiName.Shikimori => new ApiCallHelpers(shikimoriApiCalls: new ShikimoriApiCalls(http.Object, loggers, host, context, cache, delayer, new Dictionary<string, string> { { "User-Agent", "tests" } }, user)),
-            ApiName.Simkl => new ApiCallHelpers(simklApiCalls: new SimklApiCalls(http.Object, loggers, host, context, cache, delayer, new Dictionary<string, string> { { "simkl-api-key", "client" } }, user)),
+            ApiName.Mal => new MalTrackerClient(new MalApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
+            ApiName.AniList => new AniListTrackerClient(new AniListApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
+            ApiName.Kitsu => new KitsuTrackerClient(new KitsuApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
+            ApiName.Annict => new AnnictTrackerClient(new AnnictApiCalls(http.Object, loggers, host, context, cache, delayer, user)),
+            ApiName.Shikimori => new ShikimoriTrackerClient(new ShikimoriApiCalls(http.Object, loggers, host, context, cache, delayer, new Dictionary<string, string> { { "User-Agent", "tests" } }, user)),
+            ApiName.Simkl => new SimklTrackerClient(new SimklApiCalls(http.Object, loggers, host, context, cache, delayer, new Dictionary<string, string> { { "simkl-api-key", "client" } }, user)),
             _ => throw new ArgumentOutOfRangeException(nameof(provider))
         };
     }
@@ -120,7 +121,7 @@ public class ClientCharacterizationTests {
             output.Append("## ").Append(provider).Append(" list\n");
             var recorder = new Recorder();
             var client = Client(provider, recorder);
-            var source = client;
+            var source = (ITrackerListSource)client;
             await Record(output, recorder, "user", () => source.GetUser());
             foreach (var status in Statuses)
                 await Record(output, recorder, $"list {status}", () => source.GetAnimeList(status, 7));

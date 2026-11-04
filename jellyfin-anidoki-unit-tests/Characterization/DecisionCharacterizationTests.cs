@@ -58,7 +58,7 @@ public class DecisionCharacterizationTests {
     /// </summary>
     private static IEnumerable<(string Label, MyListStatus? Status)> States(ApiName provider, int total) {
         int completedProgress = total > 0 ? total : 12;
-        // ApiCallHelpers.GetConvertedKitsuUserList returns an empty MyListStatus (Watching, progress 0) when the
+        // KitsuTrackerClient.GetConvertedUserList returns an empty MyListStatus (Watching, progress 0) when the
         // entry is not on the user's list; the other conversions leave it null.
         yield return ("not-on-list", provider == ApiName.Kitsu ? new MyListStatus() : null);
         yield return ("plan-to-watch p=0", new MyListStatus { Status = Status.Plan_to_watch, NumEpisodesWatched = 0 });

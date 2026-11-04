@@ -15,9 +15,9 @@ internal static class TrackerTestSupport {
 
     public static readonly ApiName[] AllProviders = [ApiName.Mal, ApiName.AniList, ApiName.Kitsu, ApiName.Annict, ApiName.Shikimori, ApiName.Simkl];
 
-    public static (ApiCallHelpersTrackerProvider Adapter, FakeTracker Tracker) Adapter(ApiName provider) {
+    public static (TrackerProvider Adapter, FakeTracker Tracker) Adapter(ApiName provider) {
         var tracker = new FakeTracker(provider);
-        return (new ApiCallHelpersTrackerProvider(provider, tracker, new FixedTime(Now)), tracker);
+        return (new TrackerProvider(provider, tracker, new FixedTime(Now)), tracker);
     }
 
     /// <summary>A ref the provider can read entry <paramref name="id"/> by, as the resolver would produce it.</summary>

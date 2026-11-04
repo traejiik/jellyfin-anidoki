@@ -32,7 +32,7 @@ internal static class ResolutionTestSupport {
     /// <summary>A fake tracker for <paramref name="provider"/>, seen through the adapter and guarded against writes.</summary>
     public static (ITrackerProvider Tracker, FakeTracker Fake) ReadOnly(ApiName provider) {
         var fake = new FakeTracker(provider);
-        return (new ReadOnlyTracker(new ApiCallHelpersTrackerProvider(provider, fake, TimeProvider.System)), fake);
+        return (new ReadOnlyTracker(new TrackerProvider(provider, fake, TimeProvider.System)), fake);
     }
 
     /// <summary>A ref the provider reads <paramref name="id"/> by: Annict and Shikimori need the alternative ID.</summary>
