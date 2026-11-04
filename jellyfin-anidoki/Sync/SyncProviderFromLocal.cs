@@ -38,8 +38,8 @@ public class SyncProviderFromLocal(
     private readonly Guid _userId = Guid.Parse(userId);
     private readonly ILogger<SyncProviderFromLocal> _logger = loggerFactory.CreateLogger<SyncProviderFromLocal>();
 
-    /// <summary>Passed to the updater's <see cref="UpdateProviderStatus.ApiCallHelpersFactory"/>; tests substitute a tracker.</summary>
-    internal Func<ApiName, UserConfig, ITrackerClient> ApiCallHelpersFactory { get; set; }
+    /// <summary>Passed to the updater's <see cref="SyncPipeline.ClientOverride"/>; tests substitute a tracker.</summary>
+    internal Func<ApiName, UserConfig, ITrackerClient> ClientOverride { get; set; }
 
     /// <summary>
     /// Sends the latest watched episode of every season to the user's trackers. Runs inside an operation, which
@@ -62,8 +62,8 @@ public class SyncProviderFromLocal(
     }
 
     internal async Task SyncEpisodes(IReadOnlyList<Episode> targets, OperationContext operation) {
-        var updateProviderStatus = new UpdateProviderStatus(libraryManager, loggerFactory, httpContextAccessor, serverApplicationHost, httpClientFactory, applicationPaths, memoryCache, delayer) {
-            ApiCallHelpersFactory = ApiCallHelpersFactory
+        var pipeline = new SyncPipeline(libraryManager, loggerFactory, httpContextAccessor, serverApplicationHost, httpClientFactory, applicationPaths, memoryCache, delayer) {
+            ClientOverride = ClientOverride
         };
         var collector = new PlaybackOutcomeCollector(operation.Record);
         operation.ReportProgress(0, targets.Count);
@@ -77,7 +77,7 @@ public class SyncProviderFromLocal(
                 _logger.LogDebug("(Sync) Ignoring {ItemName}; ignore tag detected", episode.Name);
             } else {
                 try {
-                    await updateProviderStatus.UpdateInsideGate(episode, _userId, true, collector, SyncUpdateSource.Playback, operation.CancellationToken);
+                    await pipeline.Run(episode, _userId, true, collector, SyncUpdateSource.Playback, operation.CancellationToken);
                 } catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested) {
                     operation.Message = $"Cancelled after {i} of {Seasons(targets.Count)}. Updates already sent were kept.";
                     throw;

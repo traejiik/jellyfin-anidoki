@@ -36,7 +36,7 @@ public class TrackerFailureFlowTests {
             var context = new OperationContext(id, user, store, NullLogger.Instance, default);
             var episode = harness.Library.Episode("Fixture Show", 1, 5);
 
-            await harness.NewUpdater().UpdateInsideGate(episode, user, true, new PlaybackOutcomeCollector(context.Record), SyncUpdateSource.Playback);
+            await harness.NewUpdater().Run(episode, user, true, new PlaybackOutcomeCollector(context.Record), SyncUpdateSource.Playback);
 
             using var connection = database.Open();
             using var command = connection.CreateCommand();
@@ -79,7 +79,7 @@ public class TrackerFailureFlowTests {
         harness.Tracker(ApiName.AniList).ReadFailure = TrackerFailureKind.Transient;
         var collector = new PlaybackOutcomeCollector();
 
-        await harness.NewUpdater().UpdateInsideGate(harness.Library.Episode("Fixture Show", 1, 5), user, true, collector, SyncUpdateSource.Playback);
+        await harness.NewUpdater().Run(harness.Library.Episode("Fixture Show", 1, 5), user, true, collector, SyncUpdateSource.Playback);
 
         var outcome = collector.Outcomes.Single();
         Assert.That((outcome.Kind, outcome.Step, outcome.TargetId, outcome.TargetTitle),

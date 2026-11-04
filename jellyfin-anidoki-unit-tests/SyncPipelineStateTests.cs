@@ -27,18 +27,18 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests;
 
 /// <summary>
-/// Drives <see cref="UpdateProviderStatus.UpdateInsideGate"/> end to end against fixed HTTP fixtures.
+/// Drives <see cref="SyncPipeline.Run"/> end to end against fixed HTTP fixtures.
 /// Movies are used because they need no Season/Series wiring to reach the ID-resolution and provider loop.
 /// </summary>
 [TestFixture, NonParallelizable]
-public class UpdateProviderStatusStateTests {
+public class SyncPipelineStateTests {
     private const int ResolvedAniListId = 101;
     private const int ResolvedMalId = 201;
 
     private string _directory = null!;
     private Plugin _plugin = null!;
     private readonly Guid _user = Guid.NewGuid();
-    private UpdateProviderStatus _updateProviderStatus = null!;
+    private SyncPipeline _pipeline = null!;
 
     [SetUp]
     public void SetUp() {
@@ -78,7 +78,7 @@ public class UpdateProviderStatusStateTests {
             }
         }, ref httpClientFactory);
 
-        _updateProviderStatus = new UpdateProviderStatus(new Mock<ILibraryManager>().Object, new NullLoggerFactory(),
+        _pipeline = new SyncPipeline(new Mock<ILibraryManager>().Object, new NullLoggerFactory(),
             new Mock<IHttpContextAccessor>().Object, new Mock<IServerApplicationHost>().Object, httpClientFactory,
             new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object);
     }
@@ -111,19 +111,19 @@ public class UpdateProviderStatusStateTests {
     public async Task SecondUpdateWithoutIdsDoesNotReuseFirstUpdatesIds() {
         ConfigureUser();
 
-        await _updateProviderStatus.UpdateInsideGate(
+        await _pipeline.Run(
             MovieWithIds("First", new Dictionary<string, string> { ["AniList"] = ResolvedAniListId.ToString() }),
             _user, true, null, SyncUpdateSource.Playback);
-        Assert.That(_updateProviderStatus.ResolvedIds.MyAnimeList, Is.EqualTo(ResolvedMalId), "first update should resolve IDs");
+        Assert.That(_pipeline.ResolvedIds.MyAnimeList, Is.EqualTo(ResolvedMalId), "first update should resolve IDs");
 
-        await _updateProviderStatus.UpdateInsideGate(
+        await _pipeline.Run(
             MovieWithIds("Second", new Dictionary<string, string>()),
             _user, true, null, SyncUpdateSource.Playback);
 
-        Assert.That(_updateProviderStatus.ResolvedIds.Anilist, Is.Null);
-        Assert.That(_updateProviderStatus.ResolvedIds.MyAnimeList, Is.Null);
-        Assert.That(_updateProviderStatus.ResolvedIds.Kitsu, Is.Null);
-        Assert.That(_updateProviderStatus.ResolvedIds.AniDb, Is.Null);
+        Assert.That(_pipeline.ResolvedIds.Anilist, Is.Null);
+        Assert.That(_pipeline.ResolvedIds.MyAnimeList, Is.Null);
+        Assert.That(_pipeline.ResolvedIds.Kitsu, Is.Null);
+        Assert.That(_pipeline.ResolvedIds.AniDb, Is.Null);
     }
 
     /// <summary>
@@ -136,7 +136,7 @@ public class UpdateProviderStatusStateTests {
         ConfigureUser(unconfiguredProvider, ApiName.AniList);
         var collector = new PlaybackOutcomeCollector();
 
-        await _updateProviderStatus.UpdateInsideGate(
+        await _pipeline.Run(
             MovieWithIds("Unknown Movie", new Dictionary<string, string>()),
             _user, true, collector, SyncUpdateSource.Playback);
 

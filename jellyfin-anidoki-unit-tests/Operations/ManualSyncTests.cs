@@ -184,7 +184,7 @@ public class ManualSyncTests {
         var sync = new SyncProviderFromLocal(new Mock<IUserManager>().Object, harness.Library.Library.Object, NullLoggerFactory.Instance,
             new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(),
             new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, _user.Id.ToString()) {
-            ApiCallHelpersFactory = (_, _) => tracker
+            ClientOverride = (_, _) => tracker
         };
 
         OperationRunner.Handle handle;

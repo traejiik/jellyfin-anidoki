@@ -12,8 +12,7 @@ namespace jellyfin_anidoki.Operations;
 
 /// <summary>
 /// Records every sync as an operation and runs it in the background, one at a time per user through
-/// <see cref="SyncExecutionGate"/>. Work run here already holds the user's gate; it must call
-/// <c>UpdateProviderStatus.UpdateInsideGate</c>, never <c>Update</c>, or it waits on itself forever.
+/// <see cref="SyncExecutionGate"/>. Work run here already holds the user's gate, and <c>SyncPipeline.Run</c> never takes it.
 /// </summary>
 public sealed class OperationRunner(OperationStore store, ILogger<OperationRunner> logger) : IHostedService, IDisposable {
     public static readonly TimeSpan Retention = TimeSpan.FromDays(30);

@@ -4,7 +4,7 @@ export const providerNames = { AniList: 'AniList', Mal: 'MyAnimeList', Kitsu: 'K
 export const providerName = id => providerNames[id] ?? 'Tracker';
 export const list = values => values.length < 2 ? values[0] : `${values.slice(0, -1).join(', ')} and ${values.at(-1)}`;
 
-// Step codes recorded by UpdateProviderStatus.RecordDecision; the line icon already says "skipped".
+// Step codes the planner records; the line icon already says "skipped".
 const reasons = {
     'already-watched': 'Episode already watched',
     'manual-forward-only': 'Already at or past this episode',

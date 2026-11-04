@@ -10,7 +10,7 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests.Characterization;
 
 /// <summary>
-/// Records how UpdateProviderStatus resolves the target entry across the paths the decision matrix does not reach:
+/// Records how SyncPipeline resolves the target entry across the paths the decision matrix does not reach:
 /// title search, later seasons, multi-cour walks, specials, movies, and the regressions fixed in #14.
 /// All six providers run in their configured order, with PlanToWatchOnly and RewatchCompleted off.
 /// </summary>
