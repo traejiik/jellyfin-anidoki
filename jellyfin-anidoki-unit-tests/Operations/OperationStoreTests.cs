@@ -161,6 +161,34 @@ public class OperationStoreTests {
     }
 
     [Test]
+    public void RemovingAnOldOperationRemovesItsResolutionCheckRows() {
+        var clock = new MutableTime(new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero));
+        var database = new AniDokiDatabase(Path.Combine(_directory, "anidoki.db"));
+        var store = new OperationStore(database, clock);
+        Guid old = Guid.NewGuid();
+        Guid recent = Guid.NewGuid();
+        store.Create(old, Guid.NewGuid(), OperationKind.Playback, "x");
+        store.Finish(old, OperationState.Succeeded, null);
+        clock.Now = clock.Now.AddDays(31);
+        store.Create(recent, Guid.NewGuid(), OperationKind.Playback, "x");
+        store.Finish(recent, OperationState.Succeeded, null);
+        using var connection = database.Open();
+        foreach (Guid id in new[] { old, recent }) {
+            using var insert = connection.CreateCommand();
+            insert.CommandText = "INSERT INTO resolution_check_rows (operation_id, seq, source_key, provider, automatic, differs) VALUES ($id, 0, 's', 'AniList', '{}', 0)";
+            insert.Parameters.AddWithValue("$id", id.ToString("D"));
+            insert.ExecuteNonQuery();
+        }
+
+        store.DeleteFinishedBefore(TimeSpan.FromDays(30));
+
+        using var read = connection.CreateCommand();
+        read.CommandText = "SELECT GROUP_CONCAT(operation_id) FROM resolution_check_rows";
+        Assert.That(read.ExecuteScalar(), Is.EqualTo(recent.ToString("D")));
+        Assert.That(store.Read(recent), Is.Not.Null);
+    }
+
+    [Test]
     public void OperationsForAUserReadNewestFirst() {
         var clock = new MutableTime(new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero));
         var (store, _) = Create(_directory, clock);
