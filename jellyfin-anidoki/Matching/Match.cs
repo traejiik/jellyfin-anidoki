@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Serialization;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Trackers;
@@ -18,6 +19,7 @@ public sealed record MatchTarget(EntryRef Entry, string Title);
 /// <param name="SourceEnd">Null for an open range, which follows an airing entry. Only the last range may be open.</param>
 public sealed record MatchRange(int SourceStart, int? SourceEnd, MatchTarget Target, int TargetStart) {
     /// <summary>The entry episode the range ends on; null when it is open.</summary>
+    [JsonIgnore]
     public int? TargetEnd => SourceEnd is int end ? TargetFor(end) : null;
 
     public bool Contains(int episode) => episode >= SourceStart && (SourceEnd is not int end || episode <= end);
@@ -26,6 +28,8 @@ public sealed record MatchRange(int SourceStart, int? SourceEnd, MatchTarget Tar
 }
 
 /// <summary>One source episode handled apart from the ranges. It wins over any range holding that episode.</summary>
+[JsonDerivedType(typeof(TargetException), "target")]
+[JsonDerivedType(typeof(IgnoreException), "ignore")]
 public abstract record MatchException(int SourceEpisode);
 
 /// <summary>Sends the episode to <see cref="TargetEpisode"/> of <see cref="Target"/>.</summary>
