@@ -59,10 +59,10 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
             var walk = await chain.Walk(ChainLink.Of(entry), progress, cancellationToken);
             if (walk.Target == null)
                 return new Unresolved(walk.FailureReason!, Record(ChainLink.Of(entry)), walk.EarlierParts);
-            return new Resolved(Played(walk.Target, progress - walk.EpisodesBefore), ResolvedBy.SequelChain, walk.EarlierParts);
+            return new Resolved(Played(walk.Target, progress - walk.EpisodesBefore), ResolvedBy.SequelChain, walk.EarlierParts, FollowsChain: true);
         }
 
-        return new Resolved(Played(ChainLink.Of(entry), progress), ResolvedBy.Ids, None);
+        return new Resolved(Played(ChainLink.Of(entry), progress), ResolvedBy.Ids, None, FollowsChain: source.Kind == MediaKind.Series);
     }
 
     /// <summary>Simkl reads and writes by cross IDs; it takes the ID path's episode with no length check or walk.</summary>
@@ -127,10 +127,10 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
                 var walk = await chain.Walk(match, source.EpisodeNumber, cancellationToken);
                 if (walk.Target == null)
                     return new Unresolved(walk.FailureReason!, Record(match), walk.EarlierParts);
-                return new Resolved(Played(walk.Target, source.EpisodeNumber - walk.EpisodesBefore), ResolvedBy.SequelChain, walk.EarlierParts);
+                return new Resolved(Played(walk.Target, source.EpisodeNumber - walk.EpisodesBefore), ResolvedBy.SequelChain, walk.EarlierParts, FollowsChain: true);
             }
 
-            return new Resolved(Played(match, episode), ResolvedBy.TitleSearch, None);
+            return new Resolved(Played(match, episode), ResolvedBy.TitleSearch, None, FollowsChain: true);
         }
 
         logger.LogWarning("({ApiName}) Series not found", tracker.Name);

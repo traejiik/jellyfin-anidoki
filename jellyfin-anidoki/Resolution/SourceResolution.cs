@@ -28,7 +28,9 @@ public sealed record UnresolvedRecord(string TargetId, string Title);
 /// </summary>
 public abstract record SourceResolution(IReadOnlyList<ResolvedTarget> EarlierParts, string? Note);
 
-public sealed record Resolved(ResolvedTarget Played, ResolvedBy By, IReadOnlyList<ResolvedTarget> EarlierParts, string? Note = null)
+/// <param name="FollowsChain">Automatic resolution only: this route measures episodes against the entry's length and
+/// follows its sequels. False on the routes that send the episode to the one entry whatever its length.</param>
+public sealed record Resolved(ResolvedTarget Played, ResolvedBy By, IReadOnlyList<ResolvedTarget> EarlierParts, string? Note = null, bool FollowsChain = false)
     : SourceResolution(EarlierParts, Note);
 
 /// <param name="Reason">not-found, no-title-match, sequel-fetch-failed, no-cour-covers-episode, or no-special-match;
