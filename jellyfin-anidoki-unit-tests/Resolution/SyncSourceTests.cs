@@ -31,6 +31,21 @@ public class SyncSourceTests {
     }
 
     [Test]
+    public void EpisodesOfOneSeasonShareASourceKey() {
+        var episode = _library.Episode("Show", 2, 5);
+        var source = SyncSource.From(episode)!;
+
+        Assert.That(source.SourceKey, Is.EqualTo($"season:{episode.SeriesId:N}:2"));
+    }
+
+    [Test]
+    public void AMovieIsItsOwnSource() {
+        var movie = _library.Movie("Film");
+
+        Assert.That(SyncSource.From(movie)!.SourceKey, Is.EqualTo($"movie:{movie.Id:N}"));
+    }
+
+    [Test]
     public void MovieIsOneEpisodeOfSeasonOne() {
         var movie = _library.Movie("Film");
         movie.OriginalTitle = "映画";

@@ -19,6 +19,11 @@ public sealed record SyncSource(Video Item, MediaKind Kind, int SeasonNumber, in
     /// <summary>A movie counts as one watched episode. Held here so the library item's own IndexNumber is never changed.</summary>
     public const int MovieProgress = 1;
 
+    /// <summary>What a saved match is keyed by: the season, or the movie. Episodes of one season share it.</summary>
+    public string SourceKey => Item is Episode episode
+        ? $"season:{episode.SeriesId:N}:{SeasonNumber}"
+        : $"movie:{Item.Id:N}";
+
     /// <returns>The source, or null when an episode lacks its episode or season number.</returns>
     public static SyncSource? From(Video video) {
         switch (video) {
