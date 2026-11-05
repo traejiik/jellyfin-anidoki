@@ -140,7 +140,7 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
             return;
         }
 
-        bool changed = meaningful && Changed(receipt, planned);
+        bool changed = meaningful && Changed(receipt, planned, write.Change);
         if (receipt.Complete) {
             RecordWrite(planned, changed ? OutcomeKind.Confirmed : OutcomeKind.NoChange, write.Reason, receipt, changed, detail);
             return;
@@ -169,8 +169,11 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
     }
 
     /// <summary>Whether the provider acknowledged anything different from the planned-against state (was ObserveWrite's check).</summary>
-    private bool Changed(WriteReceipt receipt, EntryState planned) {
+    private bool Changed(WriteReceipt receipt, EntryState planned, EntryChange change) {
         if (planned.List is not { } list)
+            return true;
+        // Kitsu and Shikimori accept a count without echoing it, and a finished write always moves the count.
+        if (receipt is { Complete: true, RewatchCount: null } && change.Rewatch == RewatchTransition.Finish)
             return true;
         return (receipt.Progress.HasValue && receipt.Progress != list.Progress) ||
             (receipt.Status.HasValue && receipt.Status != list.Status) ||

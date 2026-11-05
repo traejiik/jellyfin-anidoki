@@ -24,7 +24,7 @@ using Microsoft.Extensions.Logging;
 
 namespace jellyfin_anidoki;
 
-public enum SyncUpdateSource { Playback, LegacyManual, ConfirmedManual }
+public enum SyncUpdateSource { Playback, LegacyManual, ConfirmedManual, ManualSync }
 
 /// <summary>
 /// Syncs one watched item to every tracker the user has linked: resolve, plan, re-check, write, record. A provider's
@@ -65,7 +65,11 @@ public class SyncPipeline {
 
     internal async Task Run(BaseItem e, Guid userId, bool playedToCompletion, PlaybackOutcomeCollector? collector,
         SyncUpdateSource source, CancellationToken cancellationToken = default) {
-        PlanPolicy policy = source == SyncUpdateSource.ConfirmedManual ? PlanPolicy.ConfirmedManual : PlanPolicy.Automatic;
+        PlanPolicy policy = source switch {
+            SyncUpdateSource.ConfirmedManual => PlanPolicy.ConfirmedManual,
+            SyncUpdateSource.ManualSync => PlanPolicy.ManualSync,
+            _ => PlanPolicy.Automatic
+        };
         if (Plugin.Instance?.StorageError is { } storageError) {
             _logger.LogWarning("Skipping tracker sync because AniDoki storage is unavailable: {StorageError}", storageError);
             return;

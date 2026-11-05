@@ -387,6 +387,17 @@ public class ExecutorTests {
         Assert.That(collector.HasConfirmedChange, Is.True);
     }
 
+    [TestCase(ApiName.Kitsu)]
+    [TestCase(ApiName.Shikimori)]
+    public async Task AFinishIsConfirmedWhenTheReceiptDoesNotEchoTheCount(ApiName provider) {
+        var (tracker, _) = Seed(provider, Entry(500, 12, ListStatus(Status.Completed, 12, count: 3)));
+        tracker.OnApply = (_, _) => Task.FromResult<WriteReceipt?>(new WriteReceipt(12, TrackerStatus.Completed, null, null, true));
+
+        var collector = await Run(tracker, Played(provider, 12), RewatchOn);
+
+        Assert.That(collector.Outcomes.Select(outcome => $"{outcome.Kind}:{outcome.Step}"), Is.EqualTo(new[] { "Confirmed:rewatch-count" }));
+    }
+
     [Test]
     public async Task PartialMalFinishRecordsBothParts() {
         var (tracker, fake) = Seed(ApiName.Mal, Entry(500, 12, ListStatus(Status.Completed, 11, true)));

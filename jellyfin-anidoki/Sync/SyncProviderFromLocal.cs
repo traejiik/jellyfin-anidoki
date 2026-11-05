@@ -77,7 +77,7 @@ public class SyncProviderFromLocal(
                 _logger.LogDebug("(Sync) Ignoring {ItemName}; ignore tag detected", episode.Name);
             } else {
                 try {
-                    await pipeline.Run(episode, _userId, true, collector, SyncUpdateSource.Playback, operation.CancellationToken);
+                    await pipeline.Run(episode, _userId, true, collector, SyncUpdateSource.ManualSync, operation.CancellationToken);
                 } catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested) {
                     operation.Message = $"Cancelled after {i} of {Seasons(targets.Count)}. Updates already sent were kept.";
                     throw;
