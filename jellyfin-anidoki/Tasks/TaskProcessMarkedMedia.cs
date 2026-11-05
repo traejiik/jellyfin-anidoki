@@ -36,8 +36,10 @@ public class TaskProcessMarkedMedia {
     private readonly IAsyncDelayer _delayer;
     private readonly OperationRunner _runner;
     private readonly DiscordNotificationDispatcher _discord;
+    private readonly Matching.ISeasonWatchState _watchState;
 
-    public TaskProcessMarkedMedia(ILoggerFactory loggerFactory, ILibraryManager libraryManager, IMemoryCache memoryCache, IHttpContextAccessor httpContextAccessor, IServerApplicationHost serverApplicationHost, IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths, IAsyncDelayer delayer, OperationRunner runner, DiscordNotificationDispatcher discord = null) {
+    public TaskProcessMarkedMedia(ILoggerFactory loggerFactory, ILibraryManager libraryManager, IMemoryCache memoryCache, IHttpContextAccessor httpContextAccessor, IServerApplicationHost serverApplicationHost, IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths, IAsyncDelayer delayer, OperationRunner runner, DiscordNotificationDispatcher discord = null, Matching.ISeasonWatchState watchState = null) {
+        _watchState = watchState;
         _loggerFactory = loggerFactory;
         _libraryManager = libraryManager;
         _memoryCache = memoryCache;
@@ -111,7 +113,7 @@ public class TaskProcessMarkedMedia {
 
     private async Task Update(Video item, Guid userId, OperationContext operation) {
         var collector = new PlaybackOutcomeCollector(operation.Record);
-        var pipeline = new SyncPipeline(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
+        var pipeline = new SyncPipeline(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer) { WatchState = _watchState };
         try {
             await pipeline.Run(item, userId, true, collector, SyncUpdateSource.LegacyManual, operation.CancellationToken);
         } finally {

@@ -35,8 +35,10 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
     private sealed record ActionTrace(ResolvedTarget Target, ResolvedBy By, string? Note);
 
     public async Task Execute(SourceResolution resolution, CancellationToken cancellationToken) {
+        // Only a saved match says why an earlier part is a target; otherwise it came from the sequel chain.
+        ResolvedBy earlierBy = resolution is Resolved { By: ResolvedBy.SharedMatch or ResolvedBy.PersonalMatch } matched ? matched.By : ResolvedBy.SequelChain;
         foreach (var part in resolution.EarlierParts) {
-            if (!await ExecuteTarget(new ActionTrace(part, ResolvedBy.SequelChain, resolution.Note), cancellationToken))
+            if (!await ExecuteTarget(new ActionTrace(part, earlierBy, resolution.Note), cancellationToken))
                 return;
         }
 
@@ -47,6 +49,10 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
             case Unresolved { Record: { } record } unresolved:
                 Record(record.TargetId, record.Title, OutcomeKind.Unresolved, "resolve",
                     detail: new OutcomeDetail(source?.ItemId, source?.Episode, null, null, unresolved.Note ?? unresolved.Reason, null, null));
+                break;
+            case Ignored ignored:
+                Record("", ignored.Title, OutcomeKind.Skipped, "match-ignored",
+                    detail: new OutcomeDetail(source?.ItemId, source?.Episode, null, ignored.By, null, null, null, ignored.MatchRevision));
                 break;
         }
     }
@@ -183,7 +189,7 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
 
     private OutcomeDetail Detail(ActionTrace trace, EntryChange? change = null, EntryState? read = null, string? note = null) =>
         // Titles are already on the row, and a long synonym list would repeat on every action.
-        new(source?.ItemId, source?.Episode, trace.Target.TargetEpisode, trace.By, note ?? trace.Note, change, read == null ? null : read with { Titles = null });
+        new(source?.ItemId, source?.Episode, trace.Target.TargetEpisode, trace.By, note ?? trace.Note, change, read == null ? null : read with { Titles = null }, trace.Target.MatchRevision);
 
     private void RecordUnreadable(ActionTrace trace) {
         logger.LogInformation("({ApiName}) Could not retrieve the matched anime from the provider; not updating", tracker.Name);

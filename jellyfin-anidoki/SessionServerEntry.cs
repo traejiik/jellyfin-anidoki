@@ -35,6 +35,7 @@ namespace jellyfin_anidoki {
         private bool _started;
         private readonly ManualMarkStore _manualMarks;
         private readonly Notifications.Discord.DiscordNotificationDispatcher _discord;
+        private readonly Matching.ISeasonWatchState _watchState;
 
 
         private readonly ILibraryManager _libraryManager;
@@ -42,7 +43,7 @@ namespace jellyfin_anidoki {
         public SessionServerEntry(ISessionManager sessionManager, ILoggerFactory loggerFactory,
             IHttpClientFactory httpClientFactory, ILibraryManager libraryManager,
             IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor,
-            IApplicationPaths applicationPaths, IMemoryCache memoryCache, NotificationEventStore notifications, OperationRunner runner, ManualMarkStore manualMarks = null, Notifications.Discord.DiscordNotificationDispatcher discord = null) {
+            IApplicationPaths applicationPaths, IMemoryCache memoryCache, NotificationEventStore notifications, OperationRunner runner, ManualMarkStore manualMarks = null, Notifications.Discord.DiscordNotificationDispatcher discord = null, Matching.ISeasonWatchState watchState = null) {
             _httpClientFactory = httpClientFactory;
             _serverApplicationHost = serverApplicationHost;
             _httpContextAccessor = httpContextAccessor;
@@ -57,6 +58,7 @@ namespace jellyfin_anidoki {
             _runner = runner;
             _manualMarks = manualMarks;
             _discord = discord;
+            _watchState = watchState;
         }
 
         public Task StartAsync(CancellationToken cancellationToken) {
@@ -96,7 +98,7 @@ namespace jellyfin_anidoki {
 
         private async Task RunPlayback(BaseItem item, Guid userId, PlaybackNotificationContext context, OperationContext operation) {
             var collector = new PlaybackOutcomeCollector(operation.Record);
-            var pipeline = new SyncPipeline(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer);
+            var pipeline = new SyncPipeline(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer) { WatchState = _watchState };
             try {
                 await pipeline.Run(item, userId, true, collector, SyncUpdateSource.Playback, operation.CancellationToken);
             } finally {
