@@ -17,6 +17,9 @@ public static class Planner {
         // manual marks never start or finish a rewatch; P1 already prevents it, this keeps it true if the rules move
         if (input.Policy == PlanPolicy.ConfirmedManual && decision is Write { Change.Rewatch: not RewatchTransition.None })
             return new NoChange("manual-forward-only");
+        // a manual sync replays the highest watched episode, which is usually there from the first watch, so it would count a rewatch on every run
+        if (input.Policy == PlanPolicy.ManualSync && decision is Write { Change.Rewatch: not RewatchTransition.None })
+            return new NoChange("manual-sync-rewatch");
         return decision;
     }
 

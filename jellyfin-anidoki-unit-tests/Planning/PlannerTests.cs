@@ -86,6 +86,45 @@ public class PlannerTests {
                     }
     }
 
+    // A manual sync replays the highest watched episode. It was not just played, so it says nothing about a rewatch.
+
+    [Test]
+    public void ManualSyncNeverCarriesARewatch() {
+        (int Episode, int Total)[] positions = [(1, 12), (5, 12), (12, 12), (1, 1), (5, 0)];
+        PlanRules[] rules = [new(false, false), new(false, true), new(true, false), new(true, true)];
+        foreach (var provider in Enum.GetValues<ApiName>())
+            foreach (var list in GridStates())
+                foreach (var (episode, total) in positions)
+                    foreach (var rule in rules) {
+                        var decision = Plan(provider, list, episode, total, rule, PlanPolicy.ManualSync);
+                        Assert.That(decision is Write { Change.Rewatch: not RewatchTransition.None }, Is.False,
+                            $"{provider} {list} e={episode} n={total} {rule}: {decision}");
+                    }
+    }
+
+    [TestCase(TrackerStatus.Completed, 12, false, 12, Description = "the last episode would finish a rewatch")]
+    [TestCase(TrackerStatus.Completed, 12, false, 5, Description = "an earlier episode would start one")]
+    [TestCase(TrackerStatus.Completed, 3, true, 12, Description = "the highest watched would finish the one under way")]
+    [TestCase(TrackerStatus.Completed, 3, true, 5, Description = "or move it to a place not reached")]
+    public void ManualSyncLeavesACompletedOrRewatchingEntryAlone(TrackerStatus status, int progress, bool rewatching, int episode) =>
+        Assert.That(Plan(ApiName.AniList, List(status, progress, rewatching, 1), episode, 12, RewatchOn, PlanPolicy.ManualSync),
+            Is.EqualTo(new NoChange("manual-sync-rewatch")));
+
+    [Test]
+    public void ManualSyncStillAdvancesAnEntryThatIsBehind() =>
+        Assert.That(Plan(ApiName.AniList, List(TrackerStatus.Watching, 3), 12, 12, RewatchOn, PlanPolicy.ManualSync),
+            Is.EqualTo(Expected(ApiName.AniList, List(TrackerStatus.Watching, 3), 12, new EntryChange(12, TrackerStatus.Completed, EndDate: Now))));
+
+    [Test]
+    public void ManualSyncStillMovesACompletedEntryBehindTheEpisode() =>
+        Assert.That(Plan(ApiName.AniList, List(TrackerStatus.Completed, 3, count: 1), 5, 12, RewatchOn, PlanPolicy.ManualSync),
+            Is.EqualTo(Expected(ApiName.AniList, List(TrackerStatus.Completed, 3, count: 1), 12, new EntryChange(5, TrackerStatus.Watching))));
+
+    [Test]
+    public void ManualSyncStillSkipsWhenRewatchingIsOff() =>
+        Assert.That(Plan(ApiName.AniList, List(TrackerStatus.Completed, 12, count: 1), 12, 12, Off, PlanPolicy.ManualSync),
+            Is.EqualTo(new Skip("rewatch-disabled")));
+
     // P2: watching or rewatching advances.
 
     [Test]

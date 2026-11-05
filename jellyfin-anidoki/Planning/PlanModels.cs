@@ -6,8 +6,11 @@ namespace jellyfin_anidoki.Planning;
 /// <summary>A user's sync rules, read once per sync.</summary>
 public sealed record PlanRules(bool PlanToWatchOnly, bool RewatchCompleted);
 
-/// <summary>ConfirmedManual only moves progress forward and never starts or finishes a rewatch; every other trigger is Automatic.</summary>
-public enum PlanPolicy { Automatic, ConfirmedManual }
+/// <summary>
+/// ConfirmedManual only moves progress forward and never starts or finishes a rewatch. ManualSync replays the highest
+/// watched episode, which was not just played, so it leaves a rewatch alone too. Every other trigger is Automatic.
+/// </summary>
+public enum PlanPolicy { Automatic, ConfirmedManual, ManualSync }
 
 /// <param name="Episode">The target episode on this entry (for an earlier part, its length).</param>
 /// <param name="Now">Local time, used for start and end dates.</param>
