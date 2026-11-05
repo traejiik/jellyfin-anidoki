@@ -40,7 +40,7 @@ public static class RangeResolver {
     public static SourceResolution Resolve(Match match, int sourceEpisode, string sourceTitle, IReadOnlyDictionary<EntryRef, EntryState> entries) {
         switch (Map(match, sourceEpisode)) {
             case IgnoredEpisode:
-                return new Ignored(match.By, match.RecordedRevision);
+                return new Ignored(match.By, match.RecordedRevision, sourceTitle);
             case MappedEpisode { Target: var target, TargetEpisode: var episode }:
                 if (!entries.TryGetValue(target.Entry, out EntryState? state))
                     return new Unresolved("match-target-unreadable", Record(target), None);
