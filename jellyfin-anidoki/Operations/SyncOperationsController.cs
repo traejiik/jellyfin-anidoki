@@ -23,7 +23,7 @@ namespace jellyfin_anidoki.Operations;
 public sealed class SyncOperationsController(OperationRunner runner, OperationStore store, IUserManager userManager,
     ILibraryManager libraryManager, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory,
     IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, IApplicationPaths applicationPaths,
-    IUserDataManager userDataManager, IMemoryCache memoryCache) : ControllerBase {
+    IUserDataManager userDataManager, IMemoryCache memoryCache, Matching.ISeasonWatchState? watchState = null) : ControllerBase {
     [HttpPost("sync")]
     public ActionResult<OperationStarted> StartSync([FromQuery] ApiName provider, [FromQuery] Guid userId,
         [FromQuery] SyncHelper.Status status, [FromQuery] SyncAction syncAction) {
@@ -35,7 +35,7 @@ public sealed class SyncOperationsController(OperationRunner runner, OperationSt
         var delayer = new Delayer();
         OperationRunner.Handle? handle = kind == OperationKind.SyncToTrackers
             ? runner.Enqueue(userId, kind, "Linked trackers", operation => new SyncProviderFromLocal(userManager, libraryManager, loggerFactory,
-                httpClientFactory, serverApplicationHost, httpContextAccessor, applicationPaths, memoryCache, delayer, userId.ToString()).SyncFromLocal(operation))
+                httpClientFactory, serverApplicationHost, httpContextAccessor, applicationPaths, memoryCache, delayer, userId.ToString(), watchState).SyncFromLocal(operation))
             : runner.Enqueue(userId, kind, $"{provider} ({status})", operation => new Sync(httpClientFactory, loggerFactory, serverApplicationHost,
                 httpContextAccessor, userManager, libraryManager, applicationPaths, userDataManager, memoryCache, delayer, provider, status).SyncFromProvider(userId.ToString(), operation));
         if (handle == null)

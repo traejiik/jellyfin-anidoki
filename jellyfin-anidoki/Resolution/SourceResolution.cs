@@ -39,4 +39,5 @@ public sealed record Unresolved(string Reason, UnresolvedRecord? Record, IReadOn
     : SourceResolution(EarlierParts, Note);
 
 /// <summary>A saved match says this episode never syncs. Nothing else is touched for it.</summary>
-public sealed record Ignored(ResolvedBy By, long? MatchRevision) : SourceResolution([], null);
+/// <param name="Title">The source's title, recorded because an ignored episode names no entry.</param>
+public sealed record Ignored(ResolvedBy By, long? MatchRevision, string Title = "") : SourceResolution([], null);

@@ -9,7 +9,7 @@ using MediaBrowser.Controller.Entities.TV;
 namespace jellyfin_anidoki.Operations;
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum OperationKind { Playback, WatchedToggle, ConfirmedManual, SyncToTrackers, SyncFromTrackers }
+public enum OperationKind { Playback, WatchedToggle, ConfirmedManual, SyncToTrackers, SyncFromTrackers, ResolutionCheck }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum OperationState { Queued, Running, Succeeded, Partial, NoChange, Skipped, Unresolved, Unconfirmed, Failed, Cancelled, Interrupted }

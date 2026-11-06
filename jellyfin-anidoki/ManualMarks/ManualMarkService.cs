@@ -44,7 +44,7 @@ public sealed class ManualMarkService(ManualMarkStore store, IUserManager users,
                 return;
             }
             operation.CancellationToken.ThrowIfCancellationRequested();
-            var updater = new SyncPipeline(library, loggers, context, host, clients, paths, cache, new Delayer());
+            var updater = new SyncPipeline(library, loggers, context, host, clients, paths, cache, new Delayer()) { WatchState = new Matching.JellyfinSeasonWatchState(users, data) };
             await updater.Run(item, request.UserId, true, collector, SyncUpdateSource.ConfirmedManual, operation.CancellationToken);
             discord.Enqueue(SyncOperationSummary.Capture(item, request.UserId, operationId, SyncNotificationTrigger.ConfirmedManual, collector));
             var outcomes = collector.Outcomes;

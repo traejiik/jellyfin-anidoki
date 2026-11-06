@@ -7,6 +7,7 @@ using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Execution;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
+using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Planning;
@@ -47,6 +48,9 @@ public class SyncPipeline {
         get => _clients.Override;
         set => _clients.Override = value;
     }
+
+    /// <summary>What a matched season's progress is worked out from. Without it, only the played episode counts.</summary>
+    internal ISeasonWatchState? WatchState { get; set; }
 
     public SyncPipeline(ILibraryManager libraryManager,
         ILoggerFactory loggerFactory,
@@ -102,6 +106,9 @@ public class SyncPipeline {
             SourceIds sourceIds = await _sourceIds.Resolve(syncSource);
             _apiIds = sourceIds.Ids;
             var rules = new PlanRules(userConfig.PlanToWatchOnly, userConfig.RewatchCompleted);
+            ISourceResolver resolver = new MatchResolver(_resolver, new MatchStore(Plugin.Instance!.Database, _clock), userId,
+                Plugin.Instance.PluginConfiguration.applySavedMatches, WatchState,
+                source == SyncUpdateSource.ManualSync ? MatchProgressScope.WholeSeason : MatchProgressScope.PlayedEpisode, _logger);
             foreach (UserApiAuth userApiAuth in userConfig.UserApiAuth) {
                 _logger.LogDebug("Using provider {ApiName}...", userApiAuth.Name);
                 // continue, not return: an unconfigured provider must not skip the providers after it
@@ -112,7 +119,7 @@ public class SyncPipeline {
                 var executor = new Executor(tracker, rules, policy, collector, _clock, _logger, new ActionSource(video.Id, syncSource.EpisodeNumber));
                 SourceResolution resolution;
                 try {
-                    resolution = await _resolver.Resolve(syncSource, sourceIds, tracker, cancellationToken);
+                    resolution = await resolver.Resolve(syncSource, sourceIds, tracker, cancellationToken);
                 } catch (TrackerFailureException failure) {
                     // continue, not rethrow: one provider's failure must not stop the providers after it
                     executor.RecordResolutionFailure(failure, syncSource.SearchTitle ?? "");

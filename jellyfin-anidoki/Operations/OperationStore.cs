@@ -27,9 +27,9 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
     public void AddAction(Guid id, int sequence, ProviderWriteOutcome outcome, OutcomeDetail? detail = null) =>
         Execute("""
             INSERT INTO operation_actions (operation_id, seq, provider, target_id, target_title, outcome, step, progress, status, meaningful,
-                source_item, source_episode, target_episode, resolved_by, resolution_note, planned_change, planned_against)
+                source_item, source_episode, target_episode, resolved_by, resolution_note, planned_change, planned_against, match_revision)
             VALUES ($id, $seq, $provider, $target, $title, $outcome, $step, $progress, $status, $meaningful,
-                $sourceItem, $sourceEpisode, $targetEpisode, $resolvedBy, $note, $plannedChange, $plannedAgainst)
+                $sourceItem, $sourceEpisode, $targetEpisode, $resolvedBy, $note, $plannedChange, $plannedAgainst, $matchRevision)
             """,
             ("$id", Id(id)), ("$seq", sequence), ("$provider", outcome.Provider.ToString()), ("$target", outcome.TargetId),
             ("$title", outcome.TargetTitle), ("$outcome", outcome.Kind.ToString()), ("$step", outcome.Step),
@@ -42,7 +42,8 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
             ("$resolvedBy", (object?)detail?.By?.ToString() ?? DBNull.Value),
             ("$note", (object?)detail?.Note ?? DBNull.Value),
             ("$plannedChange", detail?.PlannedChange is { } change ? ActionJson.Write(change) : DBNull.Value),
-            ("$plannedAgainst", detail?.PlannedAgainst is { } against ? ActionJson.Write(against) : DBNull.Value));
+            ("$plannedAgainst", detail?.PlannedAgainst is { } against ? ActionJson.Write(against) : DBNull.Value),
+            ("$matchRevision", (object?)detail?.MatchRevision ?? DBNull.Value));
 
     public void Finish(Guid id, OperationState state, string? message) =>
         Execute("UPDATE operations SET state = $state, finished_utc = $now, message = $message WHERE id = $id",

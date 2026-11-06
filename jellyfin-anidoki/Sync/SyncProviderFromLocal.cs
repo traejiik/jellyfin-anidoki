@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
+using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
@@ -34,7 +35,8 @@ public class SyncProviderFromLocal(
     IApplicationPaths applicationPaths,
     IMemoryCache memoryCache,
     IAsyncDelayer delayer,
-    string userId) {
+    string userId,
+    ISeasonWatchState watchState = null) {
     private readonly Guid _userId = Guid.Parse(userId);
     private readonly ILogger<SyncProviderFromLocal> _logger = loggerFactory.CreateLogger<SyncProviderFromLocal>();
 
@@ -63,7 +65,8 @@ public class SyncProviderFromLocal(
 
     internal async Task SyncEpisodes(IReadOnlyList<Episode> targets, OperationContext operation) {
         var pipeline = new SyncPipeline(libraryManager, loggerFactory, httpContextAccessor, serverApplicationHost, httpClientFactory, applicationPaths, memoryCache, delayer) {
-            ClientOverride = ClientOverride
+            ClientOverride = ClientOverride,
+            WatchState = watchState
         };
         var collector = new PlaybackOutcomeCollector(operation.Record);
         operation.ReportProgress(0, targets.Count);
