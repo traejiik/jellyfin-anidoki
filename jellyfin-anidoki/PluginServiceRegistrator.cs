@@ -30,6 +30,10 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
         serviceCollection.AddSingleton(provider => new Matching.ResolutionCheckStore(
             Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath)));
         serviceCollection.AddSingleton<Matching.ISeasonWatchState, Matching.JellyfinSeasonWatchState>();
+        serviceCollection.AddSingleton<Matching.IMatchLibrary, Matching.JellyfinMatchLibrary>();
+        serviceCollection.AddSingleton<Matching.IMatchTrackers, Matching.MatchTrackers>();
+        serviceCollection.AddSingleton<Matching.IAutomaticMatches, Matching.AutomaticMatches>();
+        serviceCollection.AddSingleton<Matching.MatchService>();
         serviceCollection.AddSingleton<ManualMarks.ManualMarkStore>();
         serviceCollection.AddSingleton<ManualMarks.ManualMarkQueue>();
         serviceCollection.AddSingleton(provider => {

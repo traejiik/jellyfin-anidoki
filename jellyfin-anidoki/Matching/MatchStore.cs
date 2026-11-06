@@ -64,6 +64,28 @@ public sealed class MatchStore(AniDokiDatabase database, TimeProvider clock) {
         return summaries;
     }
 
+    /// <summary>Personal overrides, of one source, one owner, or both, by source, provider and owner.</summary>
+    public IReadOnlyList<OverrideSummary> ListOverrides(string? sourceKey = null, Guid? owner = null) {
+        using var connection = database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT source_key, provider, owner_user_id, revision, base_shared_revision FROM matches
+            WHERE owner_user_id IS NOT NULL AND ($source IS NULL OR source_key = $source) AND ($owner IS NULL OR owner_user_id = $owner)
+            ORDER BY source_key, provider, owner_user_id
+            """;
+        command.Parameters.AddWithValue("$source", Nullable(sourceKey));
+        command.Parameters.AddWithValue("$owner", owner is { } id ? Id(id) : DBNull.Value);
+        using var reader = command.ExecuteReader();
+        var overrides = new List<OverrideSummary>();
+        while (reader.Read()) {
+            // As in the sweep: an owner that is not a user ID was not written by this store.
+            if (Guid.TryParse(reader.GetString(2), out Guid user))
+                overrides.Add(new OverrideSummary(new MatchScope(Enum.Parse<ApiName>(reader.GetString(1)), reader.GetString(0), user),
+                    reader.GetInt64(3), reader.IsDBNull(4) ? null : reader.GetInt64(4)));
+        }
+        return overrides;
+    }
+
     /// <summary>Refreshes a source's title and fingerprint.</summary>
     public void UpsertSource(MatchSource source) {
         using var connection = database.Open();

@@ -442,4 +442,31 @@ public class MatchStoreTests {
         Assert.Throws<InvalidOperationException>(() => store.Get(SharedScope));
         Assert.Throws<InvalidOperationException>(() => store.SweepDeletedUsers([_user]));
     }
+
+    [Test]
+    public void OverridesAreListedBySourceOrOwnerWithoutTheSharedMatch() {
+        var other = Guid.NewGuid();
+        const string otherKey = "season:00000000000000000000000000000002:1";
+        var otherSource = Source with { SourceKey = otherKey };
+        SaveShared(0, Range(1, 12, A));
+        _store.Save(Source, Personal(Range(1, 12, B)) with { BaseSharedRevision = 1 }, 0, Author);
+        _store.Save(Source, new Match(new MatchScope(ApiName.Kitsu, SourceKey, other), [Range(1, 12, C)], []), 0, Author);
+        _store.Save(otherSource, new Match(new MatchScope(ApiName.AniList, otherKey, _user), [Range(1, 12, D)], []), 0, Author);
+
+        Assert.That(_store.ListOverrides(SourceKey), Is.EqualTo(new[] {
+            new OverrideSummary(_personalScope, 1, 1),
+            new OverrideSummary(new MatchScope(ApiName.Kitsu, SourceKey, other), 1, null)
+        }));
+        Assert.That(_store.ListOverrides(owner: _user).Select(entry => entry.Scope.SourceKey), Is.EqualTo(new[] { SourceKey, otherKey }));
+        Assert.That(_store.ListOverrides(SourceKey, other).Single().Scope.Provider, Is.EqualTo(ApiName.Kitsu));
+        Assert.That(_store.ListOverrides("movie:00000000000000000000000000000003"), Is.Empty);
+    }
+
+    [Test]
+    public void ADeletedOverrideIsNoLongerListed() {
+        _store.Save(Source, Personal(Range(1, 12, B)), 0, Author);
+        _store.Delete(_personalScope, 1, Author);
+
+        Assert.That(_store.ListOverrides(SourceKey), Is.Empty);
+    }
 }

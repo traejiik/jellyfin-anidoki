@@ -31,3 +31,6 @@ public sealed record MatchHistoryEntry(long Revision, MatchRevisionAction Action
 /// <param name="Overrides">How many personal overrides per provider.</param>
 public sealed record MatchSourceSummary(MatchSource Source, DateTimeOffset UpdatedUtc, IReadOnlyDictionary<ApiName, long> Shared,
     IReadOnlyDictionary<ApiName, int> Overrides);
+
+/// <summary>One personal override, without its ranges.</summary>
+public sealed record OverrideSummary(MatchScope Scope, long Revision, long? BaseSharedRevision);
