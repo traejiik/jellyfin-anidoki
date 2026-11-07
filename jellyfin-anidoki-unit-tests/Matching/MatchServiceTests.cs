@@ -359,7 +359,7 @@ public class MatchServiceTests {
         Assert.That(searched.Items.Single().SourceKey, Is.EqualTo(_fixture.Hidden.Info.SourceKey));
         Assert.That(past.Items, Is.Empty);
         Assert.That(past.Total, Is.EqualTo(2));
-        Assert.That(_service.ListSources(null, null, "needs-match", 1).Outcome, Is.EqualTo(MatchOutcome.BadRequest));
+        Assert.That(_service.ListSources(null, null, "needs-everything", 1).Outcome, Is.EqualTo(MatchOutcome.BadRequest));
     }
 
     [Test]
@@ -374,6 +374,27 @@ public class MatchServiceTests {
         Assert.That(bob.Items.SelectMany(item => item.Providers), Is.Empty, "Bob cannot tell that Alice has a correction");
         Assert.That(bob.Items, Has.Count.EqualTo(2));
         Assert.That(Body<SourcePageContract>(_service.ListSources(_fixture.Alice.Id, null, null, 1)).Items, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void TheProblemFiltersListWhatRecentSyncsFlagged() {
+        _fixture.Problems.Flagged.Add((MatchProblem.NeedsMatch, _fixture.Alice.Id, _fixture.Key));
+        _fixture.Problems.Flagged.Add((MatchProblem.NeedsReview, _fixture.Bob.Id, _fixture.Hidden.Info.SourceKey));
+        _fixture.Problems.Flagged.Add((MatchProblem.NeedsMatch, _fixture.Bob.Id, "season:00000000000000000000000000000001:1"));
+
+        var needsMatch = Body<SourcePageContract>(_service.ListSources(null, null, MatchService.NeedsMatchFilter, 1));
+        var needsReview = Body<SourcePageContract>(_service.ListSources(null, null, MatchService.NeedsReviewFilter, 1));
+
+        Assert.That(needsMatch.Items.Select(item => item.SourceKey), Is.EqualTo(new[] { _fixture.Key }), "a key the library no longer has is not listed");
+        Assert.That(needsReview.Items.Select(item => item.SourceKey), Is.EqualTo(new[] { _fixture.Hidden.Info.SourceKey }));
+    }
+
+    [Test]
+    public void AUsersProblemFiltersReadOnlyTheirOwnSyncs() {
+        _fixture.Problems.Flagged.Add((MatchProblem.NeedsMatch, _fixture.Bob.Id, _fixture.Key));
+
+        Assert.That(Body<SourcePageContract>(_service.ListSources(_fixture.Alice.Id, null, MatchService.NeedsMatchFilter, 1)).Total, Is.EqualTo(0));
+        Assert.That(Body<SourcePageContract>(_service.ListSources(_fixture.Bob.Id, null, MatchService.NeedsMatchFilter, 1)).Total, Is.EqualTo(1));
     }
 
     // Picker and automatic
@@ -406,15 +427,31 @@ public class MatchServiceTests {
     [Test]
     public async Task TheAutomaticAnswerComesBackAsAMappingOrAReason() {
         _fixture.Automatic.Answer = new DerivedSegmentation(new Match(_fixture.SharedScope, [MatchTestSupport.Range(1, 48, A)], []), null);
-        var derived = Body<AutomaticContract>(await _service.Automatic(_fixture.Key, Provider, _fixture.Admin.Id, CancellationToken.None));
+        var derived = Body<AutomaticContract>(await _service.Automatic(_fixture.Key, Provider, _fixture.Admin.Id, null, CancellationToken.None));
         _fixture.Automatic.Answer = new DerivedSegmentation(null, "offset-not-representable");
-        var none = Body<AutomaticContract>(await _service.Automatic(_fixture.Key, Provider, _fixture.Admin.Id, CancellationToken.None));
+        var none = Body<AutomaticContract>(await _service.Automatic(_fixture.Key, Provider, _fixture.Admin.Id, null, CancellationToken.None));
         _fixture.Trackers.Linked.Clear();
-        var unlinked = Body<AutomaticContract>(await _service.Automatic(_fixture.Key, Provider, _fixture.Admin.Id, CancellationToken.None));
+        var unlinked = Body<AutomaticContract>(await _service.Automatic(_fixture.Key, Provider, _fixture.Admin.Id, null, CancellationToken.None));
 
         Assert.That(derived.Mapping!.Ranges.Single(), Is.EqualTo(Span(1, 48, A)));
         Assert.That(none, Is.EqualTo(new AutomaticContract(null, "offset-not-representable", false)));
         Assert.That(unlinked.Reason, Is.EqualTo("no-linked-account"));
+    }
+
+    [Test]
+    public async Task AUsersAutomaticAnswerReadsOnlyThroughTheirOwnLink() {
+        _fixture.Automatic.Answer = new DerivedSegmentation(new Match(_fixture.SharedScope, [MatchTestSupport.Range(1, 48, A)], []), null);
+        Guid alice = _fixture.Alice.Id;
+
+        var unlinked = Body<AutomaticContract>(await _service.Automatic(_fixture.Key, Provider, alice, alice, CancellationToken.None));
+        _fixture.Trackers.Link(alice, _fixture.Catalogue);
+        var own = Body<AutomaticContract>(await _service.Automatic(_fixture.Key, Provider, alice, alice, CancellationToken.None));
+
+        Assert.That(unlinked, Is.EqualTo(new AutomaticContract(null, "no-linked-account", false)), "the admin's link is not borrowed");
+        Assert.That(own.Mapping!.Ranges.Single(), Is.EqualTo(Span(1, 48, A)));
+        Assert.That(own.BorrowedLink, Is.False);
+        Assert.That((await _service.Automatic(_fixture.Hidden.Info.SourceKey, Provider, alice, alice, CancellationToken.None)).Outcome,
+            Is.EqualTo(MatchOutcome.NotFound));
     }
 
     // Orphans

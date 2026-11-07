@@ -65,7 +65,7 @@ public sealed class MatchesController(MatchService matches, IUserManager users) 
 
     [HttpGet("{sourceKey}/{provider}/automatic")]
     public Task<IActionResult> Automatic(string sourceKey, ApiName provider, CancellationToken cancellationToken) =>
-        Requested(requester => matches.Automatic(sourceKey, provider, requester, cancellationToken));
+        Requested(requester => matches.Automatic(sourceKey, provider, requester, null, cancellationToken));
 
     [HttpPut("{sourceKey}/{provider}")]
     public Task<IActionResult> Save(string sourceKey, ApiName provider, [FromBody] SaveMatchRequest request, CancellationToken cancellationToken) =>
@@ -105,6 +105,11 @@ public sealed class UserMatchesController(MatchService matches, IUserManager use
 
     [HttpGet("{sourceKey}")]
     public IActionResult Detail(string sourceKey) => Me() is { } user ? this.From(matches.UserDetail(sourceKey, user)) : Unauthorized();
+
+    /// <summary>What automatic matching finds for the season, through the user's own link only.</summary>
+    [HttpGet("{sourceKey}/{provider}/automatic")]
+    public async Task<IActionResult> Automatic(string sourceKey, ApiName provider, CancellationToken cancellationToken) =>
+        Me() is { } user ? this.From(await matches.Automatic(sourceKey, provider, user, user, cancellationToken)) : Unauthorized();
 
     [HttpPut("{sourceKey}/{provider}")]
     public async Task<IActionResult> Save(string sourceKey, ApiName provider, [FromBody] SaveMatchRequest request, CancellationToken cancellationToken) =>

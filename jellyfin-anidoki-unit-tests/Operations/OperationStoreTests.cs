@@ -211,4 +211,35 @@ public class OperationStoreTests {
 
         Assert.Throws<InvalidOperationException>(() => store.Create(Guid.NewGuid(), Guid.NewGuid(), OperationKind.Playback, "x"));
     }
+
+    [Test]
+    public void RecentResolutionsAreReadInOrderForOneUserOrEveryone() {
+        var clock = new MutableTime(new DateTimeOffset(2026, 11, 7, 12, 0, 0, TimeSpan.Zero));
+        var (store, _) = Create(_directory, clock);
+        Guid alice = Guid.NewGuid(), bob = Guid.NewGuid(), episode = Guid.NewGuid();
+        void Sync(Guid user, OutcomeKind kind, string? note, bool withoutItem = false) {
+            Guid id = Guid.NewGuid();
+            store.Create(id, user, OperationKind.Playback, "Fixture Show");
+            store.AddAction(id, 0, Outcome(kind), new OutcomeDetail(episode, 5, null, null, note, null, null));
+            if (withoutItem)
+                store.AddAction(id, 1, Outcome(OutcomeKind.Failed));
+            clock.Now += TimeSpan.FromMinutes(1);
+        }
+        clock.Now -= TimeSpan.FromDays(31);
+        Sync(alice, OutcomeKind.Unresolved, "too old");
+        clock.Now += TimeSpan.FromDays(31);
+        Sync(alice, OutcomeKind.Unresolved, "no-cour-covers-episode");
+        Sync(bob, OutcomeKind.Confirmed, "ambiguous (2 candidates)");
+        Sync(alice, OutcomeKind.Confirmed, null, withoutItem: true);
+
+        DateTimeOffset since = clock.Now - TimeSpan.FromDays(30);
+        var everyone = store.RecentResolutions(since, null);
+        var alices = store.RecentResolutions(since, alice);
+
+        Assert.That(everyone.Select(row => (row.UserId, row.Outcome, row.Note)), Is.EqualTo(new (Guid, string, string?)[] {
+            (alice, "Unresolved", "no-cour-covers-episode"), (bob, "Confirmed", "ambiguous (2 candidates)"), (alice, "Confirmed", null)
+        }), "oldest first; nothing older than the window, and nothing without an item");
+        Assert.That(alices.Select(row => row.Note), Is.EqualTo(new string?[] { "no-cour-covers-episode", null }));
+        Assert.That(everyone.All(row => row.SourceItem == episode && row.Provider == "AniList"), Is.True);
+    }
 }
