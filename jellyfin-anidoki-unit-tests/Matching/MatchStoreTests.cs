@@ -469,4 +469,48 @@ public class MatchStoreTests {
 
         Assert.That(_store.ListOverrides(SourceKey), Is.Empty);
     }
+
+    [Test]
+    public void MovingASourceCarriesItsMatchesOverridesAndHistory() {
+        var moved = Source with { SourceKey = "season:00000000000000000000000000000009:1", Title = "Show · season 1 (rebuilt)" };
+        SaveShared(0, Range(1, 12, A));
+        SaveShared(1, Range(1, 12, B));
+        _store.Save(Source, Personal(Range(1, 12, C)), 0, Author);
+
+        Assert.That(_store.MoveSource(SourceKey, moved), Is.EqualTo(MatchWriteStatus.Written));
+
+        var shared = new MatchScope(ApiName.AniList, moved.SourceKey);
+        Assert.That(_store.Get(shared)!.Match.Revision, Is.EqualTo(2));
+        Assert.That(_store.History(shared).Select(entry => entry.Revision), Is.EqualTo(new long[] { 1, 2 }));
+        Assert.That(_store.Get(_personalScope with { SourceKey = moved.SourceKey }), Is.Not.Null);
+        Assert.That(_store.Get(SharedScope), Is.Null);
+        Assert.That(_store.History(SharedScope), Is.Empty);
+        Assert.That(_store.ListSources().Single().Source, Is.EqualTo(moved).Using<MatchSource>((x, y) => x.SourceKey == y.SourceKey && x.Title == y.Title));
+    }
+
+    [Test]
+    public void MovingOntoASourceWithMatchesOrHistoryIsAConflictAndChangesNothing() {
+        var other = Source with { SourceKey = "season:00000000000000000000000000000009:1" };
+        SaveShared(0, Range(1, 12, A));
+        _store.Save(other, new Match(new MatchScope(ApiName.Kitsu, other.SourceKey), [Range(1, 12, B)], []), 0, Author);
+        _store.Delete(new MatchScope(ApiName.Kitsu, other.SourceKey), 1, Author);
+
+        Assert.That(_store.MoveSource(SourceKey, other), Is.EqualTo(MatchWriteStatus.Conflict), "history alone is enough to refuse");
+        Assert.That(_store.Get(SharedScope), Is.Not.Null);
+        Assert.That(_store.MoveSource("season:00000000000000000000000000000008:1", Source with { SourceKey = "movie:00000000000000000000000000000007" }),
+            Is.EqualTo(MatchWriteStatus.NotFound));
+    }
+
+    [Test]
+    public void DeletingASourceRemovesItsMatchesHistoryAndRow() {
+        SaveShared(0, Range(1, 12, A));
+        _store.Save(Source, Personal(Range(1, 12, B)), 0, Author);
+
+        Assert.That(_store.DeleteSource(SourceKey), Is.EqualTo(MatchWriteStatus.Written));
+
+        Assert.That(_store.ListSources(), Is.Empty);
+        Assert.That(_store.History(SharedScope), Is.Empty);
+        Assert.That(Count("matches") + Count("match_ranges") + Count("match_revisions"), Is.EqualTo(0));
+        Assert.That(_store.DeleteSource(SourceKey), Is.EqualTo(MatchWriteStatus.NotFound));
+    }
 }

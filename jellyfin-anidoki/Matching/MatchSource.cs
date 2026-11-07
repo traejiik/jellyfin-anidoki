@@ -27,6 +27,14 @@ public sealed record MatchSource(string SourceKey, MatchSourceKind Kind, string 
         return new MatchSource(source.SourceKey, MatchSourceKind.Season, $"{source.SearchTitle} · season {source.SeasonNumber}", fingerprint);
     }
 
+    /// <summary>
+    /// Whether an item's provider IDs share one with a fingerprint at the same level (<c>series</c> or <c>movie</c>).
+    /// It suggests where an orphaned match may belong; an admin decides (D3).
+    /// </summary>
+    public static bool SharesId(IReadOnlyDictionary<string, string> fingerprint, string level, IReadOnlyDictionary<string, string>? providerIds) =>
+        providerIds != null && providerIds.Any(id => FingerprintIds.Contains(id.Key) && !string.IsNullOrEmpty(id.Value)
+            && fingerprint.TryGetValue($"{level}:{id.Key}", out string? value) && string.Equals(value, id.Value, StringComparison.OrdinalIgnoreCase));
+
     private static void Add(Dictionary<string, string> fingerprint, string level, BaseItem? item) {
         if (item?.ProviderIds == null)
             return;

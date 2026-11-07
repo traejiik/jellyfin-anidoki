@@ -154,6 +154,41 @@ public sealed class MatchStore(AniDokiDatabase database, TimeProvider clock) {
         return new MatchPromotion(MatchWriteStatus.Written, promoted, personal);
     }
 
+    /// <summary>
+    /// Moves a source's matches and history to another key, for a match orphaned by a library rebuild. Only an admin's
+    /// choice calls this; nothing re-attaches a match by itself (D3). The new key must have no matches or history, so
+    /// revisions and overrides never mix.
+    /// </summary>
+    /// <param name="to">The library source the matches now belong to; its title and fingerprint replace the old ones.</param>
+    public MatchWriteStatus MoveSource(string fromKey, MatchSource to) {
+        using var connection = database.Open();
+        using var transaction = connection.BeginTransaction();
+        if (Count(connection, transaction, "SELECT COUNT(*) FROM match_sources WHERE source_key = $key", fromKey) == 0)
+            return MatchWriteStatus.NotFound;
+        if (Count(connection, transaction, "SELECT COUNT(*) FROM matches WHERE source_key = $key", to.SourceKey) > 0
+            || Count(connection, transaction, "SELECT COUNT(*) FROM match_revisions WHERE source_key = $key", to.SourceKey) > 0)
+            return MatchWriteStatus.Conflict;
+        UpsertSource(connection, transaction, to);
+        Run(connection, transaction, "UPDATE matches SET source_key = $to WHERE source_key = $from", ("$to", to.SourceKey), ("$from", fromKey));
+        Run(connection, transaction, "UPDATE match_revisions SET source_key = $to WHERE source_key = $from", ("$to", to.SourceKey), ("$from", fromKey));
+        Run(connection, transaction, "DELETE FROM match_sources WHERE source_key = $from", ("$from", fromKey));
+        transaction.Commit();
+        return MatchWriteStatus.Written;
+    }
+
+    /// <summary>Deletes a source with every match and revision it has: the end of its history (PR 10, Differences item 10).</summary>
+    public MatchWriteStatus DeleteSource(string sourceKey) {
+        using var connection = database.Open();
+        using var transaction = connection.BeginTransaction();
+        if (Count(connection, transaction, "SELECT COUNT(*) FROM match_sources WHERE source_key = $key", sourceKey) == 0)
+            return MatchWriteStatus.NotFound;
+        Run(connection, transaction, "DELETE FROM matches WHERE source_key = $key", ("$key", sourceKey));
+        Run(connection, transaction, "DELETE FROM match_revisions WHERE source_key = $key", ("$key", sourceKey));
+        Run(connection, transaction, "DELETE FROM match_sources WHERE source_key = $key", ("$key", sourceKey));
+        transaction.Commit();
+        return MatchWriteStatus.Written;
+    }
+
     /// <summary>Oldest first. It outlives the match, including a Delete revision for one the sweep removed.</summary>
     public IReadOnlyList<MatchHistoryEntry> History(MatchScope scope) {
         using var connection = database.Open();
@@ -370,6 +405,14 @@ public sealed class MatchStore(AniDokiDatabase database, TimeProvider clock) {
         command.Parameters.AddWithValue("$source", scope.SourceKey);
         command.Parameters.AddWithValue("$provider", scope.Provider.ToString());
         command.Parameters.AddWithValue("$owner", scope.Owner is { } owner ? Id(owner) : SharedOwner);
+    }
+
+    private static long Count(SqliteConnection connection, SqliteTransaction transaction, string sql, string key) {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = sql;
+        command.Parameters.AddWithValue("$key", key);
+        return (long)command.ExecuteScalar()!;
     }
 
     private static void Run(SqliteConnection connection, SqliteTransaction? transaction, string sql, params (string Name, object Value)[] parameters) {

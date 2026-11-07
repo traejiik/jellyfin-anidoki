@@ -51,4 +51,15 @@ public class MatchSourceTests {
 
         Assert.That(MatchSource.From(SyncSource.From(movie)!).Fingerprint, Is.EqualTo(new Dictionary<string, string> { ["movie:anidb"] = "60" }));
     }
+
+    [Test]
+    public void AnItemSharesAnIdWithAFingerprintOnlyAtTheSameLevel() {
+        var fingerprint = new Dictionary<string, string> { ["series:AniDB"] = "42", ["season:Tvdb"] = "7" };
+
+        Assert.That(MatchSource.SharesId(fingerprint, "series", new Dictionary<string, string> { ["AniDB"] = "42", ["Imdb"] = "tt1" }), Is.True);
+        Assert.That(MatchSource.SharesId(fingerprint, "series", new Dictionary<string, string> { ["Tvdb"] = "7" }), Is.False, "a season's ID is not the series'");
+        Assert.That(MatchSource.SharesId(fingerprint, "series", new Dictionary<string, string> { ["AniDB"] = "43" }), Is.False);
+        Assert.That(MatchSource.SharesId(fingerprint, "movie", new Dictionary<string, string> { ["AniDB"] = "42" }), Is.False);
+        Assert.That(MatchSource.SharesId(fingerprint, "series", null), Is.False);
+    }
 }
