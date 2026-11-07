@@ -140,6 +140,16 @@ public class PluginIntegrationTests {
     }
 
     [Test]
+    public void TheMatchesPageAndItsControllerAreServedAsHiddenPages() {
+        var pages = CreatePlugin().GetPages().ToDictionary(page => page.Name);
+        Assert.That(pages["AniDoki_Matches"].EmbeddedResourcePath, Is.EqualTo("jellyfin_anidoki.Configuration.Matches.html"));
+        Assert.That(pages["AniDoki_MatchesJs"].EmbeddedResourcePath, Is.EqualTo("jellyfin_anidoki.Configuration.MatchesJs.js"));
+        Assert.That(pages["AniDoki_Matches"].EnableInMainMenu, Is.False);
+        foreach (var page in pages.Values)
+            Assert.That(typeof(Plugin).Assembly.GetManifestResourceInfo(page.EmbeddedResourcePath), Is.Not.Null, page.Name);
+    }
+
+    [Test]
     public void OnlyTheAdminPageIsEnabledInTheDashboardMenu() {
         var plugin = CreatePlugin();
         var visible = plugin.GetPages().Where(page => page.EnableInMainMenu).ToArray();

@@ -236,6 +236,8 @@ public partial class UserConfigurationTests {
     [TestCase("common.js", "application/javascript")]
     [TestCase("config-state.js", "application/javascript")]
     [TestCase("user-settings.js", "application/javascript")]
+    [TestCase("match-editor.js", "application/javascript")]
+    [TestCase("match-editor-state.js", "application/javascript")]
     public async Task PublicStaticAssetsRemainAvailableWhenUserPagesAreDisabled(string asset, string contentType) {
         _plugin.Configuration.enableUserPages = false;
         var result = (FileStreamResult)await InvokeEndpoint("GetAsset", asset);

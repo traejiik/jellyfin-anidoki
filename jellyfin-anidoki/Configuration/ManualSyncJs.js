@@ -32,81 +32,6 @@ export function describeOperation(view) {
     return { message: [headings[view.state] ?? view.state, counts, view.message].filter(Boolean).join('. '), tone };
 }
 
-// Jellyfin 12.2 matches main-menu plugin links by their exact page name. Hidden
-// sibling pages otherwise select Plugins. Keep this compatibility correction
-// confined to the visible manual-sync page and the existing dashboard links.
-export function selectManualSyncSidebar(signal, doc = document) {
-    if (signal.aborted || !doc.body || typeof MutationObserver === 'undefined') return;
-    const manualPage = 'AniDoki_ManualSync', primaryPage = 'AniDoki';
-    const snapshots = new Map();
-    const route = href => {
-        const hash = href?.slice(href.indexOf('#') + 1) ?? '';
-        const [path, query] = hash.split('?');
-        return { path, params: new URLSearchParams(query) };
-    };
-    const currentRoute = () => route(doc.defaultView?.location.hash);
-    const isManual = () => {
-        const current = currentRoute();
-        return current.path === '/configurationpage' && current.params.get('name') === manualPage;
-    };
-    const selectionObserver = new MutationObserver(refresh);
-    const mountObserver = new MutationObserver(refresh);
-    function correct(link, selected, section) {
-        if (!link) return;
-        if (!snapshots.has(link)) snapshots.set(link, {
-            selected: link.classList.contains('Mui-selected'), current: link.getAttribute('aria-current'), section
-        });
-        link.classList.toggle('Mui-selected', selected);
-        if (selected) link.setAttribute('aria-current', 'page');
-        else link.removeAttribute('aria-current');
-    }
-    function refresh() {
-        if (signal.aborted || !isManual()) return;
-        // Disconnect while writing so our own class changes do not feed an
-        // observer loop. Only the plugin section receives attribute observation.
-        selectionObserver.disconnect();
-        for (const section of doc.querySelectorAll('ul[aria-labelledby="plugins-subheader"]')) {
-            const primary = section.querySelector('a[href="#/configurationpage?name=AniDoki"]');
-            const plugins = section.querySelector('a[href="#/dashboard/plugins"]');
-            if (!primary || !plugins) continue;
-            correct(primary, true, section);
-            correct(plugins, false, section);
-            selectionObserver.observe(section, { attributes: true, subtree: true, attributeFilter: ['class', 'href', 'aria-current'] });
-        }
-    }
-    signal.addEventListener('abort', () => {
-        selectionObserver.disconnect(); mountObserver.disconnect();
-        const current = currentRoute();
-        for (const [link, snapshot] of snapshots) {
-            const primary = route(link.getAttribute('href')).params.get('name') === primaryPage;
-            let selected = snapshot.selected;
-            if (!isManual()) {
-                // React may commit the new route before viewhide. Respect that
-                // route rather than restoring the departed page's highlight.
-                const mainPage = [...snapshot.section.querySelectorAll('a[href]')].some(candidate => {
-                    const target = route(candidate.getAttribute('href'));
-                    return target.path === '/configurationpage' && target.params.get('name') === current.params.get('name');
-                });
-                selected = primary ? current.path === '/configurationpage' && current.params.get('name') === primaryPage
-                    : ['/dashboard/plugins', '/dashboard/plugins/repositories'].includes(current.path)
-                        || current.path === '/configurationpage' && !mainPage;
-            }
-            link.classList.toggle('Mui-selected', selected);
-            // Restore only the ARIA value this adapter owns; a newer value set
-            // by the host or another page must survive cleanup. An old current
-            // marker is eligible only while restoring the same route or when
-            // this link is selected on the destination route.
-            if (link.getAttribute('aria-current') === (primary ? 'page' : null)) {
-                if (snapshot.current === null || !isManual() && !selected) link.removeAttribute('aria-current');
-                else link.setAttribute('aria-current', snapshot.current);
-            }
-        }
-        snapshots.clear();
-    }, { once: true });
-    refresh();
-    mountObserver.observe(doc.body, { childList: true, subtree: true });
-}
-
 // Same URL as common.assetUrl, which cannot be used before common.js loads.
 const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidokiAssetVersion ??= Date.now().toString(36)}/${name}`);
 
@@ -120,7 +45,6 @@ export default function (view) {
     view.addEventListener('viewhide', () => lifetime?.abort());
     view.addEventListener('viewshow', () => {
         lifetime?.abort(); lifetime = new AbortController(); const signal = lifetime.signal;
-        selectManualSyncSidebar(signal, view.ownerDocument);
         start(signal).catch(async error => {
             const message = common ? await common.errorMessage(error) : 'Could not load AniDōki resources.';
             if (!signal.aborted) find('[data-page-status]').textContent = message;
@@ -129,6 +53,7 @@ export default function (view) {
     async function start(signal) {
         common = await import(assetUrl('common.js')); if (signal.aborted) return;
         common.ensureStyles(); common.setTabs(common.TabManualSync, common.getTabs, view);
+        common.selectPluginSidebar('AniDoki_ManualSync', signal, view.ownerDocument);
         find('#runSync').disabled = true; common.status(find('[data-page-status]'), 'Loading users and linked trackers…');
         const result = await Promise.all([ApiClient.getUsers(), ApiClient.getPluginConfiguration(common.pluginId)]); if (signal.aborted) return;
         [users, config] = result;
