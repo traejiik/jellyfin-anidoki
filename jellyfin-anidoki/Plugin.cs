@@ -264,6 +264,14 @@ namespace jellyfin_anidoki {
                 new PluginPageInfo {
                     Name = "AniDoki_ManualSyncJs",
                     EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.ManualSyncJs.js"
+                },
+                new PluginPageInfo {
+                    Name = "AniDoki_Matches",
+                    EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.Matches.html"
+                },
+                new PluginPageInfo {
+                    Name = "AniDoki_MatchesJs",
+                    EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.MatchesJs.js"
                 }
             };
         }

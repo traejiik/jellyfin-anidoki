@@ -1,6 +1,7 @@
 export const pluginId = 'dceb799c-238e-4a33-aa5e-14fc0b1efe9d';
 export const TabGeneral = 0;
 export const TabManualSync = 1;
+export const TabMatches = 2;
 export const providers = [
     { key: 'AniList', name: 'AniList', initials: 'AL' },
     { key: 'Mal', name: 'MyAnimeList', initials: 'MAL' },
@@ -15,7 +16,8 @@ export const providerName = key => providers.find(p => p.key === key)?.name ?? k
 export const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidokiAssetVersion ??= Date.now().toString(36)}/${name}`);
 export const getTabs = () => [
     { href: 'configurationpage?name=AniDoki', name: 'Settings' },
-    { href: 'configurationpage?name=AniDoki_ManualSync', name: 'Manual sync' }
+    { href: 'configurationpage?name=AniDoki_ManualSync', name: 'Manual sync' },
+    { href: 'configurationpage?name=AniDoki_Matches', name: 'Matches' }
 ];
 
 export function element(tag, className, text) {
@@ -320,4 +322,79 @@ export function renderAccounts(container, { linked, visible, admin = false, user
         }
         row.append(detail, feedback); container.append(row);
     }
+}
+
+// Jellyfin 12.2 matches main-menu plugin links by their exact page name. Hidden
+// sibling pages (Manual sync, Matches) otherwise select Plugins. Keep this
+// compatibility correction confined to the visible hidden page and the existing dashboard links.
+export function selectPluginSidebar(page, signal, doc = document) {
+    if (signal.aborted || !doc.body || typeof MutationObserver === 'undefined') return;
+    const hiddenPage = page, primaryPage = 'AniDoki';
+    const snapshots = new Map();
+    const route = href => {
+        const hash = href?.slice(href.indexOf('#') + 1) ?? '';
+        const [path, query] = hash.split('?');
+        return { path, params: new URLSearchParams(query) };
+    };
+    const currentRoute = () => route(doc.defaultView?.location.hash);
+    const onHiddenPage = () => {
+        const current = currentRoute();
+        return current.path === '/configurationpage' && current.params.get('name') === hiddenPage;
+    };
+    const selectionObserver = new MutationObserver(refresh);
+    const mountObserver = new MutationObserver(refresh);
+    function correct(link, selected, section) {
+        if (!link) return;
+        if (!snapshots.has(link)) snapshots.set(link, {
+            selected: link.classList.contains('Mui-selected'), current: link.getAttribute('aria-current'), section
+        });
+        link.classList.toggle('Mui-selected', selected);
+        if (selected) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+    }
+    function refresh() {
+        if (signal.aborted || !onHiddenPage()) return;
+        // Disconnect while writing so our own class changes do not feed an
+        // observer loop. Only the plugin section receives attribute observation.
+        selectionObserver.disconnect();
+        for (const section of doc.querySelectorAll('ul[aria-labelledby="plugins-subheader"]')) {
+            const primary = section.querySelector('a[href="#/configurationpage?name=AniDoki"]');
+            const plugins = section.querySelector('a[href="#/dashboard/plugins"]');
+            if (!primary || !plugins) continue;
+            correct(primary, true, section);
+            correct(plugins, false, section);
+            selectionObserver.observe(section, { attributes: true, subtree: true, attributeFilter: ['class', 'href', 'aria-current'] });
+        }
+    }
+    signal.addEventListener('abort', () => {
+        selectionObserver.disconnect(); mountObserver.disconnect();
+        const current = currentRoute();
+        for (const [link, snapshot] of snapshots) {
+            const primary = route(link.getAttribute('href')).params.get('name') === primaryPage;
+            let selected = snapshot.selected;
+            if (!onHiddenPage()) {
+                // React may commit the new route before viewhide. Respect that
+                // route rather than restoring the departed page's highlight.
+                const mainPage = [...snapshot.section.querySelectorAll('a[href]')].some(candidate => {
+                    const target = route(candidate.getAttribute('href'));
+                    return target.path === '/configurationpage' && target.params.get('name') === current.params.get('name');
+                });
+                selected = primary ? current.path === '/configurationpage' && current.params.get('name') === primaryPage
+                    : ['/dashboard/plugins', '/dashboard/plugins/repositories'].includes(current.path)
+                        || current.path === '/configurationpage' && !mainPage;
+            }
+            link.classList.toggle('Mui-selected', selected);
+            // Restore only the ARIA value this adapter owns; a newer value set
+            // by the host or another page must survive cleanup. An old current
+            // marker is eligible only while restoring the same route or when
+            // this link is selected on the destination route.
+            if (link.getAttribute('aria-current') === (primary ? 'page' : null)) {
+                if (snapshot.current === null || !onHiddenPage() && !selected) link.removeAttribute('aria-current');
+                else link.setAttribute('aria-current', snapshot.current);
+            }
+        }
+        snapshots.clear();
+    }, { once: true });
+    refresh();
+    mountObserver.observe(doc.body, { childList: true, subtree: true });
 }

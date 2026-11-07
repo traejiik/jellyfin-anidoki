@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as manualSync from '../../../jellyfin-anidoki/Configuration/ManualSyncJs.js';
+import { importConfiguration } from './load-configuration.mjs';
+
+const common = await importConfiguration('CommonJs.js');
 
 class Link {
     constructor(href, selected = false, current = null) {
@@ -14,7 +16,7 @@ class Link {
     removeAttribute(name) { this.attributes.delete(name); }
 }
 
-function setup(t, { pluginsCurrent = null } = {}) {
+function setup(t, { pluginsCurrent = null, page = 'AniDoki_ManualSync' } = {}) {
     const observers = [];
     const oldObserver = globalThis.MutationObserver;
     globalThis.MutationObserver = class {
@@ -30,10 +32,9 @@ function setup(t, { pluginsCurrent = null } = {}) {
         querySelector: selector => selector.includes('AniDoki') ? primary : plugins,
         querySelectorAll: () => [primary, plugins, unrelated]
     };
-    const document = { body: {}, querySelectorAll: () => [sidebar], defaultView: { location: { hash: '#/configurationpage?name=AniDoki_ManualSync' } } };
+    const document = { body: {}, querySelectorAll: () => [sidebar], defaultView: { location: { hash: `#/configurationpage?name=${page}` } } };
     const lifetime = new AbortController();
-    assert.equal(typeof manualSync.selectManualSyncSidebar, 'function', 'manual sync must provide its scoped sidebar correction');
-    manualSync.selectManualSyncSidebar(lifetime.signal, document);
+    common.selectPluginSidebar(page, lifetime.signal, document);
     const rerender = () => observers.filter(observer => observer.active).forEach(observer => observer.callback([]));
     return { primary, plugins, unrelated, document, lifetime, observers, rerender };
 }
@@ -69,7 +70,7 @@ test('a fresh lifetime can reopen without keeping the old correction alive', t =
     const page = setup(t);
     page.lifetime.abort();
     const fresh = new AbortController();
-    manualSync.selectManualSyncSidebar(fresh.signal, page.document);
+    common.selectPluginSidebar('AniDoki_ManualSync', fresh.signal, page.document);
     assert.equal(page.primary.classList.contains('Mui-selected'), true);
     assert.equal(page.observers.filter(observer => observer.active).length, 2);
     fresh.abort();
@@ -165,7 +166,15 @@ test('an already aborted page creates no observers or changes', t => {
     const page = setup(t);
     page.lifetime.abort();
     const count = page.observers.length;
-    manualSync.selectManualSyncSidebar(page.lifetime.signal, page.document);
+    common.selectPluginSidebar('AniDoki_ManualSync', page.lifetime.signal, page.document);
     assert.equal(page.observers.length, count);
     assert.equal(page.primary.classList.contains('Mui-selected'), false);
+});
+
+test('the matches page gets the same correction, and only while it is shown', t => {
+    const page = setup(t, { page: 'AniDoki_Matches' });
+    assert.equal(page.primary.classList.contains('Mui-selected'), true);
+    assert.equal(page.plugins.classList.contains('Mui-selected'), false);
+    page.lifetime.abort();
+    assert.equal(page.primary.getAttribute('aria-current'), null);
 });
