@@ -227,6 +227,24 @@ public sealed record AutomaticContract(
     [property: JsonPropertyName("reason")] string? Reason,
     [property: JsonPropertyName("borrowedLink")] bool BorrowedLink);
 
+public sealed record SourceRefContract(
+    [property: JsonPropertyName("sourceKey")] string SourceKey,
+    [property: JsonPropertyName("title")] string Title);
+
+/// <summary>A saved source the library no longer has, usually after a rebuild gave its series a new item ID.</summary>
+/// <param name="Fingerprint">Its provider IDs when last seen, such as <c>series:AniDB</c>.</param>
+/// <param name="Candidates">Library sources sharing a provider ID with it, likeliest first. Only suggestions: an admin chooses.</param>
+public sealed record OrphanContract(
+    [property: JsonPropertyName("sourceKey")] string SourceKey,
+    [property: JsonPropertyName("kind")] MatchSourceKind Kind,
+    [property: JsonPropertyName("title")] string Title,
+    [property: JsonPropertyName("updatedUtc")] DateTimeOffset UpdatedUtc,
+    [property: JsonPropertyName("providers")] IReadOnlyList<ProviderStateContract> Providers,
+    [property: JsonPropertyName("fingerprint")] IReadOnlyDictionary<string, string> Fingerprint,
+    [property: JsonPropertyName("candidates")] IReadOnlyList<SourceRefContract> Candidates);
+
+public sealed record ReattachRequest([property: JsonPropertyName("targetSourceKey")] string? TargetSourceKey);
+
 internal static class MatchContracts {
     /// <returns>The match, or what is wrong with the request's shape. Rules about the numbers are <see cref="MatchValidator"/>'s.</returns>
     public static (Match? Match, string? Error) ToMatch(MatchScope scope, IReadOnlyList<RangeContract>? ranges, IReadOnlyList<ExceptionContract>? exceptions,

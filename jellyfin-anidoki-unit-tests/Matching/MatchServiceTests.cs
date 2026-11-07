@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -414,5 +415,72 @@ public class MatchServiceTests {
         Assert.That(derived.Mapping!.Ranges.Single(), Is.EqualTo(Span(1, 48, A)));
         Assert.That(none, Is.EqualTo(new AutomaticContract(null, "offset-not-representable", false)));
         Assert.That(unlinked.Reason, Is.EqualTo("no-linked-account"));
+    }
+
+    // Orphans
+
+    private async Task<LibrarySource> Rebuilt() {
+        await SaveShared(FourByTwelve());
+        _fixture.Library.Remove(_fixture.Season);
+        return _fixture.Library.Add(Source(new Characterization.LibraryFixture().Episode("Long Show", 1, 48), Enumerable.Range(1, 48).ToList()));
+    }
+
+    [Test]
+    public async Task ASourceTheLibraryNoLongerHasIsListedWithWhereItMayBelong() {
+        LibrarySource rebuilt = await Rebuilt();
+
+        var orphans = Body<IReadOnlyList<OrphanContract>>(_service.ListOrphans());
+
+        OrphanContract orphan = orphans.Single();
+        Assert.That(orphan.SourceKey, Is.EqualTo(_fixture.Key));
+        Assert.That(orphan.Providers, Is.EqualTo(new[] { new ProviderStateContract(Provider, 1, 0, null) }));
+        Assert.That(orphan.Candidates.Select(candidate => candidate.SourceKey), Does.Contain(rebuilt.Info.SourceKey));
+        Assert.That(Body<SourcePageContract>(_service.ListSources(null, null, MatchService.MatchedFilter, 1)).Items, Is.Empty, "the source list shows the library only");
+    }
+
+    [Test]
+    public async Task ReattachingMovesTheMatchesToTheChosenSource() {
+        LibrarySource rebuilt = await Rebuilt();
+
+        var moved = Body<SourceRefContract>(_service.Reattach(_fixture.Key, new ReattachRequest(rebuilt.Info.SourceKey)));
+
+        Assert.That(moved.SourceKey, Is.EqualTo(rebuilt.Info.SourceKey));
+        Assert.That(_fixture.Store.Get(new MatchScope(Provider, rebuilt.Info.SourceKey))!.Match.Revision, Is.EqualTo(1));
+        Assert.That(Body<IReadOnlyList<OrphanContract>>(_service.ListOrphans()), Is.Empty);
+    }
+
+    [Test]
+    public async Task ReattachingNeedsAnOrphanAndAnEmptyLibrarySourceOfTheSameKind() {
+        LibrarySource rebuilt = await Rebuilt();
+        var movie = _fixture.Library.Add(Source(new Characterization.LibraryFixture().Movie("Film"), [1]));
+        await _service.Save(new MatchScope(ApiName.Kitsu, rebuilt.Info.SourceKey), new SaveMatchRequest(0, [Span(1, 12, A)], [], null), _fixture.Admin.Id, null,
+            CancellationToken.None);
+        _fixture.Trackers.Link(_fixture.Admin.Id, new CatalogueFake(ApiName.Kitsu));
+
+        Assert.That(_service.Reattach(_fixture.Hidden.Info.SourceKey, new ReattachRequest(rebuilt.Info.SourceKey)).Outcome, Is.EqualTo(MatchOutcome.BadRequest), "still in the library");
+        Assert.That(_service.Reattach(_fixture.Key, new ReattachRequest(movie.Info.SourceKey)).Outcome, Is.EqualTo(MatchOutcome.BadRequest), "a season onto a movie");
+        Assert.That(_service.Reattach(_fixture.Key, new ReattachRequest(null)).Outcome, Is.EqualTo(MatchOutcome.BadRequest));
+        Assert.That(_service.Reattach("season:00000000000000000000000000000005:1", new ReattachRequest(rebuilt.Info.SourceKey)).Outcome, Is.EqualTo(MatchOutcome.NotFound));
+        Assert.That(_fixture.Store.Get(_fixture.SharedScope), Is.Not.Null, "nothing moved");
+    }
+
+    [Test]
+    public async Task ReattachingOntoASourceThatAlreadyHasMatchesIsAConflict() {
+        LibrarySource rebuilt = await Rebuilt();
+        await _service.Save(new MatchScope(Provider, rebuilt.Info.SourceKey), FourByTwelve(), _fixture.Admin.Id, null, CancellationToken.None);
+
+        Assert.That(_service.Reattach(_fixture.Key, new ReattachRequest(rebuilt.Info.SourceKey)).Outcome, Is.EqualTo(MatchOutcome.Conflict));
+        Assert.That(_fixture.Store.Get(_fixture.SharedScope), Is.Not.Null);
+    }
+
+    [Test]
+    public async Task DeletingAnOrphanEndsItsHistoryButASourceInTheLibraryKeepsItsOwn() {
+        await SaveShared(FourByTwelve());
+
+        Assert.That(_service.DeleteOrphan(_fixture.Key).Outcome, Is.EqualTo(MatchOutcome.BadRequest));
+        _fixture.Library.Remove(_fixture.Season);
+        Assert.That(_service.DeleteOrphan(_fixture.Key).Outcome, Is.EqualTo(MatchOutcome.Ok));
+        Assert.That(_fixture.Store.ListSources(), Is.Empty);
+        Assert.That(_service.DeleteOrphan(_fixture.Key).Outcome, Is.EqualTo(MatchOutcome.NotFound));
     }
 }

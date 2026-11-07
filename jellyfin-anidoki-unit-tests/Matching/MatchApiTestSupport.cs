@@ -71,6 +71,13 @@ internal sealed class FakeMatchLibrary : IMatchLibrary {
     public LibrarySource? Find(string sourceKey, Guid? viewer) =>
         _sources.FirstOrDefault(entry => entry.Source.Info.SourceKey == sourceKey && Visible(entry.VisibleTo, viewer)).Source;
 
+    /// <summary>As a library rebuild does: the source is gone, and its matches orphaned.</summary>
+    public void Remove(LibrarySource source) => _sources.RemoveAll(entry => entry.Source == source);
+
+    /// <summary>Every listed source of the same kind; the real library also compares provider IDs (<see cref="MatchSource.SharesId"/>).</summary>
+    public IReadOnlyList<LibrarySourceEntry> Candidates(MatchSource orphan, int? seasonNumber) =>
+        List(null).Where(entry => entry.Kind == orphan.Kind).ToList();
+
     private static bool Visible(HashSet<Guid>? visibleTo, Guid? viewer) => viewer == null || visibleTo == null || visibleTo.Contains(viewer.Value);
 }
 
