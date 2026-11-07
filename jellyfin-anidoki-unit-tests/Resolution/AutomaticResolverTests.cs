@@ -203,6 +203,57 @@ public class AutomaticResolverTests {
     }
 
     [Test]
+    public async Task SeveralEqualTitleMatchesAreNotedAndTheFirstIsStillTaken() {
+        Searching(ApiName.Mal, [Entry(600, "Other", 12), Entry(601, Show, 12), Entry(602, Show, 12)]);
+
+        var resolution = await Resolve(ApiName.Mal, Episode(1, 3), Ids());
+
+        AssertPlayed(resolution, 601, 3, ResolvedBy.TitleSearch);
+        Assert.That(((Resolved)resolution).Note, Is.EqualTo("ambiguous (2 candidates)"));
+    }
+
+    [Test]
+    public async Task OneTitleMatchHasNoNote() {
+        Searching(ApiName.Mal, [Entry(600, "Other", 12), Entry(601, Show, 12)]);
+
+        var resolution = await Resolve(ApiName.Mal, Episode(1, 3), Ids());
+
+        Assert.That(((Resolved)resolution).Note, Is.Null);
+    }
+
+    [Test]
+    public async Task TheSameEntryListedTwiceIsOneCandidate() {
+        Searching(ApiName.Mal, [Entry(601, Show, 12), Entry(601, Show, 12)]);
+
+        var resolution = await Resolve(ApiName.Mal, Episode(1, 3), Ids());
+
+        Assert.That(((Resolved)resolution).Note, Is.Null);
+    }
+
+    [TestCase(ApiName.Annict)]
+    [TestCase(ApiName.Shikimori)]
+    public async Task OnTheMalIdRouteOneIdIsOneCandidate(ApiName provider) {
+        var entry = Entry(500, "Different Title", 12);
+        Searching(provider, [Entry(600, "Other", 12), entry]);
+        _fake!.SearchResults.Add(entry);
+
+        var resolution = await Resolve(provider, Episode(2, 3), Ids(mal: 500));
+
+        AssertPlayed(resolution, 500, 3, ResolvedBy.TitleSearch);
+        Assert.That(((Resolved)resolution).Note, Is.Null, "the same MAL ID listed twice is one candidate");
+    }
+
+    [Test]
+    public async Task AnAmbiguousMatchThatCannotResolveKeepsItsReason() {
+        Searching(ApiName.Mal, [Entry(600, Show, 12), Entry(601, Show, 12)]);
+
+        var resolution = await Resolve(ApiName.Mal, Episode(2, 3), Ids());
+
+        AssertUnresolved(resolution, "sequel-fetch-failed", null);
+        Assert.That(((Unresolved)resolution).Note, Is.Null, "the executor records Note ?? Reason, so a note here would hide the reason");
+    }
+
+    [Test]
     public async Task TitleSearchMatchesOriginalTitle() {
         var candidate = Entry(600, "Shou", 12);
         candidate.AlternativeTitles.Ja = "ショー";
