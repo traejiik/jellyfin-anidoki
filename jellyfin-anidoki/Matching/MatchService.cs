@@ -204,6 +204,42 @@ public sealed class MatchService(MatchStore store, IMatchLibrary library, IMatch
             derived.FailureReason, catalogue.Borrowed));
     }
 
+    /// <summary>Saved sources the library no longer finds, with where each may belong.</summary>
+    public MatchResult ListOrphans() => MatchResult.Ok(store.ListSources()
+        .Where(saved => library.Find(saved.Source.SourceKey, null) == null)
+        .Select(saved => new OrphanContract(saved.Source.SourceKey, saved.Source.Kind, saved.Source.Title, saved.UpdatedUtc, AdminStates(saved),
+            saved.Source.Fingerprint,
+            library.Candidates(saved.Source, SourceKeys.Parse(saved.Source.SourceKey)?.SeasonNumber)
+                .Select(candidate => new SourceRefContract(candidate.SourceKey, candidate.Title)).ToList()))
+        .ToList());
+
+    /// <summary>
+    /// Moves an orphan's matches and history to a library source the admin chose. Never automatic (D3), and only
+    /// onto a source of the same kind with nothing saved, so no two histories mix.
+    /// </summary>
+    public MatchResult Reattach(string sourceKey, ReattachRequest request) {
+        if (library.Find(sourceKey, null) != null)
+            return new MatchResult(MatchOutcome.BadRequest, "This season or movie is still in the library, so its matches are not orphaned.");
+        if (store.ListSources().FirstOrDefault(saved => saved.Source.SourceKey == sourceKey) is not { } orphan)
+            return MatchResult.NotFound;
+        if (string.IsNullOrEmpty(request.TargetSourceKey) || library.Find(request.TargetSourceKey, null) is not { } target)
+            return new MatchResult(MatchOutcome.BadRequest, "Choose a season or movie in the library.");
+        if (target.Info.Kind != orphan.Source.Kind)
+            return new MatchResult(MatchOutcome.BadRequest, "A season's matches can only move to a season, and a movie's to a movie.");
+        return store.MoveSource(sourceKey, target.Info) switch {
+            MatchWriteStatus.Conflict => new MatchResult(MatchOutcome.Conflict, $"{target.Info.Title} already has saved matches or their history, and the two cannot be merged. Save the match again on {target.Info.Title} and delete this one instead."),
+            MatchWriteStatus.NotFound => MatchResult.NotFound,
+            _ => MatchResult.Ok(new SourceRefContract(target.Info.SourceKey, target.Info.Title))
+        };
+    }
+
+    /// <summary>Deletes an orphan with its matches and history. A source still in the library keeps its history.</summary>
+    public MatchResult DeleteOrphan(string sourceKey) {
+        if (library.Find(sourceKey, null) != null)
+            return new MatchResult(MatchOutcome.BadRequest, "This season or movie is still in the library. Delete its matches one tracker at a time instead.");
+        return store.DeleteSource(sourceKey) == MatchWriteStatus.NotFound ? MatchResult.NotFound : MatchResult.Ok(new SourceRefContract(sourceKey, ""));
+    }
+
     private async Task<MatchValidation> Validate(Match match, LibrarySource source, Guid requester, Guid? viewer, long? currentShared, CancellationToken cancellationToken) {
         CatalogueTracker? catalogue = Catalogue(requester, match.Scope.Provider, viewer);
         Dictionary<EntryRef, EntryState> entries = catalogue == null ? [] : await MatchResolver.ReadTargets(match, catalogue.Tracker, cancellationToken);

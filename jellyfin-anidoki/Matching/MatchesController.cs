@@ -36,6 +36,15 @@ public sealed class MatchesController(MatchService matches, IUserManager users) 
     public Task<IActionResult> Promote(Guid userId, string sourceKey, ApiName provider, [FromBody] PromoteRequest request, CancellationToken cancellationToken) =>
         Requested(requester => matches.Promote(userId, provider, sourceKey, request, requester, cancellationToken));
 
+    [HttpGet("orphans")]
+    public IActionResult Orphans() => this.From(matches.ListOrphans());
+
+    [HttpPost("orphans/{sourceKey}/reattach")]
+    public IActionResult Reattach(string sourceKey, [FromBody] ReattachRequest request) => this.From(matches.Reattach(sourceKey, request));
+
+    [HttpDelete("orphans/{sourceKey}")]
+    public IActionResult DeleteOrphan(string sourceKey) => this.From(matches.DeleteOrphan(sourceKey));
+
     [HttpGet("users/{userId:guid}/{sourceKey}/{provider}")]
     public IActionResult ReadOverride(Guid userId, string sourceKey, ApiName provider) =>
         Target(userId) is { } owner ? this.From(matches.ReadOverride(new MatchScope(provider, sourceKey, owner))) : NotFound();

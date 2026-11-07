@@ -63,6 +63,14 @@
         <EmbeddedResource Include="Configuration\ManualSync.html"/>
         <None Remove="Configuration\ManualSyncJs.js"/>
         <EmbeddedResource Include="Configuration\ManualSyncJs.js"/>
+        <None Remove="Configuration\Matches.html"/>
+        <EmbeddedResource Include="Configuration\Matches.html"/>
+        <None Remove="Configuration\MatchesJs.js"/>
+        <EmbeddedResource Include="Configuration\MatchesJs.js"/>
+        <None Remove="Configuration\MatchEditorJs.js"/>
+        <EmbeddedResource Include="Configuration\MatchEditorJs.js"/>
+        <None Remove="Configuration\MatchEditorStateJs.js"/>
+        <EmbeddedResource Include="Configuration\MatchEditorStateJs.js"/>
         <None Remove="Configuration\Images\provider-anilist.svg"/>
         <EmbeddedResource Include="Configuration\Images\provider-anilist.svg" LogicalName="jellyfin_anidoki.Configuration.Images.provider-anilist.svg"/>
         <None Remove="Configuration\Images\provider-mal.svg"/>

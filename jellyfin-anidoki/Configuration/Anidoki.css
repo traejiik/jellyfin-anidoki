@@ -70,7 +70,7 @@
 .anidoki a { color: var(--doki-accent); overflow-wrap: anywhere; }
 .anidoki button, .anidoki input, .anidoki select { font: inherit; }
 .anidoki button, .anidoki summary, .anidoki label, .anidoki select { touch-action: manipulation; }
-.anidoki :is(button, input, select, summary, a):focus-visible { outline: 2px solid var(--doki-accent); outline-offset: 3px; }
+.anidoki :is(button, input, select, textarea, summary, a):focus-visible { outline: 2px solid var(--doki-accent); outline-offset: 3px; }
 /* Top bar: plugin icon and name, with one status item on the right. */
 .anidoki .doki-topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 24px; margin-bottom: 32px; border-bottom: 1px solid var(--doki-edge); }
 /* One control tall (44px) whether or not the right side holds a button, so every plugin's bar matches. */
@@ -365,4 +365,50 @@
     .anidoki .doki-discord-preview { padding: 12px; }
     .anidoki .doki-discord-preview-body { margin-left: 0; padding: 12px; gap: 10px; }
     .anidoki .doki-discord-poster, .anidoki .doki-discord-poster-fallback { flex-basis: 60px; width: 60px; max-height: 90px; }
+}
+
+/* Matches (admin manager; PR 14 reuses the editor). Stock components first; these only lay them out. */
+.anidoki .doki-matches-page h3 { margin: 0 0 10px; font-size: 1rem; }
+.anidoki .doki-matches-page h4 { margin: 18px 0 8px; font-size: .875rem; color: var(--doki-muted); }
+.anidoki .doki-chip-row { border: 0; margin: 16px 0; padding: 0; min-width: 0; }
+.anidoki .doki-source-table th:last-child, .anidoki .doki-source-table td:last-child { width: 96px; }
+.anidoki .doki-source-table tr[aria-current="true"] td { background: var(--doki-ground); }
+.anidoki .doki-pager { justify-content: space-between; margin-top: 12px; }
+.anidoki .doki-provider-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--doki-edge); margin: 18px 0 20px; }
+.anidoki .doki-provider-tab { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 14px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--doki-muted); font: inherit; cursor: pointer; }
+.anidoki .doki-provider-tab[aria-selected="true"] { border-color: var(--doki-accent); color: var(--doki-text); font-weight: 700; }
+.anidoki .doki-episode-map th:first-child, .anidoki .doki-episode-map td:first-child { width: 96px; }
+.anidoki .doki-episode-map td:last-child { text-align: start; }
+.anidoki .doki-match-note { margin-top: 20px; }
+.anidoki .doki-match-note textarea { font: inherit; }
+.anidoki .doki-chip-row input { accent-color: var(--doki-accent); margin: 0; }
+.anidoki .doki-episode-map td[data-tone="error"] { color: var(--tjk-error); }
+.anidoki .doki-match-rows { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.anidoki .doki-match-row { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 12px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); }
+.anidoki .doki-match-row[data-invalid] { border-color: var(--tjk-error); }
+.anidoki .doki-match-row .doki-field { margin: 0; }
+.anidoki .doki-field-short { flex: 0 1 7.5rem; }
+.anidoki .doki-field-entry { flex: 1 1 14rem; }
+.anidoki .doki-field-label { font-weight: 600; font-size: .875rem; }
+.anidoki .doki-entry-button { justify-content: start; width: 100%; text-align: start; overflow-wrap: anywhere; }
+.anidoki .doki-entry-button[data-empty] { color: var(--doki-muted); }
+.anidoki .doki-picker { margin-top: 12px; padding: 16px; border: 1px solid var(--doki-accent); border-radius: var(--tjk-radius-md); }
+.anidoki .doki-picker h4 { margin-top: 0; }
+.anidoki .doki-picker-results { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.anidoki .doki-picker-result { flex-direction: column; align-items: start; width: 100%; text-align: start; }
+.anidoki .doki-issues { margin: 12px 0; padding-inline-start: 20px; color: var(--tjk-error); font-size: .875rem; }
+.anidoki .doki-notice { margin: 12px 0; padding: 12px 16px; border: 1px solid var(--tjk-warning); border-radius: var(--tjk-radius-md); }
+.anidoki .doki-notice p { margin: 0 0 10px; }
+.anidoki .doki-field-preview { max-width: 22rem; margin: 18px 0 12px; }
+.anidoki .doki-history summary { min-height: 44px; padding-block: 12px; cursor: pointer; font-weight: 700; }
+.anidoki .doki-history ol { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 10px; }
+.anidoki .doki-correction-view { margin-top: 12px; padding: 12px 16px; background: var(--doki-ground); border-radius: var(--tjk-radius-md); }
+.anidoki .doki-progress-list { margin: 0; padding-inline-start: 20px; }
+.anidoki .doki-orphan-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.anidoki .doki-orphan { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid var(--tjk-warning); border-radius: var(--tjk-radius-md); }
+.anidoki .doki-orphan p { margin: 0; }
+@media (max-width: 35rem) {
+    .anidoki .doki-field-short { flex: 1 1 6rem; }
+    .anidoki .doki-match-row > .doki-button-quiet { margin-inline-start: auto; }
+    .anidoki .doki-source-table th:nth-child(2), .anidoki .doki-source-table td:nth-child(2) { display: none; }
 }

@@ -30,6 +30,10 @@ public interface IMatchLibrary {
 
     /// <returns>The source, or null when it does not exist, has no numbered episode, or <paramref name="viewer"/> cannot see it.</returns>
     LibrarySource? Find(string sourceKey, Guid? viewer);
+
+    /// <summary>Library sources an orphaned match may belong to: a series or movie sharing a provider ID with its fingerprint.</summary>
+    /// <param name="seasonNumber">The orphan's season, whose seasons are listed first; null for a movie.</param>
+    IReadOnlyList<LibrarySourceEntry> Candidates(MatchSource orphan, int? seasonNumber);
 }
 
 /// <summary>Parses <see cref="SyncSource.SourceKey"/>.</summary>
@@ -87,6 +91,19 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
         if (episodes.Count == 0 || SyncSource.From(episodes[^1]) is not { } last)
             return null;
         return new LibrarySource(MatchSource.From(last), last, episodes.Select(episode => episode.IndexNumber!.Value).Distinct().ToList());
+    }
+
+    public IReadOnlyList<LibrarySourceEntry> Candidates(MatchSource orphan, int? seasonNumber) {
+        var candidates = new List<LibrarySourceEntry>();
+        foreach (LibrarySourceEntry entry in List(null)) {
+            if (entry.Kind != orphan.Kind || SourceKeys.Parse(entry.SourceKey) is not var (itemId, season))
+                continue;
+            BaseItem? item = library.GetItemById(itemId);
+            if (MatchSource.SharesId(orphan.Fingerprint, orphan.Kind == MatchSourceKind.Movie ? "movie" : "series", item?.ProviderIds))
+                candidates.Add(entry);
+        }
+        // The same season of the same series is the likeliest; the other seasons follow.
+        return candidates.OrderBy(entry => SourceKeys.Parse(entry.SourceKey)?.SeasonNumber == seasonNumber ? 0 : 1).ThenBy(entry => entry.Title).ToList();
     }
 
     /// <summary>A user's library filter applies; a user who never saved AniDoki settings has none.</summary>
