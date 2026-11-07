@@ -149,4 +149,12 @@ public class DiscordFormattingTests {
         Assert.That(embed.GetProperty("timestamp").GetString(), Is.EqualTo(sent.ToString("O")));
     }
 
+    [Test]
+    public void AnEpisodeASavedMatchIgnoresSaysSo() {
+        var outcome = new ProviderWriteOutcome(jellyfin_anidoki.Configuration.ApiName.AniList, "", "Show", OutcomeKind.Skipped, null, null, false,
+            "match-ignored", false);
+
+        Assert.That(DiscordOutcomeText.Result(outcome, isMovie: false), Is.EqualTo("Skipped · ignored by a saved match"));
+    }
+
 }
