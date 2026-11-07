@@ -49,9 +49,10 @@ namespace jellyfin_anidoki.Configuration {
         public bool simklUpdateAll { get; set; }
 
         /// <summary>
-        /// True to let saved matches decide what syncs write. Off, they are only compared and noted, and saved matches stay.
+        /// True (the default from 1.5.0) to let saved matches decide what syncs write. Off, they are only compared and
+        /// noted, and saved matches stay. A configuration saved without the field reads as on; an explicit false is kept.
         /// </summary>
-        public bool applySavedMatches { get; set; }
+        public bool applySavedMatches { get; set; } = true;
 
         /// <summary>
         /// True to update NSFW anime.
