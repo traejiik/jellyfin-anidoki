@@ -205,3 +205,72 @@ export function describeMapping(mapping) {
             : `Episode ${exception.sourceEpisode} ignored`);
     return lines.length ? lines : ['Nothing (deleted)'];
 }
+
+// A fetch error as the API answers it. Jellyfin leaves out null properties, so every field may be missing.
+export async function problem(error) {
+    if (error instanceof Response) {
+        try { return { status: error.status, body: await error.clone().json() }; } catch { return { status: error.status, body: null }; }
+    }
+    return { status: 0, body: null };
+}
+
+// One click handler for everything with a data-action outside the editor and its picker, bound once per lifetime.
+export function bindPageActions(root, handlers, signal) {
+    root.addEventListener('click', event => {
+        const button = event.target.closest?.('[data-action]');
+        if (!button || button.closest('#matchEditor, #entryPicker')) return;
+        const run = handlers[button.dataset.action];
+        if (run) { event.preventDefault(); run(button); }
+    }, { signal });
+}
+
+// The episode map's rows. describe is match-editor-state.js's describeRow.
+export function renderEpisodeMap(tbody, rows, describe) {
+    tbody.replaceChildren(...rows.map(row => {
+        const line = describe(row);
+        const tr = element('tr');
+        const cell = element('td', line.tone === 'error' ? 'doki-status' : line.tone === 'muted' ? 'doki-muted' : '', line.text);
+        if (line.tone) cell.dataset.tone = line.tone;
+        tr.append(element('td', 'doki-mono', String(row.sourceEpisode)), cell);
+        return tr;
+    }));
+}
+
+// One entry picker per editor: which row it serves, its results, and its searches. search(query) resolves to the
+// API's EntrySearchContract; errorMessage is common.errorMessage.
+export function createEntryPicker(container, { search, providerName, errorMessage }) {
+    let picker = null;
+    const draw = () => renderPicker(container, picker, providerName());
+    return {
+        get row() { return picker?.row ?? null; },
+        result: index => picker?.results?.[index] ?? null,
+        open(row, query) {
+            picker = { row, query, results: [], message: '', busy: false };
+            draw();
+            container.querySelector('input')?.focus();
+        },
+        close() {
+            picker = null;
+            renderPicker(container, null, '');
+        },
+        async search(query, signal) {
+            if (!picker) return;
+            picker = { ...picker, query, busy: true, message: 'Searching…' };
+            draw();
+            let result;
+            try {
+                result = await search(query);
+            } catch (error) {
+                if (signal.aborted || !picker) return;
+                picker = { ...picker, busy: false, message: await errorMessage(error) };
+                return draw();
+            }
+            if (signal.aborted || !picker) return;
+            const results = result?.entries ?? [];
+            picker = { ...picker, busy: false, results,
+                message: results.length ? `${results.length} found.${result.borrowedLink ? ' Read through another user’s link.' : ''}` : 'Nothing found. Try another title.' };
+            draw();
+            container.querySelector('.doki-picker-result')?.focus();
+        }
+    };
+}

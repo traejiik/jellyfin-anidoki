@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bindEditor, describeMapping } from '../../../jellyfin-anidoki/Configuration/MatchEditorJs.js';
-import { bindActions } from '../../../jellyfin-anidoki/Configuration/MatchesJs.js';
+import { bindEditor, bindPageActions, describeMapping } from '../../../jellyfin-anidoki/Configuration/MatchEditorJs.js';
 
 // Just enough of an element to count listeners and route events by target, as the page's delegation needs.
 class Fake {
@@ -83,7 +82,7 @@ test('page actions are bound once per lifetime and leave the editor’s own butt
     for (let shown = 0; shown < 2; shown++) {
         lifetime?.abort();
         lifetime = new AbortController();
-        bindActions(root, { save: () => runs.push('save'), 'remove-row': () => runs.push('wrong') }, lifetime.signal);
+        bindPageActions(root, { save: () => runs.push('save'), 'remove-row': () => runs.push('wrong') }, lifetime.signal);
     }
     assert.equal(root.count('click'), 1);
     root.dispatch('click', { target: button(root, 'save') });

@@ -5,27 +5,9 @@ const base = 'AniDoki/matches';
 // Same URL as common.assetUrl, which cannot be used before common.js loads.
 const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidokiAssetVersion ??= Date.now().toString(36)}/${name}`);
 
-// One click handler for everything with a data-action outside the editor, bound once per lifetime.
-export function bindActions(root, handlers, signal) {
-    root.addEventListener('click', event => {
-        const button = event.target.closest?.('[data-action]');
-        if (!button || button.closest('#matchEditor, #entryPicker')) return;
-        const run = handlers[button.dataset.action];
-        if (run) { event.preventDefault(); run(button); }
-    }, { signal });
-}
-
-// A fetch error as the API answers it. Jellyfin leaves out null properties, so every field may be missing.
-async function problem(error) {
-    if (error instanceof Response) {
-        try { return { status: error.status, body: await error.clone().json() }; } catch { return { status: error.status, body: null }; }
-    }
-    return { status: 0, body: null };
-}
-
 export default function (view) {
     let common, editor, state, lifetime;
-    let list, page, detail, provider, match, automatic, picker, users = [], linked = new Set(), showIncomplete = false;
+    let list, page, detail, provider, match, automatic, entryPicker, users = [], linked = new Set(), showIncomplete = false, editingFor = null;
     const find = selector => view.querySelector(selector);
     const tones = { error: 'error', success: 'success' };
 
@@ -68,6 +50,11 @@ export default function (view) {
     const confirmLeave = () => !dirty() || window.confirm('Discard your changes to this match?');
 
     function bind(signal) {
+        entryPicker = editor.createEntryPicker(find('#entryPicker'), {
+            search: query => common.json(`${base}/entries?${new URLSearchParams({ provider, query })}`, { signal }),
+            providerName: () => common.providerName(provider),
+            errorMessage: common.errorMessage
+        });
         find('#sourceSearchForm').addEventListener('submit', event => {
             event.preventDefault();
             list = state.setSearch(list, find('#sourceSearch').value);
@@ -81,7 +68,7 @@ export default function (view) {
         find('#nextPage').addEventListener('click', () => { list = state.setPage(list, list.page + 1, state.pageCount(page)); loadList(signal); }, { signal });
         find('#sourceRows').addEventListener('click', event => {
             const button = event.target.closest?.('[data-source]');
-            if (button && confirmLeave()) openSource(button.dataset.source, null, signal).then(() => find('#detailTitle').focus());
+            if (button && confirmLeave()) openSource(button.dataset.source, null, signal, { force: button.dataset.source !== detail?.sourceKey }).then(() => find('#detailTitle').focus());
         }, { signal });
         find('#providerTabs').addEventListener('click', event => {
             const tab = event.target.closest?.('[role="tab"]');
@@ -110,27 +97,32 @@ export default function (view) {
                 else return;
                 drawEditor();
             },
-            search: query => searchEntries(query, signal),
+            search: query => entryPicker.search(query, signal),
             pick: index => {
-                const chosen = picker?.results?.[index];
+                const chosen = entryPicker.result(index);
                 if (!chosen) return;
-                const row = picker.row;
+                const row = entryPicker.row;
                 match = state.updateRow(match, row, 'target', chosen.entry);
                 closePicker();
                 drawEditor();
                 find(`#matchEditor [data-action="choose-entry"][data-row="${row}"]`)?.focus();
             },
-            close: () => { const row = picker?.row; closePicker(); find(`#matchEditor [data-action="choose-entry"][data-row="${row}"]`)?.focus(); }
+            close: () => { const row = entryPicker.row; closePicker(); find(`#matchEditor [data-action="choose-entry"][data-row="${row}"]`)?.focus(); }
         }, signal);
         find('#previewUser').addEventListener('change', () => preview(signal), { signal });
-        bindActions(find('.anidoki'), {
+        editor.bindPageActions(find('.anidoki'), {
             preview: () => preview(signal),
             save: () => save(signal),
             discard: () => { match = state.discard(match); drawEditor(); say(''); preview(signal); },
             'save-automatic': () => saveAutomatic(signal),
             'delete-shared': () => deleteShared(signal),
-            reload: () => openSource(detail.sourceKey, provider, signal, { force: true }),
+            reload: () => {
+                const user = editingFor;
+                openSource(detail.sourceKey, provider, signal, { force: true }).then(() => user && overrideOf(user) ? editCorrection(user, signal) : undefined);
+            },
             'view-correction': button => viewCorrection(button.dataset.user, signal),
+            'edit-correction': button => editCorrection(button.dataset.user, signal),
+            'stop-editing': () => stopEditing(signal),
             'promote-correction': button => promote(button.dataset.user, signal),
             'delete-correction': button => deleteCorrection(button.dataset.user, signal),
             'reattach-orphan': button => reattach(button.dataset.source, signal),
@@ -197,7 +189,7 @@ export default function (view) {
             loaded = await common.json(state.routePath(base, sourceKey), { signal });
         } catch (error) {
             if (signal.aborted) return;
-            const failure = await problem(error);
+            const failure = await editor.problem(error);
             common.status(find('#pageStatus'), failure.status === 404 ? 'That season or movie is no longer in the library.' : await common.errorMessage(error), 'error');
             return;
         }
@@ -234,13 +226,14 @@ export default function (view) {
         const entry = current();
         if (!entry) return;
         if (changed || !match) {
+            editingFor = null;
             match = state.createEditor(entry.shared ? { revision: entry.shared.revision, mapping: entry.shared.mapping, note: entry.shared.note } : null);
             showIncomplete = false;
         }
         closePicker();
         find('#resolutionBadge').textContent = state.resolutionBadge(entry.shared);
         find('#automaticNote').textContent = entry.shared ? `Saved by ${entry.shared.updatedBy}, ${new Date(entry.shared.updatedUtc).toLocaleString()}.` : 'Sync finds this tracker’s entry automatically.';
-        find('[data-action="delete-shared"]').hidden = !entry.shared;
+        applyMode();
         find('#conflictNotice').hidden = true;
         drawEditor();
         drawHistory(entry);
@@ -278,17 +271,8 @@ export default function (view) {
         const automaticButton = find('[data-action="save-automatic"]');
         automaticButton.disabled = !automatic?.mapping;
         automaticButton.title = automatic === undefined ? 'Checking what automatic matching finds…'
-            : automatic?.mapping ? '' : `Automatic matching cannot be saved as a match: ${reasonText(automatic?.reason)}.`;
+            : automatic?.mapping ? '' : `Automatic matching cannot be saved as a match: ${state.automaticReason(automatic?.reason)}.`;
     }
-
-    const reasonText = reason => ({
-        'no-linked-account': 'no user has linked this tracker',
-        'offset-not-representable': 'it uses an episode offset a match cannot hold',
-        'no-ids': 'the season has no IDs to find it by',
-        'no-title-match': 'no entry’s title matches',
-        'sequel-fetch-failed': 'a sequel could not be read',
-        'no-cour-covers-episode': 'no part of the series covers this episode'
-    })[reason] ?? reason ?? 'it found no entry';
 
     async function loadAutomatic(signal) {
         const reading = provider;
@@ -299,9 +283,9 @@ export default function (view) {
             automatic = { reason: await common.errorMessage(error) };
         }
         if (signal.aborted || provider !== reading) return;
-        if (!current()?.shared)
+        if (!current()?.shared && !editingFor)
             find('#automaticNote').textContent = automatic.mapping ? 'Sync finds this tracker’s entry automatically. Save automatic as match keeps what it finds now.'
-                : `Sync finds this tracker’s entry automatically, but it cannot be saved as a match: ${reasonText(automatic.reason)}.`;
+                : `Sync finds this tracker’s entry automatically, but it cannot be saved as a match: ${state.automaticReason(automatic.reason)}.`;
         updateButtons();
     }
 
@@ -310,7 +294,7 @@ export default function (view) {
         const empty = !match.draft.ranges.length && !match.draft.exceptions.length;
         if (empty && !current()?.shared && automatic?.mapping) return { mapping: automatic.mapping, label: 'What automatic matching would save:' };
         if (empty) return null;
-        return { mapping: state.toMapping(match.draft), label: dirty() ? 'Your draft, not saved yet:' : 'The saved match:' };
+        return { mapping: state.toMapping(match.draft), label: dirty() ? 'Your draft, not saved yet:' : editingFor ? 'Their correction:' : 'The saved match:' };
     }
 
     async function preview(signal) {
@@ -343,14 +327,7 @@ export default function (view) {
         if (signal.aborted || provider !== reading) return;
         table.hidden = false;
         find('#episodeMapNote').textContent = [target.label, result.borrowedLink ? 'Titles were read through another user’s link.' : ''].filter(Boolean).join(' ');
-        rows.replaceChildren(...(result.rows ?? []).map(row => {
-            const line = state.describeRow(row);
-            const tr = common.element('tr');
-            const cell = common.element('td', line.tone === 'error' ? 'doki-status' : line.tone === 'muted' ? 'doki-muted' : '', line.text);
-            if (line.tone) cell.dataset.tone = line.tone;
-            tr.append(common.element('td', 'doki-mono', String(row.sourceEpisode)), cell);
-            return tr;
-        }));
+        editor.renderEpisodeMap(rows, result.rows ?? [], state.describeRow);
         const serverIssues = [...(result.errors ?? []), ...(result.warnings ?? [])];
         if (serverIssues.length && target.mapping !== automatic?.mapping)
             say(serverIssues.map(issue => issue.message).join(' '), result.errors?.length ? 'error' : '');
@@ -362,8 +339,7 @@ export default function (view) {
         if (!user) return container.replaceChildren();
         const name = users.find(entry => entry.Id === user)?.Name ?? 'This user';
         if (!progress) return container.replaceChildren(common.element('p', 'doki-help', `${name} has not linked ${common.providerName(provider)}, so there is no progress to show.`));
-        const items = progress.map(entry => common.element('li', '',
-            `${entry.target.title}: episode ${entry.progress} watched${entry.listStatus ? ` (list: ${entry.listStatus}, ${entry.listProgress ?? 0})` : ' (not on their list)'}`));
+        const items = progress.map(entry => common.element('li', '', state.progressLine(entry)));
         const listNode = common.element('ul', 'doki-progress-list');
         listNode.append(...items);
         container.replaceChildren(common.element('p', 'doki-help', `${name}’s progress through this match:`), items.length ? listNode : common.element('p', 'doki-help', 'Nothing watched yet.'));
@@ -398,22 +374,18 @@ export default function (view) {
         find('[data-action="save"]').disabled = true;
         let saved;
         try {
-            saved = await common.json(state.routePath(base, detail.sourceKey, provider), { method: 'PUT', body, signal });
+            saved = await common.json(editingFor ? state.routePath(base, 'users', editingFor, detail.sourceKey, provider) : state.routePath(base, detail.sourceKey, provider),
+                { method: 'PUT', body, signal });
         } catch (error) {
             if (signal.aborted) return;
-            const failure = await problem(error);
-            if (failure.status === 409) {
-                match = state.markConflict(match, failure.body?.currentRevision ?? 0);
-                find('#conflictMessage').textContent = (match.conflict.currentRevision
-                    ? `Someone saved revision ${match.conflict.currentRevision} of this match while you were editing.`
-                    : 'Someone deleted this match while you were editing.') + ' Your draft is still here; reloading replaces it with what is saved now.';
+            const failure = await editor.problem(error);
+            const refused = state.saveFailure(failure.status, failure.body);
+            if (refused.conflict != null) {
+                match = state.markConflict(match, refused.conflict);
+                find('#conflictMessage').textContent = state.conflictMessage(refused.conflict, editingFor ? 'this correction' : 'this match');
                 find('#conflictNotice').hidden = false;
-                say('Not saved.', 'error');
-            } else if (failure.status === 422) {
-                say(['Not saved.', ...(failure.body?.errors ?? []).map(issue => issue.message)].join(' '), 'error');
-            } else {
-                say(`Not saved. ${await common.errorMessage(error)}`, 'error');
             }
+            say(refused.message ?? `Not saved. ${await common.errorMessage(error)}`, 'error');
             updateButtons();
             return;
         }
@@ -432,7 +404,7 @@ export default function (view) {
             await common.json(`${state.routePath(base, detail.sourceKey, provider)}?expectedRevision=${shared.revision}`, { method: 'DELETE', signal });
         } catch (error) {
             if (signal.aborted) return;
-            const failure = await problem(error);
+            const failure = await editor.problem(error);
             say(failure.status === 409 ? 'Not deleted: the match changed meanwhile. Reload to see it.' : `Not deleted. ${await common.errorMessage(error)}`, 'error');
             if (failure.status === 409) find('#conflictNotice').hidden = false;
             return;
@@ -470,7 +442,7 @@ export default function (view) {
             const row = common.element('tr');
             const actions = common.element('td');
             const group = common.element('div', 'doki-actions');
-            for (const [action, text] of [['view-correction', 'View'], ['promote-correction', 'Promote'], ['delete-correction', 'Delete']]) {
+            for (const [action, text] of [['view-correction', 'View'], ['edit-correction', 'Edit'], ['promote-correction', 'Promote'], ['delete-correction', 'Delete']]) {
                 const button = common.element('button', 'doki-button', text);
                 button.type = 'button';
                 button.dataset.action = action;
@@ -487,6 +459,49 @@ export default function (view) {
     }
 
     const overrideOf = user => current()?.overrides?.find(entry => entry.userId === user);
+
+    // D12: an admin edits a user's correction for them. It is saved as theirs, through the users/ routes.
+    async function editCorrection(user, signal) {
+        const override = overrideOf(user);
+        if (!override || !confirmLeave()) return;
+        let saved;
+        try {
+            saved = await common.json(state.routePath(base, 'users', user, detail.sourceKey, provider), { signal });
+        } catch (error) {
+            if (!signal.aborted) say(await common.errorMessage(error), 'error');
+            return;
+        }
+        if (signal.aborted) return;
+        editingFor = user;
+        match = state.createEditor({ revision: saved.revision, mapping: saved.mapping, note: saved.note });
+        showIncomplete = false;
+        // Jellyfin writes user IDs with or without dashes, so the option is found the way userName finds a user.
+        const select = find('#previewUser');
+        select.value = [...select.options].find(option => option.value && option.value.replaceAll('-', '') === String(user).replaceAll('-', ''))?.value ?? '';
+        find('#conflictNotice').hidden = true;
+        applyMode();
+        drawEditor();
+        say('');
+        find('#editorHeading').focus();
+        await preview(signal);
+    }
+
+    function stopEditing(signal) {
+        if (!confirmLeave()) return;
+        editingFor = null;
+        selectProvider(provider, signal, { force: true });
+    }
+
+    // The editor works on the shared match, or on one user's correction: the heading, and which buttons apply.
+    function applyMode() {
+        const name = editingFor ? overrideOf(editingFor)?.userName ?? userName(editingFor) : null;
+        find('#editorHeading').textContent = name ? `Edit ${name}’s correction` : 'Edit the shared match';
+        find('[data-action="stop-editing"]').hidden = !editingFor;
+        find('[data-action="save-automatic"]').hidden = !!editingFor;
+        find('[data-action="delete-shared"]').hidden = !!editingFor || !current()?.shared;
+        // The badge still says what everyone else uses; the note must not point at the buttons this mode hides.
+        if (name) find('#automaticNote').textContent = `${name}’s correction applies to them alone. Everyone else uses ${current()?.shared ? 'the shared match' : 'automatic matching'}.`;
+    }
 
     async function viewCorrection(user, signal) {
         const override = overrideOf(user);
@@ -517,7 +532,7 @@ export default function (view) {
                 body: { expectedSharedRevision: current()?.shared?.revision ?? 0, expectedOverrideRevision: override.revision, removeOverride: true } });
         } catch (error) {
             if (signal.aborted) return;
-            const failure = await problem(error);
+            const failure = await editor.problem(error);
             say(failure.status === 409 ? 'Not promoted: the shared match or the correction changed meanwhile. The page now shows them as they are.'
                 : failure.status === 422 ? ['Not promoted.', ...(failure.body?.errors ?? []).map(issue => issue.message)].join(' ')
                     : `Not promoted. ${await common.errorMessage(error)}`, 'error');
@@ -541,7 +556,7 @@ export default function (view) {
             return;
         }
         if (signal.aborted) return;
-        await openSource(detail.sourceKey, provider, signal, { force: false });
+        await openSource(detail.sourceKey, provider, signal, { force: editingFor === user });
         say(`Deleted ${override.userName}’s correction.`, 'success');
         loadList(signal);
     }
@@ -617,34 +632,8 @@ export default function (view) {
 
     function openPicker(row) {
         const target = [...match.draft.ranges, ...match.draft.exceptions].find(item => item.key === row)?.target;
-        picker = { row, query: target?.title ?? detail.title.replace(/ · season \d+$/, ''), results: [], message: '', busy: false };
-        editor.renderPicker(find('#entryPicker'), picker, common.providerName(provider));
-        find('#entryPicker input')?.focus();
+        entryPicker.open(row, target?.title ?? detail.title.replace(/ · season \d+$/, ''));
     }
 
-    function closePicker() {
-        picker = null;
-        editor.renderPicker(find('#entryPicker'), null, '');
-    }
-
-    async function searchEntries(query, signal) {
-        if (!picker) return;
-        picker = { ...picker, query, busy: true, message: 'Searching…' };
-        editor.renderPicker(find('#entryPicker'), picker, common.providerName(provider));
-        let result;
-        try {
-            result = await common.json(`${base}/entries?${new URLSearchParams({ provider, query })}`, { signal });
-        } catch (error) {
-            if (signal.aborted || !picker) return;
-            picker = { ...picker, busy: false, message: await common.errorMessage(error) };
-            editor.renderPicker(find('#entryPicker'), picker, common.providerName(provider));
-            return;
-        }
-        if (signal.aborted || !picker) return;
-        const results = result.entries ?? [];
-        picker = { ...picker, busy: false, results,
-            message: results.length ? `${results.length} found.${result.borrowedLink ? ' Read through another user’s link.' : ''}` : 'Nothing found. Try another title.' };
-        editor.renderPicker(find('#entryPicker'), picker, common.providerName(provider));
-        find('#entryPicker .doki-picker-result')?.focus();
-    }
+    const closePicker = () => entryPicker?.close();
 }
