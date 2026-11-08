@@ -468,6 +468,15 @@
 @media (max-width: 35rem) {
     .anidoki .doki-dialog { width: calc(100vw - 16px); height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); }
     .anidoki :is(.doki-dialog-header, .doki-dialog-body, .doki-dialog-footer) { padding-inline: 16px; }
+    /* As KefinTweaks does on small screens, only Back remains; the title says where you are. */
+    .anidoki .doki-dialog-trail .doki-breadcrumbs { display: none; }
+    /* Two short columns fit a phone, so the episode map stays a table instead of stacking like the action tables. */
+    .anidoki .doki-user-table.doki-episode-map { display: table; }
+    .anidoki .doki-episode-map thead { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+    .anidoki .doki-episode-map tbody { display: table-row-group; }
+    .anidoki .doki-episode-map tr { display: table-row; padding: 0; }
+    .anidoki .doki-episode-map td { display: table-cell; padding: 10px 12px; border-top: 1px solid var(--doki-edge); }
+    .anidoki .doki-episode-map th:first-child, .anidoki .doki-episode-map td:first-child { width: 64px; }
     .anidoki .doki-field-short { flex: 1 1 6rem; }
     .anidoki .doki-match-row > .doki-button-quiet { margin-inline-start: auto; }
     .anidoki .doki-source-table th:nth-child(2), .anidoki .doki-source-table td:nth-child(2) { display: none; }
