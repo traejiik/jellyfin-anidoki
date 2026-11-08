@@ -150,6 +150,15 @@ public class MatchAuthorizationTests {
         Assert.That(list.Items.Select(item => item.SourceKey), Has.None.EqualTo(hidden));
     }
 
+    [Test]
+    public async Task AUsersAutomaticRouteNeverOpensASeasonOutsideTheirLibrary() {
+        IActionResult hidden = await UserRoutes(_fixture.Alice).Automatic(_fixture.Hidden.Info.SourceKey, Provider, CancellationToken.None);
+        IActionResult own = await UserRoutes(_fixture.Alice).Automatic(_fixture.Key, Provider, CancellationToken.None);
+
+        Assert.That(Status(hidden), Is.EqualTo(StatusCodes.Status404NotFound));
+        Assert.That(Status(own), Is.EqualTo(StatusCodes.Status200OK));
+    }
+
     // Admins
 
     [Test]

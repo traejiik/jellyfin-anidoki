@@ -55,6 +55,21 @@ test('leaves Plugin Pages alone while its entry is in place, before it starts, o
     assert.deepEqual([...present.calls, ...starting.calls, ...noMenu.calls], []);
 });
 
+test('does nothing, and removes no entry, when Plugin Pages lacks an internal it calls', () => {
+    for (const missing of ['onReady', 'populateSidebar']) {
+        const pages = pluginPages();
+        pages[missing] = 'renamed in a later release';
+        const doc = fakeDocument({ accountMenu: true, drawer: true, markerIn: ['drawer'] });
+        assert.equal(restorePluginPagesEntry(doc, pages), false, missing);
+        assert.deepEqual(doc.removed, [], missing);
+        assert.deepEqual(pages.calls, [], missing);
+    }
+    const unflagged = pluginPages();
+    delete unflagged.initialized;
+    assert.equal(restorePluginPagesEntry(fakeDocument({ accountMenu: true }), unflagged), false);
+    assert.deepEqual(unflagged.calls, []);
+});
+
 test('coalesces a burst of mutations into one check and replaces an earlier guard', () => {
     const observers = [], timers = [];
     class FakeObserver {

@@ -20,6 +20,7 @@ internal static class DiscordOutcomeText {
         "rewatch-disabled" => "Skipped · completed, and rewatching is off",
         "rewatch-unsupported" => "Skipped · rewatching is not supported",
         "plan-to-watch-only" => "Skipped · not on Plan to Watch",
+        "match-ignored" => "Skipped · ignored by a saved match",
         _ => null
     };
 

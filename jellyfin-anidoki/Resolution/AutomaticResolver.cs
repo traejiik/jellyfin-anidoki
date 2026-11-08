@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
@@ -81,60 +82,74 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
         string kind = source.Kind == MediaKind.Series ? "series" : "movie";
         logger.LogDebug("({ApiName}) Searching for {AnimeType}: {SearchTitle}", tracker.Name, kind, source.SearchTitle);
         int? mal = ids.Ids.MyAnimeList;
-        foreach (var candidate in await tracker.Search(source.SearchTitle, cancellationToken)) {
-            // Annict, and Shikimori when the IDs give a MAL ID, match on it instead of titles and skip season handling.
-            bool byMalId = tracker.Name == ApiName.Annict || (tracker.Name == ApiName.Shikimori && mal != null && candidate.Entry.Id > 0);
-            if (byMalId ? mal == null || candidate.Entry.Id != mal : !TitleMatching.Matches(candidate.Titles, source.CandidateTitles))
-                continue;
-            logger.LogDebug("({ApiName}) Found matching {AnimeType}: {Title}", tracker.Name, kind, TitleMatching.Display(candidate.Titles));
-            var match = ChainLink.Of(candidate);
-            int episode = ids.TitleProgress(source);
-            if (source.Kind == MediaKind.Movie || byMalId)
-                return new Resolved(Played(match, episode), ResolvedBy.TitleSearch, None);
-            if (source.SeasonNumber > 1) {
-                // if this is not the first season, then we need to look up the related season.
-                var season = await chain.FollowSequels(candidate.Entry, source.SeasonNumber - 1, cancellationToken);
-                if (season == null) {
-                    logger.LogWarning("({ApiName}) Could not find next season", tracker.Name);
-                    return new Unresolved("sequel-fetch-failed", null, None);
-                }
+        // Annict, and Shikimori when the IDs give a MAL ID, match on it instead of titles and skip season handling.
+        bool ByMalId(EntryCandidate candidate) => tracker.Name == ApiName.Annict || (tracker.Name == ApiName.Shikimori && mal != null && candidate.Entry.Id > 0);
+        bool Matches(EntryCandidate candidate) => ByMalId(candidate) ? mal != null && candidate.Entry.Id == mal : TitleMatching.Matches(candidate.Titles, source.CandidateTitles);
 
-                logger.LogDebug("({ApiName}) Season being watched is {Title}", tracker.Name, TitleMatching.Display(season.Titles));
-                return new Resolved(Played(ChainLink.Of(season), episode), ResolvedBy.SequelChain, None);
-            }
-
-            if (source.SeasonNumber == 0)
-                return await Special(candidate.Entry, source, episode, tracker, cancellationToken);
-
-            if (match.TotalEpisodes > 0 && match.TotalEpisodes < source.EpisodeNumber) {
-                // TotalEpisodes is a non-nullable int, so an unknown
-                // episode count arrives as 0 - which is the norm for a
-                // currently-airing show. Without the > 0 guard this branch
-                // fires on every episode of every airing series that reaches
-                // the title-search fallback.
-                //
-                // Walking cannot produce a correct answer in that case
-                // regardless: the walk computes the next cour's episode
-                // number as episodeCount - totalEpisodesWatched, and
-                // totalEpisodesWatched accumulates each cour's length. With
-                // 0 the offset is always 0, so the raw episode number gets
-                // sent to the sequel. The arithmetic requires a known
-                // length, so an entry of unknown length is written as the
-                // first cour without walking.
-                //
-                // The comparison and the walk use Jellyfin's raw episode number, not the offset one.
-                logger.LogDebug("({ApiName}) Watched episode passes total episodes in season! Checking for additional seasons/cours...", tracker.Name);
-                var walk = await chain.Walk(match, source.EpisodeNumber, cancellationToken);
-                if (walk.Target == null)
-                    return new Unresolved(walk.FailureReason!, Record(match), walk.EarlierParts);
-                return new Resolved(Played(walk.Target, source.EpisodeNumber - walk.EpisodesBefore), ResolvedBy.SequelChain, walk.EarlierParts, FollowsChain: true);
-            }
-
-            return new Resolved(Played(match, episode), ResolvedBy.TitleSearch, None, FollowsChain: true);
+        var matching = (await tracker.Search(source.SearchTitle, cancellationToken)).Where(Matches).ToList();
+        if (matching.Count == 0) {
+            logger.LogWarning("({ApiName}) Series not found", tracker.Name);
+            return new Unresolved("no-title-match", new UnresolvedRecord("", source.SearchTitle ?? ""), None);
         }
 
-        logger.LogWarning("({ApiName}) Series not found", tracker.Name);
-        return new Unresolved("no-title-match", new UnresolvedRecord("", source.SearchTitle ?? ""), None);
+        SourceResolution answer = await FromCandidate(matching[0], ByMalId(matching[0]), source, ids, tracker, chain, kind, cancellationToken);
+        // D12: several equal candidates are recorded for review, never acted on. The first is still the one taken, and
+        // an unresolved answer keeps its reason, since the executor records Note ?? Reason.
+        int candidates = matching.Select(candidate => candidate.Entry).Distinct().Count();
+        if (candidates < 2 || answer is not Resolved resolved)
+            return answer;
+        logger.LogDebug("({ApiName}) {Count} candidates matched the title; took the first", tracker.Name, candidates);
+        return resolved with { Note = $"ambiguous ({candidates} candidates)" };
+    }
+
+    /// <summary>The first matching search result, followed to the season and cour the episode belongs to.</summary>
+    private async Task<SourceResolution> FromCandidate(EntryCandidate candidate, bool byMalId, SyncSource source, SourceIds ids,
+        ITrackerProvider tracker, RelationChainSegmenter chain, string kind, CancellationToken cancellationToken) {
+        logger.LogDebug("({ApiName}) Found matching {AnimeType}: {Title}", tracker.Name, kind, TitleMatching.Display(candidate.Titles));
+        var match = ChainLink.Of(candidate);
+        int episode = ids.TitleProgress(source);
+        if (source.Kind == MediaKind.Movie || byMalId)
+            return new Resolved(Played(match, episode), ResolvedBy.TitleSearch, None);
+        if (source.SeasonNumber > 1) {
+            // if this is not the first season, then we need to look up the related season.
+            var season = await chain.FollowSequels(candidate.Entry, source.SeasonNumber - 1, cancellationToken);
+            if (season == null) {
+                logger.LogWarning("({ApiName}) Could not find next season", tracker.Name);
+                return new Unresolved("sequel-fetch-failed", null, None);
+            }
+
+            logger.LogDebug("({ApiName}) Season being watched is {Title}", tracker.Name, TitleMatching.Display(season.Titles));
+            return new Resolved(Played(ChainLink.Of(season), episode), ResolvedBy.SequelChain, None);
+        }
+
+        if (source.SeasonNumber == 0)
+            return await Special(candidate.Entry, source, episode, tracker, cancellationToken);
+
+        if (match.TotalEpisodes > 0 && match.TotalEpisodes < source.EpisodeNumber) {
+            // TotalEpisodes is a non-nullable int, so an unknown
+            // episode count arrives as 0 - which is the norm for a
+            // currently-airing show. Without the > 0 guard this branch
+            // fires on every episode of every airing series that reaches
+            // the title-search fallback.
+            //
+            // Walking cannot produce a correct answer in that case
+            // regardless: the walk computes the next cour's episode
+            // number as episodeCount - totalEpisodesWatched, and
+            // totalEpisodesWatched accumulates each cour's length. With
+            // 0 the offset is always 0, so the raw episode number gets
+            // sent to the sequel. The arithmetic requires a known
+            // length, so an entry of unknown length is written as the
+            // first cour without walking.
+            //
+            // The comparison and the walk use Jellyfin's raw episode number, not the offset one.
+            logger.LogDebug("({ApiName}) Watched episode passes total episodes in season! Checking for additional seasons/cours...", tracker.Name);
+            var walk = await chain.Walk(match, source.EpisodeNumber, cancellationToken);
+            if (walk.Target == null)
+                return new Unresolved(walk.FailureReason!, Record(match), walk.EarlierParts);
+            return new Resolved(Played(walk.Target, source.EpisodeNumber - walk.EpisodesBefore), ResolvedBy.SequelChain, walk.EarlierParts, FollowsChain: true);
+        }
+
+        return new Resolved(Played(match, episode), ResolvedBy.TitleSearch, None, FollowsChain: true);
     }
 
     /// <summary>

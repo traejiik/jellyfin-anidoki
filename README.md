@@ -23,6 +23,15 @@ To let users connect their own tracking accounts, enable user authentication pag
 
 Uninstalling AniDōki through Jellyfin removes its Plugin Pages registration. Restart Jellyfin and refresh open clients as required by the plugin lifecycle. Other plugins' pages and AniDōki's saved settings are preserved. Manually deleting the plugin binaries does not run the uninstall callback.
 
+### Matches
+
+Some trackers split one Jellyfin season into several entries: AniList lists Steel Ball Run as separate "STAGE" entries, for example. AniDōki follows the tracker's sequel chain for these on its own. When that picks the wrong entry, a saved match says exactly which entry and episode each episode syncs to.
+
+- Admins manage **shared matches** under Dashboard > Plugins > AniDōki > Matches. The list can show only seasons whose recent syncs found no entry (**Needs a match**), or where several entries' titles matched equally (**Needs review**), and it offers to re-attach matches left behind by a library rebuild.
+- Users correct a season for themselves in the **Matches** section of their personal settings page. A **personal correction** applies to that user alone, and an admin can promote it to the shared match.
+- For each tracker, a personal correction comes first, then the shared match, then automatic matching. An episode a saved match does not cover is not synced, rather than guessed.
+- **Use saved matches when syncing** under Settings > Advanced turns saved matches off and restores automatic matching, without deleting any.
+
 ### Playback update notifications
 
 After playback stops, AniDōki can show an informational toast for confirmed tracker changes in the web session that played the item. Turn **Show tracker update toasts** on or off in your tracking settings. It is enabled by default.
@@ -62,9 +71,9 @@ The following services are currently supported:
 
 The following are needed for the plugin to run:
 
-- [Jellyfin 12.2](https://github.com/jellyfin/jellyfin/releases/tag/v12.2) or newer.
+- [Jellyfin 12.2](https://github.com/jellyfin/jellyfin/releases/tag/v12.2) or newer, last tested on 12.4.0.
 - [File Transformation plugin](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) for toast notifications.
-- [Plugin Pages plugin](https://github.com/IAmParadox27/jellyfin-plugin-pages) for User Configuration pages.
+- [Plugin Pages plugin](https://github.com/IAmParadox27/jellyfin-plugin-pages) 3.0.x for the personal settings page, including its Matches section. Only 3.0.1 is tested.
 
 AniDōki is designed for stock Jellyfin 12.2 and works with any theme: its pages keep the same layout and take only their colours and font from the active theme. Themes and [KefinTweaks](https://github.com/ranaldsgift/KefinTweaks/releases) (5.0 and later) are optional, and AniDōki does not require either.
 
@@ -90,6 +99,8 @@ AniDōki is designed for stock Jellyfin 12.2 and works with any theme: its pages
 3. Restart your Jellyfin instance.
 4. Navigate to Plugins in Jellyfin (Settings > Admin Dashboard > Plugins).
 5. Adjust the settings accordingly. I would advise following the detailed instructions on the wiki page *(work in progress)*.
+
+Downgrading from 1.5.0 to an earlier version pauses syncing until you upgrade again: 1.5.0 adds to AniDōki's database, and earlier versions refuse a database newer than they know. Nothing is deleted.
 
 ## Build
 

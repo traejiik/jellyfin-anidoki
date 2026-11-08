@@ -81,6 +81,29 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
         return command.ExecuteScalar() is string id ? Guid.Parse(id) : null;
     }
 
+    /// <summary>
+    /// Every action since <paramref name="since"/> that names the item it was for, oldest first: what each sync
+    /// resolved to on each tracker. One user's, or everyone's when <paramref name="userId"/> is null.
+    /// </summary>
+    public IReadOnlyList<RecordedResolution> RecentResolutions(DateTimeOffset since, Guid? userId) {
+        using var connection = database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT o.user_id, a.source_item, a.provider, a.outcome, a.resolution_note
+            FROM operation_actions a JOIN operations o ON o.id = a.operation_id
+            WHERE o.created_utc >= $since AND a.source_item IS NOT NULL AND ($user IS NULL OR o.user_id = $user)
+            ORDER BY o.created_utc, a.operation_id, a.seq
+            """;
+        command.Parameters.AddWithValue("$since", Format(since));
+        command.Parameters.AddWithValue("$user", userId is Guid user ? Id(user) : DBNull.Value);
+        using var reader = command.ExecuteReader();
+        var rows = new List<RecordedResolution>();
+        while (reader.Read())
+            rows.Add(new RecordedResolution(Guid.Parse(reader.GetString(0)), Guid.Parse(reader.GetString(1)), reader.GetString(2), reader.GetString(3),
+                reader.IsDBNull(4) ? null : reader.GetString(4)));
+        return rows;
+    }
+
     /// <summary>Finishes operations a previous run left queued or running. They are not resumed.</summary>
     public int MarkInterrupted() =>
         Execute("UPDATE operations SET state = $state, finished_utc = $now, message = $message WHERE state IN ('Queued', 'Running')",
@@ -164,3 +187,8 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
 
     private static string Id(Guid id) => id.ToString("D");
 }
+
+/// <summary>One recorded action: who synced which item, on which tracker, and how it came out.</summary>
+/// <param name="Provider">The tracker's <see cref="Configuration.ApiName"/>, by name.</param>
+/// <param name="Outcome">The <see cref="OutcomeKind"/>, by name.</param>
+public sealed record RecordedResolution(Guid UserId, Guid SourceItem, string Provider, string Outcome, string? Note);

@@ -22,6 +22,8 @@ export default function (view, host = view) {
         if (!value && cache.saved) find('#RewatchCompleted').disabled = unsupportedRewatch();
         // Re-apply Discord's own disabled rules (Send test needs a saved webhook) after the page-wide unlock.
         if (!value) cache.discordRefresh?.();
+        // The Matches section's Save, Discard and pager have rules of their own too.
+        if (!value) cache.matchesRefresh?.();
     }
     async function guard(action) {
         if (cache.busy) throw new Error('Wait for the current action to finish.'); setBusy(true);
@@ -43,7 +45,7 @@ export default function (view, host = view) {
         if (signal.aborted) return;
         common.ensureStyles(); common.prepareStickyShell(root, signal);
         const userId = ApiClient.getCurrentUserId();
-        if (cache.userId && cache.userId !== userId) { cache.saved = null; cache.baseline = null; cache.draft = null; cache.libraryChoice = {}; cache.discordDraft = null; cache.discordDirty = null; }
+        if (cache.userId && cache.userId !== userId) { cache.saved = null; cache.baseline = null; cache.draft = null; cache.libraryChoice = {}; cache.discordDraft = null; cache.discordDirty = null; cache.matches = null; cache.matchesDirty = null; }
         cache.userId = userId;
         if (!cache.saved) {
             const result = await Promise.all([common.json(`AniDoki/user/configuration?user=${cache.userId}`, { signal }), common.json('AniDoki/user/parameters', { signal })]);
@@ -63,10 +65,15 @@ export default function (view, host = view) {
                 if (!signal.aborted) common.status(find('#accountsStatus'), message, 'error');
             }
         }, { signal });
-        common.observeSaveBar(root, signal); common.bindNavigation(root, signal); common.bindDraftWarning(view, dirty, signal); setBusy(cache.busy);
+        common.observeSaveBar(root, signal); common.bindNavigation(root, signal); common.bindDraftWarning(view, () => dirty() || !!cache.matchesDirty?.(), signal); setBusy(cache.busy);
         const discord = await import(common.assetUrl('discord-settings.js'));
         if (!signal.aborted) await discord.default(root, common, cache, signal, () => cache.busy, updateDirty);
         if (!signal.aborted) updateDirty();
+        // A match draft warns on leaving (above) but not through the Save changes bar, which would not save it.
+        // A failure here leaves the rest of the page working and says so in the section.
+        if (!signal.aborted) await import(common.assetUrl('user-matches.js'))
+            .then(matches => signal.aborted ? undefined : matches.default(find('#doki-matches'), common, cache, signal))
+            .catch(async error => { if (!signal.aborted) common.status(find('#matchesStatus'), await common.errorMessage(error), 'error'); });
     }
     function render(signal) {
         for (const field of ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications']) find(`#${field}`).checked = cache.draft[field];

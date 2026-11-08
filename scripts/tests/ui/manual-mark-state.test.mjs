@@ -85,3 +85,8 @@ test('failed, unconfirmed and status-only results stay readable',()=>{
   'Tracker · Updated']);
  assert.deepEqual(buildManualMarkPresentation({state:'Pending'}).lines,[]);
 });
+
+test('an episode a saved match ignores says so',()=>{
+ const lines=buildManualMarkPresentation({state:'Partial',outcomes:[{provider:'AniList',kind:'Skipped',step:'match-ignored'}]}).lines.map(l=>l.text);
+ assert.deepEqual(lines,['AniList · Ignored by a saved match']);
+});

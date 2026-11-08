@@ -106,6 +106,14 @@ internal sealed class FakeAutomaticMatches : IAutomaticMatches {
     public Task<DerivedSegmentation> Derive(LibrarySource source, ITrackerProvider tracker, CancellationToken cancellationToken) => Task.FromResult(Answer);
 }
 
+/// <summary>Source keys flagged for each user, as recent syncs would flag them.</summary>
+internal sealed class FakeMatchProblems : IMatchProblems {
+    public List<(MatchProblem Problem, Guid User, string SourceKey)> Flagged { get; } = new();
+
+    public IReadOnlySet<string> SourceKeys(MatchProblem problem, Guid? user) =>
+        Flagged.Where(entry => entry.Problem == problem && (user == null || entry.User == user)).Select(entry => entry.SourceKey).ToHashSet();
+}
+
 internal sealed class WatchStateByUser : ISeasonWatchState {
     public Dictionary<Guid, int[]> ByUser { get; } = new();
 
@@ -128,6 +136,8 @@ internal sealed class MatchApiFixture : IDisposable {
     public FakeAutomaticMatches Automatic { get; } = new();
 
     public WatchStateByUser WatchState { get; } = new();
+
+    public FakeMatchProblems Problems { get; } = new();
 
     public Mock<IUserManager> Users { get; } = new();
 
@@ -157,7 +167,7 @@ internal sealed class MatchApiFixture : IDisposable {
         Hidden = Library.Add(Source(fixture.Episode("Hidden Show", 1, 12), Enumerable.Range(1, 12).ToList()), Admin.Id, Bob.Id);
         foreach (int id in new[] { MatchTestSupport.A, MatchTestSupport.B, MatchTestSupport.C, MatchTestSupport.D })
             Catalogue.Add(id, 12);
-        Service = new MatchService(Store, Library, Trackers, Automatic, WatchState, Users.Object);
+        Service = new MatchService(Store, Library, Trackers, Automatic, WatchState, Problems, Users.Object);
     }
 
     public string Key => Season.Info.SourceKey;

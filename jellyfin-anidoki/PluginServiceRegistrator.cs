@@ -33,6 +33,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
         serviceCollection.AddSingleton<Matching.IMatchLibrary, Matching.JellyfinMatchLibrary>();
         serviceCollection.AddSingleton<Matching.IMatchTrackers, Matching.MatchTrackers>();
         serviceCollection.AddSingleton<Matching.IAutomaticMatches, Matching.AutomaticMatches>();
+        serviceCollection.AddSingleton<Matching.IMatchProblems, Matching.RecentMatchProblems>();
         serviceCollection.AddSingleton<Matching.MatchService>();
         serviceCollection.AddSingleton<ManualMarks.ManualMarkStore>();
         serviceCollection.AddSingleton<ManualMarks.ManualMarkQueue>();

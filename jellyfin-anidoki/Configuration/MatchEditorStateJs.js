@@ -188,12 +188,17 @@ function sharedTarget(first, second, excepted) {
 // The request body for a save.
 export const saveRequest = state => ({ expectedRevision: state.saved.revision, ...toMapping(state.draft), note: state.draft.note.trim() || null });
 
-// The source list: search, one filter, and a 1-based page. PR 14 adds two filters here, and the page draws whatever is listed.
-export const filters = [{ key: '', label: 'All' }, { key: 'matched', label: 'Saved' }, { key: 'corrections', label: 'Corrections' }];
+// The source list: search, one filter, and a 1-based page.
+// The source lists' chips: the admin's sees every user's problems, a user's their own. Needs a match and Needs review
+// come from recent syncs (MatchProblems.cs).
+export const filters = [{ key: '', label: 'All' }, { key: 'needs-match', label: 'Needs a match' }, { key: 'needs-review', label: 'Needs review' },
+    { key: 'matched', label: 'Saved' }, { key: 'corrections', label: 'Corrections' }];
+export const userFilters = [{ key: '', label: 'All' }, { key: 'needs-match', label: 'Needs a match' }, { key: 'needs-review', label: 'Needs review' },
+    { key: 'corrections', label: 'Your corrections' }];
 export const createList = () => ({ search: '', filter: '', page: 1 });
 // A new search or filter starts again from the first page.
 export const setSearch = (list, search) => ({ ...list, search, page: 1 });
-export const setFilter = (list, filter) => filters.some(item => item.key === filter) ? { ...list, filter, page: 1 } : list;
+export const setFilter = (list, filter, options = filters) => options.some(item => item.key === filter) ? { ...list, filter, page: 1 } : list;
 export const pageCount = result => Math.max(1, Math.ceil((result?.total ?? 0) / (result?.pageSize || 50)));
 export const setPage = (list, page, count) => ({ ...list, page: Math.min(Math.max(1, page), Math.max(1, count)) });
 export function listPath(base, list) {
@@ -218,6 +223,35 @@ export function stateLabel(state) {
 
 // The badge on a provider tab: what sync uses for a user with no correction of their own.
 export const resolutionBadge = shared => shared ? `Shared r${shared.revision}` : 'Automatic';
+
+// The badge on a user's tracker tab: what their syncs use.
+export const effectiveBadge = entry => entry.personal ? `Personal r${entry.personal.revision}` : resolutionBadge(entry.shared);
+
+const automaticReasons = {
+    'offset-not-representable': 'it uses an episode offset a match cannot hold',
+    'no-ids': 'the season has no IDs to find it by',
+    'no-title-match': 'no entry’s title matches',
+    'sequel-fetch-failed': 'a sequel could not be read',
+    'no-cour-covers-episode': 'no part of the series covers this episode'
+};
+// Why automatic matching gives no mapping to save. own: the reader is the user whose link it would use.
+export const automaticReason = (reason, { own = false } = {}) => reason === 'no-linked-account'
+    ? (own ? 'this tracker is not linked' : 'no user has linked this tracker')
+    : automaticReasons[reason] ?? reason ?? 'it found no entry';
+
+// A save the API refused, from its status and body. message is null when the status has no wording of its own.
+export function saveFailure(status, body) {
+    if (status === 409) return { conflict: body?.currentRevision ?? 0, message: 'Not saved.' };
+    if (status === 422) return { conflict: null, message: ['Not saved.', ...(body?.errors ?? []).map(issue => issue.message)].join(' ') };
+    return { conflict: null, message: null };
+}
+export const conflictMessage = (revision, what = 'this match') => (revision
+    ? `Someone saved revision ${revision} of ${what} while you were editing.`
+    : `Someone deleted ${what} while you were editing.`) + ' Your draft is still here; reloading replaces it with what is saved now.';
+
+// One entry of a preview's progress. whose: "their" for an admin looking at a user, "your" on the user's own page.
+export const progressLine = (entry, whose = 'their') =>
+    `${entry.target.title}: episode ${entry.progress} watched${entry.listStatus ? ` (list: ${entry.listStatus}, ${entry.listProgress ?? 0})` : ` (not on ${whose} list)`}`;
 
 const reasons = {
     'not-in-match': 'Not in this match',

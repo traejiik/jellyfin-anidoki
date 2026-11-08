@@ -10,7 +10,8 @@ const reasons = {
     'manual-forward-only': 'Already at or past this episode',
     'rewatch-disabled': 'Completed, and rewatching is off',
     'rewatch-unsupported': 'Rewatching is not supported',
-    'plan-to-watch-only': 'Not on Plan to Watch'
+    'plan-to-watch-only': 'Not on Plan to Watch',
+    'match-ignored': 'Ignored by a saved match'
 };
 const results = { NoChange: 'Already up to date', Skipped: 'Skipped', Unresolved: 'No matching entry found', Failed: 'Update failed', Unconfirmed: 'Update not confirmed' };
 // Second line under a result that names no entry, where the toast has no reason sentence of its own.

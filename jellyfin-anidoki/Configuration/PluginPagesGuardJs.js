@@ -8,9 +8,13 @@ const findPluginPages = () => typeof PluginPages === 'undefined' ? undefined : P
 const menuAnchor = doc => doc.querySelector("[href='#/mypreferencesmenu']") ??
     doc.querySelector('.mainDrawer-scrollContainer > .userMenuOptions');
 
+// D8: these are Plugin Pages' internals, not an API. Use them only while all three are there, so a later release that
+// renames one leaves the menu as it is instead of breaking the page.
+const usable = pages => Boolean(pages?.initialized) && typeof pages.onReady === 'function' && typeof pages.populateSidebar === 'function';
+
 export function restorePluginPagesEntry(doc, pluginPages) {
     const anchor = menuAnchor(doc);
-    if (!pluginPages?.initialized || !anchor || anchor.parentElement.querySelector(':scope > .pluginMenuOptions'))
+    if (!usable(pluginPages) || !anchor || anchor.parentElement.querySelector(':scope > .pluginMenuOptions'))
         return false;
     // The drawer can be rebuilt before the account menu remounts; drop an entry left in the other menu,
     // because onReady does nothing while any marker exists.

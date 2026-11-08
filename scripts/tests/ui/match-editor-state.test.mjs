@@ -195,7 +195,7 @@ test('a search or filter starts from the first page, and unknown filters are ign
     assert.equal(list.page, 3);
     assert.equal(editor.setSearch(list, 'flcl').page, 1);
     assert.equal(editor.setFilter(list, 'corrections').page, 1);
-    assert.equal(editor.setFilter(list, 'needs-match'), list, 'PR 14 adds that filter; until then it is not offered');
+    assert.equal(editor.setFilter(list, 'needs-everything'), list, 'an unknown filter is refused');
 });
 
 test('the page stays between the first and the last', () => {
@@ -230,4 +230,42 @@ test('an orphan reads as what was saved and when', () => {
     const orphan = { kind: 'Season', providers: [{ provider: 'AniList', sharedRevision: 2, corrections: 1 }], updatedUtc: '2026-11-07T10:00:00Z' };
     assert.match(editor.orphanSummary(orphan, name => name === 'AniList' ? 'AniList' : name), /^Season · AniList: Shared r2 · 1 correction · last saved /);
     assert.equal(editor.orphanSummary({ kind: 'Movie' }), 'Movie · Only history is left');
+});
+
+test('both lists offer the problem chips, and the user list only its own filters', () => {
+    assert.deepEqual(editor.filters.map(filter => filter.key), ['', 'needs-match', 'needs-review', 'matched', 'corrections']);
+    assert.deepEqual(editor.userFilters.map(filter => filter.key), ['', 'needs-match', 'needs-review', 'corrections']);
+    const list = editor.createList();
+    assert.equal(editor.setFilter(list, 'needs-match').filter, 'needs-match');
+    assert.equal(editor.setFilter(list, 'matched', editor.userFilters), list, 'a user has no Saved chip');
+    assert.equal(editor.setFilter({ ...list, page: 3 }, 'needs-review', editor.userFilters).page, 1);
+});
+
+test('automatic matching’s reasons read the same on both pages, with the link named for its reader', () => {
+    assert.equal(editor.automaticReason('no-linked-account'), 'no user has linked this tracker');
+    assert.equal(editor.automaticReason('no-linked-account', { own: true }), 'this tracker is not linked');
+    assert.equal(editor.automaticReason('sequel-fetch-failed'), 'a sequel could not be read');
+    assert.equal(editor.automaticReason('something-new'), 'something-new');
+    assert.equal(editor.automaticReason(undefined), 'it found no entry');
+});
+
+test('a refused save says why, and a conflict carries the revision now saved', () => {
+    assert.deepEqual(editor.saveFailure(409, { currentRevision: 4 }), { conflict: 4, message: 'Not saved.' });
+    assert.deepEqual(editor.saveFailure(409, null), { conflict: 0, message: 'Not saved.' });
+    assert.deepEqual(editor.saveFailure(422, { errors: [{ message: 'Range 1 is past the entry.' }] }), { conflict: null, message: 'Not saved. Range 1 is past the entry.' });
+    assert.deepEqual(editor.saveFailure(503, null), { conflict: null, message: null });
+    assert.match(editor.conflictMessage(4), /^Someone saved revision 4 of this match while you were editing\./);
+    assert.match(editor.conflictMessage(0, 'your correction'), /^Someone deleted your correction while you were editing\./);
+});
+
+test('a progress line names the entry, the episode and the list', () => {
+    const target = { title: 'Entry 101' };
+    assert.equal(editor.progressLine({ target, progress: 6, listStatus: 'Watching', listProgress: 4 }), 'Entry 101: episode 6 watched (list: Watching, 4)');
+    assert.equal(editor.progressLine({ target, progress: 2 }, 'your'), 'Entry 101: episode 2 watched (not on your list)');
+});
+
+test('a user’s badge is their correction, else the shared match, else automatic', () => {
+    assert.equal(editor.effectiveBadge({ personal: { revision: 2 }, shared: { revision: 5 } }), 'Personal r2');
+    assert.equal(editor.effectiveBadge({ shared: { revision: 5 } }), 'Shared r5');
+    assert.equal(editor.effectiveBadge({}), 'Automatic');
 });

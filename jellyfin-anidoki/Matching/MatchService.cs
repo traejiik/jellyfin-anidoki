@@ -25,20 +25,29 @@ public sealed record MatchResult(MatchOutcome Outcome, object? Body = null) {
 /// can be found, or null for an admin.
 /// </summary>
 public sealed class MatchService(MatchStore store, IMatchLibrary library, IMatchTrackers trackers, IAutomaticMatches automatic,
-    ISeasonWatchState watchState, IUserManager users) {
+    ISeasonWatchState watchState, IMatchProblems problems, IUserManager users) {
     public const int PageSize = 50;
 
     public const string MatchedFilter = "matched";
     public const string CorrectionsFilter = "corrections";
+    public const string NeedsMatchFilter = "needs-match";
+    public const string NeedsReviewFilter = "needs-review";
 
     public MatchResult ListSources(Guid? viewer, string? search, string? filter, int page) {
-        if (filter is not (null or "" or MatchedFilter or CorrectionsFilter))
+        if (filter is not (null or "" or MatchedFilter or CorrectionsFilter or NeedsMatchFilter or NeedsReviewFilter))
             return new MatchResult(MatchOutcome.BadRequest, $"Unknown filter \"{filter}\".");
+        // A user's problems come from their own syncs only, so the chip says nothing about anyone else's.
+        IReadOnlySet<string>? flagged = filter switch {
+            NeedsMatchFilter => problems.SourceKeys(MatchProblem.NeedsMatch, viewer),
+            NeedsReviewFilter => problems.SourceKeys(MatchProblem.NeedsReview, viewer),
+            _ => null
+        };
         Dictionary<string, MatchSourceSummary> saved = store.ListSources().ToDictionary(summary => summary.Source.SourceKey);
         ILookup<string, OverrideSummary>? own = viewer is Guid user ? store.ListOverrides(owner: user).ToLookup(entry => entry.Scope.SourceKey) : null;
         IReadOnlyCollection<ApiName>? linked = viewer is Guid id ? trackers.Links(id).Keys.ToList() : null;
 
         var items = library.List(viewer)
+            .Where(entry => flagged == null || flagged.Contains(entry.SourceKey))
             .Where(entry => string.IsNullOrWhiteSpace(search) || entry.Title.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase))
             .Select(entry => new SourceSummaryContract(entry.SourceKey, entry.Kind, entry.Title,
                 own == null ? AdminStates(saved.GetValueOrDefault(entry.SourceKey)) : UserStates(saved.GetValueOrDefault(entry.SourceKey), own[entry.SourceKey], linked!)))
@@ -194,10 +203,11 @@ public sealed class MatchService(MatchStore store, IMatchLibrary library, IMatch
     }
 
     /// <summary>Automatic resolution's answer for the season, as a match the editor can save unchanged.</summary>
-    public async Task<MatchResult> Automatic(string sourceKey, ApiName provider, Guid requester, CancellationToken cancellationToken) {
-        if (library.Find(sourceKey, null) is not { } source)
+    /// <param name="viewer">A user looking at their own season, who reads only through their own link; null for an admin, who may borrow one (D12).</param>
+    public async Task<MatchResult> Automatic(string sourceKey, ApiName provider, Guid requester, Guid? viewer, CancellationToken cancellationToken) {
+        if (library.Find(sourceKey, viewer) is not { } source)
             return MatchResult.NotFound;
-        if (trackers.ForCatalogue(requester, provider) is not { } catalogue)
+        if (Catalogue(requester, provider, viewer) is not { } catalogue)
             return MatchResult.Ok(new AutomaticContract(null, "no-linked-account", false));
         DerivedSegmentation derived = await automatic.Derive(source, catalogue.Tracker, cancellationToken);
         return MatchResult.Ok(new AutomaticContract(derived.Match == null ? null : MappingContract.From(derived.Match.Ranges, derived.Match.Exceptions),

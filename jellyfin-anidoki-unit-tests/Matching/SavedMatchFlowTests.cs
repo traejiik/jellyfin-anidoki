@@ -72,6 +72,7 @@ public class SavedMatchFlowTests {
 
     [Test]
     public async Task OffAutomaticIsWrittenAndTheSavedAnswerIsRecordedInTheNote() {
+        _harness.Configuration.applySavedMatches = false;
         var episode = _harness.Library.Episode("Fixture Show", 1, 5);
         SaveFor(episode, Range(1, 12, A));
 
