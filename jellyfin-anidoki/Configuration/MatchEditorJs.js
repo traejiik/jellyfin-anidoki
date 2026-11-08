@@ -107,6 +107,7 @@ export function renderEditor(container, state, issues = []) {
     const noteLabel = element('label', '', 'Note');
     noteLabel.htmlFor = noteInput.id;
     note.append(noteLabel, noteInput);
+    container.classList.add('doki-match-editor');
     container.replaceChildren(
         element('h4', '', 'Ranges'),
         state.draft.ranges.length ? ranges : element('p', 'doki-help', 'No ranges. Add one to send a run of episodes to an entry.'),
@@ -193,7 +194,33 @@ export function bindEditor(container, picker, handlers, signal) {
         if (button?.dataset.action === 'pick-entry') handlers.pick(Number(button.dataset.index));
         else if (button?.dataset.action === 'close-picker') handlers.close();
     }, { signal });
-    picker.addEventListener('keydown', event => { if (event.key === 'Escape') handlers.close(); }, { signal });
+    // Escape closes the picker only, not the dialog around it.
+    picker.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        handlers.close();
+    }, { signal });
+}
+
+// The season dialog. Escape asks close(), which steps back or may refuse while there are unsaved changes. Chrome only
+// lets a page cancel the dialog's own Escape after a user action, so Escape is taken on keydown, before the dialog acts;
+// cancel still covers other close requests, such as Android's back gesture. closed() tidies up after any close the page
+// did not ask for.
+export function bindDialog(dialog, close, closed, signal) {
+    let escaped = false;
+    dialog.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || event.defaultPrevented) return;
+        event.preventDefault();
+        escaped = true;
+        setTimeout(() => { escaped = false; });
+        close();
+    }, { signal });
+    dialog.addEventListener('cancel', event => {
+        event.preventDefault();
+        if (!escaped) close();
+    }, { signal });
+    dialog.addEventListener('close', () => closed(), { signal });
 }
 
 // A saved mapping in words, for history and a user's correction; nothing in it can be edited.

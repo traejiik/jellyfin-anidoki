@@ -6,7 +6,7 @@
         <form id="TemplateConfigForm" hidden>
             <div class="doki-layout doki-content">
                 <aside class="doki-rail"><p>On this page</p><nav class="doki-section-nav" aria-label="On this page">
-                    <a href="#accounts" data-section="#doki-accounts">Linked accounts</a><a href="#watch" data-section="#doki-watch">When you watch</a><a href="#notifications" data-section="#doki-notifications">Notifications</a><a href="#libraries" data-section="#doki-libraries">Libraries</a><a href="#matches" data-section="#doki-matches">Matches</a>
+                    <a href="#accounts" data-section="#doki-accounts">Linked accounts</a><a href="#watch" data-section="#doki-watch">When you watch</a><a href="#notifications" data-section="#doki-notifications">Notifications</a><a href="#libraries" data-section="#doki-libraries">Libraries</a><a href="#advanced" data-section="#doki-advanced">Advanced</a>
                 </nav></aside>
                 <main class="doki-stack">
                     <section class="doki-panel doki-accounts-panel" id="doki-accounts">
@@ -34,66 +34,95 @@
                         </div>
                     </section>
                     <section class="doki-panel" id="doki-libraries"><h2>Libraries</h2><p class="doki-help">Choose which Jellyfin libraries AniDōki monitors for you.</p><div id="libraries"></div></section>
-                    <section class="doki-panel" id="doki-matches" aria-labelledby="matchesTitle">
-                        <div class="doki-panel-title"><h2 id="matchesTitle">Matches</h2><p class="doki-help">Which tracker entry each of your seasons syncs to. If AniDōki picks the wrong one, correct it here: your correction applies to you alone and is saved straight away, not with Save changes.</p></div>
-                        <p class="doki-status" id="matchesStatus" role="status">Loading your seasons…</p>
-                        <div class="doki-stack" data-matches hidden>
-                            <div class="doki-actions" role="search">
-                                <label class="doki-sr-only" for="userSourceSearch">Search by title</label>
-                                <input class="doki-input" id="userSourceSearch" type="search" placeholder="Search by title" autocomplete="off">
-                                <button class="doki-button" type="button" data-action="search-sources">Search</button>
+                    <section class="doki-panel" id="doki-advanced" aria-labelledby="advancedTitle">
+                        <div class="doki-panel-title"><h2 id="advancedTitle">Advanced</h2><p class="doki-help">Settings most people never need.</p></div>
+                        <div class="doki-setting-row">
+                            <div class="doki-setting-text">
+                                <strong id="trackerMatchesTitle">Tracker matches</strong>
+                                <span class="doki-help">Fix a season that syncs to the wrong tracker entry. Your corrections apply to you alone and are saved straight away, not with Save changes.</span>
+                                <span class="doki-setting-alert" id="matchesProblems" hidden></span>
+                                <p class="doki-status" id="matchesStatus" role="status">Loading your seasons…</p>
                             </div>
-                            <fieldset class="doki-chip-row"><legend class="doki-sr-only">Show</legend><div class="doki-actions" id="userSourceFilters"></div></fieldset>
-                            <div class="doki-table-shell"><table class="doki-user-table doki-source-table">
-                                <thead><tr><th scope="col">Title</th><th scope="col">Saved</th><th scope="col"><span class="doki-sr-only">Open</span></th></tr></thead>
-                                <tbody id="userSourceRows"></tbody>
-                            </table></div>
-                            <div class="doki-actions doki-pager">
-                                <button class="doki-button" type="button" data-action="previous-page">Previous</button>
-                                <span class="doki-status" id="userPageStatus" role="status"></span>
-                                <button class="doki-button" type="button" data-action="next-page">Next</button>
-                            </div>
-                            <div class="doki-stack" id="userMatchDetail" hidden>
-                                <h3 id="userDetailTitle" tabindex="-1"></h3>
-                                <p class="doki-help" id="userDetailSummary"></p>
-                                <div class="doki-provider-tabs" role="tablist" aria-label="Tracker" id="userProviderTabs"></div>
-                                <p class="doki-help" id="userNoProviders" hidden>Link a tracker under Linked accounts to see and correct where this syncs.</p>
-                                <div class="doki-stack" id="userProviderPanel" role="tabpanel">
-                                    <p class="doki-actions"><span class="doki-badge" id="userResolutionBadge"></span><span class="doki-help" id="userResolutionNote"></span></p>
-                                    <div class="doki-notice" id="userStaleNotice" hidden><p>The shared match changed after you saved your correction. Yours still applies; compare them, and go back to the shared match if it now fits.</p></div>
-                                    <div>
-                                        <h4 id="userEpisodeMapTitle">Episode map</h4>
-                                        <p class="doki-help" id="userEpisodeMapNote"></p>
-                                        <div class="doki-table-shell"><table class="doki-user-table doki-episode-map" aria-labelledby="userEpisodeMapTitle">
-                                            <thead><tr><th scope="col">Episode</th><th scope="col">Syncs to</th></tr></thead>
-                                            <tbody id="userEpisodeRows"></tbody>
-                                        </table></div>
-                                        <div id="userProgress"></div>
+                            <button class="doki-button" type="button" data-action="open-matches" aria-label="Open tracker matches" disabled>Open</button>
+                        </div>
+                            <dialog class="doki-dialog" id="userMatchDialog" aria-labelledby="userDialogTitle">
+                                <div class="doki-dialog-header">
+                                    <div class="doki-dialog-heading">
+                                        <div class="doki-dialog-trail" data-view="detail editor" hidden>
+                                            <button class="doki-button doki-button-quiet" type="button" data-action="back">← Back</button>
+                                            <nav class="doki-breadcrumbs kefinTweaks-breadcrumbs" aria-label="Breadcrumb"><ol id="userCrumbs"></ol></nav>
+                                        </div>
+                                        <h3 id="userDialogTitle" tabindex="-1"></h3>
+                                        <p class="doki-help" id="userDialogSummary"></p>
                                     </div>
-                                    <div class="doki-actions">
-                                        <button class="doki-button doki-button-primary" type="button" data-action="correct">Correct match</button>
-                                        <button class="doki-button" type="button" data-action="use-shared" hidden>Use the shared match</button>
+                                    <button class="doki-button doki-button-quiet" type="button" data-action="close-dialog">Close</button>
+                                </div>
+                                <div class="doki-dialog-body" data-view="list">
+                                    <div class="doki-actions" role="search">
+                                        <label class="doki-sr-only" for="userSourceSearch">Search by title</label>
+                                        <input class="doki-input" id="userSourceSearch" type="search" placeholder="Search by title" autocomplete="off">
+                                        <button class="doki-button" type="button" data-action="search-sources">Search</button>
                                     </div>
-                                    <div id="userEditorShell" hidden>
-                                        <h4>Your correction</h4>
-                                        <div id="matchEditor"></div>
-                                        <div class="doki-picker" id="entryPicker" hidden></div>
-                                        <ul class="doki-issues" id="editorIssues" hidden></ul>
-                                        <div class="doki-notice" id="userConflictNotice" role="alert" hidden>
-                                            <p id="userConflictMessage"></p>
-                                            <button class="doki-button" type="button" data-action="reload">Reload your saved correction</button>
+                                    <fieldset class="doki-chip-row"><legend class="doki-sr-only">Show</legend><div class="doki-actions" id="userSourceFilters"></div></fieldset>
+                                    <div class="doki-table-shell"><table class="doki-user-table doki-source-table">
+                                        <thead><tr><th scope="col">Title</th><th scope="col">Saved</th><th scope="col"><span class="doki-sr-only">Open</span></th></tr></thead>
+                                        <tbody id="userSourceRows"></tbody>
+                                    </table></div>
+                                    <p class="doki-empty" id="userSourceEmpty" role="status" hidden></p>
+                                    <div class="doki-actions doki-pager">
+                                        <button class="doki-button" type="button" data-action="previous-page">Previous</button>
+                                        <span class="doki-status" id="userPageStatus" role="status"></span>
+                                        <button class="doki-button" type="button" data-action="next-page">Next</button>
+                                    </div>
+                                </div>
+                                <div class="doki-dialog-body" data-view="detail">
+                                    <div class="doki-provider-tabs" role="tablist" aria-label="Tracker" id="userProviderTabs"></div>
+                                    <p class="doki-help" id="userNoProviders" hidden>Link a tracker under Linked accounts to see and correct where this syncs.</p>
+                                    <div class="doki-stack" id="userProviderPanel" role="tabpanel">
+                                        <p class="doki-match-state"><span class="doki-badge" id="userResolutionBadge"></span><span class="doki-help" id="userResolutionNote"></span></p>
+                                        <div class="doki-notice" id="userStaleNotice" hidden><p>The shared match changed after you saved your correction. Yours still applies; compare them, and go back to the shared match if it now fits.</p></div>
+                                        <div>
+                                            <h4 id="userEpisodeMapTitle">Episode map</h4>
+                                            <p class="doki-help doki-map-note" id="userEpisodeMapNote"></p>
+                                            <div class="doki-table-shell"><table class="doki-user-table doki-episode-map" aria-labelledby="userEpisodeMapTitle">
+                                                <thead><tr><th scope="col">Episode</th><th scope="col">Syncs to</th></tr></thead>
+                                                <tbody id="userEpisodeRows"></tbody>
+                                            </table></div>
+                                            <div class="doki-map-progress" id="userProgress"></div>
                                         </div>
                                         <div class="doki-actions">
-                                            <button class="doki-button" type="button" data-action="preview">Preview</button>
-                                            <button class="doki-button doki-button-primary" type="button" data-action="save">Save</button>
-                                            <button class="doki-button" type="button" data-action="discard">Discard changes</button>
-                                            <button class="doki-button" type="button" data-action="cancel">Cancel</button>
+                                            <button class="doki-button doki-button-primary" type="button" data-action="correct">Correct match</button>
+                                            <button class="doki-button" type="button" data-action="use-shared" hidden>Use the shared match</button>
                                         </div>
+                                        <p class="doki-status" id="userEditorStatus" role="status"></p>
                                     </div>
-                                    <p class="doki-status" id="userEditorStatus" role="status"></p>
                                 </div>
-                            </div>
-                        </div>
+                                <div class="doki-dialog-body" data-view="editor" hidden>
+                                    <div id="matchEditor"></div>
+                                    <div class="doki-picker" id="entryPicker" hidden></div>
+                                    <ul class="doki-issues" id="editorIssues" hidden></ul>
+                                    <div class="doki-notice" id="userConflictNotice" role="alert" hidden>
+                                        <p id="userConflictMessage"></p>
+                                        <button class="doki-button" type="button" data-action="reload">Reload your saved correction</button>
+                                    </div>
+                                    <section class="doki-dialog-preview" aria-labelledby="userDraftMapTitle">
+                                        <h4 id="userDraftMapTitle">Preview</h4>
+                                        <p class="doki-help doki-map-note" id="userDraftMapNote"></p>
+                                        <div class="doki-table-shell" hidden><table class="doki-user-table doki-episode-map" aria-labelledby="userDraftMapTitle">
+                                            <thead><tr><th scope="col">Episode</th><th scope="col">Syncs to</th></tr></thead>
+                                            <tbody id="userDraftRows"></tbody>
+                                        </table></div>
+                                        <div class="doki-map-progress" id="userDraftProgress"></div>
+                                    </section>
+                                </div>
+                                <div class="doki-dialog-footer" data-view="editor" hidden>
+                                    <p class="doki-status" id="userDialogStatus" role="status"></p>
+                                    <div class="doki-actions">
+                                        <button class="doki-button" type="button" data-action="preview">Preview</button>
+                                        <button class="doki-button doki-button-primary" type="button" data-action="save">Save</button>
+                                    </div>
+                                </div>
+                            </dialog>
                     </section>
                 </main>
             </div>

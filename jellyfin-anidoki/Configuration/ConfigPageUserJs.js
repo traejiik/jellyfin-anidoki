@@ -72,7 +72,7 @@ export default function (view, host = view) {
         // A match draft warns on leaving (above) but not through the Save changes bar, which would not save it.
         // A failure here leaves the rest of the page working and says so in the section.
         if (!signal.aborted) await import(common.assetUrl('user-matches.js'))
-            .then(matches => signal.aborted ? undefined : matches.default(find('#doki-matches'), common, cache, signal))
+            .then(matches => signal.aborted ? undefined : matches.default(find('#doki-advanced'), common, cache, signal))
             .catch(async error => { if (!signal.aborted) common.status(find('#matchesStatus'), await common.errorMessage(error), 'error'); });
     }
     function render(signal) {

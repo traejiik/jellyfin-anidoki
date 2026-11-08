@@ -29,53 +29,78 @@
                 <ul class="doki-orphan-list" id="orphanRows"></ul>
                 <p class="doki-status" id="orphanStatus" role="status"></p>
             </section>
-            <section class="doki-panel" id="matchDetail" aria-labelledby="detailTitle" hidden>
-                <h2 id="detailTitle" tabindex="-1"></h2>
-                <p class="doki-help" id="detailSummary"></p>
-                <div class="doki-provider-tabs" role="tablist" aria-label="Tracker" id="providerTabs"></div>
-                <div class="doki-stack" id="providerPanel" role="tabpanel">
-                    <p class="doki-actions"><span class="doki-badge" id="resolutionBadge"></span><span class="doki-help" id="automaticNote"></span></p>
-                    <div>
-                        <h3 id="episodeMapTitle">Episode map</h3>
-                        <p class="doki-help" id="episodeMapNote"></p>
-                        <div class="doki-table-shell"><table class="doki-user-table doki-episode-map" aria-labelledby="episodeMapTitle">
-                            <thead><tr><th scope="col">Episode</th><th scope="col">Syncs to</th></tr></thead>
-                            <tbody id="episodeRows"></tbody>
-                        </table></div>
-                    </div>
-                    <div>
-                        <h3 id="editorHeading" tabindex="-1">Edit the shared match</h3>
-                        <div id="matchEditor"></div>
-                        <div class="doki-picker" id="entryPicker" hidden></div>
-                        <ul class="doki-issues" id="editorIssues" hidden></ul>
-                        <div class="doki-notice" id="conflictNotice" role="alert" hidden>
-                            <p id="conflictMessage"></p>
-                            <button class="doki-button" type="button" data-action="reload">Reload the saved match</button>
+            <dialog class="doki-dialog" id="matchDialog" aria-labelledby="dialogTitle">
+                <div class="doki-dialog-header">
+                    <div class="doki-dialog-heading">
+                        <div class="doki-dialog-trail" data-view="editor" hidden>
+                            <button class="doki-button doki-button-quiet" type="button" data-action="back">← Back</button>
+                            <nav class="doki-breadcrumbs kefinTweaks-breadcrumbs" aria-label="Breadcrumb"><ol>
+                                <li><button type="button" data-action="back" id="crumbSource"></button></li>
+                                <li><span aria-current="page" id="crumbEditor"></span></li>
+                            </ol></nav>
                         </div>
-                        <div class="doki-field doki-field-preview"><label for="previewUser">Preview progress for</label><select class="doki-input" id="previewUser"></select></div>
+                        <h2 id="dialogTitle" tabindex="-1"></h2>
+                        <p class="doki-help" id="dialogSummary"></p>
+                    </div>
+                    <button class="doki-button doki-button-quiet" type="button" data-action="close-dialog">Close</button>
+                </div>
+                <div class="doki-dialog-body" data-view="detail">
+                    <div class="doki-provider-tabs" role="tablist" aria-label="Tracker" id="providerTabs"></div>
+                    <div class="doki-stack" id="providerPanel" role="tabpanel">
+                        <p class="doki-match-state"><span class="doki-badge" id="resolutionBadge"></span><span class="doki-help" id="automaticNote"></span></p>
+                        <div>
+                            <h3 id="episodeMapTitle">Episode map</h3>
+                            <p class="doki-help doki-map-note" id="episodeMapNote"></p>
+                            <div class="doki-table-shell"><table class="doki-user-table doki-episode-map" aria-labelledby="episodeMapTitle">
+                                <thead><tr><th scope="col">Episode</th><th scope="col">Syncs to</th></tr></thead>
+                                <tbody id="episodeRows"></tbody>
+                            </table></div>
+                        </div>
                         <div class="doki-actions">
-                            <button class="doki-button" type="button" data-action="preview">Preview</button>
-                            <button class="doki-button doki-button-primary" type="button" data-action="save">Save</button>
-                            <button class="doki-button" type="button" data-action="discard">Discard changes</button>
+                            <button class="doki-button doki-button-primary" type="button" data-action="edit-shared">Edit match</button>
                             <button class="doki-button" type="button" data-action="save-automatic">Save automatic as match</button>
                             <button class="doki-button" type="button" data-action="delete-shared">Delete shared match</button>
-                            <button class="doki-button" type="button" data-action="stop-editing" hidden>Back to the shared match</button>
                         </div>
-                        <p class="doki-status" id="editorStatus" role="status"></p>
-                        <div id="previewProgress"></div>
-                    </div>
-                    <details class="doki-history"><summary>History</summary><ol id="historyList"></ol></details>
-                    <div>
-                        <h3 id="correctionsTitle">Personal corrections</h3>
-                        <p class="doki-help" id="correctionsNote"></p>
-                        <div class="doki-table-shell" id="correctionsShell"><table class="doki-user-table" aria-labelledby="correctionsTitle">
-                            <thead><tr><th scope="col">User</th><th scope="col">Revision</th><th scope="col"><span class="doki-sr-only">Actions</span></th></tr></thead>
-                            <tbody id="correctionRows"></tbody>
-                        </table></div>
-                        <div class="doki-correction-view" id="correctionView" hidden></div>
+                        <p class="doki-status" id="detailStatus" role="status"></p>
+                        <details class="doki-history"><summary>History</summary><ol id="historyList"></ol></details>
+                        <div>
+                            <h3 id="correctionsTitle">Personal corrections</h3>
+                            <p class="doki-help" id="correctionsNote"></p>
+                            <div class="doki-table-shell" id="correctionsShell"><table class="doki-user-table" aria-labelledby="correctionsTitle">
+                                <thead><tr><th scope="col">User</th><th scope="col">Revision</th><th scope="col"><span class="doki-sr-only">Actions</span></th></tr></thead>
+                                <tbody id="correctionRows"></tbody>
+                            </table></div>
+                            <div class="doki-correction-view" id="correctionView" hidden></div>
+                        </div>
                     </div>
                 </div>
-            </section>
+                <div class="doki-dialog-body" data-view="editor" hidden>
+                    <div id="matchEditor"></div>
+                    <div class="doki-picker" id="entryPicker" hidden></div>
+                    <ul class="doki-issues" id="editorIssues" hidden></ul>
+                    <div class="doki-notice" id="conflictNotice" role="alert" hidden>
+                        <p id="conflictMessage"></p>
+                        <button class="doki-button" type="button" data-action="reload">Reload the saved match</button>
+                    </div>
+                    <section class="doki-dialog-preview" aria-labelledby="draftMapTitle">
+                        <h4 id="draftMapTitle">Preview</h4>
+                        <div class="doki-field doki-field-preview"><label for="previewUser">Show progress for</label><select class="doki-input" id="previewUser"></select></div>
+                        <p class="doki-help doki-map-note" id="draftMapNote"></p>
+                        <div class="doki-table-shell" hidden><table class="doki-user-table doki-episode-map" aria-labelledby="draftMapTitle">
+                            <thead><tr><th scope="col">Episode</th><th scope="col">Syncs to</th></tr></thead>
+                            <tbody id="draftRows"></tbody>
+                        </table></div>
+                        <div class="doki-map-progress" id="previewProgress"></div>
+                    </section>
+                </div>
+                <div class="doki-dialog-footer" data-view="editor" hidden>
+                    <p class="doki-status" id="editorStatus" role="status"></p>
+                    <div class="doki-actions">
+                        <button class="doki-button" type="button" data-action="preview">Preview</button>
+                        <button class="doki-button doki-button-primary" type="button" data-action="save">Save</button>
+                    </div>
+                </div>
+            </dialog>
         </div>
     </div></div>
 </div>
