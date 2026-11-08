@@ -168,6 +168,8 @@
 .anidoki .doki-check input { accent-color: var(--doki-accent); width: 20px; height: 20px; margin: 3px 0; flex: 0 0 20px; }
 .anidoki .doki-check strong { display: block; font-size: .925rem; }
 .anidoki .doki-check .doki-help { display: block; margin-top: 3px; }
+/* A switch has 10px of its own padding, so a field after it keeps the 20px fields keep between them. */
+.anidoki .doki-check + .doki-field { margin-top: 10px; }
 .anidoki .doki-check input.doki-switch { appearance: none; position: relative; width: 42px; height: 24px; flex: 0 0 42px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-pill); background: color-mix(in srgb, var(--doki-text) 22%, transparent); cursor: pointer; }
 .anidoki .doki-check input.doki-switch::before { content: ''; position: absolute; inset-inline-start: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
 .anidoki .doki-check input.doki-switch:checked { background: var(--doki-accent); border-color: var(--doki-accent); }
@@ -187,6 +189,8 @@
 .anidoki .doki-user-table td { padding: 14px 16px; border-top: 1px solid var(--doki-edge); background: transparent; overflow-wrap: anywhere; }
 .anidoki .doki-user-table td:last-child { text-align: end; }
 .anidoki .doki-user-table td:last-child .doki-button { white-space: nowrap; }
+/* A message spanning the row ("Nothing matches this search.") reads from the start, not from the actions column. */
+.anidoki .doki-user-table td[colspan] { text-align: start; }
 .anidoki .doki-button.doki-icon-button { width: 44px; padding: 0; }
 .anidoki .doki-user-row, .anidoki .doki-account-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--doki-edge); }
 .anidoki .doki-row-name { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
@@ -257,6 +261,7 @@
     .anidoki .doki-user-table td:first-child { grid-column: 1; grid-row: 1; }
     .anidoki .doki-user-table td:nth-child(2) { grid-column: 1; grid-row: 2; }
     .anidoki .doki-user-table td:last-child { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+    .anidoki .doki-user-table td[colspan] { grid-column: 1 / -1; grid-row: auto; }
     .anidoki .doki-user-row > .doki-button { width: 100%; }
 }
 @media (prefers-reduced-motion: no-preference) { .anidoki .doki-button { transition: border-color .12s; } }

@@ -30,7 +30,7 @@ Some trackers split one Jellyfin season into several entries: AniList lists Stee
 - Admins manage **shared matches** under Dashboard > Plugins > AniDōki > Matches. The list can show only seasons whose recent syncs found no entry (**Needs a match**), or where several entries' titles matched equally (**Needs review**), and it offers to re-attach matches left behind by a library rebuild.
 - Users correct a season for themselves in the **Matches** section of their personal settings page. A **personal correction** applies to that user alone, and an admin can promote it to the shared match.
 - For each tracker, a personal correction comes first, then the shared match, then automatic matching. An episode a saved match does not cover is not synced, rather than guessed.
-- **Use saved matches when syncing** under Settings > Advanced turns saved matches off and restores automatic matching, without deleting any.
+- **Use saved matches** under Settings > Advanced is on by default. Turning it off matches every season automatically, without deleting any saved matches.
 
 ### Playback update notifications
 
