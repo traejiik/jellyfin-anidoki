@@ -1,7 +1,7 @@
 export const pluginId = 'dceb799c-238e-4a33-aa5e-14fc0b1efe9d';
 export const TabGeneral = 0;
-export const TabManualSync = 1;
-export const TabMatches = 2;
+export const TabMatches = 1;
+export const TabManualSync = 2;
 export const providers = [
     { key: 'AniList', name: 'AniList', initials: 'AL' },
     { key: 'Mal', name: 'MyAnimeList', initials: 'MAL' },
@@ -16,8 +16,8 @@ export const providerName = key => providers.find(p => p.key === key)?.name ?? k
 export const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidokiAssetVersion ??= Date.now().toString(36)}/${name}`);
 export const getTabs = () => [
     { href: 'configurationpage?name=AniDoki', name: 'Settings' },
-    { href: 'configurationpage?name=AniDoki_ManualSync', name: 'Manual sync' },
-    { href: 'configurationpage?name=AniDoki_Matches', name: 'Matches' }
+    { href: 'configurationpage?name=AniDoki_Matches', name: 'Matches' },
+    { href: 'configurationpage?name=AniDoki_ManualSync', name: 'Manual sync' }
 ];
 
 export function element(tag, className, text) {

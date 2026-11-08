@@ -38,16 +38,18 @@ export default function (view) {
         find('#sourceSearch').value = list.search;
         renderFilters();
         bind(signal);
-        common.bindDraftWarning(view, () => dirty(), signal);
+        common.bindDraftWarning(view, () => edited(), signal);
         find('[data-matches]').hidden = false;
         common.status(find('[data-page-status]'), '');
         await Promise.all([loadList(signal), loadOrphans(signal)]);
-        // Coming back to the page keeps the open season, re-read in case it changed meanwhile.
-        if (detail) await openSource(detail.sourceKey, provider, signal);
     }
 
+    // dirty: differs from what is saved, so Save applies. edited: changed since the dialog opened, so closing asks first;
+    // a new match starts from what automatic matching finds, which is dirty but not yet edited.
+    let opened = null;
     const dirty = () => !!match && state.isDirty(match);
-    const confirmLeave = () => !dirty() || window.confirm('Discard your changes to this match?');
+    const edited = () => !!match && JSON.stringify(match.draft) !== opened;
+    const confirmLeave = () => !edited() || window.confirm('Discard your changes to this match?');
 
     function bind(signal) {
         entryPicker = editor.createEntryPicker(find('#entryPicker'), {
@@ -68,7 +70,9 @@ export default function (view) {
         find('#nextPage').addEventListener('click', () => { list = state.setPage(list, list.page + 1, state.pageCount(page)); loadList(signal); }, { signal });
         find('#sourceRows').addEventListener('click', event => {
             const button = event.target.closest?.('[data-source]');
-            if (button && confirmLeave()) openSource(button.dataset.source, null, signal, { force: button.dataset.source !== detail?.sourceKey }).then(() => find('#detailTitle').focus());
+            if (!button) return;
+            sourceOpener = button;
+            openSource(button.dataset.source, null, signal, { force: true }).then(() => { if (find('#matchDialog').open) find('#dialogTitle').focus(); });
         }, { signal });
         find('#providerTabs').addEventListener('click', event => {
             const tab = event.target.closest?.('[role="tab"]');
@@ -109,20 +113,29 @@ export default function (view) {
             },
             close: () => { const row = entryPicker.row; closePicker(); find(`#matchEditor [data-action="choose-entry"][data-row="${row}"]`)?.focus(); }
         }, signal);
-        find('#previewUser').addEventListener('change', () => preview(signal), { signal });
+        find('#previewUser').addEventListener('change', () => previewDraft(signal), { signal });
+        // Escape steps back from the editor to the season, then closes the dialog.
+        editor.bindDialog(find('#matchDialog'), () => (match ? closeEditor() : closeDialog()), () => { if (detail) closeDialog({ force: true }); }, signal);
+        // A modal dialog would stay on top of the next page, and its draft would outlive it.
+        signal.addEventListener('abort', () => { returnFocus = sourceOpener = null; closeDialog({ force: true }); }, { once: true });
         editor.bindPageActions(find('.anidoki'), {
-            preview: () => preview(signal),
+            'edit-shared': button => openEditor(signal, { opener: button }),
+            back: () => closeEditor(),
+            'close-dialog': () => closeDialog(),
+            preview: () => previewDraft(signal),
             save: () => save(signal),
-            discard: () => { match = state.discard(match); drawEditor(); say(''); preview(signal); },
             'save-automatic': () => saveAutomatic(signal),
             'delete-shared': () => deleteShared(signal),
-            reload: () => {
+            reload: async () => {
                 const user = editingFor;
-                openSource(detail.sourceKey, provider, signal, { force: true }).then(() => user && overrideOf(user) ? editCorrection(user, signal) : undefined);
+                closeEditor({ force: true });
+                await openSource(detail.sourceKey, provider, signal, { force: true });
+                if (signal.aborted) return;
+                if (user) { if (overrideOf(user)) await editCorrection(user, signal); }
+                else openEditor(signal);
             },
             'view-correction': button => viewCorrection(button.dataset.user, signal),
-            'edit-correction': button => editCorrection(button.dataset.user, signal),
-            'stop-editing': () => stopEditing(signal),
+            'edit-correction': button => editCorrection(button.dataset.user, signal, button),
             'promote-correction': button => promote(button.dataset.user, signal),
             'delete-correction': button => deleteCorrection(button.dataset.user, signal),
             'reattach-orphan': button => reattach(button.dataset.source, signal),
@@ -190,15 +203,14 @@ export default function (view) {
         } catch (error) {
             if (signal.aborted) return;
             const failure = await editor.problem(error);
-            common.status(find('#pageStatus'), failure.status === 404 ? 'That season or movie is no longer in the library.' : await common.errorMessage(error), 'error');
+            const text = failure.status === 404 ? 'That season or movie is no longer in the library.' : await common.errorMessage(error);
+            common.status(find(find('#matchDialog').open ? '#detailStatus' : '#pageStatus'), text, 'error');
             return;
         }
         if (signal.aborted) return;
         detail = loaded;
-        find('#matchDetail').hidden = false;
-        find('#detailTitle').textContent = detail.title;
-        const episodes = detail.episodes ?? [];
-        find('#detailSummary').textContent = detail.kind === 'Movie' ? 'Movie' : `${episodes.length} ${episodes.length === 1 ? 'episode' : 'episodes'} in the library`;
+        showSourceHeading();
+        if (!find('#matchDialog').open) find('#matchDialog').showModal();
         find('#sourceRows').querySelectorAll('tr').forEach(row => row.toggleAttribute('aria-current', row.querySelector('[data-source]')?.dataset.source === sourceKey));
         // Trackers in the order Settings lists them; open the one asked for, else one with a saved match, else one somebody linked.
         const order = common.providers.map(entry => entry.key);
@@ -209,6 +221,30 @@ export default function (view) {
     }
 
     const current = () => (detail?.providers ?? []).find(entry => entry.provider === provider);
+    let sourceOpener = null;
+
+    function showSourceHeading() {
+        const episodes = detail.episodes ?? [];
+        find('#dialogTitle').textContent = detail.title;
+        find('#dialogSummary').textContent = detail.kind === 'Movie' ? 'Movie' : `${episodes.length} ${episodes.length === 1 ? 'episode' : 'episodes'} in the library`;
+    }
+
+    // The dialog shows the season, or the editor in its place with a way back.
+    function showView(name) {
+        find('#matchDialog').querySelectorAll('[data-view]').forEach(node => { node.hidden = node.dataset.view !== name; });
+    }
+
+    // Returns false when the user keeps their unsaved changes.
+    function closeDialog({ force = false } = {}) {
+        if (!closeEditor({ force, refocus: false })) return false;
+        const dialog = find('#matchDialog');
+        if (dialog.open) dialog.close();
+        detail = null;
+        find('#sourceRows').querySelectorAll('tr[aria-current]').forEach(row => row.removeAttribute('aria-current'));
+        if (sourceOpener?.isConnected) sourceOpener.focus();
+        sourceOpener = null;
+        return true;
+    }
 
     async function selectProvider(name, signal, { force = false } = {}) {
         const changed = force || name !== provider;
@@ -225,27 +261,75 @@ export default function (view) {
         }));
         const entry = current();
         if (!entry) return;
-        if (changed || !match) {
-            editingFor = null;
-            match = state.createEditor(entry.shared ? { revision: entry.shared.revision, mapping: entry.shared.mapping, note: entry.shared.note } : null);
-            showIncomplete = false;
-        }
-        closePicker();
+        // A draft belongs to one season and tracker; the dialog is modal, so this only happens after a save or reload.
+        if (changed) closeEditor({ force: true });
         find('#resolutionBadge').textContent = state.resolutionBadge(entry.shared);
-        find('#automaticNote').textContent = entry.shared ? `Saved by ${entry.shared.updatedBy}, ${new Date(entry.shared.updatedUtc).toLocaleString()}.` : 'Sync finds this tracker’s entry automatically.';
-        applyMode();
-        find('#conflictNotice').hidden = true;
-        drawEditor();
+        find('#automaticNote').textContent = entry.shared ? `Saved by ${entry.shared.updatedBy}, ${new Date(entry.shared.updatedUtc).toLocaleString()}.` : 'Sync finds the entry itself.';
+        find('[data-action="edit-shared"]').textContent = entry.shared ? 'Edit match' : 'Create match';
+        find('[data-action="delete-shared"]').hidden = !entry.shared;
         drawHistory(entry);
         drawCorrections(entry);
         say('');
-        find('#previewProgress').replaceChildren();
         automatic = undefined;
         updateButtons();
         const reading = provider;
         await loadAutomatic(signal);
-        if (provider === reading) await preview(signal);
+        if (provider === reading) await previewPage(signal);
     }
+
+    // The editor opens on the shared match, or on one user's correction (D12); a new shared match starts from what
+    // automatic matching finds. Closing it, saved or not, ends the mode.
+    function openEditor(signal, { user = null, saved = null, opener = null } = {}) {
+        const entry = current();
+        if (!entry) return;
+        const name = common.providerName(provider);
+        editingFor = user;
+        const source = user ? saved : entry.shared;
+        match = state.createEditor(source ? { revision: source.revision, mapping: source.mapping, note: source.note } : null);
+        if (!source && automatic?.mapping) match = state.replaceDraft(match, automatic.mapping);
+        opened = JSON.stringify(match.draft);
+        showIncomplete = false;
+        returnFocus = opener;
+        const userName = user ? overrideOf(user)?.userName ?? userNameOf(user) : null;
+        const heading = user ? `Edit ${userName}’s ${name} correction` : entry.shared ? `Edit the shared ${name} match` : `Create a shared ${name} match`;
+        find('#crumbSource').textContent = detail.title;
+        find('#crumbEditor').textContent = heading;
+        find('#dialogTitle').textContent = heading;
+        find('#dialogSummary').textContent = user
+            ? `${userName}’s correction applies to them alone; everyone else uses ${entry.shared ? 'the shared match' : 'automatic matching'}.`
+            : 'Applies to everyone without a correction of their own.';
+        if (user) {
+            // Jellyfin writes user IDs with or without dashes, so the option is found the way userNameOf finds a user.
+            const select = find('#previewUser');
+            select.value = [...select.options].find(option => option.value && option.value.replaceAll('-', '') === String(user).replaceAll('-', ''))?.value ?? '';
+        }
+        find('#conflictNotice').hidden = true;
+        drawEditor();
+        showView('editor');
+        say('');
+        find('#matchDialog .doki-dialog-body[data-view="editor"]').scrollTop = 0;
+        find('#matchEditor input, #matchEditor button')?.focus();
+        previewDraft(signal);
+    }
+
+    // Back from the editor to the season. Returns false when the user keeps their unsaved changes.
+    function closeEditor({ force = false, refocus = true } = {}) {
+        if (!match) return true;
+        if (!force && !confirmLeave()) return false;
+        match = null;
+        editingFor = null;
+        closePicker();
+        hideMap(draftMap(), '');
+        find('#previewProgress').replaceChildren();
+        find('#editorStatus').textContent = '';
+        showView('detail');
+        if (detail) showSourceHeading();
+        if (refocus && returnFocus?.isConnected) returnFocus.focus();
+        returnFocus = null;
+        return true;
+    }
+
+    let returnFocus = null;
 
     function drawEditor() {
         editor.renderEditor(find('#matchEditor'), match, visibleIssues());
@@ -261,13 +345,13 @@ export default function (view) {
         editor.renderIssues(find('#matchEditor'), find('#editorIssues'), issues);
         // "Fix the problems" stops being true once the last one is fixed.
         if (!issues.length && fixPending) say('');
+        // A preview of an older draft says so, rather than passing for this one.
+        if (!draftMap().table.hidden) draftMap().note.textContent = 'Changed since this preview. Select Preview to update it.';
         updateButtons();
     }
 
     function updateButtons() {
-        const isDirty = dirty();
-        find('[data-action="discard"]').disabled = !isDirty;
-        find('[data-action="save"]').disabled = !isDirty;
+        find('[data-action="save"]').disabled = !dirty();
         const automaticButton = find('[data-action="save-automatic"]');
         automaticButton.disabled = !automatic?.mapping;
         automaticButton.title = automatic === undefined ? 'Checking what automatic matching finds…'
@@ -283,54 +367,60 @@ export default function (view) {
             automatic = { reason: await common.errorMessage(error) };
         }
         if (signal.aborted || provider !== reading) return;
-        if (!current()?.shared && !editingFor)
-            find('#automaticNote').textContent = automatic.mapping ? 'Sync finds this tracker’s entry automatically. Save automatic as match keeps what it finds now.'
-                : `Sync finds this tracker’s entry automatically, but it cannot be saved as a match: ${state.automaticReason(automatic.reason)}.`;
+        if (!current()?.shared)
+            find('#automaticNote').textContent = automatic.mapping ? 'Sync finds the entry itself.' : `Nothing to save: ${state.automaticReason(automatic.reason)}.`;
         updateButtons();
     }
 
-    // The episode map shows the draft; with nothing drafted and nothing saved, what automatic matching would save.
-    function mappingToPreview() {
-        const empty = !match.draft.ranges.length && !match.draft.exceptions.length;
-        if (empty && !current()?.shared && automatic?.mapping) return { mapping: automatic.mapping, label: 'What automatic matching would save:' };
-        if (empty) return null;
-        return { mapping: state.toMapping(match.draft), label: dirty() ? 'Your draft, not saved yet:' : editingFor ? 'Their correction:' : 'The saved match:' };
+    const pageMap = () => ({ rows: find('#episodeRows'), note: find('#episodeMapNote'), table: find('#episodeRows').closest('.doki-table-shell') });
+    const draftMap = () => ({ rows: find('#draftRows'), note: find('#draftMapNote'), table: find('#draftRows').closest('.doki-table-shell') });
+
+    function hideMap(map, text) {
+        map.note.textContent = text;
+        map.rows.replaceChildren();
+        map.table.hidden = true;
     }
 
-    async function preview(signal) {
-        const target = mappingToPreview();
-        const rows = find('#episodeRows');
-        const table = find('.doki-episode-map').parentElement;
-        if (!target) {
-            find('#episodeMapNote').textContent = 'No match to show. Add a range, or save what automatic matching finds.';
-            rows.replaceChildren();
-            table.hidden = true;
-            return;
-        }
-        if (target.mapping !== automatic?.mapping && state.check(match.draft).length) {
-            find('#episodeMapNote').textContent = 'Finish the rows below, each with its episodes and an entry, to see the episode map.';
-            rows.replaceChildren();
-            table.hidden = true;
-            return;
-        }
-        const user = find('#previewUser').value;
+    // Asks the server where each episode goes under mapping, and draws it. Returns the preview, or null.
+    async function drawMap(map, mapping, label, signal, user = '') {
         const path = state.routePath(base, detail.sourceKey, provider, 'preview') + (user ? `?userId=${encodeURIComponent(user)}` : '');
-        find('#episodeMapNote').textContent = 'Loading…';
+        map.note.textContent = 'Loading…';
         const reading = provider;
         let result;
         try {
-            result = await common.json(path, { method: 'POST', body: { ranges: target.mapping.ranges, exceptions: target.mapping.exceptions }, signal });
+            result = await common.json(path, { method: 'POST', body: { ranges: mapping.ranges, exceptions: mapping.exceptions }, signal });
         } catch (error) {
-            if (!signal.aborted) find('#episodeMapNote').textContent = await common.errorMessage(error);
-            return;
+            if (!signal.aborted) hideMap(map, await common.errorMessage(error));
+            return null;
         }
-        if (signal.aborted || provider !== reading) return;
-        table.hidden = false;
-        find('#episodeMapNote').textContent = [target.label, result.borrowedLink ? 'Titles were read through another user’s link.' : ''].filter(Boolean).join(' ');
-        editor.renderEpisodeMap(rows, result.rows ?? [], state.describeRow);
+        if (signal.aborted || provider !== reading) return null;
+        map.table.hidden = false;
+        map.note.textContent = [label, result.borrowedLink ? 'Titles were read through another user’s link.' : ''].filter(Boolean).join(' ');
+        editor.renderEpisodeMap(map.rows, result.rows ?? [], state.describeRow);
+        return result;
+    }
+
+    // The page shows what sync uses now for everyone without a correction.
+    async function previewPage(signal) {
+        const shared = current()?.shared;
+        if (shared) return drawMap(pageMap(), shared.mapping, 'The shared match:', signal);
+        if (automatic?.mapping) return drawMap(pageMap(), automatic.mapping, 'What automatic matching finds now:', signal);
+        hideMap(pageMap(), 'No episode map to show.');
+    }
+
+    // The dialog shows the draft, with the chosen user's progress through it.
+    async function previewDraft(signal) {
+        if (!match) return;
+        const map = draftMap();
+        find('#previewProgress').replaceChildren();
+        if (!match.draft.ranges.length && !match.draft.exceptions.length) return hideMap(map, 'Add a range to see where each episode would go.');
+        if (state.check(match.draft).length) return hideMap(map, 'Finish each row, with its episodes and an entry, to see where each episode would go.');
+        const user = find('#previewUser').value;
+        const label = dirty() ? 'Your draft, not saved yet:' : editingFor ? 'Their correction, as saved:' : 'The shared match, as saved:';
+        const result = await drawMap(map, state.toMapping(match.draft), label, signal, user);
+        if (!result || !match) return;
         const serverIssues = [...(result.errors ?? []), ...(result.warnings ?? [])];
-        if (serverIssues.length && target.mapping !== automatic?.mapping)
-            say(serverIssues.map(issue => issue.message).join(' '), result.errors?.length ? 'error' : '');
+        if (serverIssues.length) say(serverIssues.map(issue => issue.message).join(' '), result.errors?.length ? 'error' : '');
         drawProgress(result.progress, user);
     }
 
@@ -346,7 +436,8 @@ export default function (view) {
     }
 
     let fixPending = false;
-    function say(text, tone = '') { fixPending = false; common.status(find('#editorStatus'), text, tones[tone] ?? ''); }
+    // The editor speaks in its footer; the season, below its actions.
+    function say(text, tone = '') { fixPending = false; common.status(find(match ? '#editorStatus' : '#detailStatus'), text, tones[tone] ?? ''); }
 
     async function save(signal) {
         showIncomplete = true;
@@ -360,37 +451,39 @@ export default function (view) {
         await put(state.saveRequest(match), 'Saved.', signal);
     }
 
+    // From the page, with no dialog: saves what automatic matching finds as the shared match.
     async function saveAutomatic(signal) {
+        const shared = current()?.shared;
         if (!automatic?.mapping) return;
-        if (dirty() && !window.confirm('Replace your draft with what automatic matching finds, and save it?')) return;
-        match = state.replaceDraft(match, automatic.mapping);
-        if (!match.draft.note) match = state.setNote(match, 'Saved from automatic matching');
-        drawEditor();
-        await put(state.saveRequest(match), 'Saved what automatic matching finds.', signal);
+        let draft = state.replaceDraft(state.createEditor(shared ? { revision: shared.revision, mapping: shared.mapping, note: shared.note } : null), automatic.mapping);
+        if (!draft.draft.note) draft = state.setNote(draft, 'Saved from automatic matching');
+        await put(state.saveRequest(draft), 'Saved what automatic matching finds.', signal);
     }
 
     async function put(body, done, signal) {
+        const inDialog = !!match;
+        const path = editingFor ? state.routePath(base, 'users', editingFor, detail.sourceKey, provider) : state.routePath(base, detail.sourceKey, provider);
         say('Saving…');
-        find('[data-action="save"]').disabled = true;
+        if (inDialog) find('[data-action="save"]').disabled = true;
         let saved;
         try {
-            saved = await common.json(editingFor ? state.routePath(base, 'users', editingFor, detail.sourceKey, provider) : state.routePath(base, detail.sourceKey, provider),
-                { method: 'PUT', body, signal });
+            saved = await common.json(path, { method: 'PUT', body, signal });
         } catch (error) {
             if (signal.aborted) return;
             const failure = await editor.problem(error);
             const refused = state.saveFailure(failure.status, failure.body);
-            if (refused.conflict != null) {
+            if (refused.conflict != null && inDialog) {
                 match = state.markConflict(match, refused.conflict);
                 find('#conflictMessage').textContent = state.conflictMessage(refused.conflict, editingFor ? 'this correction' : 'this match');
                 find('#conflictNotice').hidden = false;
             }
             say(refused.message ?? `Not saved. ${await common.errorMessage(error)}`, 'error');
-            updateButtons();
+            if (inDialog) updateButtons();
+            else if (refused.conflict != null) await openSource(detail.sourceKey, provider, signal, { force: true });
             return;
         }
         if (signal.aborted) return;
-        match = state.markSaved(match, saved.revision);
+        closeEditor({ force: true });
         const warnings = (saved.warnings ?? []).map(issue => issue.message);
         await openSource(detail.sourceKey, provider, signal);
         say([`${done} Revision ${saved.revision}.`, ...warnings].join(' '), warnings.length ? '' : 'success');
@@ -405,8 +498,9 @@ export default function (view) {
         } catch (error) {
             if (signal.aborted) return;
             const failure = await editor.problem(error);
-            say(failure.status === 409 ? 'Not deleted: the match changed meanwhile. Reload to see it.' : `Not deleted. ${await common.errorMessage(error)}`, 'error');
-            if (failure.status === 409) find('#conflictNotice').hidden = false;
+            if (failure.status === 409) await openSource(detail.sourceKey, provider, signal, { force: true });
+            if (signal.aborted) return;
+            say(failure.status === 409 ? 'Not deleted: the match changed meanwhile. It is shown as it is now.' : `Not deleted. ${await common.errorMessage(error)}`, 'error');
             return;
         }
         if (signal.aborted) return;
@@ -419,7 +513,7 @@ export default function (view) {
         const items = [...(entry.history ?? [])].reverse().map(revision => {
             const item = common.element('li');
             const when = new Date(revision.createdUtc).toLocaleString();
-            const from = revision.promotedFrom ? ` from ${userName(revision.promotedFrom.split(':')[0])}’s correction` : '';
+            const from = revision.promotedFrom ? ` from ${userNameOf(revision.promotedFrom.split(':')[0])}’s correction` : '';
             item.append(common.element('strong', '', `r${revision.revision} · ${revision.action}${from}`), common.element('span', 'doki-help', ` ${revision.author}, ${when}`));
             const lines = common.element('ul', 'doki-help');
             lines.append(...editor.describeMapping(revision.mapping).map(line => common.element('li', '', line)));
@@ -429,7 +523,7 @@ export default function (view) {
         find('#historyList').replaceChildren(...(items.length ? items : [common.element('li', 'doki-help', 'Nothing saved for this tracker yet.')]));
     }
 
-    const userName = id => users.find(user => user.Id.replaceAll('-', '') === String(id).replaceAll('-', ''))?.Name ?? 'a deleted user';
+    const userNameOf = id => users.find(user => user.Id.replaceAll('-', '') === String(id).replaceAll('-', ''))?.Name ?? 'a deleted user';
 
     function drawCorrections(entry) {
         const overrides = entry.overrides ?? [];
@@ -461,9 +555,8 @@ export default function (view) {
     const overrideOf = user => current()?.overrides?.find(entry => entry.userId === user);
 
     // D12: an admin edits a user's correction for them. It is saved as theirs, through the users/ routes.
-    async function editCorrection(user, signal) {
-        const override = overrideOf(user);
-        if (!override || !confirmLeave()) return;
+    async function editCorrection(user, signal, opener = null) {
+        if (!overrideOf(user)) return;
         let saved;
         try {
             saved = await common.json(state.routePath(base, 'users', user, detail.sourceKey, provider), { signal });
@@ -472,35 +565,7 @@ export default function (view) {
             return;
         }
         if (signal.aborted) return;
-        editingFor = user;
-        match = state.createEditor({ revision: saved.revision, mapping: saved.mapping, note: saved.note });
-        showIncomplete = false;
-        // Jellyfin writes user IDs with or without dashes, so the option is found the way userName finds a user.
-        const select = find('#previewUser');
-        select.value = [...select.options].find(option => option.value && option.value.replaceAll('-', '') === String(user).replaceAll('-', ''))?.value ?? '';
-        find('#conflictNotice').hidden = true;
-        applyMode();
-        drawEditor();
-        say('');
-        find('#editorHeading').focus();
-        await preview(signal);
-    }
-
-    function stopEditing(signal) {
-        if (!confirmLeave()) return;
-        editingFor = null;
-        selectProvider(provider, signal, { force: true });
-    }
-
-    // The editor works on the shared match, or on one user's correction: the heading, and which buttons apply.
-    function applyMode() {
-        const name = editingFor ? overrideOf(editingFor)?.userName ?? userName(editingFor) : null;
-        find('#editorHeading').textContent = name ? `Edit ${name}’s correction` : 'Edit the shared match';
-        find('[data-action="stop-editing"]').hidden = !editingFor;
-        find('[data-action="save-automatic"]').hidden = !!editingFor;
-        find('[data-action="delete-shared"]').hidden = !!editingFor || !current()?.shared;
-        // The badge still says what everyone else uses; the note must not point at the buttons this mode hides.
-        if (name) find('#automaticNote').textContent = `${name}’s correction applies to them alone. Everyone else uses ${current()?.shared ? 'the shared match' : 'automatic matching'}.`;
+        openEditor(signal, { user, saved, opener });
     }
 
     async function viewCorrection(user, signal) {
@@ -556,7 +621,7 @@ export default function (view) {
             return;
         }
         if (signal.aborted) return;
-        await openSource(detail.sourceKey, provider, signal, { force: editingFor === user });
+        await openSource(detail.sourceKey, provider, signal);
         say(`Deleted ${override.userName}’s correction.`, 'success');
         loadList(signal);
     }

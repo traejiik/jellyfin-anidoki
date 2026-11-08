@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bindEditor, bindPageActions, describeMapping } from '../../../jellyfin-anidoki/Configuration/MatchEditorJs.js';
+import { bindDialog, bindEditor, bindPageActions, describeMapping } from '../../../jellyfin-anidoki/Configuration/MatchEditorJs.js';
 
 // Just enough of an element to count listeners and route events by target, as the page's delegation needs.
 class Fake {
@@ -12,7 +12,7 @@ class Fake {
         signal?.addEventListener('abort', () => { this.listeners = this.listeners.filter(item => item !== entry); }, { once: true });
     }
     count(type) { return this.listeners.filter(entry => entry.type === type).length; }
-    dispatch(type, event) { for (const entry of this.listeners.filter(item => item.type === type)) entry.handler({ preventDefault() {}, ...event }); }
+    dispatch(type, event) { for (const entry of this.listeners.filter(item => item.type === type)) entry.handler({ preventDefault() {}, stopPropagation() {}, ...event }); }
     contains(node) { for (let item = node; item; item = item.parent) if (item === this) return true; return false; }
     closest(selector) {
         for (let item = this; item; item = item.parent) {
@@ -69,9 +69,34 @@ test('the picker searches, picks and closes, and Escape closes it', () => {
     bindEditor(container, picker, handlers, new AbortController().signal);
     picker.dispatch('submit', {});
     picker.dispatch('click', { target: Object.assign(button(picker, 'pick-entry'), { dataset: { action: 'pick-entry', index: '2' } }) });
-    picker.dispatch('keydown', { key: 'Escape' });
+    let stopped = 0, prevented = 0;
+    picker.dispatch('keydown', { key: 'Escape', stopPropagation() { stopped++; }, preventDefault() { prevented++; } });
     picker.dispatch('keydown', { key: 'Enter' });
     assert.deepEqual(calls, [['search', 'Steel Ball Run'], ['pick', 2], ['close']]);
+    // Escape in the picker must not also reach the dialog, which would close the whole editor.
+    assert.deepEqual([stopped, prevented], [1, 1]);
+});
+
+test('Escape on the dialog asks the page once, and the dialog never closes on its own', async () => {
+    const dialog = new Fake('matchDialog');
+    const lifetime = new AbortController();
+    let asked = 0, prevented = 0, closed = 0;
+    bindDialog(dialog, () => { asked++; }, () => { closed++; }, lifetime.signal);
+    // Escape: keydown asks; the cancel Chrome may fire after it is still stopped but not asked twice.
+    dialog.dispatch('keydown', { key: 'Escape', preventDefault() { prevented++; } });
+    dialog.dispatch('cancel', { preventDefault() { prevented++; } });
+    assert.deepEqual([asked, prevented], [1, 2]);
+    // A close request without a keydown, such as the back gesture, asks too.
+    await new Promise(resolve => setTimeout(resolve));
+    dialog.dispatch('cancel', { preventDefault() { prevented++; } });
+    assert.equal(asked, 2);
+    // Escape the picker already handled is left alone.
+    dialog.dispatch('keydown', { key: 'Escape', defaultPrevented: true });
+    assert.equal(asked, 2);
+    dialog.dispatch('close', {});
+    assert.equal(closed, 1);
+    lifetime.abort();
+    assert.deepEqual(['keydown', 'cancel', 'close'].map(type => dialog.count(type)), [0, 0, 0]);
 });
 
 test('page actions are bound once per lifetime and leave the editor’s own buttons alone', () => {
