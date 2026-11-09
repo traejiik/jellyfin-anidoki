@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDraft, changedValues, mergeChanges, mergePreferences, userPreferences, validateLibraries, secretChanges, withoutSecrets } from '../../../jellyfin-anidoki/Configuration/ConfigStateJs.js';
+import { animeLibraryChoices, animeLibraryMode, createDraft, changedValues, describeAnimeLibraries, mergeChanges, mergePreferences, userPreferences, withAnimeLibraryMode, secretChanges, withoutSecrets } from '../../../jellyfin-anidoki/Configuration/ConfigStateJs.js';
 
 const saved = () => ({ callbackUrl: '', updateNsfw: true, ProviderApiAuth: [
     { Name: 'AniList', ClientId: 'one', ClientSecret: 'keep' },
@@ -113,11 +113,6 @@ test('new user preference record uses effective defaults', () => {
     assert.equal(result.value.UserConfig[0].PlanToWatchOnly, false);
     assert.equal(result.value.UserConfig[0].RewatchCompleted, true);
 });
-test('selected mode requires IDs and unavailable IDs stay until explicitly removed', () => {
-    assert.equal(validateLibraries('selected', []).valid, false);
-    assert.deepEqual(validateLibraries('selected', ['missing']).ids, ['missing']);
-    assert.deepEqual(validateLibraries('all', ['missing']).ids, []);
-});
 test('old user preferences default on but explicit false stays false', () => {
     assert.deepEqual(userPreferences(), { PlanToWatchOnly: true, RewatchCompleted: true, ShowLogNotifications: true, LibraryToCheck: [] });
     assert.equal(userPreferences({ ShowLogNotifications: false }).ShowLogNotifications, false);
@@ -135,4 +130,44 @@ test('preference save names a remote library conflict', () => {
     const baseline = userPreferences(); const draft = { ...baseline, LibraryToCheck: ['mine'] };
     const latest = { ...baseline, LibraryToCheck: ['theirs'] };
     assert.deepEqual(mergePreferences(latest, baseline, draft).conflicts, ['LibraryToCheck']);
+});
+test('a draft always has an anime library list, copied from the saved one', () => {
+    assert.deepEqual(createDraft({}).AnimeLibraries, []);
+    const saved = { AnimeLibraries: [{ LibraryId: 'a', Mode: 'Dedicated' }] };
+    const draft = createDraft(saved); draft.AnimeLibraries[0].Mode = 'Off';
+    assert.equal(saved.AnimeLibraries[0].Mode, 'Dedicated');
+});
+test('anime library changes save onto the latest configuration and conflict like other server fields', () => {
+    const baseline = createDraft({ AnimeLibraries: [] });
+    const draft = { ...createDraft(baseline), AnimeLibraries: [{ LibraryId: 'a', Mode: 'Dedicated' }] };
+    assert.deepEqual(changedValues(baseline, draft).map(change => change.field), ['AnimeLibraries']);
+    assert.deepEqual(mergeChanges({ AnimeLibraries: [] }, baseline, draft).value.AnimeLibraries, [{ LibraryId: 'a', Mode: 'Dedicated' }]);
+    assert.deepEqual(mergeChanges({ AnimeLibraries: [{ LibraryId: 'b', Mode: 'Mixed' }] }, baseline, draft).conflicts, ['AnimeLibraries']);
+});
+test('a library with no entry is unset until any library is chosen, then Off', () => {
+    assert.equal(animeLibraryMode([], 'a'), '');
+    assert.equal(animeLibraryMode([{ LibraryId: 'b', Mode: 'Dedicated' }], 'a'), 'Off');
+    assert.equal(animeLibraryMode([{ LibraryId: '0F8B-AA', Mode: 'Mixed' }], '0f8baa'), 'Mixed');
+});
+test('choosing a mode replaces the entry in place or adds one, without changing the old list', () => {
+    const list = [{ LibraryId: 'a', Mode: 'Dedicated' }, { LibraryId: 'b', Mode: 'Off' }];
+    assert.deepEqual(withAnimeLibraryMode(list, 'a', 'Mixed'), [{ LibraryId: 'a', Mode: 'Mixed' }, { LibraryId: 'b', Mode: 'Off' }]);
+    assert.deepEqual(withAnimeLibraryMode(list, 'c', 'Dedicated').at(-1), { LibraryId: 'c', Mode: 'Dedicated' });
+    assert.equal(list[0].Mode, 'Dedicated');
+});
+test('the count says not chosen, how many libraries are scanned, or that nothing will sync', () => {
+    const libraries = [{ Id: 'a' }, { Id: 'b' }, { Id: 'c' }];
+    assert.equal(describeAnimeLibraries([], libraries), 'Not chosen yet');
+    assert.equal(describeAnimeLibraries([{ LibraryId: 'a', Mode: 'Dedicated' }, { LibraryId: 'b', Mode: 'Mixed' }], libraries), '2 of 3 libraries scanned');
+    assert.equal(describeAnimeLibraries([{ LibraryId: 'a', Mode: 'Dedicated' }], [{ Id: 'a' }]), '1 of 1 library scanned');
+    assert.equal(describeAnimeLibraries([{ LibraryId: 'a', Mode: 'Off' }], libraries), 'Nothing will sync');
+});
+test('only libraries that can hold shows or movies are listed, with a readable type', () => {
+    const listed = animeLibraryChoices([
+        { Id: 's', Name: 'Anime', Type: 'tvshows' }, { Id: 'm', Name: 'Films', Type: 'movies' },
+        { Id: 'x', Name: 'Everything', Type: 'mixed' }, { Id: 'n', Name: 'Untyped', Type: null },
+        { Id: 'u', Name: 'Music', Type: 'music' }, { Id: 'p', Name: 'Photos', Type: 'homevideos' }, { Id: 'b', Name: 'Books', Type: 'books' }
+    ]);
+    assert.deepEqual(listed.map(library => [library.Name, library.kind]),
+        [['Anime', 'Shows'], ['Films', 'Movies'], ['Everything', 'Mixed content'], ['Untyped', 'Mixed content']]);
 });

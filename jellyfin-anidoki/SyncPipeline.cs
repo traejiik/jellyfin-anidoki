@@ -99,12 +99,14 @@ public class SyncPipeline {
             return;
         }
 
-        if (LibraryFilter.Includes(userConfig, _libraryManager, _logger, e) && video is Episode or Movie && playedToCompletion) {
+        LibraryScope scope = LibraryFilter.Scope(userConfig, _libraryManager, _logger, e);
+        if (scope != LibraryScope.Excluded && video is Episode or Movie && playedToCompletion) {
             var syncSource = SyncSource.From(video);
             if (syncSource == null) {
                 _logger.LogError("Video does not contain required index numbers to sync; skipping");
                 return;
             }
+            syncSource = syncSource with { IdsOnly = scope == LibraryScope.IdsOnly };
 
             SourceIds sourceIds = await _sourceIds.Resolve(syncSource);
             _apiIds = sourceIds.Ids;

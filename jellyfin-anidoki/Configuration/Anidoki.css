@@ -40,6 +40,8 @@
 .anidoki {
     --doki-text: var(--tjk-text);
     --doki-muted: var(--tjk-muted);
+    /* Quieter than muted, for counts and hints beside headings. */
+    --doki-faint: color-mix(in srgb, var(--doki-muted) 78%, transparent);
     --doki-ground: color-mix(in srgb, var(--doki-text) 7%, transparent);
     --doki-surface: color-mix(in srgb, var(--doki-text) 5%, transparent);
     --doki-pill: color-mix(in srgb, var(--doki-text) 11%, transparent);
@@ -113,6 +115,7 @@
 .anidoki .doki-panel-actions { grid-column: 2; grid-row: 1; display: flex; align-items: center; justify-content: end; gap: 10px; align-self: start; }
 .anidoki .doki-panel-body, .anidoki .doki-panel-feedback { grid-column: 1 / -1; min-width: 0; }
 .anidoki .doki-panel-body { grid-row: 2; }
+.anidoki .doki-panel-body > .doki-check { margin-bottom: 12px; }
 .anidoki .doki-panel-feedback { grid-row: 3; }
 .anidoki .doki-refresh-status { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 26px; width: 26px; height: 26px; border: 1px solid currentColor; border-radius: 50%; color: var(--tjk-success); background: color-mix(in srgb, var(--tjk-success) 15%, transparent); }
 .anidoki .doki-refresh-status svg { width: 16px; height: 16px; }
@@ -175,11 +178,6 @@
 .anidoki .doki-check input.doki-switch:checked { background: var(--doki-accent); border-color: var(--doki-accent); }
 .anidoki .doki-check input.doki-switch:checked::before { inset-inline-start: 21px; }
 .anidoki .doki-check input.doki-switch:disabled { cursor: default; }
-.anidoki .doki-library-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.anidoki .doki-scope-card { display: flex; align-items: start; gap: 14px; min-width: 0; padding: 18px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-lg); background: var(--doki-ground); cursor: pointer; }
-.anidoki .doki-scope-card input { width: 20px; height: 20px; margin: 3px 0; flex: 0 0 20px; accent-color: var(--doki-accent); }
-.anidoki .doki-scope-card strong, .anidoki .doki-scope-card .doki-help { display: block; }
-.anidoki .doki-scope-card:has(input:checked) { border-color: var(--doki-accent); background: color-mix(in srgb, var(--doki-accent) 14%, transparent); box-shadow: inset 0 0 0 1px var(--doki-accent); }
 .anidoki .doki-table-shell { border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); overflow: hidden; }
 .anidoki .doki-user-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: .875rem; }
 .anidoki .doki-user-table thead { background: var(--doki-ground); text-align: start; }
@@ -207,13 +205,9 @@
 .anidoki .doki-account-fields > .doki-field { margin: 0; }
 .anidoki .doki-account-detail > .doki-help { margin: 0; }
 .anidoki .doki-account-row > .doki-status { flex: 1 0 100%; min-width: 0; margin: 0; }
-.anidoki .doki-library-controls { display: flex; flex-direction: column; gap: 16px; }
-.anidoki .doki-library-help { margin-top: 0; }
-.anidoki .doki-library-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 10px; }
-.anidoki .doki-library-list:empty { display: none; }
-.anidoki :is(.doki-library-choice, .doki-filter-choice) { display: flex; align-items: center; gap: 12px; padding: 12px 16px; min-width: 0; min-height: 52px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-ground); font-size: .925rem; font-weight: 600; cursor: pointer; overflow-wrap: anywhere; }
+.anidoki .doki-filter-choice { display: flex; align-items: center; gap: 12px; padding: 12px 16px; min-width: 0; min-height: 52px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-ground); font-size: .925rem; font-weight: 600; cursor: pointer; overflow-wrap: anywhere; }
 .anidoki .doki-filter-choice { min-height: 44px; padding: 8px 16px; border-radius: var(--tjk-radius-md); }
-.anidoki :is(.doki-library-choice, .doki-filter-choice):has(input:checked) { border-color: var(--doki-accent); background: color-mix(in srgb, var(--doki-accent) 14%, transparent); }
+.anidoki .doki-filter-choice:has(input:checked) { border-color: var(--doki-accent); background: color-mix(in srgb, var(--doki-accent) 14%, transparent); }
 .anidoki .doki-choice-checkbox { appearance: none; display: grid; place-content: center; flex: 0 0 20px; width: 20px; height: 20px; margin: 0; border: 1.5px solid var(--doki-edge); border-radius: var(--tjk-radius-sm); background: var(--doki-ground); cursor: pointer; }
 .anidoki .doki-choice-checkbox:checked { border-color: var(--doki-accent); background: var(--doki-accent); }
 .anidoki .doki-choice-checkbox:checked::after { content: ''; width: 10px; height: 6px; border-bottom: 2px solid var(--doki-on-accent); border-left: 2px solid var(--doki-on-accent); transform: rotate(-45deg) translateY(-1px); }
@@ -241,7 +235,7 @@
     .anidoki .doki-sync-footer > .doki-actions { flex-direction: column; align-items: stretch; }
     .anidoki { padding: 24px 16px 32px; }
     .anidoki .doki-panel { padding: 20px; }
-    .anidoki .doki-grid, .anidoki .doki-direction, .anidoki .doki-library-modes { grid-template-columns: 1fr; }
+    .anidoki .doki-grid, .anidoki .doki-direction { grid-template-columns: 1fr; }
     .anidoki .doki-save-bar { padding: 14px; gap: 10px; }
     .anidoki .doki-save-bar > .doki-status { flex-basis: 100%; }
     .anidoki .doki-provider > summary { grid-template-columns: 40px minmax(0, 1fr) 16px; column-gap: 12px; row-gap: 4px; padding: 14px; }
@@ -457,6 +451,54 @@
 .anidoki .doki-issues { margin: 12px 0; padding-inline-start: 20px; color: var(--tjk-error); font-size: .875rem; }
 .anidoki .doki-notice { margin: 12px 0; padding: 12px 16px; border: 1px solid var(--tjk-warning); border-radius: var(--tjk-radius-md); }
 .anidoki .doki-notice p { margin: 0 0 10px; }
+/* Anime libraries (Sync behaviour). The hint is a notice until a choice is saved, then settles into one quiet line. */
+/* One compound setting among the switches: faint rules above and below mark where it starts and ends. */
+.anidoki .doki-anime { display: flex; flex-direction: column; gap: 20px; margin-bottom: 12px; padding-block: 22px; border-block: 1px solid color-mix(in srgb, var(--doki-edge) 55%, transparent); }
+.anidoki .doki-anime-intro { display: flex; flex-direction: column; min-width: 0; }
+/* Styled as a setting title, like the switches' labels below it, with its count beside it. */
+.anidoki .doki-anime-head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
+.anidoki .doki-anime-head h3 { margin: 0; font-size: .925rem; font-weight: 700; }
+.anidoki .doki-anime-count { font-size: .8125rem; color: var(--doki-faint); }
+.anidoki .doki-anime-count:not(:empty)::before { content: '·' / ''; margin-inline-end: 8px; }
+.anidoki .doki-anime-hint { display: flex; flex-direction: column; margin-top: 12px; padding: 0; border: 1px solid transparent; border-radius: var(--tjk-radius-md); background: transparent; }
+.anidoki .doki-anime-hint[data-state="notice"] { margin-top: 14px; padding: 12px 16px 14px; border-color: var(--tjk-warning); background: color-mix(in srgb, var(--tjk-warning) 8%, transparent); }
+.anidoki .doki-anime-hint-anchor { position: relative; display: inline-flex; align-self: start; max-width: 100%; }
+.anidoki .doki-anime-hint-button { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; margin-inline-start: -6px; padding: 0 6px; border: 0; border-radius: var(--tjk-radius-sm); background: transparent; color: var(--doki-faint); font: inherit; font-size: .75rem; text-align: start; cursor: pointer; }
+.anidoki .doki-anime-hint-button:hover { color: var(--doki-muted); }
+.anidoki .doki-anime-hint-button:focus-visible { outline: 2px solid var(--doki-accent); outline-offset: 2px; }
+.anidoki .doki-anime-hint-icon { flex: 0 0 16px; width: 16px; height: 16px; }
+.anidoki .doki-anime-hint[data-state="notice"] .doki-anime-hint-button { gap: 12px; color: var(--doki-text); font-size: .925rem; font-weight: 700; }
+.anidoki .doki-anime-hint[data-state="notice"] .doki-anime-hint-icon { color: var(--tjk-warning); transform: scale(1.25); }
+.anidoki .doki-anime-hint-body { max-height: 0; opacity: 0; overflow: hidden; padding-inline-start: 22px; font-size: .875rem; color: var(--doki-muted); }
+.anidoki .doki-anime-hint[data-state="notice"] .doki-anime-hint-body { max-height: 8em; opacity: 1; margin-top: 2px; padding-inline-start: 28px; }
+@media (prefers-reduced-motion: no-preference) {
+    .anidoki .doki-anime-hint, .anidoki .doki-anime-hint-button, .anidoki .doki-anime-hint-icon, .anidoki .doki-anime-hint-body { transition: all .32s cubic-bezier(.2, 0, 0, 1); }
+}
+.anidoki .doki-tooltip { position: absolute; inset-inline-start: calc(100% + 10px); top: -8px; z-index: 5; width: 330px; max-width: 70vw; box-sizing: border-box; padding: 12px 14px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-solid-surface); box-shadow: 0 8px 24px rgb(0 0 0 / .45); color: var(--doki-text); font-size: .8125rem; font-weight: 400; line-height: 1.5; }
+.anidoki .doki-tooltip[hidden] { display: none; }
+.anidoki .doki-tooltip::before { content: ''; position: absolute; inset-inline-start: -6px; top: 17px; width: 10px; height: 10px; background: inherit; border-inline-start: 1px solid var(--doki-edge); border-bottom: 1px solid var(--doki-edge); transform: rotate(45deg); }
+.anidoki .doki-tooltip ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding-inline-start: 16px; }
+.anidoki .doki-anime-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); overflow: hidden; }
+.anidoki .doki-anime-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; min-height: 72px; padding: 14px 16px; box-sizing: border-box; }
+.anidoki .doki-anime-row + .doki-anime-row { border-top: 1px solid var(--doki-edge); }
+.anidoki .doki-anime-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.anidoki .doki-anime-name strong { font-size: .95rem; overflow-wrap: anywhere; }
+.anidoki .doki-anime-row[data-mode="Off"] .doki-anime-name strong { color: var(--doki-muted); }
+.anidoki .doki-anime-kind { font-size: .8125rem; color: var(--doki-muted); }
+.anidoki .doki-segmented { display: flex; gap: 2px; min-inline-size: 0; margin: 0; padding: 3px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-ground); }
+.anidoki .doki-segmented label { display: inline-flex; align-items: center; justify-content: center; min-width: 64px; min-height: 38px; box-sizing: border-box; padding: 0 14px; border: 1px solid transparent; border-radius: var(--tjk-radius-sm); color: var(--doki-muted); font-size: .875rem; font-weight: 600; cursor: pointer; }
+.anidoki .doki-segmented label:hover { color: var(--doki-text); }
+.anidoki .doki-segmented label:has(input:checked) { border-color: var(--doki-accent); background: color-mix(in srgb, var(--doki-accent) 20%, transparent); color: var(--doki-text); font-weight: 700; }
+.anidoki .doki-segmented label:has(input:focus-visible) { outline: 2px solid var(--doki-accent); outline-offset: 1px; }
+.anidoki .doki-segmented label:has(input:disabled) { opacity: .55; cursor: default; }
+.anidoki .doki-anime-foot { margin: 0; font-size: .8125rem; color: var(--doki-muted); }
+@media (max-width: 35rem) {
+    .anidoki .doki-anime-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .anidoki .doki-segmented { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .anidoki .doki-segmented label { min-width: 0; padding: 0 8px; }
+    .anidoki .doki-tooltip { inset-inline-start: 0; top: calc(100% + 8px); max-width: calc(100vw - 64px); }
+    .anidoki .doki-tooltip::before { top: -6px; inset-inline-start: 16px; transform: rotate(135deg); }
+}
 .anidoki .doki-field-preview { max-width: 22rem; margin: 18px 0 12px; }
 .anidoki .doki-history summary { min-height: 44px; padding-block: 12px; cursor: pointer; font-weight: 700; }
 .anidoki .doki-history ol { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 10px; }

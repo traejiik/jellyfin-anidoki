@@ -61,7 +61,7 @@ async function setupAdmin(t, users = [], localLookup = async () => Response.json
         'saveStatus', 'refreshAccounts', 'useCurrent', 'useCurrentValue', 'useCurrentInUse', 'useLocal', 'useLocalValue', 'useLocalInUse', 'copyCallback', 'generalCallbackUrlInput',
         'addressCheck', 'addressStatus', 'testAnimeListSaveLocation', 'folderStatus', 'discardChanges',
         'apiUrl', 'saveChanges', 'navigationTabs', 'accountsRefreshStatus', 'accountsStatus',
-        'closeUserPanel', 'selectedUserName', 'userAccounts', 'userPreferences', 'userLibraries'];
+        'closeUserPanel', 'selectedUserName', 'userAccounts', 'userPreferences', 'animeLibraries', 'animeLibrariesHint', 'animeLibrariesHelp', 'animeLibrariesTip', 'animeLibrariesSummary'];
     const nodes = Object.fromEntries(ids.map(id => [id, new DomElement()]));
     nodes.apiUrl.type = 'url';
     nodes.apiUrl.dataset.field = 'callbackUrl';

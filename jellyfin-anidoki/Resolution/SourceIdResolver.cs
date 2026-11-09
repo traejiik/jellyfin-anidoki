@@ -40,8 +40,9 @@ public sealed record SourceIds(AnimeOfflineDatabaseHelpers.OfflineDatabaseRespon
 }
 
 /// <summary>Looks up a source's tracker IDs through the ARM server and the anime list. Logs as its caller.</summary>
+/// <param name="animeList">The anime list's TMDB movie IDs; the shared index unless a test gives its own.</param>
 public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths,
-    ILoggerFactory loggerFactory, ILogger logger) {
+    ILoggerFactory loggerFactory, ILogger logger, AnimeListIndex? animeList = null) {
     public async Task<SourceIds> Resolve(SyncSource source) {
         var episode = source.Item as Episode;
         // Diagnostics: prints exactly which provider IDs Jellyfin holds at
@@ -106,6 +107,14 @@ public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IAppl
                     }
                 }
             }
+        } else if (source.IdsOnly && source.Kind == MediaKind.Movie
+                   && AnimeListHelpers.TryGetProviderId(source.Item.ProviderIds, "Tmdb", out string tmdbId)
+                   && (animeList ?? AnimeListIndex.Shared).AniDbIdForMovie(tmdbId) is int movieAniDbId) {
+            // A Mixed library's movie known only by TMDB: the anime list, which the library filter also checked,
+            // maps it to AniDB. Other libraries keep resolving such movies by title, as before.
+            logger.LogDebug("TMDB ID {TmdbId} maps to AniDb ID {AniDbId} in the anime list. Retrieving provider IDs...", tmdbId, movieAniDbId);
+            ids = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(httpClientFactory.CreateClient(NamedClient.Default), logger, movieAniDbId, AnimeOfflineDatabaseHelpers.Source.Anidb)
+                  ?? new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse { AniDb = movieAniDbId };
         }
 
         return new SourceIds(ids ?? new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), aniDbId.episodeOffset);

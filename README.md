@@ -21,6 +21,8 @@ The AniDōki entry under Dashboard > Plugins opens the administrator settings. I
 
 To let users connect their own tracking accounts, enable user authentication pages in AniDōki and restart Jellyfin to apply the setting.
 
+Administrators choose which libraries hold anime under Sync behaviour. **Dedicated** libraries are matched normally. **Mixed** libraries sync only titles that carry an AniList, AniDB, MyAnimeList or Kitsu ID, and movies whose TMDB ID the [anime list](https://github.com/Anime-Lists/anime-lists) maps to an anime, and never guess by title. **Off** libraries, and libraries added later until they are given a mode, are not synced. Music and photo libraries are not listed. Users sync only from these libraries, and only the ones they can open in Jellyfin. Until an administrator chooses, each user's earlier library choice still applies.
+
 Uninstalling AniDōki through Jellyfin removes its Plugin Pages registration. Restart Jellyfin and refresh open clients as required by the plugin lifecycle. Other plugins' pages and AniDōki's saved settings are preserved. Manually deleting the plugin binaries does not run the uninstall callback.
 
 ### Matches

@@ -4,12 +4,10 @@ const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidoki
 export default function (view) {
     let lifetime, saved, baseline, draft, users, parameters, selectedUser, busy = false, secretState = {}, storage;
     let common, state, previewGeneration = 0, previewTimer, copiedTimer, localAddress = '';
-    const libraryValidators = new Map();
-    const libraryChoices = new Map();
     const root = view.querySelector('.anidoki');
     const find = selector => view.querySelector(selector);
     const connected = userId => (saved.UserConfig?.find(user => user.UserId === userId)?.UserApiAuth ?? []).map(auth => auth.Name);
-    const dirty = () => baseline && (state.changedValues(baseline, draft).length > 0 || [...libraryChoices.values()].some(choice => choice.mode === 'selected' && !choice.selected.length));
+    const dirty = () => baseline && state.changedValues(baseline, draft).length > 0;
     const updateDirty = () => {
         const changed = dirty(); find('.doki-save-bar').hidden = !changed;
         if (changed && !busy) common.status(find('#saveStatus'), 'Unsaved changes');
@@ -76,7 +74,7 @@ export default function (view) {
             }
         }, { signal });
         find('#TemplateConfigForm').addEventListener('submit', event => { event.preventDefault(); save(signal); }, { signal });
-        find('#discardChanges').addEventListener('click', () => { draft = state.createDraft(baseline); libraryValidators.clear(); libraryChoices.clear(); render(signal); }, { signal });
+        find('#discardChanges').addEventListener('click', () => { draft = state.createDraft(baseline); render(signal); }, { signal });
         find('#closeUserPanel').addEventListener('click', () => {
             const userId = selectedUser;
             selectedUser = undefined; find('#userPanel').hidden = true;
@@ -124,6 +122,7 @@ export default function (view) {
                 if (!signal.aborted) common.status(find('#folderStatus'), message, 'error');
             }
         }, { signal });
+        bindAnimeLibraryHelp(signal);
         common.bindNavigation(root, signal); common.observeSaveBar(root, signal); common.bindDraftWarning(view, dirty, signal);
         setBusy(busy);
     }
@@ -182,7 +181,7 @@ export default function (view) {
             if (input.type === 'checkbox') input.checked = value ?? false;
             else input.value = input.dataset.field === 'authenticationLinkExpireTimeMinutes' ? value || 1440 : value ?? '';
         });
-        renderProviders(signal); renderUsers(signal); if (selectedUser) renderUser(signal);
+        renderProviders(signal); renderAnimeLibraries(signal); renderUsers(signal); if (selectedUser) renderUser(signal);
         updateDirty(); schedulePreview(signal);
     }
     function renderProviders(signal) {
@@ -290,6 +289,43 @@ export default function (view) {
             row.addEventListener('toggle', () => { if (row.open) container.querySelectorAll('details').forEach(item => { if (item !== row) item.open = false; }); }, { signal });
         }
     }
+    function renderAnimeLibraries(signal, focus) {
+        const container = find('#animeLibraries'); container.replaceChildren();
+        const libraries = state.animeLibraryChoices(parameters.libraries);
+        const chosen = (draft.AnimeLibraries ?? []).length > 0;
+        for (const library of libraries) {
+            const mode = state.animeLibraryMode(draft.AnimeLibraries, library.Id);
+            const row = common.element('li', 'doki-anime-row'); row.dataset.mode = mode || 'unset';
+            const name = common.element('div', 'doki-anime-name');
+            const kind = !chosen ? `${library.kind} · not chosen yet` : mode === 'Off' ? `${library.kind} · not scanned` : library.kind;
+            name.append(common.element('strong', '', library.Name), common.element('span', 'doki-anime-kind', kind));
+            const group = common.element('fieldset', 'doki-segmented'); group.append(common.element('legend', 'doki-sr-only', `Mode for ${library.Name}`));
+            for (const value of state.animeLibraryModes) {
+                const label = common.element('label'); const input = common.element('input', 'doki-sr-only');
+                input.type = 'radio'; input.name = `anime-library-${library.Id}`; input.value = value; input.checked = mode === value; input.disabled = busy;
+                input.addEventListener('change', () => {
+                    draft.AnimeLibraries = state.withAnimeLibraryMode(draft.AnimeLibraries, library.Id, value);
+                    renderAnimeLibraries(signal, input.name); updateDirty();
+                }, { signal });
+                label.append(input, common.element('span', '', value)); group.append(label);
+            }
+            row.append(name, group); container.append(row);
+        }
+        if (!libraries.length) container.append(common.element('li', 'doki-anime-row doki-help', 'No library holds shows or movies yet.'));
+        find('#animeLibrariesSummary').textContent = state.describeAnimeLibraries(draft.AnimeLibraries, libraries);
+        // The notice is about the saved choice, so it settles into the info line once one is saved, and back on discard.
+        find('#animeLibrariesHint').dataset.state = (baseline.AnimeLibraries ?? []).length ? 'info' : 'notice';
+        // Choosing the first mode turns every other library Off, so the whole list redraws; keep focus on the group just used.
+        if (focus) container.querySelector(`input[name="${focus}"]:checked`)?.focus();
+    }
+    // The mode explanation opens beside its line: click toggles it, Escape or a click elsewhere closes it.
+    function bindAnimeLibraryHelp(signal) {
+        const hint = find('#animeLibrariesHint'), button = find('#animeLibrariesHelp'), tip = find('#animeLibrariesTip');
+        const show = open => { tip.hidden = !open; button.setAttribute('aria-expanded', String(open)); };
+        button.addEventListener('click', () => show(tip.hidden), { signal });
+        hint.addEventListener('keydown', event => { if (event.key === 'Escape' && !tip.hidden) { show(false); button.focus(); } }, { signal });
+        root.addEventListener('click', event => { if (!tip.hidden && !hint.contains(event.target)) show(false); }, { signal });
+    }
     function renderUsers(signal) {
         find('#userRows').replaceChildren();
         find('#configurationSummary').replaceChildren(common.linkedUsersBadge(users, saved.UserConfig));
@@ -316,8 +352,6 @@ export default function (view) {
             input.addEventListener('change', () => { prefs[field] = input.checked; updateDirty(); }, { signal });
             const text = common.element('span'); text.append(common.element('strong', '', title), common.element('span', 'doki-help', help)); label.append(input, text); find('#userPreferences').append(label);
         }
-        if (!libraryChoices.has(user.Id)) libraryChoices.set(user.Id, {});
-        libraryValidators.set(user.Id, common.renderLibraries(find('#userLibraries'), prefs, parameters.libraries ?? [], signal, updateDirty, libraryChoices.get(user.Id)));
     }
     async function accountAction(userId, kind, provider, credentials, signal) {
         return guard(async () => {
@@ -344,7 +378,6 @@ export default function (view) {
     async function save(signal) {
         if (busy || !dirty()) return;
         try {
-            for (const [id, valid] of libraryValidators) if (!valid()) throw new Error(`Pick at least one library for ${users.find(user => user.Id === id)?.Name}, or choose All libraries.`);
             const expiry = draft.authenticationLinkExpireTimeMinutes;
             if (expiry !== baseline.authenticationLinkExpireTimeMinutes && (!Number.isSafeInteger(expiry) || expiry < 1)) throw new Error('Authentication expiry must be a positive whole number of minutes.');
             await guard(async () => {
@@ -369,7 +402,7 @@ export default function (view) {
                     item.ClientSecret = '';
                     item.ClearClientSecret = false;
                 }
-                draft = state.createDraft(baseline); libraryValidators.clear(); libraryChoices.clear();
+                draft = state.createDraft(baseline);
                 if (!signal.aborted) { render(signal); common.status(find('[data-page-status]'), 'Settings saved.', 'success'); }
             });
         } catch (error) {
