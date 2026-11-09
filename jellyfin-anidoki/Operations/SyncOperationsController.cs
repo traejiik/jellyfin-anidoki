@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net.Http;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Enums;
@@ -25,23 +26,38 @@ public sealed class SyncOperationsController(OperationRunner runner, OperationSt
     IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, IApplicationPaths applicationPaths,
     IUserDataManager userDataManager, IMemoryCache memoryCache, Matching.ISeasonWatchState? watchState = null) : ControllerBase {
     [HttpPost("sync")]
-    public ActionResult<OperationStarted> StartSync([FromQuery] ApiName provider, [FromQuery] Guid userId,
+    public ActionResult<OperationStarted> StartSync([FromQuery] string? provider, [FromQuery] Guid userId,
         [FromQuery] SyncHelper.Status status, [FromQuery] SyncAction syncAction) {
         if (userId == Guid.Empty || userManager.GetUserById(userId) == null)
             return BadRequest("Select an existing Jellyfin user.");
         OperationKind kind = syncAction == SyncAction.UpdateProvider ? OperationKind.SyncToTrackers : OperationKind.SyncFromTrackers;
+        ApiName? only = null;
+        if (kind == OperationKind.SyncToTrackers) {
+            if (TrackerChoice.ReadOutbound(provider, LinkedTrackers(userId), out only) is { } problem)
+                return BadRequest(problem);
+        } else if (TrackerChoice.One(provider) is { } inbound) {
+            only = inbound;
+        } else {
+            return BadRequest("Choose one linked tracker to bring progress from.");
+        }
         if (store.FindActive(userId, kind) is { } active)
             return Conflict(new OperationStarted(active));
         var delayer = new Delayer();
         OperationRunner.Handle? handle = kind == OperationKind.SyncToTrackers
-            ? runner.Enqueue(userId, kind, "Linked trackers", operation => new SyncProviderFromLocal(userManager, libraryManager, loggerFactory,
-                httpClientFactory, serverApplicationHost, httpContextAccessor, applicationPaths, memoryCache, delayer, userId.ToString(), watchState).SyncFromLocal(operation))
-            : runner.Enqueue(userId, kind, $"{provider} ({status})", operation => new Sync(httpClientFactory, loggerFactory, serverApplicationHost,
-                httpContextAccessor, userManager, libraryManager, applicationPaths, userDataManager, memoryCache, delayer, provider, status).SyncFromProvider(userId.ToString(), operation));
+            ? runner.Enqueue(userId, kind, only?.ToString() ?? "All linked trackers", operation => new SyncProviderFromLocal(userManager, libraryManager, loggerFactory,
+                httpClientFactory, serverApplicationHost, httpContextAccessor, applicationPaths, memoryCache, delayer, userId.ToString(), watchState) {
+                OnlyProvider = only
+            }.SyncFromLocal(operation))
+            : runner.Enqueue(userId, kind, $"{only} ({status})", operation => new Sync(httpClientFactory, loggerFactory, serverApplicationHost,
+                httpContextAccessor, userManager, libraryManager, applicationPaths, userDataManager, memoryCache, delayer, only!.Value, status).SyncFromProvider(userId.ToString(), operation));
         if (handle == null)
             return StatusCode(StatusCodes.Status503ServiceUnavailable, "AniDoki storage is unavailable, so the sync was not started.");
         return Accepted(new OperationStarted(handle.OperationId));
     }
+
+    private static ApiName[] LinkedTrackers(Guid userId) =>
+        Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(user => user.UserId == userId)?.UserApiAuth?
+            .Select(auth => auth.Name).ToArray() ?? [];
 
     [HttpGet("operations/{operationId:guid}")]
     public ActionResult<OperationView> ReadOperation(Guid operationId) =>

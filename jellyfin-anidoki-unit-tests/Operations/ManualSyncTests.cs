@@ -9,6 +9,7 @@ using jellyfin_anidoki.Enums;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Api;
+using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Trackers;
@@ -16,8 +17,10 @@ using jellyfin_anidoki_unit_tests.Characterization;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
+using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Model.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -48,6 +51,20 @@ public class ManualSyncTests {
         _controller = new SyncOperationsController(_runner, _store, users.Object, library.Object, NullLoggerFactory.Instance,
             new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(),
             new Mock<IApplicationPaths>().Object, new Mock<IUserDataManager>().Object, new MemoryCache(new MemoryCacheOptions()));
+        // The controller reads the user's linked trackers from the plugin configuration.
+        var paths = new Mock<IApplicationPaths>();
+        paths.SetupGet(p => p.PluginsPath).Returns(_directory);
+        paths.SetupGet(p => p.PluginConfigurationsPath).Returns(_directory);
+        paths.SetupGet(p => p.DataPath).Returns(_directory);
+        var xml = new Mock<IXmlSerializer>();
+        xml.Setup(x => x.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>())).Returns(new PluginConfiguration {
+            UserConfig = [new UserConfig {
+                UserId = _user.Id,
+                LibraryToCheck = [],
+                UserApiAuth = [new UserApiAuth { Name = ApiName.AniList, AccessToken = "accessToken", RefreshToken = "refreshToken" }]
+            }]
+        });
+        _ = new Plugin(paths.Object, new Mock<IServerConfigurationManager>().Object, xml.Object, NullLogger<Plugin>.Instance);
     }
 
     [TearDown]
@@ -61,8 +78,8 @@ public class ManualSyncTests {
         Directory.Delete(_directory, true);
     }
 
-    private ActionResult<OperationStarted> Start(SyncAction action = SyncAction.UpdateProvider) =>
-        _controller.StartSync(ApiName.AniList, _user.Id, SyncHelper.Status.Both, action);
+    private ActionResult<OperationStarted> Start(SyncAction action = SyncAction.UpdateProvider, string? provider = TrackerChoice.All) =>
+        _controller.StartSync(provider, _user.Id, SyncHelper.Status.Both, action);
 
     private static Guid IdOf(ActionResult<OperationStarted> result) => ((OperationStarted)((ObjectResult)result.Result!).Value!).OperationId;
 
@@ -115,7 +132,7 @@ public class ManualSyncTests {
 
     [Test]
     public async Task TrackerToJellyfinRunsAsItsOwnKind() {
-        var result = Start(SyncAction.UpdateJellyfin);
+        var result = Start(SyncAction.UpdateJellyfin, "AniList");
 
         await _runner.Drain();
         var view = _store.Read(IdOf(result))!;
@@ -125,8 +142,45 @@ public class ManualSyncTests {
 
     [Test]
     public void AnUnknownUserIsRejected() =>
-        Assert.That(_controller.StartSync(ApiName.AniList, Guid.NewGuid(), SyncHelper.Status.Both, SyncAction.UpdateProvider).Result,
+        Assert.That(_controller.StartSync("AniList", Guid.NewGuid(), SyncHelper.Status.Both, SyncAction.UpdateProvider).Result,
             Is.InstanceOf<BadRequestObjectResult>());
+
+    [TestCase(null)]
+    [TestCase("All")]
+    [TestCase("all")]
+    public async Task OutboundWithAllOrNoTrackerRunsForEveryLinkedTracker(string? provider) {
+        var result = Start(provider: provider);
+
+        Assert.That(result.Result, Is.InstanceOf<AcceptedResult>());
+        await _runner.Drain();
+        Assert.That(_store.Read(IdOf(result))!.Source, Is.EqualTo("All linked trackers"));
+    }
+
+    [Test]
+    public async Task OutboundCanRunForOneLinkedTracker() {
+        var result = Start(provider: "anilist");
+
+        Assert.That(result.Result, Is.InstanceOf<AcceptedResult>());
+        await _runner.Drain();
+        Assert.That(_store.Read(IdOf(result))!.Source, Is.EqualTo("AniList"));
+    }
+
+    [TestCase("Kitsu")]
+    [TestCase("Nonsense")]
+    [TestCase("1")]
+    [TestCase("Mal,AniList")]
+    public void OutboundRefusesATrackerThatIsNotLinkedOrNotATracker(string provider) {
+        var result = Start(provider: provider);
+
+        Assert.That(result.Result, Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(_store.FindActive(_user.Id, OperationKind.SyncToTrackers), Is.Null);
+    }
+
+    [TestCase(null)]
+    [TestCase("All")]
+    [TestCase("Nonsense")]
+    public void InboundNeedsOneTracker(string? provider) =>
+        Assert.That(Start(SyncAction.UpdateJellyfin, provider).Result, Is.InstanceOf<BadRequestObjectResult>());
 
     [Test]
     public async Task OperationsCanBeReadAndUnknownOnesAreNotFound() {
