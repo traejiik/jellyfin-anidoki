@@ -1,16 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSyncRequest, describeOperation, isFinished } from '../../../jellyfin-anidoki/Configuration/ManualSyncJs.js';
+import { allTrackers, buildSyncRequest, describeOperation, describeRequest, isFinished } from '../../../jellyfin-anidoki/Configuration/ManualSyncJs.js';
 
-const form = () => ({ userId: 'u1', provider: 'AniList', syncAction: 'UpdateJellyfin', completed: true, watching: true });
+const form = () => ({ userId: 'u1', provider: 'AniList', trackers: 'All', syncAction: 'UpdateJellyfin', completed: true, watching: true });
 test('both inbound statuses encode Both', () => assert.equal(buildSyncRequest(form(), ['AniList']).status, 'Both'));
 test('one inbound status encodes Completed or Watching', () => {
     assert.equal(buildSyncRequest({ ...form(), watching: false }, ['AniList']).status, 'Completed');
     assert.equal(buildSyncRequest({ ...form(), completed: false }, ['AniList']).status, 'Watching');
 });
 test('neither inbound status cannot submit', () => assert.throws(() => buildSyncRequest({ ...form(), watching: false, completed: false }, ['AniList']), /status/i));
-test('outbound ignores displayed provider/status and sends compatibility values', () => {
-    assert.deepEqual(buildSyncRequest({ ...form(), syncAction: 'UpdateProvider', provider: 'Mal', watching: false, completed: false }, ['Simkl', 'Annict']), { userId: 'u1', provider: 'Simkl', syncAction: 'UpdateProvider', status: 'Both' });
+test('outbound sends All by default and ignores the inbound fields', () => {
+    assert.deepEqual(buildSyncRequest({ ...form(), syncAction: 'UpdateProvider', provider: 'Mal', watching: false, completed: false }, ['Simkl', 'Annict']),
+        { userId: 'u1', provider: allTrackers, syncAction: 'UpdateProvider', status: 'Both' });
+});
+test('outbound sends one chosen linked tracker', () => {
+    assert.equal(buildSyncRequest({ ...form(), syncAction: 'UpdateProvider', trackers: 'Annict' }, ['Simkl', 'Annict']).provider, 'Annict');
+});
+test('outbound refuses a tracker that is not linked', () => {
+    assert.throws(() => buildSyncRequest({ ...form(), syncAction: 'UpdateProvider', trackers: 'Mal' }, ['Simkl']), /linked tracker/i);
+});
+const names = key => ({ AniList: 'AniList', Mal: 'MyAnimeList' })[key] ?? key;
+test('a run summary names the direction, user and trackers', () => {
+    assert.equal(describeRequest({ syncAction: 'UpdateProvider', provider: allTrackers }, 'viewer', names), 'Jellyfin → Trackers · viewer · All linked trackers');
+    assert.equal(describeRequest({ syncAction: 'UpdateProvider', provider: 'Mal' }, 'viewer', names), 'Jellyfin → Trackers · viewer · MyAnimeList');
+    assert.equal(describeRequest({ syncAction: 'UpdateJellyfin', provider: 'AniList', status: 'Both' }, 'viewer', names), 'Tracker → Jellyfin · viewer · AniList · Both');
 });
 test('selected user and provider are captured independently of later edits', () => {
     const input = form(); const submitted = buildSyncRequest(input, ['AniList']); input.userId = 'u2'; input.provider = 'Mal';

@@ -43,6 +43,9 @@ public class SyncProviderFromLocal(
     /// <summary>Passed to the updater's <see cref="SyncPipeline.ClientOverride"/>; tests substitute a tracker.</summary>
     internal Func<ApiName, UserConfig, ITrackerClient> ClientOverride { get; set; }
 
+    /// <summary>The one linked tracker to sync, or null for every linked tracker.</summary>
+    internal ApiName? OnlyProvider { get; set; }
+
     /// <summary>
     /// Sends the latest watched episode of every season to the user's trackers. Runs inside an operation, which
     /// already holds the user's sync gate.
@@ -66,7 +69,8 @@ public class SyncProviderFromLocal(
     internal async Task SyncEpisodes(IReadOnlyList<Episode> targets, OperationContext operation) {
         var pipeline = new SyncPipeline(libraryManager, loggerFactory, httpContextAccessor, serverApplicationHost, httpClientFactory, applicationPaths, memoryCache, delayer) {
             ClientOverride = ClientOverride,
-            WatchState = watchState
+            WatchState = watchState,
+            OnlyProvider = OnlyProvider
         };
         var collector = new PlaybackOutcomeCollector(operation.Record);
         operation.ReportProgress(0, targets.Count);

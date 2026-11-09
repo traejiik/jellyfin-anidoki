@@ -52,6 +52,9 @@ public class SyncPipeline {
     /// <summary>What a matched season's progress is worked out from. Without it, only the played episode counts.</summary>
     internal ISeasonWatchState? WatchState { get; set; }
 
+    /// <summary>The one linked tracker to sync, or null for every linked tracker. Only manual sync sets it.</summary>
+    internal ApiName? OnlyProvider { get; set; }
+
     public SyncPipeline(ILibraryManager libraryManager,
         ILoggerFactory loggerFactory,
         IHttpContextAccessor httpContextAccessor,
@@ -110,6 +113,8 @@ public class SyncPipeline {
                 Plugin.Instance.PluginConfiguration.applySavedMatches, WatchState,
                 source == SyncUpdateSource.ManualSync ? MatchProgressScope.WholeSeason : MatchProgressScope.PlayedEpisode, _logger);
             foreach (UserApiAuth userApiAuth in userConfig.UserApiAuth) {
+                if (OnlyProvider is { } only && userApiAuth.Name != only)
+                    continue;
                 _logger.LogDebug("Using provider {ApiName}...", userApiAuth.Name);
                 // continue, not return: an unconfigured provider must not skip the providers after it
                 ITrackerClient? client = _clients.Create(userApiAuth.Name, userConfig);

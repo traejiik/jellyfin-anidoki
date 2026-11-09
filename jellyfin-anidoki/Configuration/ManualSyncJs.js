@@ -1,14 +1,22 @@
-// Outbound currently runs the user's existing provider scope. The endpoint still
-// takes provider/status arguments, so supply compatibility values without
-// exposing an ineffective choice in the form.
+// The value the sync endpoint reads as every linked tracker. Outbound only.
+export const allTrackers = 'All';
+// Outbound sends status only because the endpoint binds it; it has no effect there.
 export function buildSyncRequest(form, linked) {
     if (!form.userId) throw new Error('Select a user.');
     if (!['UpdateJellyfin', 'UpdateProvider'].includes(form.syncAction)) throw new Error('Select a valid direction.');
     if (!linked.length) throw new Error('This user has no linked trackers. Link an account in Settings.');
-    if (form.syncAction === 'UpdateProvider') return { userId: form.userId, provider: linked[0], syncAction: form.syncAction, status: 'Both' };
+    if (form.syncAction === 'UpdateProvider') {
+        if (form.trackers !== allTrackers && !linked.includes(form.trackers)) throw new Error('Select All linked trackers or one linked tracker.');
+        return { userId: form.userId, provider: form.trackers, syncAction: form.syncAction, status: 'Both' };
+    }
     if (!linked.includes(form.provider)) throw new Error('Select a linked provider for this user.');
     if (!form.completed && !form.watching) throw new Error('Choose at least one inbound status.');
     return { userId: form.userId, provider: form.provider, syncAction: form.syncAction, status: form.completed && form.watching ? 'Both' : form.completed ? 'Completed' : 'Watching' };
+}
+// One line naming what a run does, shown above its progress.
+export function describeRequest(request, userName, providerName) {
+    if (request.syncAction === 'UpdateJellyfin') return `Tracker → Jellyfin · ${userName} · ${providerName(request.provider)} · ${request.status}`;
+    return `Jellyfin → Trackers · ${userName} · ${request.provider === allTrackers ? 'All linked trackers' : providerName(request.provider)}`;
 }
 const units = { SyncToTrackers: 'seasons', SyncFromTrackers: 'tracker entries' };
 const headings = {
@@ -40,7 +48,7 @@ export default function (view) {
     const find = selector => view.querySelector(selector);
     const root = view.querySelector('.anidoki');
     const links = () => (config?.UserConfig?.find(user => user.UserId === find('#selectSyncUser').value)?.UserApiAuth ?? []).map(auth => auth.Name);
-    const options = () => ({ userId: find('#selectSyncUser').value, provider: find('#selectSyncProvider').value,
+    const options = () => ({ userId: find('#selectSyncUser').value, provider: find('#selectSyncProvider').value, trackers: find('#selectSyncTrackers').value,
         syncAction: find('input[name="syncAction"]:checked').value, completed: find('#completedStatus').checked, watching: find('#watchingStatus').checked });
     view.addEventListener('viewhide', () => lifetime?.abort());
     view.addEventListener('viewshow', () => {
@@ -94,9 +102,12 @@ export default function (view) {
         find('#selectSyncProvider').replaceChildren();
         links().forEach(key => find('#selectSyncProvider').add(new Option(common.providerName(key), key)));
         if (links().includes(selected)) find('#selectSyncProvider').value = selected;
+        const trackers = find('#selectSyncTrackers'), chosen = trackers.value;
+        trackers.replaceChildren(new Option('All linked trackers', allTrackers), ...links().map(key => new Option(common.providerName(key), key)));
+        trackers.value = links().includes(chosen) ? chosen : allTrackers;
     }
     function updateForm() {
-        const inbound = options().syncAction === 'UpdateJellyfin'; find('#inboundOptions').hidden = !inbound; find('#outboundScope').hidden = inbound;
+        const inbound = options().syncAction === 'UpdateJellyfin'; find('#inboundOptions').hidden = !inbound; find('#outboundOptions').hidden = inbound;
         let problem = ''; try { buildSyncRequest(options(), links()); } catch (error) { problem = error.message; }
         common.status(find('#formStatus'), problem);
         find('#settingsLink').hidden = links().length > 0;
@@ -135,8 +146,7 @@ export default function (view) {
         let captured;
         try { captured = Object.freeze(buildSyncRequest(options(), links())); }
         catch (error) { common.status(find('#formStatus'), error.message, 'error'); return; }
-        const name = users.find(user => user.Id === captured.userId)?.Name ?? captured.userId;
-        const summary = `${captured.syncAction === 'UpdateJellyfin' ? 'Tracker → Jellyfin' : 'Jellyfin → Trackers'} · ${name}${captured.syncAction === 'UpdateJellyfin' ? ` · ${common.providerName(captured.provider)} · ${captured.status}` : ' · linked trackers'}`;
+        const summary = describeRequest(captured, users.find(user => user.Id === captured.userId)?.Name ?? captured.userId, common.providerName);
         busy = true;
         updateForm();
         lastRun = { summary, message: 'Starting…', tone: '' };

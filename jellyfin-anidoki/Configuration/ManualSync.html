@@ -16,7 +16,10 @@
                     <div class="doki-field"><label for="selectSyncProvider">Linked tracker</label><select class="doki-input" id="selectSyncProvider"></select></div>
                     <fieldset><legend>Import these statuses</legend><div class="doki-actions"><label class="doki-filter-choice"><input class="doki-choice-checkbox" id="completedStatus" type="checkbox" checked><span>Completed</span></label><label class="doki-filter-choice"><input class="doki-choice-checkbox" id="watchingStatus" type="checkbox" checked><span>Watching</span></label></div></fieldset>
                 </div>
-                <p class="doki-help" id="outboundScope" hidden>Runs for this user’s linked trackers using their current tracking rules.</p>
+                <div id="outboundOptions" class="doki-stack" hidden>
+                    <div class="doki-field"><label for="selectSyncTrackers">Trackers</label><select class="doki-input" id="selectSyncTrackers"></select></div>
+                    <p class="doki-help">Sends progress to the chosen trackers using their current tracking rules.</p>
+                </div>
             </div>
             <div class="doki-sync-footer">
                 <p class="doki-status" id="formStatus" role="status"></p>
