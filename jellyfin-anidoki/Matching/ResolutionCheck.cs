@@ -106,7 +106,8 @@ public sealed class ResolutionCheck(
                 operation.Message = $"Cancelled after {i} of {targets.Count}.";
                 operation.CancellationToken.ThrowIfCancellationRequested();
             }
-            if (SyncSource.From(targets[i]) is { } source) {
+            if (SyncSource.From(targets[i]) is { } found) {
+                var source = found with { IdsOnly = LibraryFilter.Scope(config, library, _logger, targets[i]) == LibraryScope.IdsOnly };
                 SourceIds ids = await sourceIds.Resolve(source);
                 IReadOnlyList<int> watched = watchState.Watched(source, userId).Select(episode => episode.Number).ToList();
                 foreach (UserApiAuth link in config.UserApiAuth) {

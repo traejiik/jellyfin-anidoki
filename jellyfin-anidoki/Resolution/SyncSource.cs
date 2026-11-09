@@ -19,6 +19,9 @@ public sealed record SyncSource(Video Item, MediaKind Kind, int SeasonNumber, in
     /// <summary>A movie counts as one watched episode. Held here so the library item's own IndexNumber is never changed.</summary>
     public const int MovieProgress = 1;
 
+    /// <summary>True in a Mixed library: resolve through IDs or a saved match only, never by title search.</summary>
+    public bool IdsOnly { get; init; }
+
     /// <summary>What a saved match is keyed by: the season, or the movie. Episodes of one season share it.</summary>
     public string SourceKey => Item is Episode episode
         ? $"season:{episode.SeriesId:N}:{SeasonNumber}"

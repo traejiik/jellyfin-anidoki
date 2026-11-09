@@ -48,6 +48,9 @@ namespace jellyfin_anidoki {
         public PluginConfiguration PluginConfiguration => Configuration;
         public static Plugin? Instance { get; private set; }
 
+        /// <summary>Where the anime list file is kept; see <see cref="UpdateAnimeList.PathFor"/>.</summary>
+        internal string AnimeListPath => UpdateAnimeList.PathFor(ApplicationPaths);
+
         /// <summary>The plugin database. Check <see cref="StorageError"/> before relying on it.</summary>
         public AniDokiDatabase Database { get; }
 

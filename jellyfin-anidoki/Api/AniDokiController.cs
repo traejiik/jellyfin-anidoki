@@ -692,11 +692,16 @@ namespace jellyfin_anidoki.Api {
                 } else {
                     libraries = _libraryManager.GetVirtualFolders().ToDictionary(virtualFolderInfo => Guid.Parse(virtualFolderInfo.ItemId), virtualFolderInfo => virtualFolderInfo.Name);
                 }
+                // The anime library list shows each library's type and leaves out music, photos and the like.
+                var types = _libraryManager.GetVirtualFolders()
+                    .Where(folder => Guid.TryParse(folder.ItemId, out _))
+                    .ToDictionary(folder => Guid.Parse(folder.ItemId), folder => folder.CollectionType?.ToString());
                 toReturn.libraries = new List<ExpandoObject>();
                 foreach (var library in libraries) {
                     dynamic lib = new ExpandoObject();
                     lib.Name = library.Value;
                     lib.Id = library.Key;
+                    lib.Type = types.GetValueOrDefault(library.Key);
                     toReturn.libraries.Add(lib);
                 }
             }

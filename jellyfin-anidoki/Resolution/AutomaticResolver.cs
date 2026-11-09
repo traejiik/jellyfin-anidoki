@@ -37,6 +37,11 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
         // Movies stay off Simkl's ID path: its movie write has not been checked against a real account.
         if (tracker.Name == ApiName.Simkl && source.Kind == MediaKind.Series && useIds && HasAny(ids.Ids))
             return await ByCrossIds(source, ids, tracker, cancellationToken);
+        // A Mixed library syncs a title only through its IDs. Annict and Shikimori match a search on the MAL ID, so they may still search with one.
+        if (source.IdsOnly && !(tracker.Name is ApiName.Annict or ApiName.Shikimori && ids.Ids.MyAnimeList is > 0)) {
+            logger.LogInformation("({ApiName}) {Title} is in a Mixed library and resolved no ID; not searching by title", tracker.Name, source.SearchTitle);
+            return new Unresolved("no-ids", new UnresolvedRecord("", source.SearchTitle ?? ""), None);
+        }
         // Annict works differently to the other providers, so it always goes the traditional route.
         return await ByTitle(source, ids, tracker, chain, cancellationToken);
     }

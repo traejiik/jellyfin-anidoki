@@ -198,6 +198,21 @@ public partial class UserConfigurationTests {
     }
 
     [Test]
+    public void LibrariesCarryTheirTypeForTheAnimeLibraryList() {
+        Guid shows = Guid.NewGuid(), music = Guid.NewGuid(), untyped = Guid.NewGuid();
+        _libraryManager.Setup(manager => manager.GetVirtualFolders()).Returns([
+            new VirtualFolderInfo { ItemId = shows.ToString("N"), Name = "Anime", CollectionType = CollectionTypeOptions.tvshows },
+            new VirtualFolderInfo { ItemId = music.ToString("N"), Name = "Music", CollectionType = CollectionTypeOptions.music },
+            new VirtualFolderInfo { ItemId = untyped.ToString("N"), Name = "Everything" }
+        ]);
+
+        var parameters = (Parameters)((OkObjectResult)_controller.FrontendParameters([ParameterInclude.Libraries])).Value!;
+        var types = parameters.libraries.Select(item => (IDictionary<string, object?>)item).ToDictionary(item => (Guid)item["Id"]!, item => item["Type"]);
+
+        Assert.That(types, Is.EqualTo(new Dictionary<Guid, object?> { [shows] = "tvshows", [music] = "music", [untyped] = null }));
+    }
+
+    [Test]
     public void ShikimoriWithoutAppNameIsUnavailableToUser() {
         _plugin.Configuration.ProviderApiAuth = [new ProviderApiAuth { Name = ApiName.Shikimori, ClientId = "fixture-client", ClientSecret = "fixture-secret" }];
         var parameters = (Parameters)_controller.GetFrontendParametersUser([ParameterInclude.ProviderList]);

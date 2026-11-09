@@ -447,4 +447,41 @@ public class AutomaticResolverTests {
 
         Assert.That(((Resolved)resolution).Played.State, Is.Null);
     }
+
+    [TestCase(ApiName.Mal)]
+    [TestCase(ApiName.AniList)]
+    [TestCase(ApiName.Kitsu)]
+    public async Task IdsOnlyRefusesTitleSearchWhenNoIdResolved(ApiName provider) {
+        Searching(provider, [Entry(600, Show, 12)]);
+
+        var resolution = await Resolve(provider, Episode(1, 3) with { IdsOnly = true }, Ids());
+
+        AssertUnresolved(resolution, "no-ids", new UnresolvedRecord("", Show));
+    }
+
+    [Test]
+    public async Task IdsOnlyStillResolvesByAnId() {
+        var resolution = await Resolve(ApiName.AniList, Episode(1, 3) with { IdsOnly = true }, AllIds(), Entry(SyncHarness.EntryId, Show, 12));
+
+        AssertPlayed(resolution, SyncHarness.EntryId, 3, ResolvedBy.Ids);
+    }
+
+    [TestCase(ApiName.Annict)]
+    [TestCase(ApiName.Shikimori)]
+    public async Task IdsOnlyLetsAMalIdMatchASearchResult(ApiName provider) {
+        Searching(provider, [Entry(600, "Other", 12), Entry(500, "Different Title", 12)]);
+
+        var resolution = await Resolve(provider, Episode(2, 3) with { IdsOnly = true }, Ids(mal: 500));
+
+        AssertPlayed(resolution, 500, 3, ResolvedBy.TitleSearch);
+    }
+
+    [Test]
+    public async Task IdsOnlyRefusesShikimoriTitleSearchWithoutAMalId() {
+        Searching(ApiName.Shikimori, [Entry(600, Show, 12)]);
+
+        var resolution = await Resolve(ApiName.Shikimori, Episode(1, 3) with { IdsOnly = true }, Ids());
+
+        AssertUnresolved(resolution, "no-ids", new UnresolvedRecord("", Show));
+    }
 }

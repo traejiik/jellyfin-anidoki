@@ -18,12 +18,16 @@ namespace jellyfin_anidoki {
 
         public UpdateAnimeList(IHttpClientFactory httpClientFactory, ILoggerFactory loggerFactory, IApplicationPaths applicationPaths) {
             _httpClientFactory = httpClientFactory;
-            if (string.IsNullOrEmpty(Plugin.Instance.PluginConfiguration.animeListSaveLocation)) {
-                Path = System.IO.Path.Combine(applicationPaths.CachePath, "anidoki", "anime-list-full.xml");
-            } else {
-                Path = System.IO.Path.Combine(Plugin.Instance.PluginConfiguration.animeListSaveLocation, "anime-list-full.xml");
-            }
+            Path = PathFor(applicationPaths);
             _logger = loggerFactory.CreateLogger<TaskUpdateAnimeList>();
+        }
+
+        /// <summary>Where the anime list file is kept: the admin's chosen folder, else Jellyfin's cache.</summary>
+        public static string PathFor(IApplicationPaths applicationPaths) {
+            string saveLocation = Plugin.Instance.PluginConfiguration.animeListSaveLocation;
+            return string.IsNullOrEmpty(saveLocation)
+                ? System.IO.Path.Combine(applicationPaths.CachePath, "anidoki", "anime-list-full.xml")
+                : System.IO.Path.Combine(saveLocation, "anime-list-full.xml");
         }
 
         /// <summary>

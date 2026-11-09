@@ -19,6 +19,11 @@ namespace jellyfin_anidoki.Configuration {
         public ProviderApiAuth[] ProviderApiAuth { get; set; }
 
         /// <summary>
+        /// Which libraries hold anime. Empty until an admin chooses; until then each user's LibraryToCheck applies.
+        /// </summary>
+        public AnimeLibrary[] AnimeLibraries { get; set; } = [];
+
+        /// <summary>
         /// Overriden callback URL set if the user is using Jellyfin over the internet. Generally should not be set if the user is on LAN.
         /// </summary>
         public string callbackUrl { get; set; }
