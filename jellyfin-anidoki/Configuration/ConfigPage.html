@@ -27,22 +27,35 @@
                             <div class="doki-field doki-callback"><div class="doki-callback-head"><label for="generalCallbackUrlInput">Callback URL</label><p id="addressStatus" class="doki-status" role="status"></p></div><div class="doki-actions"><input class="doki-input doki-mono" id="generalCallbackUrlInput" readonly><button class="doki-button doki-copy-button" id="copyCallback" type="button" disabled>Copy</button></div><p class="doki-help">Use this exact URL in your provider applications.</p></div>
                         </section>
                         <section class="doki-panel" id="doki-providers"><h2>Provider apps</h2><p class="doki-help">Configure OAuth applications here. Kitsu uses per-user sign-in; Annict uses a personal token assigned under Users. Configuration completeness does not verify credentials.</p><div class="doki-provider-list" id="providerCards"></div><p class="doki-help">Saved secrets and tokens are kept in the AniDōki database in the Jellyfin data folder, not in the plugin configuration. Restrict access to that folder.</p></section>
-                        <section class="doki-panel" id="doki-behaviour"><h2>Sync behaviour</h2><p class="doki-help">Server-wide options for existing synchronization rules.</p>
-                            <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="enableUserPages" id="enableUserPages"><span><strong>Let users manage their tracking settings</strong><span class="doki-help">Requires Plugin Pages and a server restart after changing this option.</span></span></label>
-                            <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="watchedTickboxUpdatesProvider" id="watchedTickboxUpdatesProvider"><span><strong>Update trackers when marked watched</strong><span class="doki-help">Supported web clients ask before updating individual episodes. Clients without the prompt update automatically. Bulk marks in confirmation-enabled web sessions affect Jellyfin only.</span></span></label>
-                            <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="updateNsfw" id="UpdateNsfw"><span><strong>Include NSFW anime</strong><span class="doki-help">Allow the existing sync rules to update adult titles.</span></span></label>
+                        <section class="doki-panel" id="doki-behaviour"><h2>Sync behaviour</h2><p class="doki-help">Server-wide choices for what syncs and when.</p>
+                            <div class="doki-anime" id="animeLibrariesBlock">
+                                <div class="doki-anime-intro">
+                                    <div class="doki-anime-head"><h3>Anime libraries</h3><span class="doki-anime-count" id="animeLibrariesSummary"></span></div>
+                                    <p class="doki-help doki-help-full">Pick which libraries hold anime. Users only sync from these, and only from the ones they can open in Jellyfin.</p>
+                                    <div class="doki-anime-hint" id="animeLibrariesHint" data-state="info">
+                                        <span class="doki-anime-hint-anchor">
+                                            <button class="doki-anime-hint-button" id="animeLibrariesHelp" type="button" aria-expanded="false" aria-controls="animeLibrariesTip"><svg class="doki-anime-hint-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span>Choose how each library is tracked</span></button>
+                                            <span class="doki-tooltip" id="animeLibrariesTip" role="tooltip" hidden><ul><li><strong>Dedicated</strong>: every title is matched.</li><li><strong>Mixed</strong>: only titles with an AniList, AniDB, MyAnimeList or Kitsu ID, and movies the anime list knows by their TMDB ID. Never searches by title.</li><li><strong>Off</strong>: never scanned.</li></ul></span>
+                                        </span>
+                                        <span class="doki-anime-hint-body">Until you save a choice, each user’s earlier library choice still applies, and users who never picked one sync every library.</span>
+                                    </div>
+                                </div>
+                                <ul class="doki-anime-list" id="animeLibraries"></ul>
+                                <p class="doki-anime-foot">Music and photo libraries are never scanned. New libraries start as Off.</p>
+                            </div>
+                            <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="watchedTickboxUpdatesProvider" id="watchedTickboxUpdatesProvider"><span><strong>Update trackers when marked watched</strong><span class="doki-help doki-help-full">Supported web clients ask before updating individual episodes. Clients without the prompt update automatically. Bulk marks in confirmation-enabled web sessions affect Jellyfin only.</span></span></label>
+                            <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="updateNsfw" id="UpdateNsfw"><span><strong>Include NSFW anime</strong><span class="doki-help doki-help-full">Allow the existing sync rules to update adult titles.</span></span></label>
                         </section>
                         <section class="doki-panel doki-accounts-panel" id="doki-users">
                             <div class="doki-panel-title"><h2>Users</h2><p class="doki-help">Manage each user’s linked accounts and tracking preferences. Account actions take effect immediately; preference edits wait for Save changes.</p></div>
                             <div class="doki-panel-actions"><button class="doki-button" type="button" id="refreshAccounts">Refresh linked accounts</button><span class="doki-refresh-status" id="accountsRefreshStatus" role="status" hidden></span></div>
                             <div class="doki-panel-body">
+                                <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="enableUserPages" id="enableUserPages"><span><strong>Let users manage their tracking settings</strong><span class="doki-help doki-help-full">Requires Plugin Pages and a server restart after changing this option.</span></span></label>
                                 <div class="doki-table-shell"><table class="doki-user-table" role="table"><thead><tr><th scope="col">Jellyfin user</th><th scope="col">Linked to</th><th scope="col"><span class="doki-sr-only">Actions</span></th></tr></thead><tbody id="userRows"></tbody></table></div>
                                 <section class="doki-user-panel" id="userPanel" aria-labelledby="selectedUserName" hidden>
                                     <header class="doki-user-panel-header"><h3 id="selectedUserName" tabindex="-1"></h3><button class="doki-button" id="closeUserPanel" type="button" aria-label="Close user settings">Close</button></header>
                                     <section class="doki-user-section"><h4>Linked accounts</h4><div id="userAccounts"></div></section>
-                                    <section class="doki-user-section"><h4>When you watch</h4><div id="userPreferences"></div></section>
-                                    <section class="doki-user-section"><h4>Libraries</h4><div id="userLibraries"></div></section>
-                                </section>
+                                    <section class="doki-user-section"><h4>When you watch</h4><div id="userPreferences"></div></section>                                </section>
                             </div>
                             <p class="doki-status doki-panel-feedback" id="accountsStatus" role="status"></p>
                         </section>

@@ -226,41 +226,6 @@ export function bindDraftWarning(view, isDirty, signal) {
     window.addEventListener('beforeunload', warning, { signal });
 }
 
-let libraryGroupCounter = 0;
-
-export function renderLibraries(container, preferences, libraries, signal, onChange, choice = {}) {
-    container.replaceChildren();
-    container.classList.add('doki-library-controls');
-    choice.mode ??= preferences.LibraryToCheck.length ? 'selected' : 'all';
-    choice.selected ??= [...preferences.LibraryToCheck];
-    const group = `anidoki-libraries-${++libraryGroupCounter}`;
-    const modes = element('div', 'doki-library-modes');
-    const list = element('div', 'doki-library-list');
-    const message = element('p', 'doki-help doki-library-help');
-    const update = () => {
-        list.hidden = choice.mode === 'all'; preferences.LibraryToCheck = choice.mode === 'all' ? [] : [...choice.selected];
-        message.textContent = choice.mode === 'all' ? 'All current and future libraries are included.' : !choice.selected.length ? 'Pick at least one library, or choose All libraries.' : 'Unavailable selections stay saved until you remove them.';
-        onChange();
-    };
-    for (const [value, title, help] of [['all', 'All libraries', 'Track matching anime across all current and future libraries.'], ['selected', 'Only the ones I pick', 'Track matching anime only in the libraries you select below.']]) {
-        const label = element('label', 'doki-scope-card'); const input = element('input');
-        input.type = 'radio'; input.name = group; input.value = value; input.checked = choice.mode === value;
-        input.addEventListener('change', () => { choice.mode = value; update(); }, { signal });
-        const text = element('span'); text.append(element('strong', '', title), element('span', 'doki-help', help));
-        label.append(input, text); modes.append(label);
-    }
-    const choices = libraries.map(library => ({ id: library.Id ?? library.ItemId, name: library.Name }));
-    for (const id of choice.selected) if (!choices.some(item => item.id === id)) choices.push({ id, name: `Unavailable library (${id})` });
-    for (const item of choices) {
-        const label = element('label', 'doki-library-choice'); const input = element('input', 'doki-choice-checkbox'); input.type = 'checkbox'; input.checked = choice.selected.includes(item.id);
-        input.addEventListener('change', () => { choice.selected = input.checked ? [...new Set([...choice.selected, item.id])] : choice.selected.filter(id => id !== item.id); update(); }, { signal });
-        label.append(input, element('span', '', item.name)); list.append(label);
-    }
-    if (!choices.length) list.append(element('p', 'doki-help', 'No libraries are available.'));
-    container.append(modes, list, message); update();
-    return () => choice.mode === 'all' || choice.selected.length > 0;
-}
-
 export function renderAccounts(container, { linked, visible, admin = false, userName, action }, signal) {
     container.replaceChildren();
     for (const provider of providers.filter(item => visible.includes(item.key) || linked.includes(item.key))) {

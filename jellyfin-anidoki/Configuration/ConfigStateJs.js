@@ -2,7 +2,7 @@
 // and fields from newer plugin versions stay in the freshly loaded configuration.
 const serverFields = ['callbackUrl', 'callbackRedirectUrl', 'animeListSaveLocation',
     'watchedTickboxUpdatesProvider', 'shikimoriAppName', 'simklUpdateAll', 'updateNsfw', 'applySavedMatches',
-    'authenticationLinkExpireTimeMinutes', 'armServerBaseUrl', 'enableUserPages', 'shikimoriDomain'];
+    'authenticationLinkExpireTimeMinutes', 'armServerBaseUrl', 'enableUserPages', 'shikimoriDomain', 'AnimeLibraries'];
 const providerFields = ['ClientId'];
 // Client secrets are write-only: the server never returns them, so a draft holds only a replacement or a clear request.
 const secretDefaults = { ClientSecret: '', ClearClientSecret: false };
@@ -22,6 +22,8 @@ export function userPreferences(saved = {}) {
 export function createDraft(saved = {}) {
     const result = {};
     for (const field of serverFields) result[field] = clone(saved[field]);
+    // An older configuration without the list would otherwise conflict with the server's empty one at save time.
+    result.AnimeLibraries ??= [];
     result.ProviderApiAuth = (saved.ProviderApiAuth ?? []).map(provider => ({
         Name: provider.Name,
         ClientId: provider.ClientId ?? '',
@@ -78,11 +80,6 @@ export function mergeChanges(latest, baseline, draft) {
     return { value, conflicts };
 }
 
-export function validateLibraries(mode, ids) {
-    const selected = [...new Set(ids)];
-    return mode === 'all' ? { valid: true, ids: [] } : { valid: selected.length > 0, ids: selected };
-}
-
 export function mergePreferences(latest, baseline, draft) {
     const value = userPreferences(latest);
     const conflicts = [];
@@ -109,4 +106,30 @@ export function withoutSecrets(configuration) {
         delete provider.ClearClientSecret;
     }
     return value;
+}
+
+// Library IDs reach the page as GUIDs with or without dashes, so they compare in one form.
+const libraryKey = id => String(id ?? '').replace(/-/g, '').toLowerCase();
+export const animeLibraryModes = ['Dedicated', 'Mixed', 'Off'];
+// '' while the admin has not chosen any library: each user's own choice still applies then.
+export function animeLibraryMode(list, libraryId) {
+    const entry = (list ?? []).find(item => libraryKey(item.LibraryId) === libraryKey(libraryId));
+    return entry?.Mode ?? (list?.length ? 'Off' : '');
+}
+export function withAnimeLibraryMode(list, libraryId, mode) {
+    const current = list ?? [];
+    const matches = item => libraryKey(item.LibraryId) === libraryKey(libraryId);
+    return current.some(matches) ? current.map(item => matches(item) ? { ...item, Mode: mode } : item) : [...current, { LibraryId: libraryId, Mode: mode }];
+}
+export function describeAnimeLibraries(list, libraries) {
+    if (!list?.length) return 'Not chosen yet';
+    const scanned = libraries.filter(library => animeLibraryMode(list, library.Id) !== 'Off').length;
+    return scanned ? `${scanned} of ${libraries.length} ${libraries.length === 1 ? 'library' : 'libraries'} scanned` : 'Nothing will sync';
+}
+// Only shows, movies and mixed-content libraries can hold what AniDōki syncs; the rest are never listed.
+const libraryKinds = { tvshows: 'Shows', movies: 'Movies', mixed: 'Mixed content' };
+export function animeLibraryChoices(libraries) {
+    return (libraries ?? [])
+        .filter(library => !library.Type || library.Type in libraryKinds)
+        .map(library => ({ ...library, kind: libraryKinds[library.Type] ?? 'Mixed content' }));
 }

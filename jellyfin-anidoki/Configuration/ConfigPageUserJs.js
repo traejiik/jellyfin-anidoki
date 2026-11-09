@@ -9,8 +9,8 @@ export default function (view, host = view) {
     cachedViews.set(host, cache); cache.lifecycle?.abort(); cache.active?.abort();
     cache.lifecycle = new AbortController();
     const root = view.querySelector('.anidoki'), find = selector => view.querySelector(selector);
-    let common, state, validLibraries;
-    const preferencesDirty = () => cache.baseline && (JSON.stringify(cache.baseline) !== JSON.stringify(cache.draft) || cache.libraryChoice?.mode === 'selected' && !cache.libraryChoice.selected.length);
+    let common, state;
+    const preferencesDirty = () => cache.baseline && JSON.stringify(cache.baseline) !== JSON.stringify(cache.draft);
     // Discord saves with the page, so its edits count as unsaved changes too.
     const dirty = () => !!(preferencesDirty() || cache.discordDirty?.());
     const updateDirty = () => { find('.doki-save-bar').hidden = !dirty(); if (dirty() && !cache.busy) common.status(find('#saveStatus'), 'Unsaved changes'); };
@@ -45,7 +45,7 @@ export default function (view, host = view) {
         if (signal.aborted) return;
         common.ensureStyles(); common.prepareStickyShell(root, signal);
         const userId = ApiClient.getCurrentUserId();
-        if (cache.userId && cache.userId !== userId) { cache.saved = null; cache.baseline = null; cache.draft = null; cache.libraryChoice = {}; cache.discordDraft = null; cache.discordDirty = null; cache.matches = null; cache.matchesDirty = null; }
+        if (cache.userId && cache.userId !== userId) { cache.saved = null; cache.baseline = null; cache.draft = null; cache.discordDraft = null; cache.discordDirty = null; cache.matches = null; cache.matchesDirty = null; }
         cache.userId = userId;
         if (!cache.saved) {
             const result = await Promise.all([common.json(`AniDoki/user/configuration?user=${cache.userId}`, { signal }), common.json('AniDoki/user/parameters', { signal })]);
@@ -56,7 +56,7 @@ export default function (view, host = view) {
         find('#TemplateConfigForm').hidden = false; common.status(find('[data-page-status]'), ''); render(signal);
         for (const field of ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications']) find(`#${field}`).addEventListener('change', event => { cache.draft[field] = event.target.checked; updateDirty(); }, { signal });
         find('#TemplateConfigForm').addEventListener('submit', event => { event.preventDefault(); save(signal); }, { signal });
-        find('#discardChanges').addEventListener('click', () => { cache.draft = state.userPreferences(cache.baseline); cache.libraryChoice = {}; cache.discordDiscard?.(); render(signal); }, { signal });
+        find('#discardChanges').addEventListener('click', () => { cache.draft = state.userPreferences(cache.baseline); cache.discordDiscard?.(); render(signal); }, { signal });
         find('#refreshAccounts').addEventListener('click', async () => {
             common.refreshFeedback(find('#accountsRefreshStatus'), false); common.status(find('#accountsStatus'), '');
             try { await guard(async () => { cache.saved = await common.json(`AniDoki/user/configuration?user=${cache.userId}`, { signal }); if (!signal.aborted) { renderAccounts(signal); common.refreshFeedback(find('#accountsRefreshStatus'), true); } }); }
@@ -78,16 +78,7 @@ export default function (view, host = view) {
     function render(signal) {
         for (const field of ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications']) find(`#${field}`).checked = cache.draft[field];
         renderAccounts(signal);
-        cache.libraryChoice ??= {};
-        validLibraries = common.renderLibraries(find('#libraries'), cache.draft, cache.parameters.libraries ?? [], signal, updateDirty, cache.libraryChoice);
-        renderTrackingSummary();
         updateDirty();
-    }
-    // Top-bar summary of the saved library choice; an empty list means all libraries.
-    function renderTrackingSummary() {
-        const count = cache.baseline.LibraryToCheck.length;
-        const text = count ? `Tracking ${count} ${count === 1 ? 'library' : 'libraries'}` : 'Tracking all libraries';
-        find('#trackingSummary').replaceChildren(common.element('span', 'doki-badge', text));
     }
     function renderAccounts(signal) {
         const available = (cache.parameters.providerList ?? []).map(provider => provider.Key);
@@ -115,7 +106,6 @@ export default function (view, host = view) {
     async function save(signal) {
         if (cache.busy || !dirty()) return;
         try {
-            if (preferencesDirty() && !validLibraries()) throw new Error('Pick at least one library, or choose All libraries.');
             await guard(async () => {
                 common.status(find('#saveStatus'), 'Saving…');
                 if (preferencesDirty()) {
@@ -123,7 +113,7 @@ export default function (view, host = view) {
                     const merged = state.mergePreferences(latest, cache.baseline, cache.draft);
                     if (merged.conflicts.length) throw new Error(`Changed on the server: ${merged.conflicts.join(', ')}. Your edits are retained. Reload to review before saving.`);
                     const response = await common.json(`AniDoki/user/configuration?user=${cache.userId}`, { method: 'PUT', body: merged.value, signal });
-                    cache.saved = response; cache.baseline = state.userPreferences(response); cache.draft = state.userPreferences(response); cache.libraryChoice = {};
+                    cache.saved = response; cache.baseline = state.userPreferences(response); cache.draft = state.userPreferences(response);
                     if (!signal.aborted) render(signal);
                 }
                 if (cache.discordDirty?.()) await cache.discordSave(signal);
