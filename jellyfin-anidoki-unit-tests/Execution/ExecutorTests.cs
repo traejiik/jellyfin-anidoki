@@ -608,4 +608,204 @@ public class ExecutorTests {
 
         Assert.That(fake.Writes, Has.Count.EqualTo(1));
     }
+
+    private static Executor NewExecutor(ITrackerProvider tracker, PlaybackOutcomeCollector? collector = null, TimeProvider? clock = null) =>
+        new(tracker, Off, PlanPolicy.Automatic, collector, clock ?? new FixedTime(Now), NullLogger.Instance, Source);
+
+    private static (Executor Executor, List<(ProviderWriteOutcome Outcome, OutcomeDetail? Detail)> Recorded) Recording(ITrackerProvider tracker,
+        TimeProvider? clock = null) {
+        var recorded = new List<(ProviderWriteOutcome Outcome, OutcomeDetail? Detail)>();
+        return (NewExecutor(tracker, new PlaybackOutcomeCollector((outcome, detail) => recorded.Add((outcome, detail))), clock), recorded);
+    }
+
+    private static async Task<PlannedTarget> PlanOne(Executor executor, SourceResolution resolution) =>
+        (PlannedTarget)(await executor.Plan(resolution, CancellationToken.None)).Single();
+
+    private static Resolved TwoParts() =>
+        new(Target(ApiName.AniList, 2, 501), ResolvedBy.SequelChain, [Target(ApiName.AniList, 12, 500, role: TargetRole.EarlierPart)]);
+
+    [Test]
+    public async Task PlanReadsAndDecidesWithoutWritingOrRecording() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.OnApply = (_, _) => throw new AssertionException("Plan must not write");
+        var collector = new PlaybackOutcomeCollector();
+
+        var planned = await PlanOne(NewExecutor(tracker, collector), Played(ApiName.AniList, 5));
+
+        Assert.That(planned.Decision, Is.InstanceOf<Write>());
+        Assert.That(((Write)planned.Decision).Change.Progress, Is.EqualTo(5));
+        Assert.That(planned.Read.List!.Progress, Is.EqualTo(3));
+        Assert.That((fake.Writes.Count, collector.Outcomes.Length, tracker.ReadCount), Is.EqualTo((0, 0, 1)));
+    }
+
+    [Test]
+    public async Task PlanListsEarlierPartsBeforeThePlayedTarget() {
+        var (tracker, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 0)), Entry(501, 12, ListStatus(Status.Watching, 0)));
+
+        var steps = await NewExecutor(tracker).Plan(TwoParts(), CancellationToken.None);
+
+        Assert.That(steps.Cast<PlannedTarget>().Select(step => (step.Trace.Target.Entry.Id, step.Trace.Target.Role, step.Trace.By)),
+            Is.EqualTo(new[] { (500, TargetRole.EarlierPart, ResolvedBy.SequelChain), (501, TargetRole.Played, ResolvedBy.SequelChain) }));
+    }
+
+    [Test]
+    public async Task PlanReturnsWhatExecuteRecordsForUnresolvedAndIgnored() {
+        var (tracker, _) = Seed(ApiName.AniList);
+        SourceResolution[] resolutions = [
+            new Unresolved("no-title-match", new UnresolvedRecord("", "Fixture Show"), []),
+            new Ignored(ResolvedBy.SharedMatch, 3, "Fixture Show")
+        ];
+
+        foreach (SourceResolution resolution in resolutions) {
+            var executed = (await Recorded(tracker, resolution)).Single();
+            var planned = (PlannedOutcome)(await NewExecutor(tracker).Plan(resolution, CancellationToken.None)).Single();
+
+            Assert.That((planned.Outcome, planned.Detail), Is.EqualTo(executed));
+            Assert.That(planned.StopsProvider, Is.False);
+        }
+    }
+
+    [Test]
+    public async Task PlanStopsAfterAReadFailureThatStopsTheProvider() {
+        var (tracker, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 0)), Entry(501, 12, ListStatus(Status.Watching, 0)));
+        tracker.ReadFailure = TrackerFailureKind.RateLimited;
+
+        var steps = await NewExecutor(tracker).Plan(TwoParts(), CancellationToken.None);
+
+        var stopped = (PlannedOutcome)steps.Single();
+        Assert.That((stopped.Outcome.Kind, stopped.Outcome.Step, stopped.Outcome.TargetId, stopped.StopsProvider),
+            Is.EqualTo((OutcomeKind.Failed, "rate-limited", "500", true)));
+    }
+
+    [Test]
+    public async Task PlanKeepsGoingPastAnUnreadableTarget() {
+        var (tracker, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 0)), Entry(501, 12, ListStatus(Status.Watching, 0)));
+        tracker.ScriptedReads.Enqueue(null);
+
+        var steps = await NewExecutor(tracker).Plan(TwoParts(), CancellationToken.None);
+
+        Assert.That(steps.Select(step => step.GetType().Name), Is.EqualTo(new[] { nameof(PlannedOutcome), nameof(PlannedTarget) }));
+        Assert.That(((PlannedOutcome)steps[0]).Outcome.Kind, Is.EqualTo(OutcomeKind.Unresolved));
+    }
+
+    [TestCase(3, 5)]
+    [TestCase(8, 5)]
+    public async Task PlanThenApplyRecordsWhatExecuteRecords(int progress, int episode) {
+        var (first, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, progress)));
+        var (second, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, progress)));
+        var executed = await Recorded(first, Played(ApiName.AniList, episode));
+        var (executor, applied) = Recording(second);
+
+        foreach (PlanStep step in await executor.Plan(Played(ApiName.AniList, episode), CancellationToken.None))
+            Assert.That(await executor.ApplyPlanned((PlannedTarget)step, ApplyMode.Automatic, CancellationToken.None), Is.True);
+
+        Assert.That(applied.Select(item => (item.Outcome, item.Detail?.PlannedChange, item.Detail?.PlannedAgainst?.List)),
+            Is.EqualTo(executed.Select(item => (item.Outcome, item.Detail?.PlannedChange, item.Detail?.PlannedAgainst?.List))));
+    }
+
+    [TestCase(TrackerFailureKind.RateLimited, false)]
+    [TestCase(TrackerFailureKind.NotFound, true)]
+    public async Task ApplyPlannedSaysWhetherTheProviderCanContinue(TrackerFailureKind kind, bool continues) {
+        var (tracker, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.OnApply = (_, _) => throw new TrackerFailureException(kind);
+        var executor = NewExecutor(tracker);
+        var planned = await PlanOne(executor, Played(ApiName.AniList, 5));
+
+        Assert.That(await executor.ApplyPlanned(planned, ApplyMode.Automatic, CancellationToken.None), Is.EqualTo(continues));
+    }
+
+    [Test]
+    public async Task ApplyPlannedWithACancelledTokenWritesNothing() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        var executor = NewExecutor(tracker);
+        var planned = await PlanOne(executor, Played(ApiName.AniList, 5));
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.That(async () => await executor.ApplyPlanned(planned, ApplyMode.Automatic, cancellation.Token), Throws.InstanceOf<OperationCanceledException>());
+        Assert.That(fake.Writes, Is.Empty);
+    }
+
+    [Test]
+    public void ResolutionFailureOutcomeIsWhatRecordResolutionFailureRecords() {
+        var (tracker, _) = Seed(ApiName.AniList);
+        var (executor, recorded) = Recording(tracker);
+        var failure = new TrackerFailureException(TrackerFailureKind.Unauthorized);
+
+        executor.RecordResolutionFailure(failure, "Fixture Show");
+        var outcome = executor.ResolutionFailureOutcome(failure, "Fixture Show");
+
+        Assert.That((outcome.Outcome, outcome.Detail), Is.EqualTo(recorded.Single()));
+        Assert.That(outcome.StopsProvider, Is.True);
+    }
+
+    [Test]
+    public async Task StrictRereadsEvenAFreshPlanAndWritesWhenNothingMoved() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.ScriptedReads.Enqueue(StateAt(3));
+        var (executor, recorded) = Recording(tracker);
+        var planned = await PlanOne(executor, PlayedFrom(StateAt(3), 5));
+
+        Assert.That(await executor.ApplyPlanned(planned, ApplyMode.Strict, CancellationToken.None), Is.True);
+
+        Assert.That(tracker.ReadCount, Is.EqualTo(1));
+        Assert.That(fake.Writes, Has.Count.EqualTo(1));
+        Assert.That(recorded.Single().Outcome.Kind, Is.EqualTo(OutcomeKind.Confirmed));
+    }
+
+    [TestCase(4)]
+    [TestCase(7)]
+    public async Task StrictRefusesAnEntryThatMovedSincePlanning(int progressNow) {
+        // 7 is past the episode: automatic mode would re-plan it into NoChange, strict mode still refuses it.
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.ScriptedReads.Enqueue(StateAt(progressNow));
+        var (executor, recorded) = Recording(tracker);
+        var planned = await PlanOne(executor, PlayedFrom(StateAt(3), 5));
+
+        Assert.That(await executor.ApplyPlanned(planned, ApplyMode.Strict, CancellationToken.None), Is.True);
+
+        Assert.That(fake.Writes, Is.Empty);
+        Assert.That(tracker.ReadCount, Is.EqualTo(1));
+        var (outcome, detail) = recorded.Single();
+        Assert.That((outcome.Kind, outcome.Step, outcome.TargetId), Is.EqualTo((OutcomeKind.Skipped, "preview-stale", "500")));
+        Assert.That(detail!.PlannedAgainst!.List!.Progress, Is.EqualTo(progressNow));
+    }
+
+    [Test]
+    public async Task StrictTreatsAnUnreadableEntryAsUnresolved() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.ScriptedReads.Enqueue(null);
+        var (executor, recorded) = Recording(tracker);
+        var planned = await PlanOne(executor, PlayedFrom(StateAt(3), 5));
+
+        await executor.ApplyPlanned(planned, ApplyMode.Strict, CancellationToken.None);
+
+        Assert.That(fake.Writes, Is.Empty);
+        Assert.That(recorded.Single().Outcome.Kind, Is.EqualTo(OutcomeKind.Unresolved));
+    }
+
+    [Test]
+    public async Task StrictRecordsADecisionWithNothingToWriteWithoutReading() {
+        var (tracker, _) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 8)));
+        var (executor, recorded) = Recording(tracker);
+        var planned = await PlanOne(executor, PlayedFrom(StateAt(8), 5));
+
+        await executor.ApplyPlanned(planned, ApplyMode.Strict, CancellationToken.None);
+
+        Assert.That(tracker.ReadCount, Is.EqualTo(0));
+        Assert.That((recorded.Single().Outcome.Kind, recorded.Single().Outcome.Step), Is.EqualTo((OutcomeKind.NoChange, "already-watched")));
+    }
+
+    [Test]
+    public async Task StrictReadsOnceEvenWhenThePlanIsOlderThanSixtySeconds() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.ScriptedReads.Enqueue(StateAt(3));
+        var (executor, _) = Recording(tracker, Later);
+        var planned = await PlanOne(executor, PlayedFrom(StateAt(3), 5));
+
+        await executor.ApplyPlanned(planned, ApplyMode.Strict, CancellationToken.None);
+
+        Assert.That(tracker.ReadCount, Is.EqualTo(1));
+        Assert.That(fake.Writes, Has.Count.EqualTo(1));
+    }
 }
