@@ -108,6 +108,26 @@ public class PreviewStoreTests {
     }
 
     [Test]
+    public void AnInboundRowKeepsItsMarkAndTrackerEntry() {
+        Guid id = Finished();
+        Guid season = Guid.NewGuid();
+        Guid[] episodes = [Guid.NewGuid(), Guid.NewGuid()];
+        var row = new PreviewRow(0, PreviewDirection.FromTrackers, ApiName.AniList, "season:abc:1", season, "Show · season 1", 2, "1001", "Show", 2,
+            PreviewRowKind.Change, "mark-played", null, null, null, false, "", null, null, true, true, null,
+            new InboundChange(season, episodes, new DateTime(2026, 1, 2), true),
+            new InboundEntry(ApiName.AniList, 1001, "Show", jellyfin_anidoki.Models.Mal.Status.Completed, 2, "2026-01-02"));
+
+        _store.Add(id, row);
+
+        PreviewRow read = _store.Page(id, null, null, 0, 10).Rows.Single();
+        Assert.That(read.PlannedChange, Is.Null);
+        Assert.That(read.PlannedAgainst, Is.Null);
+        Assert.That(read.PlannedMark!.Episodes, Is.EqualTo(episodes));
+        Assert.That(read.PlannedMark with { Episodes = episodes }, Is.EqualTo(row.PlannedMark! with { Episodes = episodes }));
+        Assert.That(read.TrackerEntry, Is.EqualTo(row.TrackerEntry));
+    }
+
+    [Test]
     public void TheNewestFinishedPreviewIsApplicable() =>
         Assert.That(Applicable(Finished()), Is.True);
 

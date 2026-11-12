@@ -24,6 +24,8 @@ public enum PreviewRowKind { Change, Reduction, NoChange, Skipped, Unresolved, F
 /// <param name="MatchRevision">The effective saved match's revision for this season and tracker when previewed; null when none.</param>
 /// <param name="PlannedChange">What would be written; null unless the row is a Change or Reduction.</param>
 /// <param name="PlannedAgainst">The entry as read, before quirks and without titles; null when it was not read.</param>
+/// <param name="PlannedMark">Inbound only: what would be marked played.</param>
+/// <param name="TrackerEntry">Inbound only: the tracker entry as read (D4 compares status, progress and finish date).</param>
 public sealed record PreviewRow(
     [property: JsonPropertyName("seq")] int Seq,
     [property: JsonPropertyName("direction")] PreviewDirection Direction,
@@ -46,7 +48,25 @@ public sealed record PreviewRow(
     [property: JsonPropertyName("plannedAgainst")] EntryState? PlannedAgainst,
     [property: JsonPropertyName("selectable")] bool Selectable,
     [property: JsonPropertyName("selectedByDefault")] bool SelectedByDefault,
-    [property: JsonPropertyName("appliedOperationId")] Guid? AppliedOperationId);
+    [property: JsonPropertyName("appliedOperationId")] Guid? AppliedOperationId,
+    [property: JsonPropertyName("plannedMark")] InboundChange? PlannedMark = null,
+    [property: JsonPropertyName("trackerEntry")] InboundEntry? TrackerEntry = null);
+
+/// <summary>What an inbound row would mark played: these episodes, then the season unless an episode is ignored.</summary>
+public sealed record InboundChange(
+    [property: JsonPropertyName("seasonItem")] Guid SeasonItem,
+    [property: JsonPropertyName("episodes")] IReadOnlyList<Guid> Episodes,
+    [property: JsonPropertyName("playedDate")] DateTime PlayedDate,
+    [property: JsonPropertyName("marksSeason")] bool MarksSeason);
+
+/// <summary>The tracker entry an inbound row was planned from.</summary>
+public sealed record InboundEntry(
+    [property: JsonPropertyName("provider")] ApiName Provider,
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("title")] string Title,
+    [property: JsonPropertyName("status")] jellyfin_anidoki.Models.Mal.Status? Status,
+    [property: JsonPropertyName("progress")] int Progress,
+    [property: JsonPropertyName("finishDate")] string? FinishDate);
 
 public sealed record PreviewPage(
     [property: JsonPropertyName("total")] int Total,
