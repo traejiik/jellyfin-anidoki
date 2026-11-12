@@ -28,4 +28,9 @@ internal static class TrackerChoice {
             return "Choose All or one of this user's linked trackers.";
         return linked.Contains(only.Value) ? null : $"{only} is not linked for this user. Choose All or a linked tracker.";
     }
+
+    /// <summary>The trackers this user has linked, from the plugin configuration.</summary>
+    public static ApiName[] Linked(Guid userId) =>
+        Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(user => user.UserId == userId)?.UserApiAuth?
+            .Select(auth => auth.Name).ToArray() ?? [];
 }
