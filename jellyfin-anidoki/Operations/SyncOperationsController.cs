@@ -33,7 +33,7 @@ public sealed class SyncOperationsController(OperationRunner runner, OperationSt
         OperationKind kind = syncAction == SyncAction.UpdateProvider ? OperationKind.SyncToTrackers : OperationKind.SyncFromTrackers;
         ApiName? only = null;
         if (kind == OperationKind.SyncToTrackers) {
-            if (TrackerChoice.ReadOutbound(provider, LinkedTrackers(userId), out only) is { } problem)
+            if (TrackerChoice.ReadOutbound(provider, TrackerChoice.Linked(userId), out only) is { } problem)
                 return BadRequest(problem);
         } else if (TrackerChoice.One(provider) is { } inbound) {
             only = inbound;
@@ -54,10 +54,6 @@ public sealed class SyncOperationsController(OperationRunner runner, OperationSt
             return StatusCode(StatusCodes.Status503ServiceUnavailable, "AniDoki storage is unavailable, so the sync was not started.");
         return Accepted(new OperationStarted(handle.OperationId));
     }
-
-    private static ApiName[] LinkedTrackers(Guid userId) =>
-        Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(user => user.UserId == userId)?.UserApiAuth?
-            .Select(auth => auth.Name).ToArray() ?? [];
 
     [HttpGet("operations/{operationId:guid}")]
     public ActionResult<OperationView> ReadOperation(Guid operationId) =>

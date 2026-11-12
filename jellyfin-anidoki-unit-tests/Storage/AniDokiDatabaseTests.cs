@@ -171,6 +171,35 @@ public class AniDokiDatabaseTests {
     }
 
     [Test]
+    public void VersionFiveDatabaseKeepsItsOperationsAndGainsThePreviewTable() {
+        string path = Path.Combine(_directory, "anidoki.db");
+        CreateAtVersion(path, 5);
+        using (var connection = Connect(path)) {
+            Execute(connection, """
+                INSERT INTO operations (id, user_id, kind, state, source, created_utc)
+                VALUES ('op', 'user', 'SyncToTrackers', 'Succeeded', 'x', '2026-11-12T00:00:00.0000000+00:00')
+                """);
+        }
+
+        var database = new AniDokiDatabase(path);
+
+        Assert.That(database.IsAvailable, Is.True, database.Failure);
+        Assert.That(SchemaVersion(database), Is.EqualTo(StorageMigrations.Latest));
+        using var open = database.Open();
+        using (var command = open.CreateCommand()) {
+            command.CommandText = "SELECT kind, preview_of FROM operations";
+            using var reader = command.ExecuteReader();
+            Assert.That(reader.Read(), Is.True);
+            Assert.That(reader.GetString(0), Is.EqualTo("SyncToTrackers"));
+            Assert.That(reader.IsDBNull(1), Is.True);
+        }
+        using (var command = open.CreateCommand()) {
+            command.CommandText = "SELECT COUNT(*) FROM preview_rows";
+            Assert.That((long)command.ExecuteScalar()!, Is.Zero);
+        }
+    }
+
+    [Test]
     public void ForeignKeysAreEnforced() {
         var database = new AniDokiDatabase(Path.Combine(_directory, "anidoki.db"));
 

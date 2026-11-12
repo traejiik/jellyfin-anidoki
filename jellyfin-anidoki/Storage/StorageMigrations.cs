@@ -130,6 +130,35 @@ internal static class StorageMigrations {
                 PRIMARY KEY (operation_id, seq)
             );
             ALTER TABLE operation_actions ADD COLUMN match_revision INTEGER;
+            """),
+        (6, """
+            CREATE TABLE preview_rows (
+                operation_id TEXT NOT NULL,
+                seq INTEGER NOT NULL,
+                direction TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                source_key TEXT NOT NULL,
+                source_item TEXT NOT NULL,
+                source_title TEXT NOT NULL,
+                source_episode INTEGER,
+                target_id TEXT NOT NULL,
+                target_title TEXT NOT NULL,
+                target_episode INTEGER,
+                kind TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                resolved_by TEXT,
+                resolution_note TEXT,
+                match_revision INTEGER,
+                apply_saved_matches INTEGER NOT NULL,
+                watched_fingerprint TEXT,
+                planned_change TEXT,
+                planned_against TEXT,
+                selectable INTEGER NOT NULL,
+                selected_by_default INTEGER NOT NULL,
+                applied_operation_id TEXT,
+                PRIMARY KEY (operation_id, seq)
+            );
+            ALTER TABLE operations ADD COLUMN preview_of TEXT;
             """)
     ];
 

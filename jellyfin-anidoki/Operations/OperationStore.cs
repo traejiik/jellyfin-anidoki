@@ -114,17 +114,12 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
         string cutoff = Format(clock.GetUtcNow() - age);
         using var connection = database.Open();
         using var transaction = connection.BeginTransaction();
-        using (var rows = connection.CreateCommand()) {
+        foreach (string table in new[] { "preview_rows", "resolution_check_rows", "operation_actions" }) {
+            using var rows = connection.CreateCommand();
             rows.Transaction = transaction;
-            rows.CommandText = "DELETE FROM resolution_check_rows WHERE operation_id IN (SELECT id FROM operations WHERE finished_utc IS NOT NULL AND finished_utc < $cutoff)";
+            rows.CommandText = $"DELETE FROM {table} WHERE operation_id IN (SELECT id FROM operations WHERE finished_utc IS NOT NULL AND finished_utc < $cutoff)";
             rows.Parameters.AddWithValue("$cutoff", cutoff);
             rows.ExecuteNonQuery();
-        }
-        using (var actions = connection.CreateCommand()) {
-            actions.Transaction = transaction;
-            actions.CommandText = "DELETE FROM operation_actions WHERE operation_id IN (SELECT id FROM operations WHERE finished_utc IS NOT NULL AND finished_utc < $cutoff)";
-            actions.Parameters.AddWithValue("$cutoff", cutoff);
-            actions.ExecuteNonQuery();
         }
         int removed;
         using (var operations = connection.CreateCommand()) {
