@@ -48,7 +48,7 @@ public class SyncHelper {
     /// <param name="series">Series to retrieve season of.</param>
     /// <param name="source">Metadata source.</param>
     /// <returns>List of seasons with their completed date and progress.</returns>
-    public static async Task<List<(Season, DateTime?, int)>> GetJellyfinSeasons(List<Sync.SyncAnimeMetadata> convertedWatchList,
+    public static async Task<List<(Season Season, Sync.SyncAnimeMetadata Found)>> GetJellyfinSeasons(List<Sync.SyncAnimeMetadata> convertedWatchList,
         int providerId,
         Series series,
         AnimeOfflineDatabaseHelpers.Source source,
@@ -56,7 +56,7 @@ public class SyncHelper {
         ILoggerFactory loggerFactory,
         IHttpClientFactory httpClientFactory,
         IApplicationPaths applicationPaths) {
-        List<(Season, DateTime?, int)> seasons = new List<(Season, DateTime?, int)>();
+        List<(Season Season, Sync.SyncAnimeMetadata Found)> seasons = new List<(Season Season, Sync.SyncAnimeMetadata Found)>();
 
         List<AnimeListAnimeOfflineDatabaseCombo> seasonIdsFromJellyfin = await GetSeasonIdsFromJellyfin(providerId,
             source,
@@ -72,7 +72,7 @@ public class SyncHelper {
                     if (found != null) {
                         var season = series.Children.Select(season => season as Season).FirstOrDefault(season => season?.IndexNumber == found.season);
                         if (season != null) {
-                            seasons.Add((season, found.completedAt ?? DateTime.UtcNow, found.episodesWatched));
+                            seasons.Add((season, found));
                             logger.LogInformation("(Sync) Retrieved");
                         } else {
                             logger.LogWarning("(Sync) Could not retrieve season from Jellyfin library");

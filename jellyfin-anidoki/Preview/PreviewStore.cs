@@ -56,8 +56,8 @@ public sealed class PreviewStore(AniDokiDatabase database, TimeProvider clock) {
         Set(command, "$revision", row.MatchRevision);
         Set(command, "$applySaved", row.ApplySavedMatches ? 1 : 0);
         Set(command, "$fingerprint", row.WatchedFingerprint);
-        Set(command, "$change", row.PlannedChange is { } change ? ActionJson.Write(change) : null);
-        Set(command, "$against", row.PlannedAgainst is { } against ? ActionJson.Write(against) : null);
+        Set(command, "$change", row.PlannedChange is { } change ? ActionJson.Write(change) : row.PlannedMark is { } mark ? ActionJson.Write(mark) : null);
+        Set(command, "$against", row.PlannedAgainst is { } against ? ActionJson.Write(against) : row.TrackerEntry is { } entry ? ActionJson.Write(entry) : null);
         Set(command, "$selectable", row.Selectable ? 1 : 0);
         Set(command, "$selected", row.SelectedByDefault ? 1 : 0);
         Set(command, "$applied", row.AppliedOperationId is { } applied ? Id(applied) : null);
@@ -132,29 +132,37 @@ public sealed class PreviewStore(AniDokiDatabase database, TimeProvider clock) {
         Set(command, "$provider", provider?.ToString());
     }
 
-    private static PreviewRow ReadRow(SqliteDataReader reader) => new(
-        reader.GetInt32(0),
-        Enum.Parse<PreviewDirection>(reader.GetString(1)),
-        Enum.Parse<ApiName>(reader.GetString(2)),
-        reader.GetString(3),
-        Guid.Parse(reader.GetString(4)),
-        reader.GetString(5),
-        reader.IsDBNull(6) ? null : reader.GetInt32(6),
-        reader.GetString(7),
-        reader.GetString(8),
-        reader.IsDBNull(9) ? null : reader.GetInt32(9),
-        Enum.Parse<PreviewRowKind>(reader.GetString(10)),
-        reader.GetString(11),
-        reader.IsDBNull(12) ? null : Enum.Parse<ResolvedBy>(reader.GetString(12)),
-        reader.IsDBNull(13) ? null : reader.GetString(13),
-        reader.IsDBNull(14) ? null : reader.GetInt64(14),
-        reader.GetInt64(15) != 0,
-        reader.IsDBNull(16) ? null : reader.GetString(16),
-        reader.IsDBNull(17) ? null : ActionJson.Read<EntryChange>(reader.GetString(17)),
-        reader.IsDBNull(18) ? null : ActionJson.Read<EntryState>(reader.GetString(18)),
-        reader.GetInt64(19) != 0,
-        reader.GetInt64(20) != 0,
-        reader.IsDBNull(21) ? null : Guid.Parse(reader.GetString(21)));
+    private static PreviewRow ReadRow(SqliteDataReader reader) {
+        var direction = Enum.Parse<PreviewDirection>(reader.GetString(1));
+        bool inbound = direction == PreviewDirection.FromTrackers;
+        string? change = reader.IsDBNull(17) ? null : reader.GetString(17);
+        string? against = reader.IsDBNull(18) ? null : reader.GetString(18);
+        return new PreviewRow(
+            reader.GetInt32(0),
+            direction,
+            Enum.Parse<ApiName>(reader.GetString(2)),
+            reader.GetString(3),
+            Guid.Parse(reader.GetString(4)),
+            reader.GetString(5),
+            reader.IsDBNull(6) ? null : reader.GetInt32(6),
+            reader.GetString(7),
+            reader.GetString(8),
+            reader.IsDBNull(9) ? null : reader.GetInt32(9),
+            Enum.Parse<PreviewRowKind>(reader.GetString(10)),
+            reader.GetString(11),
+            reader.IsDBNull(12) ? null : Enum.Parse<ResolvedBy>(reader.GetString(12)),
+            reader.IsDBNull(13) ? null : reader.GetString(13),
+            reader.IsDBNull(14) ? null : reader.GetInt64(14),
+            reader.GetInt64(15) != 0,
+            reader.IsDBNull(16) ? null : reader.GetString(16),
+            change == null || inbound ? null : ActionJson.Read<EntryChange>(change),
+            against == null || inbound ? null : ActionJson.Read<EntryState>(against),
+            reader.GetInt64(19) != 0,
+            reader.GetInt64(20) != 0,
+            reader.IsDBNull(21) ? null : Guid.Parse(reader.GetString(21)),
+            change == null || !inbound ? null : ActionJson.Read<InboundChange>(change),
+            against == null || !inbound ? null : ActionJson.Read<InboundEntry>(against));
+    }
 
     private static void Set(SqliteCommand command, string name, object? value) => command.Parameters.AddWithValue(name, value ?? DBNull.Value);
 

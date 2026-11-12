@@ -80,7 +80,7 @@ public class PreviewControllerTests {
 
     private PreviewController Controller(OperationStore store, PreviewStore rows) =>
         new(_runner, store, rows, new MatchStore(Plugin.Instance!.Database, TimeProvider.System), new FixedWatchState(), _users.Object,
-            _library.Object, NullLoggerFactory.Instance, new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object,
+            _library.Object, new Mock<IUserDataManager>().Object, NullLoggerFactory.Instance, new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object,
             new HttpContextAccessor(), new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()));
 
     private ActionResult<OperationStarted> Start(string? provider = TrackerChoice.All, SyncAction action = SyncAction.UpdateProvider) =>
@@ -118,8 +118,37 @@ public class PreviewControllerTests {
         Assert.That(Start("Kitsu").Result, Is.InstanceOf<BadRequestObjectResult>());
 
     [Test]
-    public void TrackerToJellyfinCannotBePreviewedYet() =>
-        Assert.That(Start("AniList", SyncAction.UpdateJellyfin).Result, Is.InstanceOf<BadRequestObjectResult>());
+    public async Task TrackerToJellyfinStartsAnInboundPreview() {
+        var result = Start("AniList", SyncAction.UpdateJellyfin);
+
+        Assert.That(result.Result, Is.InstanceOf<AcceptedResult>());
+        await _runner.Drain();
+        OperationView view = _store.Read(IdOf(result))!;
+        Assert.That(view.Kind, Is.EqualTo(OperationKind.PreviewFromTrackers));
+        Assert.That(view.Source, Is.EqualTo("AniList (Both)"));
+        Assert.That(OperationStates.IsFinished(view.State), Is.True);
+        Assert.That(_controller.Read(view.OperationId).Value!.Operation.Kind, Is.EqualTo(OperationKind.PreviewFromTrackers));
+    }
+
+    [TestCase(null)]
+    [TestCase("All")]
+    [TestCase("Kitsu")]
+    public void TrackerToJellyfinNeedsOneLinkedTracker(string? provider) =>
+        Assert.That(Start(provider, SyncAction.UpdateJellyfin).Result, Is.InstanceOf<BadRequestObjectResult>());
+
+    [Test]
+    public async Task AnActiveSyncFromTrackersAnswersConflictWithItsOperation() {
+        ActionResult<OperationStarted> result;
+        Guid sync;
+        using (await SyncExecutionGate.Shared.Enter(_user.Id)) {
+            sync = _runner.Enqueue(_user.Id, OperationKind.SyncFromTrackers, "x", _ => Task.CompletedTask)!.OperationId;
+            result = Start("AniList", SyncAction.UpdateJellyfin);
+        }
+
+        Assert.That(result.Result, Is.InstanceOf<ConflictObjectResult>());
+        Assert.That(IdOf(result), Is.EqualTo(sync));
+        await _runner.Drain();
+    }
 
     [Test]
     public void AnUnknownUserIsRejected() =>
