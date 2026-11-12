@@ -1,0 +1,51 @@
+## completed-with-finish-date
+Alpha S01E01 played 2026-01-02T00:00:00
+Alpha S01E02 played 2026-01-02T00:00:00
+Alpha S01E03 played 2026-01-02T00:00:00
+Alpha S01E04 played 2026-01-02T00:00:00
+Alpha season 1 played 2026-01-02T00:00:00
+result: Succeeded | Checked 1 tracker entry.
+## watching-without-finish-date
+Alpha S01E01 played now
+Alpha S01E02 played now
+Alpha season 1 played now
+result: Succeeded | Checked 1 tracker entry.
+## episode-offset
+Beta S01E01 played now
+Beta S01E02 played now
+Beta S01E03 played now
+Beta S01E04 played now
+Beta S01E05 played now
+Beta season 1 played now
+result: Succeeded | Checked 1 tracker entry.
+## two-seasons
+Gamma S01E01 played 2026-02-01T00:00:00
+Gamma S01E02 played 2026-02-01T00:00:00
+Gamma season 1 played 2026-02-01T00:00:00
+Gamma S02E01 played now
+Gamma season 2 played now
+result: Succeeded | Checked 2 tracker entries.
+## ignored-series
+(no saves)
+result: Succeeded | Checked 1 tracker entry.
+## ignored-season
+(no saves)
+result: Succeeded | Checked 1 tracker entry.
+## ignored-episode
+Zeta S01E01 played 2026-03-01T00:00:00
+Zeta S01E03 played 2026-03-01T00:00:00
+result: Succeeded | Checked 1 tracker entry.
+## no-progress-marks-everything
+Theta S01E01 played 2026-04-01T00:00:00
+Theta S01E02 played 2026-04-01T00:00:00
+Theta S01E03 played 2026-04-01T00:00:00
+Theta season 1 played 2026-04-01T00:00:00
+result: Succeeded | Checked 1 tracker entry.
+## no-anidb-id
+(no saves)
+result: Succeeded | Checked 1 tracker entry.
+## already-played
+Iota S01E01 played 2026-05-01T00:00:00
+Iota S01E02 played 2026-05-01T00:00:00
+Iota season 1 played 2026-05-01T00:00:00
+result: Succeeded | Checked 1 tracker entry.

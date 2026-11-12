@@ -45,6 +45,9 @@ public class Sync {
     private readonly SyncHelper.Status _status;
     private int _apiTimeOutLength = 2000;
 
+    /// <summary>Tests set this to substitute an in-memory tracker list; production leaves it null so the real client is built.</summary>
+    internal Func<ApiName, UserConfig, ITrackerListSource> ListSourceOverride { get; set; }
+
     public Sync(IHttpClientFactory httpClientFactory,
         ILoggerFactory loggerFactory,
         IServerApplicationHost serverApplicationHost,
@@ -105,34 +108,24 @@ public class Sync {
     /// <returns>Users' provider anime list.</returns>
     private async Task<List<Anime>> GetAnimeList(string userId) {
         UserConfig config = Plugin.Instance.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == Guid.Parse(userId));
-        ITrackerListSource source = null;
-        MalApiCalls.User user = new MalApiCalls.User();
-        switch (_apiName) {
-            case ApiName.Mal:
-                source = new MalTrackerClient(new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config));
-                break;
-            case ApiName.AniList:
-                source = new AniListTrackerClient(new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config));
-                user = await source.GetUser();
-                if (user == null || user.Id == 0) {
-                    _logger.LogError("(Sync) Could not retrieve user information. Cannot proceed");
-                    return null;
-                }
-
-                break;
-            case ApiName.Kitsu:
-                source = new KitsuTrackerClient(new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config));
-                user = await source.GetUser();
-                if (user == null || user.Id == 0) {
-                    _logger.LogError("(Sync) Could not retrieve user information. Cannot proceed");
-                    return null;
-                }
-
-                break;
-        }
-
+        ITrackerListSource source = ListSourceOverride?.Invoke(_apiName, config) ?? _apiName switch {
+            ApiName.Mal => new MalTrackerClient(new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config)),
+            ApiName.AniList => new AniListTrackerClient(new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config)),
+            ApiName.Kitsu => new KitsuTrackerClient(new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config)),
+            _ => null
+        };
         if (source == null)
             return null;
+
+        MalApiCalls.User user = new MalApiCalls.User();
+        // MAL's list needs no user ID; AniList and Kitsu do.
+        if (_apiName is ApiName.AniList or ApiName.Kitsu) {
+            user = await source.GetUser();
+            if (user == null || user.Id == 0) {
+                _logger.LogError("(Sync) Could not retrieve user information. Cannot proceed");
+                return null;
+            }
+        }
 
         switch (_status) {
             case SyncHelper.Status.Completed:
