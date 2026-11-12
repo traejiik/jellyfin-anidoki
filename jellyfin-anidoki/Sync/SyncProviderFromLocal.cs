@@ -13,10 +13,8 @@ using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Trackers;
-using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
-using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Http;
@@ -52,18 +50,7 @@ public class SyncProviderFromLocal(
     /// </summary>
     public async Task SyncFromLocal(OperationContext operation) {
         _logger.LogInformation("(Sync) Starting sync to provider from local process");
-        var jellyfinLibrary = SyncHelper.GetUsersJellyfinLibrary(_userId, userManager, libraryManager);
-        var targets = new List<Episode>();
-        foreach (Series series in jellyfinLibrary.OfType<Series>()) {
-            _logger.LogDebug("(Sync) Retrieved {SeriesName}'s seasons latest watched episode and when it was watched...", series.Name);
-            var latest = GetMaxEpisodeAndCompletedTime(series);
-            if (latest == null) {
-                _logger.LogError("(Sync) User with ID of {UserId} not found", _userId);
-                continue;
-            }
-            targets.AddRange(latest);
-        }
-        await SyncEpisodes(targets, operation);
+        await SyncEpisodes(LatestWatchedEpisodes.For(_userId, userManager, libraryManager, _logger), operation);
     }
 
     internal async Task SyncEpisodes(IReadOnlyList<Episode> targets, OperationContext operation) {
@@ -102,46 +89,4 @@ public class SyncProviderFromLocal(
     }
 
     private static string Seasons(int count) => count == 1 ? "1 season" : $"{count} seasons";
-
-    private List<Episode> GetMaxEpisodeAndCompletedTime(Series series) {
-        List<Episode> returnDictionary = new List<Episode>();
-
-        _logger.LogDebug("(Sync) Getting {SeriesName} seasons latest watched episode", series.Name);
-        var seasons = series.Children.OfType<Season>().Select(baseItem => baseItem).ToList();
-        _logger.LogDebug("(Sync) Series {SeriesName} contains {SeasonCount} seasons", series.Name, seasons.Count);
-        User user = userManager.GetUserById(_userId);
-        if (user == null)
-            return null;
-        foreach (Season season in seasons) {
-            _logger.LogDebug("(Sync) Getting user data for {SeasonName} of {SeriesName}...", season.Name, series.Name);
-            if (season.IndexNumber == null) {
-                _logger.LogError("(Sync) Season index number is null. Skipping...");
-                continue;
-            }
-
-            IEnumerable<Episode> episodes = season.GetEpisodes(user, new DtoOptions(), false).OfType<Episode>().ToArray();
-            if (!episodes.Any()) {
-                _logger.LogDebug("(Sync) No (user visible) episodes found for {SeasonName} of {SeriesName}", season.Name, series.Name);
-            }
-            _logger.LogDebug("(Sync) Season contains {EpisodeCount} episodes", season.Children.OfType<Episode>().Count());
-            Episode latestWatchedEpisode;
-
-            try {
-                latestWatchedEpisode = episodes.Where(episode => episode.UserData.Any(userData => userData.UserId == user.Id && userData.Played)).MaxBy(episode => episode.IndexNumber);
-            } catch (Exception e) {
-                _logger.LogError("(Sync) Could not get user episodes watched for {SeasonName}; error: {ErrorMessage}", season.Name, e.Message);
-                continue;
-            }
-
-            if (latestWatchedEpisode == null) {
-                _logger.LogDebug("(Sync) No episodes watched for {SeasonName}", season.Name);
-                continue;
-            }
-            _logger.LogDebug("(Sync) The latest watched episode for this user of this season is {EpisodeNumber}", latestWatchedEpisode.IndexNumber);
-            returnDictionary.Add(latestWatchedEpisode);
-        }
-
-        _logger.LogDebug("(Sync) Found {SeasonCount} seasons that contain user data", returnDictionary.Count);
-        return returnDictionary;
-    }
 }

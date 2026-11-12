@@ -27,6 +27,11 @@ namespace jellyfin_anidoki;
 
 public enum SyncUpdateSource { Playback, LegacyManual, ConfirmedManual, ManualSync }
 
+/// <summary>One linked provider's answer for one item, before anything is written.</summary>
+/// <param name="Resolution">Null when resolving failed; <paramref name="Failure"/> then says why.</param>
+internal sealed record ProviderPass(ITrackerProvider Tracker, Executor Executor, SyncSource Source, SourceResolution? Resolution,
+    TrackerFailureException? Failure);
+
 /// <summary>
 /// Syncs one watched item to every tracker the user has linked: resolve, plan, re-check, write, record. A provider's
 /// failure stops that provider only. The caller must already hold the user's <see cref="SyncExecutionGate"/>.
@@ -70,8 +75,24 @@ public class SyncPipeline {
         _resolver = new AutomaticResolver(_logger);
     }
 
-    internal async Task Run(BaseItem e, Guid userId, bool playedToCompletion, PlaybackOutcomeCollector? collector,
-        SyncUpdateSource source, CancellationToken cancellationToken = default) {
+    internal Task Run(BaseItem e, Guid userId, bool playedToCompletion, PlaybackOutcomeCollector? collector,
+        SyncUpdateSource source, CancellationToken cancellationToken = default) =>
+        ForEachProvider(e, userId, playedToCompletion, collector, source, null, async pass => {
+            if (pass.Failure is { } failure) {
+                pass.Executor.RecordResolutionFailure(failure, pass.Source.SearchTitle ?? "");
+                return;
+            }
+
+            await pass.Executor.Execute(pass.Resolution!, cancellationToken);
+        }, cancellationToken);
+
+    /// <summary>
+    /// Resolves one item for each linked provider, in link order, and hands each answer to <paramref name="handle"/> before
+    /// asking the next provider. <see cref="Run"/> executes the answers; a preview plans them without writing.
+    /// </summary>
+    /// <param name="skip">Providers not to ask at all this time; nothing is read from them.</param>
+    internal async Task ForEachProvider(BaseItem e, Guid userId, bool playedToCompletion, PlaybackOutcomeCollector? collector,
+        SyncUpdateSource source, Func<ApiName, bool>? skip, Func<ProviderPass, Task> handle, CancellationToken cancellationToken) {
         PlanPolicy policy = source switch {
             SyncUpdateSource.ConfirmedManual => PlanPolicy.ConfirmedManual,
             SyncUpdateSource.ManualSync => PlanPolicy.ManualSync,
@@ -117,6 +138,8 @@ public class SyncPipeline {
             foreach (UserApiAuth userApiAuth in userConfig.UserApiAuth) {
                 if (OnlyProvider is { } only && userApiAuth.Name != only)
                     continue;
+                if (skip?.Invoke(userApiAuth.Name) == true)
+                    continue;
                 _logger.LogDebug("Using provider {ApiName}...", userApiAuth.Name);
                 // continue, not return: an unconfigured provider must not skip the providers after it
                 ITrackerClient? client = _clients.Create(userApiAuth.Name, userConfig);
@@ -129,11 +152,11 @@ public class SyncPipeline {
                     resolution = await resolver.Resolve(syncSource, sourceIds, tracker, cancellationToken);
                 } catch (TrackerFailureException failure) {
                     // continue, not rethrow: one provider's failure must not stop the providers after it
-                    executor.RecordResolutionFailure(failure, syncSource.SearchTitle ?? "");
+                    await handle(new ProviderPass(tracker, executor, syncSource, null, failure));
                     continue;
                 }
 
-                await executor.Execute(resolution, cancellationToken);
+                await handle(new ProviderPass(tracker, executor, syncSource, resolution, null));
             }
         }
     }
