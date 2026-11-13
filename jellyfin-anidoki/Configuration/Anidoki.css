@@ -258,6 +258,21 @@
     .anidoki .doki-user-table td[colspan] { grid-column: 1 / -1; grid-row: auto; }
     .anidoki .doki-user-row > .doki-button { width: 100%; }
 }
+/* The preview's four columns need more room than the three-column action tables, so it stacks sooner: the entry and the
+   reason take a full line each, Now and Proposed share one. After the 35rem rules, so it also wins over their grid on phones. */
+@media (max-width: 50rem) {
+    .anidoki .doki-preview-table, .anidoki .doki-preview-table tbody { display: block; }
+    .anidoki .doki-preview-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .anidoki .doki-preview-table tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 16px; padding: 12px 14px; }
+    .anidoki .doki-preview-table tbody tr + tr { border-top: 1px solid var(--doki-edge); }
+    .anidoki .doki-preview-table tr.doki-preview-group { display: block; padding: 0; }
+    .anidoki .doki-preview-table td, .anidoki .doki-preview-table td:first-child, .anidoki .doki-preview-table td:nth-child(2),
+    .anidoki .doki-preview-table td:last-child { grid-column: auto; grid-row: auto; align-self: start; padding: 0; border: 0; text-align: start; }
+    .anidoki .doki-preview-table td.doki-preview-entry, .anidoki .doki-preview-table td:last-child, .anidoki .doki-preview-table td[colspan] { grid-column: 1 / -1; }
+    .anidoki .doki-preview-table td[data-label]:not(.doki-preview-entry)::before { content: attr(data-label); display: block; margin-bottom: 2px; color: var(--doki-muted); font-size: .6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+    .anidoki .doki-preview-group th { display: block; }
+    .anidoki .doki-preview-tabs > div { padding-inline: 16px; }
+}
 @media (prefers-reduced-motion: no-preference) { .anidoki .doki-button { transition: border-color .12s; } }
 
 /* Independent web overlay: below Modern dialogs/drawers, above page/player content. */
@@ -418,6 +433,69 @@
 .anidoki .doki-source-table th:last-child, .anidoki .doki-source-table td:last-child { width: 96px; }
 .anidoki .doki-source-table tr[aria-current="true"] td { background: var(--doki-ground); }
 .anidoki .doki-pager { justify-content: space-between; margin-top: 12px; }
+.anidoki.doki-sync-page > #runPanel { margin-top: 20px; }
+.anidoki.doki-sync-page > #runPanel > h2 { margin: 0 0 16px; }
+.anidoki .doki-run { display: flex; flex-direction: column; gap: 10px; }
+.anidoki .doki-run > * { margin: 0; }
+.anidoki .doki-run-summary { font-weight: 600; overflow-wrap: anywhere; }
+.anidoki .doki-run-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.anidoki .doki-run-line > .doki-status { flex: 1 1 16rem; margin: 0; }
+.anidoki .doki-run-line > .doki-actions { margin: 0; }
+.anidoki .doki-progress { height: 8px; border-radius: 999px; overflow: hidden; background: var(--doki-edge); }
+.anidoki .doki-progress > span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--doki-accent); }
+.anidoki .doki-progress[data-tone="success"] > span { background: var(--tjk-success); }
+.anidoki .doki-progress[data-tone="error"] > span { background: var(--tjk-error); }
+/* No known end yet: a third of the bar slides across, or sits in the middle with reduced motion. */
+.anidoki .doki-progress[data-indeterminate] > span { width: 33%; margin-inline-start: 33%; }
+@media (prefers-reduced-motion: no-preference) {
+    .anidoki .doki-progress > span { transition: width .3s ease-out; }
+    .anidoki .doki-progress[data-indeterminate] > span { margin: 0; animation: doki-progress-slide 1.4s ease-in-out infinite; }
+}
+@keyframes doki-progress-slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+.anidoki .doki-preview { display: flex; flex: 1 1 auto; flex-direction: column; gap: 16px; }
+.anidoki .doki-preview > * { margin: 0; }
+/* Tabs under the dialog header, as the match manager's tracker tabs; each is a radio, so arrow keys move between them. */
+/* The tabs' own underline separates them from the body, so the header above needs no line of its own. */
+.anidoki .doki-preview-dialog .doki-dialog-header { border-bottom: 0; }
+.anidoki .doki-preview-tabs { min-width: 0; margin: 0; padding: 0; border: 0; }
+/* One row that scrolls sideways when it does not fit, never a second row. The divider is drawn under the tabs so the
+   chosen tab's underline sits on it. */
+.anidoki .doki-preview-tabs > div { display: flex; gap: 4px; padding: 0 24px; overflow-x: auto; scrollbar-width: none; box-shadow: inset 0 -1px 0 var(--doki-edge); }
+.anidoki .doki-preview-tab { position: relative; flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-bottom: 2px solid transparent; color: var(--doki-muted); font-size: .875rem; white-space: nowrap; cursor: pointer; }
+.anidoki .doki-preview-tab input { position: absolute; opacity: 0; pointer-events: none; }
+.anidoki .doki-preview-tab:has(input:checked) { border-color: var(--doki-accent); color: var(--doki-text); font-weight: 700; }
+.anidoki .doki-preview-tab:has(input:focus-visible) { outline: 2px solid var(--doki-accent); outline-offset: -2px; border-radius: var(--tjk-radius-xs); }
+.anidoki .doki-preview-tab-count { color: var(--doki-faint); font-size: .75rem; font-weight: 400; }
+.anidoki .doki-preview-table th:nth-child(1) { width: 32%; }
+.anidoki .doki-preview-table th:nth-child(2) { width: 18%; }
+.anidoki .doki-preview-table th:nth-child(3) { width: 20%; }
+.anidoki .doki-preview-table th:last-child { width: auto; }
+.anidoki .doki-preview-table td { vertical-align: top; border-top-color: color-mix(in srgb, var(--doki-edge) 45%, transparent); }
+.anidoki .doki-preview-table td:last-child { text-align: start; }
+/* The first column lines up under the season title, past the chevron. */
+/* Wide only: on narrow screens the stacked layout above sets its own spacing. */
+@media (min-width: 50.0625rem) {
+    .anidoki .doki-preview-table td { padding-block: 10px; }
+    .anidoki .doki-preview-table :is(th, td):first-child:not([colspan]) { padding-inline-start: 42px; }
+}
+.anidoki .doki-preview-group th { padding: 0; border-top: 1px solid var(--doki-edge); background: var(--doki-ground); }
+.anidoki .doki-preview-toggle { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 10px 16px; border: 0; background: none; color: var(--doki-text); font: inherit; text-align: start; cursor: pointer; }
+.anidoki .doki-preview-toggle:focus-visible { outline: 2px solid var(--doki-accent); outline-offset: -2px; }
+.anidoki .doki-preview-toggle svg { flex: none; width: 16px; height: 16px; color: var(--doki-muted); }
+.anidoki .doki-preview-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+@media (prefers-reduced-motion: no-preference) { .anidoki .doki-preview-toggle svg { transition: transform .15s; } }
+.anidoki .doki-preview-season { font-size: .9375rem; font-weight: 600; overflow-wrap: anywhere; }
+.anidoki .doki-preview-summary { color: var(--doki-muted); font-size: .8125rem; font-style: italic; font-weight: 400; }
+.anidoki .doki-preview-tracker { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+.anidoki .doki-preview-table .doki-provider-logo { width: 28px; height: 28px; flex-basis: 28px; padding: 3px; border-radius: var(--tjk-radius-sm); }
+.anidoki .doki-preview-value { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.anidoki .doki-preview-value > strong { font-weight: 600; }
+.anidoki .doki-preview-quiet { color: var(--doki-muted); }
+.anidoki .doki-preview-note { color: var(--doki-muted); font-size: .75rem; overflow-wrap: anywhere; }
+.anidoki .doki-preview-table td[data-tone="attention"] .doki-preview-value > :first-child { color: var(--tjk-warning); }
+.anidoki .doki-preview-table td[data-tone="error"] .doki-preview-value > :first-child { color: var(--tjk-error); }
+.anidoki .doki-preview-pager { display: flex; align-items: center; gap: 8px; }
+.anidoki .doki-dialog-footer .doki-preview-pager .doki-status { flex: none; }
 .anidoki .doki-provider-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--doki-edge); margin: 18px 0 20px; }
 .anidoki .doki-provider-tab { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 14px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--doki-muted); font: inherit; cursor: pointer; }
 .anidoki .doki-provider-tab[aria-selected="true"] { border-color: var(--doki-accent); color: var(--doki-text); font-weight: 700; }

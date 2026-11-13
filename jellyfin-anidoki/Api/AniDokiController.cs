@@ -201,6 +201,7 @@ namespace jellyfin_anidoki.Api {
                 "user-settings.js" => "ConfigPageUserJs.js",
                 "match-editor.js" => "MatchEditorJs.js",
                 "match-editor-state.js" => "MatchEditorStateJs.js",
+                "preview-state.js" => "PreviewStateJs.js",
                 "user-matches.js" => "UserMatchesJs.js",
                 "provider-anilist.svg" => "Images.provider-anilist.svg",
                 "provider-mal.svg" => "Images.provider-mal.svg",
