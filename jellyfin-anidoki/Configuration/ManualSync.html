@@ -5,7 +5,7 @@
         <nav id="navigationTabs" class="doki-tabs" aria-label="Plugin pages"></nav>
         <p class="doki-status" data-page-status role="status">Loading users and linked trackers…</p>
         <form id="ManualSyncConfigForm" hidden><section class="doki-panel">
-            <h2>Choose a direction</h2><p class="doki-help doki-help-full">Sync runs in the background and changes Jellyfin or tracker lists as it goes. You can leave this page; come back to see the result. Matching uses your installed metadata providers and AniDōki’s current tracking rules.</p>
+            <h2>Choose a direction</h2><p class="doki-help doki-help-full">Preview changes shows what a sync would do without changing anything. Both run in the background, so you can leave this page.</p>
             <div class="doki-direction">
                 <label><input type="radio" name="syncAction" value="UpdateJellyfin" checked><span><strong>Tracker → Jellyfin</strong><span class="doki-help">Bring watched progress from one linked tracker into Jellyfin.</span></span></label>
                 <label><input type="radio" name="syncAction" value="UpdateProvider"><span><strong>Jellyfin → Trackers</strong><span class="doki-help">Send Jellyfin’s watched progress to linked trackers.</span></span></label>
@@ -18,18 +18,65 @@
                 </div>
                 <div id="outboundOptions" class="doki-stack" hidden>
                     <div class="doki-field"><label for="selectSyncTrackers">Trackers</label><select class="doki-input" id="selectSyncTrackers"></select></div>
-                    <p class="doki-help">Sends progress to the chosen trackers using their current tracking rules.</p>
                 </div>
             </div>
             <div class="doki-sync-footer">
                 <p class="doki-status" id="formStatus" role="status"></p>
                 <div class="doki-actions">
                     <a class="doki-button" id="settingsLink" href="#/configurationpage?name=AniDoki">Link accounts in Settings</a>
-                    <button class="doki-button doki-button-primary" id="runSync" type="submit" disabled>Run sync</button>
-                    <button class="doki-button" id="cancelSync" type="button" hidden>Cancel sync</button>
+                    <button class="doki-button" id="previewChanges" type="button" disabled hidden>Preview changes</button>
+                    <button class="doki-button doki-button-primary" id="runSync" type="submit" disabled hidden>Run sync</button>
                 </div>
-                <p class="doki-status" id="runStatus" role="status"></p>
             </div>
         </section></form>
+        <section class="doki-panel" id="runPanel" aria-labelledby="runTitle" hidden>
+            <h2 id="runTitle">Progress</h2>
+            <div class="doki-run" id="pageRun">
+                <p class="doki-run-summary" data-run-summary></p>
+                <div class="doki-progress" role="progressbar" aria-labelledby="runTitle" data-run-bar><span></span></div>
+                <div class="doki-run-line">
+                    <p class="doki-status" role="status" data-run-status></p>
+                    <div class="doki-actions">
+                        <button class="doki-button" type="button" data-action="cancel" hidden>Cancel</button>
+                        <button class="doki-button" id="openPreview" type="button" hidden>Open preview</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <dialog class="doki-dialog doki-preview-dialog" id="previewDialog" aria-labelledby="previewTitle">
+            <div class="doki-dialog-header">
+                <div class="doki-dialog-heading">
+                    <h2 id="previewTitle" tabindex="-1">Preview</h2>
+                    <p class="doki-help" id="previewRequest"></p>
+                </div>
+                <button class="doki-button doki-button-quiet" type="button" data-action="close-preview">Close</button>
+            </div>
+            <fieldset class="doki-preview-tabs" id="previewTabs" hidden><legend class="doki-sr-only">Show</legend><div id="previewFilters"></div></fieldset>
+            <div class="doki-dialog-body">
+                <div class="doki-run" id="dialogRun">
+                    <p class="doki-run-summary" data-run-summary></p>
+                    <div class="doki-progress" role="progressbar" aria-labelledby="previewTitle" data-run-bar><span></span></div>
+                    <div class="doki-run-line">
+                        <p class="doki-status" role="status" data-run-status></p>
+                        <button class="doki-button" type="button" data-action="cancel" hidden>Cancel</button>
+                    </div>
+                </div>
+                <div class="doki-preview" id="previewResults" hidden>
+                    <div class="doki-table-shell"><table class="doki-user-table doki-preview-table" id="previewTable" aria-labelledby="previewTitle">
+                        <thead><tr><th scope="col">Tracker entry</th><th scope="col">Now</th><th scope="col">Proposed</th><th scope="col">Reason</th></tr></thead>
+                    </table></div>
+                </div>
+            </div>
+            <div class="doki-dialog-footer">
+                <div class="doki-preview-pager" id="previewPager" hidden>
+                    <button class="doki-button doki-icon-button" id="previousPreviewPage" type="button" aria-label="Previous page"></button>
+                    <span class="doki-status" id="previewPageStatus" role="status"></span>
+                    <button class="doki-button doki-icon-button" id="nextPreviewPage" type="button" aria-label="Next page"></button>
+                </div>
+                <div class="doki-actions">
+                    <button class="doki-button doki-button-primary" id="previewRunSync" type="button" disabled>Run sync</button>
+                </div>
+            </div>
+        </dialog>
     </div></div>
 </div>

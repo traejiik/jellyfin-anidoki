@@ -31,12 +31,17 @@ export function linkedUsersBadge(users, userConfig = []) {
     const count = users.filter(user => userConfig.find(item => item.UserId === user.Id)?.UserApiAuth?.length).length;
     return element('span', 'doki-badge', `${count} ${count === 1 ? 'user' : 'users'} linked`);
 }
+const iconPaths = {
+    pencil: ['M16 3a2.1 2.1 0 0 1 3 3L7 18l-4 1 1-4Z', 'm14 5 3 3'], check: ['M20 6 9 17l-5-5'],
+    'eye-off': ['M3 3l18 18', 'M10.6 5.1A11 11 0 0 1 12 5c6.5 0 10 7 10 7s-1.1 2.2-3.3 4.1', 'M6.2 6.2C3.4 8.3 2 12 2 12s3.5 7 10 7a11 11 0 0 0 5.8-1.8', 'M10 10a3 3 0 0 0 4 4'],
+    eye: ['M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z', 'M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0'],
+    'chevron-left': ['m15 6-6 6 6 6'], 'chevron-right': ['m9 6 6 6-6 6']
+};
 export function icon(name) {
     const namespace = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(namespace, 'svg');
     for (const [key, value] of Object.entries({ viewBox: '0 0 24 24', width: '20', height: '20', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) svg.setAttribute(key, value);
-    const paths = name === 'pencil' ? ['M16 3a2.1 2.1 0 0 1 3 3L7 18l-4 1 1-4Z', 'm14 5 3 3'] : name === 'check' ? ['M20 6 9 17l-5-5'] : name === 'eye-off' ? ['M3 3l18 18', 'M10.6 5.1A11 11 0 0 1 12 5c6.5 0 10 7 10 7s-1.1 2.2-3.3 4.1', 'M6.2 6.2C3.4 8.3 2 12 2 12s3.5 7 10 7a11 11 0 0 0 5.8-1.8', 'M10 10a3 3 0 0 0 4 4'] : ['M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z', 'M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0'];
-    for (const d of paths) { const path = document.createElementNS(namespace, 'path'); path.setAttribute('d', d); svg.append(path); }
+    for (const d of iconPaths[name] ?? iconPaths.eye) { const path = document.createElementNS(namespace, 'path'); path.setAttribute('d', d); svg.append(path); }
     return svg;
 }
 export function secretInput(input, name, signal) {

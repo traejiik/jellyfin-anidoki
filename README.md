@@ -34,6 +34,12 @@ Some trackers split one Jellyfin season into several entries: AniList lists Stee
 - For each tracker, a personal correction comes first, then the shared match, then automatic matching. An episode a saved match does not cover is not synced, rather than guessed.
 - **Use saved matches** under Settings > Advanced is on by default. Turning it off matches every season automatically, without deleting any saved matches.
 
+### Manual sync
+
+Administrators run a sync by hand from the **Manual sync** tab, in either direction: **Tracker → Jellyfin** marks episodes played from one linked tracker's Completed and Watching lists, and **Jellyfin → Trackers** sends each season's highest watched episode to all linked trackers or one of them.
+
+**Preview changes** opens a window showing what that sync would do without changing anything: one row per season and tracker entry, with the entry's current state, the proposed value and the reason. **Lowers progress** lists entries where the tracker is ahead of Jellyfin; a sync never lowers progress, and from 1.7.0 these can be applied one by one. **Problems** lists what could not be matched or read. **Run sync**, on the page or in the preview window, applies the current rules straight away, as before. A progress bar below the form follows the latest run; you can leave the page and come back to it.
+
 ### Playback update notifications
 
 After playback stops, AniDōki can show an informational toast for confirmed tracker changes in the web session that played the item. Turn **Show tracker update toasts** on or off in your tracking settings. It is enabled by default.
