@@ -80,9 +80,22 @@ public class PreviewStoreTests {
         _store.Add(id, Row(1, kind: PreviewRowKind.Reduction));
         _store.Add(id, Row(2, provider: ApiName.Kitsu));
 
-        Assert.That(_store.Page(id, PreviewRowKind.Change, null, 0, 10).Total, Is.EqualTo(2));
+        Assert.That(_store.Page(id, [PreviewRowKind.Change], null, 0, 10).Total, Is.EqualTo(2));
         Assert.That(_store.Page(id, null, ApiName.Kitsu, 0, 10).Total, Is.EqualTo(1));
-        Assert.That(_store.Page(id, PreviewRowKind.Reduction, ApiName.Kitsu, 0, 10).Total, Is.Zero);
+        Assert.That(_store.Page(id, [PreviewRowKind.Reduction], ApiName.Kitsu, 0, 10).Total, Is.Zero);
+    }
+
+    [Test]
+    public void SeveralKindsFilterTogether() {
+        Guid id = Finished();
+        _store.Add(id, Row(0, kind: PreviewRowKind.Unresolved));
+        _store.Add(id, Row(1, kind: PreviewRowKind.Failed));
+        _store.Add(id, Row(2));
+
+        PreviewPage page = _store.Page(id, [PreviewRowKind.Unresolved, PreviewRowKind.Failed], null, 0, 10);
+
+        Assert.That(page.Total, Is.EqualTo(2));
+        Assert.That(page.Rows.Select(row => row.Seq), Is.EqualTo(new[] { 0, 1 }));
     }
 
     [Test]

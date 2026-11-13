@@ -219,10 +219,11 @@ public class PreviewControllerTests {
                 "500", "Entry 500", 5, kind, "progress", null, null, null, false, "1-5", null, null, kind == PreviewRowKind.Change,
                 kind == PreviewRowKind.Change, null));
 
-        PreviewPage page = _controller.Rows(id, PreviewRowKind.Change, null, 0, 1).Value!;
+        PreviewPage page = _controller.Rows(id, [PreviewRowKind.Change], null, 0, 1).Value!;
 
         Assert.That(page.Total, Is.EqualTo(2));
         Assert.That(page.Rows, Has.Count.EqualTo(1));
         Assert.That(_controller.Read(id).Value!.RowCounts, Is.EqualTo(new Dictionary<string, int> { ["Change"] = 2, ["NoChange"] = 1 }));
+        Assert.That(_controller.Rows(id, [PreviewRowKind.Change, PreviewRowKind.NoChange], null, 0, 10).Value!.Total, Is.EqualTo(3));
     }
 }

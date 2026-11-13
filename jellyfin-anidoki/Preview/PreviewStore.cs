@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Resolution;
@@ -26,8 +27,6 @@ public sealed class PreviewStore(AniDokiDatabase database, TimeProvider clock) {
         kind, reason, resolved_by, resolution_note, match_revision, apply_saved_matches, watched_fingerprint, planned_change,
         planned_against, selectable, selected_by_default, applied_operation_id
         """;
-
-    private const string Filter = "operation_id = $id AND ($kind IS NULL OR kind = $kind) AND ($provider IS NULL OR provider = $provider)";
 
     public void Add(Guid operationId, PreviewRow row) {
         using var connection = database.Open();
@@ -65,22 +64,27 @@ public sealed class PreviewStore(AniDokiDatabase database, TimeProvider clock) {
     }
 
     /// <summary>One page of rows, by season title (series, then season), source, tracker, then the order they were planned in.</summary>
-    public PreviewPage Page(Guid operationId, PreviewRowKind? kind, ApiName? provider, int offset, int limit) {
+    /// <param name="kinds">Rows of any of these kinds; null or empty for every kind.</param>
+    public PreviewPage Page(Guid operationId, IReadOnlyCollection<PreviewRowKind>? kinds, ApiName? provider, int offset, int limit) {
+        IReadOnlyList<PreviewRowKind> chosen = kinds?.Distinct().ToList() ?? [];
+        // Parameter names only, never values, go into the text.
+        string filter = "operation_id = $id AND ($provider IS NULL OR provider = $provider)" +
+            (chosen.Count == 0 ? "" : $" AND kind IN ({string.Join(", ", chosen.Select((_, index) => $"$kind{index}"))})");
         using var connection = database.Open();
         int total;
         using (var count = connection.CreateCommand()) {
-            count.CommandText = $"SELECT COUNT(*) FROM preview_rows WHERE {Filter}";
-            SetFilter(count, operationId, kind, provider);
+            count.CommandText = $"SELECT COUNT(*) FROM preview_rows WHERE {filter}";
+            SetFilter(count, operationId, chosen, provider);
             total = Convert.ToInt32(count.ExecuteScalar(), CultureInfo.InvariantCulture);
         }
         var rows = new List<PreviewRow>();
         using (var select = connection.CreateCommand()) {
             select.CommandText = $"""
-                SELECT {Columns} FROM preview_rows WHERE {Filter}
+                SELECT {Columns} FROM preview_rows WHERE {filter}
                 ORDER BY source_title COLLATE NOCASE, source_key, provider, seq
                 LIMIT $limit OFFSET $offset
                 """;
-            SetFilter(select, operationId, kind, provider);
+            SetFilter(select, operationId, chosen, provider);
             Set(select, "$limit", limit);
             Set(select, "$offset", offset);
             using var reader = select.ExecuteReader();
@@ -126,10 +130,11 @@ public sealed class PreviewStore(AniDokiDatabase database, TimeProvider clock) {
         return (long)applied.ExecuteScalar()! == 0;
     }
 
-    private static void SetFilter(SqliteCommand command, Guid operationId, PreviewRowKind? kind, ApiName? provider) {
+    private static void SetFilter(SqliteCommand command, Guid operationId, IReadOnlyList<PreviewRowKind> kinds, ApiName? provider) {
         Set(command, "$id", Id(operationId));
-        Set(command, "$kind", kind?.ToString());
         Set(command, "$provider", provider?.ToString());
+        for (int index = 0; index < kinds.Count; index++)
+            Set(command, $"$kind{index}", kinds[index].ToString());
     }
 
     private static PreviewRow ReadRow(SqliteDataReader reader) {

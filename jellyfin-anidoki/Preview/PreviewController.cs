@@ -85,7 +85,7 @@ public sealed class PreviewController(OperationRunner runner, OperationStore sto
     });
 
     [HttpGet("{operationId:guid}/rows")]
-    public ActionResult<PreviewPage> Rows(Guid operationId, [FromQuery] PreviewRowKind? kind, [FromQuery] ApiName? provider,
+    public ActionResult<PreviewPage> Rows(Guid operationId, [FromQuery] PreviewRowKind[]? kind, [FromQuery] ApiName? provider,
         [FromQuery] int offset = 0, [FromQuery] int limit = 50) {
         if (offset < 0 || limit < 1 || limit > PreviewStore.MaxPageSize)
             return BadRequest($"Use an offset of 0 or more and a limit from 1 to {PreviewStore.MaxPageSize}.");
