@@ -69,14 +69,8 @@ public sealed class PreviewApply(
             // The same wait between seasons as Run sync, so a large apply does not trip a tracker's rate limit.
             if (i > 0 && row.SourceKey != selected[i - 1].SourceKey)
                 await delayer.Delay(TimeSpan.FromSeconds(2));
-            if (operation.CancellationToken.IsCancellationRequested) {
-                // D8: every row not reached is recorded, so the result lists exactly what was and was not applied.
-                foreach (PreviewRow unreached in selected.Skip(i))
-                    Refuse(operation, unreached, Cancelled, null);
-                operation.Message = $"Cancelled after {i} of {Rows(selected.Count)}. Updates already sent were kept; " +
-                    $"the other {selected.Count - i} were not applied.";
-                operation.CancellationToken.ThrowIfCancellationRequested();
-            }
+            if (operation.CancellationToken.IsCancellationRequested)
+                StopCancelled(operation, selected, i, _logger);
             await ApplyRow(operation, row, user, applySavedMatches, clients, trackers, fingerprints, stopped);
             operation.ReportProgress(i + 1, selected.Count);
         }
@@ -88,11 +82,11 @@ public sealed class PreviewApply(
         TrackerClientFactory clients, Dictionary<ApiName, ITrackerProvider?> trackers, Dictionary<Guid, string?> fingerprints,
         HashSet<ApiName> stopped) {
         if (stopped.Contains(row.Provider)) {
-            Refuse(operation, row, ProviderStopped, null);
+            Refuse(operation, row, ProviderStopped, null, _logger);
             return;
         }
         if (StaleBecause(row, user, applySavedMatches, fingerprints) is { } why) {
-            Refuse(operation, row, Stale, why);
+            Refuse(operation, row, Stale, why, _logger);
             return;
         }
         // StaleBecause refuses a row whose user or link is gone, so the user is known from here on.
@@ -101,7 +95,7 @@ public sealed class PreviewApply(
             trackers[row.Provider] = tracker;
         }
         if (tracker == null) {
-            Refuse(operation, row, Stale, "not-configured");
+            Refuse(operation, row, Stale, "not-configured", _logger);
             return;
         }
         var executor = new Executor(tracker, new PlanRules(user!.PlanToWatchOnly, user.RewatchCompleted), PlanPolicy.ManualSync,
@@ -145,20 +139,33 @@ public sealed class PreviewApply(
         return new PlannedTarget(new ActionTrace(target, row.ResolvedBy ?? ResolvedBy.Ids, row.ResolutionNote), read, write);
     }
 
-    private void Refuse(OperationContext operation, PreviewRow row, string step, string? note) {
-        _logger.LogInformation("({ApiName}) {Title}: {Kind} ({Step})", row.Provider, row.TargetTitle, OutcomeKind.Skipped, step);
+    /// <summary>
+    /// D8: records every row from <paramref name="reached"/> on as not applied, says how far the apply got, and stops.
+    /// </summary>
+    internal static void StopCancelled(OperationContext operation, IReadOnlyList<PreviewRow> selected, int reached, ILogger logger) {
+        // Every row not reached is recorded, so the result lists exactly what was and was not applied.
+        foreach (PreviewRow unreached in selected.Skip(reached))
+            Refuse(operation, unreached, Cancelled, null, logger);
+        operation.Message = $"Cancelled after {reached} of {Rows(selected.Count)}. Updates already sent were kept; " +
+            $"the other {selected.Count - reached} were not applied.";
+        operation.CancellationToken.ThrowIfCancellationRequested();
+    }
+
+    /// <summary>Records a selected row as not applied, with the step and the note that say why.</summary>
+    internal static void Refuse(OperationContext operation, PreviewRow row, string step, string? note, ILogger logger) {
+        logger.LogInformation("({ApiName}) {Title}: {Kind} ({Step})", row.Provider, row.TargetTitle, OutcomeKind.Skipped, step);
         operation.Record(new ProviderWriteOutcome(row.Provider, row.TargetId, row.TargetTitle, OutcomeKind.Skipped, null, null,
             !ProviderCapabilities.For(row.Provider).TracksProgress, step, false), Detail(row, note));
     }
 
-    private static OutcomeDetail Detail(PreviewRow row, string? note) =>
+    internal static OutcomeDetail Detail(PreviewRow row, string? note) =>
         new(row.SourceItem, row.SourceEpisode, row.TargetEpisode, row.ResolvedBy, note, row.PlannedChange, row.PlannedAgainst,
             row.MatchRevision, row.Seq);
 
     private static OutcomeDetail Tagged(OutcomeDetail? detail, PreviewRow row) =>
         detail == null ? Detail(row, null) : detail with { PreviewSeq = row.Seq };
 
-    private static string? Summary(IReadOnlyList<ProviderWriteOutcome> outcomes) {
+    internal static string? Summary(IReadOnlyList<ProviderWriteOutcome> outcomes) {
         int stale = outcomes.Count(outcome => outcome.Step == Stale);
         int stopped = outcomes.Count(outcome => outcome.Step == ProviderStopped);
         var parts = new List<string>();
