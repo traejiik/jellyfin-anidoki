@@ -74,6 +74,8 @@ const reasons = {
     resolve: 'Not found on the tracker', unauthorized: 'The tracker did not accept the sign-in; link the account again',
     'rate-limited': 'The tracker is limiting requests; try again later', transient: 'The tracker did not respond; try again later',
     rejected: 'The tracker refused the update',
+    'preview-stale': 'Changed since the preview; refresh it to see it again', cancelled: 'Not applied because the apply was cancelled',
+    'provider-stopped': 'Not tried because the tracker stopped answering',
     'mark-played': 'Watched on the tracker, not yet played in Jellyfin', 'already-played': 'Already played in Jellyfin',
     ignored: 'The season has AniDōki’s ignore tag', 'no-anidb-id': 'The entry has no AniDB ID to match it with',
     'no-season': 'The anime list does not link this entry to a season'
