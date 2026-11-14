@@ -41,6 +41,20 @@ public class OperationStoreTests {
     }
 
     [Test]
+    public void AnApplyRecordsThePreviewItCameFrom() {
+        (OperationStore store, OperationRunner runner) = Create(_directory);
+        runner.Dispose();
+        Guid preview = Guid.NewGuid();
+        Guid apply = Guid.NewGuid();
+        store.Create(preview, Guid.NewGuid(), OperationKind.PreviewToTrackers, "x");
+
+        store.Create(apply, Guid.NewGuid(), OperationKind.SyncToTrackers, "x", preview);
+
+        Assert.That(store.Read(apply)!.PreviewOf, Is.EqualTo(preview));
+        Assert.That(store.Read(preview)!.PreviewOf, Is.Null);
+    }
+
+    [Test]
     public void ProgressActionsAndTheResultAreRead() {
         var (store, _) = Create(_directory);
         Guid id = Guid.NewGuid();

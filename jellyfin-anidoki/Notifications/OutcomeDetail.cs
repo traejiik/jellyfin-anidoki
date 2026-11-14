@@ -16,5 +16,6 @@ namespace jellyfin_anidoki.Notifications;
 /// <param name="PlannedChange">The change that was written; null when nothing was planned.</param>
 /// <param name="PlannedAgainst">The entry as read, before planner quirks; Phase 7's Undo restores from it.</param>
 /// <param name="MatchRevision">The revision of the saved match behind this action; null otherwise.</param>
+/// <param name="PreviewSeq">The preview row this action applied or refused; null when it did not come from a preview.</param>
 public sealed record OutcomeDetail(Guid? SourceItem, int? SourceEpisode, int? TargetEpisode, ResolvedBy? By, string? Note,
-    EntryChange? PlannedChange, EntryState? PlannedAgainst, long? MatchRevision = null);
+    EntryChange? PlannedChange, EntryState? PlannedAgainst, long? MatchRevision = null, int? PreviewSeq = null);

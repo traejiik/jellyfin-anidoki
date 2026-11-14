@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Trackers;
@@ -78,3 +79,11 @@ public sealed record PreviewView(
     [property: JsonPropertyName("operation")] OperationView Operation,
     [property: JsonPropertyName("rowCounts")] IReadOnlyDictionary<string, int> RowCounts,
     [property: JsonPropertyName("applicable")] bool Applicable);
+
+/// <summary>The rows of a preview to apply, by <see cref="PreviewRow.Seq"/>.</summary>
+public sealed record ApplyRequest([property: JsonPropertyName("rows")] IReadOnlyList<int>? Rows);
+
+/// <summary>What an apply recorded last for one preview row.</summary>
+public sealed record AppliedOutcome(
+    [property: JsonPropertyName("kind")] OutcomeKind Kind,
+    [property: JsonPropertyName("step")] string Step);

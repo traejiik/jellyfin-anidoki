@@ -200,6 +200,32 @@ public class AniDokiDatabaseTests {
     }
 
     [Test]
+    public void VersionSixDatabaseKeepsItsOperationsAndGainsThePreviewSeqColumn() {
+        string path = Path.Combine(_directory, "anidoki.db");
+        CreateAtVersion(path, 6);
+        using (var connection = Connect(path)) {
+            Execute(connection, """
+                INSERT INTO operations (id, user_id, kind, state, source, created_utc)
+                VALUES ('op', 'user', 'SyncToTrackers', 'Succeeded', 'x', '2026-11-13T00:00:00.0000000+00:00')
+                """);
+        }
+
+        var database = new AniDokiDatabase(path);
+
+        Assert.That(database.IsAvailable, Is.True, database.Failure);
+        Assert.That(SchemaVersion(database), Is.EqualTo(StorageMigrations.Latest));
+        using var open = database.Open();
+        using (var command = open.CreateCommand()) {
+            command.CommandText = "SELECT COUNT(*) FROM operations";
+            Assert.That((long)command.ExecuteScalar()!, Is.EqualTo(1));
+        }
+        using (var command = open.CreateCommand()) {
+            command.CommandText = "SELECT COUNT(*) FROM pragma_table_info('operation_actions') WHERE name = 'preview_seq'";
+            Assert.That((long)command.ExecuteScalar()!, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
     public void ForeignKeysAreEnforced() {
         var database = new AniDokiDatabase(Path.Combine(_directory, "anidoki.db"));
 
