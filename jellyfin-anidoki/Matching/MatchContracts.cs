@@ -145,14 +145,25 @@ public sealed record SourceSummaryContract(
     [property: JsonPropertyName("sourceKey")] string SourceKey,
     [property: JsonPropertyName("kind")] MatchSourceKind Kind,
     [property: JsonPropertyName("title")] string Title,
-    [property: JsonPropertyName("providers")] IReadOnlyList<ProviderStateContract> Providers);
+    [property: JsonPropertyName("providers")] IReadOnlyList<ProviderStateContract> Providers,
+    [property: JsonPropertyName("name")] string? Name = null,
+    [property: JsonPropertyName("season")] int? Season = null);
 
+/// <param name="Total">Series and movies, which pages count; each page holds every season of its series.</param>
 /// <param name="Page">1-based.</param>
 public sealed record SourcePageContract(
     [property: JsonPropertyName("items")] IReadOnlyList<SourceSummaryContract> Items,
     [property: JsonPropertyName("total")] int Total,
     [property: JsonPropertyName("page")] int Page,
-    [property: JsonPropertyName("pageSize")] int PageSize);
+    [property: JsonPropertyName("pageSize")] int PageSize,
+    [property: JsonPropertyName("counts")] SourceCountsContract? Counts = null);
+
+/// <summary>How many series and movies each list option would show, keyed by its query value ("" for All).</summary>
+/// <param name="Filters">Per status filter, with the current type applied.</param>
+/// <param name="Kinds">Per type, with the current status filter applied.</param>
+public sealed record SourceCountsContract(
+    [property: JsonPropertyName("filters")] IReadOnlyDictionary<string, int> Filters,
+    [property: JsonPropertyName("kinds")] IReadOnlyDictionary<string, int> Kinds);
 
 public sealed record ProviderDetailContract(
     [property: JsonPropertyName("provider")] ApiName Provider,

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using Jellyfin.Data.Enums;
 using Jellyfin.Database.Implementations.Entities;
+using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Resolution;
 using MediaBrowser.Controller.Dto;
@@ -16,7 +17,10 @@ using Microsoft.Extensions.Logging;
 namespace jellyfin_anidoki.Matching;
 
 /// <summary>A season or movie as the match manager lists it.</summary>
-public sealed record LibrarySourceEntry(string SourceKey, MatchSourceKind Kind, string Title);
+/// <param name="Title">The series and season together, or the movie's name: what search reads and headings show.</param>
+/// <param name="Name">The series or movie name alone, which the list groups by; null means <paramref name="Title"/>.</param>
+/// <param name="Season">The season number; null for a movie.</param>
+public sealed record LibrarySourceEntry(string SourceKey, MatchSourceKind Kind, string Title, string? Name = null, int? Season = null);
 
 /// <summary>A season or movie found in the library, with what a match is checked against.</summary>
 /// <param name="Last">Its highest-numbered episode, or the movie: what automatic resolution and the watch state read.</param>
@@ -25,7 +29,10 @@ public sealed record LibrarySource(MatchSource Info, SyncSource Last, IReadOnlyL
 
 /// <summary>Which seasons and movies exist, and which a user may see. The boundary between the match API and Jellyfin.</summary>
 public interface IMatchLibrary {
-    /// <param name="viewer">Null for an admin, who sees every library; otherwise only what this user can see and syncs.</param>
+    /// <param name="viewer">
+    /// Null for an admin, who sees every anime library chosen in Settings, or every library until one is; otherwise only
+    /// what this user can see and syncs.
+    /// </param>
     IReadOnlyList<LibrarySourceEntry> List(Guid? viewer);
 
     /// <returns>The source, or null when it does not exist, has no numbered episode, or <paramref name="viewer"/> cannot see it.</returns>
@@ -58,13 +65,14 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
         var query = new InternalItemsQuery(user) { IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series], IsVirtualItem = false };
         var sources = new List<LibrarySourceEntry>();
         foreach (BaseItem item in library.GetItemList(query)) {
-            if (SyncHelper.MediaShouldBeIgnored(item) || viewer is Guid owner && !Syncs(owner, item))
+            if (SyncHelper.MediaShouldBeIgnored(item) || (viewer is Guid owner ? !Syncs(owner, item) : !InAnimeLibrary(item)))
                 continue;
             if (item is Movie movie) {
-                sources.Add(new LibrarySourceEntry($"movie:{movie.Id:N}", MatchSourceKind.Movie, movie.Name));
+                sources.Add(new LibrarySourceEntry($"movie:{movie.Id:N}", MatchSourceKind.Movie, movie.Name, movie.Name));
             } else if (item is Series series) {
                 foreach (Season season in series.Children.OfType<Season>().Where(season => season.IndexNumber != null))
-                    sources.Add(new LibrarySourceEntry($"season:{series.Id:N}:{season.IndexNumber}", MatchSourceKind.Season, $"{series.Name} · season {season.IndexNumber}"));
+                    sources.Add(new LibrarySourceEntry($"season:{series.Id:N}:{season.IndexNumber}", MatchSourceKind.Season,
+                        $"{series.Name} · season {season.IndexNumber}", series.Name, season.IndexNumber));
             }
         }
         return sources;
@@ -104,6 +112,22 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
         }
         // The same season of the same series is the likeliest; the other seasons follow.
         return candidates.OrderBy(entry => SourceKeys.Parse(entry.SourceKey)?.SeasonNumber == seasonNumber ? 0 : 1).ThenBy(entry => entry.Title).ToList();
+    }
+
+    /// <summary>
+    /// Whether the admin list shows the item: once Settings names any anime library, only what those libraries sync, as
+    /// <see cref="LibraryFilter"/> decides for every user; until then, everything.
+    /// </summary>
+    private bool InAnimeLibrary(BaseItem item) {
+        AnimeLibrary[]? anime = Plugin.Instance?.PluginConfiguration.AnimeLibraries;
+        if (anime is null or { Length: 0 })
+            return true;
+        try {
+            return LibraryFilter.InAnimeLibraries(anime, library, item);
+        } catch (Exception e) {
+            logger.LogDebug(e, "Could not tell whether {Item} is in an anime library; leaving it out of the match list", item.Name);
+            return false;
+        }
     }
 
     /// <summary>A user's library filter applies; a user who never saved AniDoki settings has none.</summary>

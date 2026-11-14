@@ -12,23 +12,29 @@ namespace jellyfin_anidoki.Matching;
 /// <summary>Why the match manager lists a season under a problem chip.</summary>
 public enum MatchProblem { NeedsMatch, NeedsReview }
 
+/// <summary>The source keys (<see cref="SyncSource.SourceKey"/>) under each problem. A key can be under both, when one
+/// user's or tracker's sync needed a match and another's a review.</summary>
+public sealed record MatchProblemKeys(IReadOnlySet<string> NeedsMatch, IReadOnlySet<string> NeedsReview) {
+    public IReadOnlySet<string> Of(MatchProblem problem) => problem == MatchProblem.NeedsMatch ? NeedsMatch : NeedsReview;
+}
+
 /// <summary>Seasons and movies whose recent syncs say a match would help. The boundary between the match API and operation history.</summary>
 public interface IMatchProblems {
+    /// <summary>Both problems from one read of history, since the match list counts both on every load.</summary>
     /// <param name="user">Only this user's syncs; null for everyone's.</param>
-    /// <returns>Source keys (<see cref="SyncSource.SourceKey"/>).</returns>
-    IReadOnlySet<string> SourceKeys(MatchProblem problem, Guid? user);
+    MatchProblemKeys SourceKeys(Guid? user);
 }
 
 /// <summary>
 /// Reads operation history. A source is listed when the latest sync of it, for some user and tracker, needed a match
 /// (D6: it found no entry) or a review (D12: title search had several equal candidates). Saving a match and syncing
-/// again therefore clears it. No cache: this runs only when an admin or user opens the chip (AGENTS.md: measure first).
+/// again therefore clears it. No cache: this runs on each load of the match list, whose filters count problems (AGENTS.md: measure first).
 /// </summary>
 public sealed class RecentMatchProblems(OperationStore operations, ILibraryManager library, TimeProvider clock) : IMatchProblems {
     /// <summary>The whole of operation history, which is kept this long.</summary>
     public static readonly TimeSpan Window = OperationRunner.Retention;
 
-    public IReadOnlySet<string> SourceKeys(MatchProblem problem, Guid? user) {
+    public MatchProblemKeys SourceKeys(Guid? user) {
         var latest = new Dictionary<(Guid User, string SourceKey, string Provider), MatchProblem?>();
         var keys = new Dictionary<Guid, string?>();
         foreach (RecordedResolution row in operations.RecentResolutions(clock.GetUtcNow() - Window, user)) {
@@ -37,7 +43,9 @@ public sealed class RecentMatchProblems(OperationStore operations, ILibraryManag
             if (key != null)
                 latest[(row.UserId, key, row.Provider)] = Classify(row.Outcome, row.Note);
         }
-        return latest.Where(entry => entry.Value == problem).Select(entry => entry.Key.SourceKey).ToHashSet(StringComparer.Ordinal);
+        HashSet<string> Under(MatchProblem problem) =>
+            latest.Where(entry => entry.Value == problem).Select(entry => entry.Key.SourceKey).ToHashSet(StringComparer.Ordinal);
+        return new MatchProblemKeys(Under(MatchProblem.NeedsMatch), Under(MatchProblem.NeedsReview));
     }
 
     /// <summary>

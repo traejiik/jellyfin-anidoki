@@ -43,8 +43,7 @@ public static class LibraryFilter {
         if (animeLibraries is null or { Count: 0 })
             return UserIncludes(userConfig, libraryManager, logger, item) ? LibraryScope.Included : LibraryScope.Excluded;
         try {
-            LibraryScope scope = ScopeIn(animeLibraries, LibrariesOf(libraryManager, item),
-                () => HasAnimeId(item, tmdbId => AnimeListIndex.Shared.AniDbIdForMovie(tmdbId) != null));
+            LibraryScope scope = AnimeScope(animeLibraries, libraryManager, item);
             if (scope == LibraryScope.Excluded)
                 logger.LogInformation("Item is not in an anime library, or has no anime ID in a Mixed library; ignoring");
             return scope;
@@ -53,6 +52,16 @@ public static class LibraryFilter {
             return LibraryScope.Excluded;
         }
     }
+
+    /// <summary>
+    /// Whether the anime libraries sync the item, without logging: for listing many items at once. Throws as the
+    /// library lookup does; a caller that cannot afford that catches it.
+    /// </summary>
+    public static bool InAnimeLibraries(IReadOnlyCollection<AnimeLibrary> animeLibraries, ILibraryManager libraryManager, BaseItem item) =>
+        AnimeScope(animeLibraries, libraryManager, item) != LibraryScope.Excluded;
+
+    private static LibraryScope AnimeScope(IReadOnlyCollection<AnimeLibrary> animeLibraries, ILibraryManager libraryManager, BaseItem item) =>
+        ScopeIn(animeLibraries, LibrariesOf(libraryManager, item), () => HasAnimeId(item, tmdbId => AnimeListIndex.Shared.AniDbIdForMovie(tmdbId) != null));
 
     /// <summary>The most permissive mode among the item's libraries. A library with no entry counts as Off.</summary>
     internal static LibraryScope ScopeIn(IReadOnlyCollection<AnimeLibrary> animeLibraries, IEnumerable<Guid> itemLibraries, Func<bool> hasAnimeId) {

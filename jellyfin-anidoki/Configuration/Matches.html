@@ -12,15 +12,18 @@
                     <input class="doki-input" id="sourceSearch" type="search" placeholder="Search by title" autocomplete="off">
                     <button class="doki-button" type="submit">Search</button>
                 </form>
-                <fieldset class="doki-chip-row"><legend class="doki-sr-only">Show</legend><div class="doki-actions" id="sourceFilters"></div></fieldset>
+                <div class="doki-list-filters">
+                    <fieldset class="doki-segmented" id="sourceFilters"><legend class="doki-sr-only">Show</legend></fieldset>
+                    <fieldset class="doki-segmented" id="sourceKinds"><legend class="doki-sr-only">Type</legend></fieldset>
+                </div>
                 <div class="doki-table-shell"><table class="doki-user-table doki-source-table">
-                    <thead><tr><th scope="col">Title</th><th scope="col">Saved</th><th scope="col"><span class="doki-sr-only">Open</span></th></tr></thead>
+                    <thead><tr><th scope="col">Season</th><th scope="col">Saved</th><th scope="col"><span class="doki-sr-only">Edit</span></th></tr></thead>
                     <tbody id="sourceRows"></tbody>
                 </table></div>
-                <div class="doki-actions doki-pager">
-                    <button class="doki-button" id="previousPage" type="button">Previous</button>
+                <div class="doki-preview-pager doki-pager">
+                    <button class="doki-button doki-icon-button" id="previousPage" type="button" aria-label="Previous page"></button>
                     <span class="doki-status" id="pageStatus" role="status"></span>
-                    <button class="doki-button" id="nextPage" type="button">Next</button>
+                    <button class="doki-button doki-icon-button" id="nextPage" type="button" aria-label="Next page"></button>
                 </div>
             </section>
             <section class="doki-panel" id="orphanPanel" aria-labelledby="orphansTitle" hidden>
@@ -29,7 +32,7 @@
                 <ul class="doki-orphan-list" id="orphanRows"></ul>
                 <p class="doki-status" id="orphanStatus" role="status"></p>
             </section>
-            <dialog class="doki-dialog" id="matchDialog" aria-labelledby="dialogTitle">
+            <dialog class="doki-dialog doki-match-dialog" id="matchDialog" aria-labelledby="dialogTitle">
                 <div class="doki-dialog-header">
                     <div class="doki-dialog-heading">
                         <div class="doki-dialog-trail" data-view="editor" hidden>
@@ -44,13 +47,17 @@
                     </div>
                     <button class="doki-button doki-button-quiet" type="button" data-action="close-dialog">Close</button>
                 </div>
+                <div class="doki-dialog-tabs" role="tablist" aria-label="Tracker" id="providerTabs" data-view="detail"></div>
                 <div class="doki-dialog-body" data-view="detail">
-                    <div class="doki-provider-tabs" role="tablist" aria-label="Tracker" id="providerTabs"></div>
                     <div class="doki-stack" id="providerPanel" role="tabpanel">
-                        <p class="doki-match-state"><span class="doki-badge" id="resolutionBadge"></span><span class="doki-help" id="automaticNote"></span></p>
                         <div>
-                            <h3 id="episodeMapTitle">Episode map</h3>
-                            <p class="doki-help doki-map-note" id="episodeMapNote"></p>
+                            <div class="doki-map-heading">
+                                <div class="doki-map-heading-text">
+                                    <h3 id="episodeMapTitle">Episode map</h3>
+                                    <p class="doki-help doki-map-note"><span id="automaticNote"></span> <span id="episodeMapNote"></span></p>
+                                </div>
+                                <span class="doki-badge" id="resolutionBadge"></span>
+                            </div>
                             <div class="doki-table-shell"><table class="doki-user-table doki-episode-map" aria-labelledby="episodeMapTitle">
                                 <thead><tr><th scope="col">Episode</th><th scope="col">Syncs to</th></tr></thead>
                                 <tbody id="episodeRows"></tbody>
@@ -62,15 +69,20 @@
                             <button class="doki-button" type="button" data-action="delete-shared">Delete shared match</button>
                         </div>
                         <p class="doki-status" id="detailStatus" role="status"></p>
-                        <details class="doki-history"><summary>History</summary><ol id="historyList"></ol></details>
-                        <div>
-                            <h3 id="correctionsTitle">Personal corrections</h3>
+                        <div class="doki-subsections">
+                        <details class="doki-subsection" id="historySection"><summary><span>History</span><span class="doki-subsection-count" id="historyCount"></span></summary>
+                            <div class="doki-subsection-body"><ol class="doki-history-list" id="historyList"></ol></div>
+                        </details>
+                        <details class="doki-subsection" id="correctionsSection"><summary><span id="correctionsTitle">Personal corrections</span><span class="doki-subsection-count" id="correctionsCount"></span></summary>
+                            <div class="doki-subsection-body">
                             <p class="doki-help" id="correctionsNote"></p>
                             <div class="doki-table-shell" id="correctionsShell"><table class="doki-user-table" aria-labelledby="correctionsTitle">
                                 <thead><tr><th scope="col">User</th><th scope="col">Revision</th><th scope="col"><span class="doki-sr-only">Actions</span></th></tr></thead>
                                 <tbody id="correctionRows"></tbody>
                             </table></div>
                             <div class="doki-correction-view" id="correctionView" hidden></div>
+                            </div>
+                        </details>
                         </div>
                     </div>
                 </div>

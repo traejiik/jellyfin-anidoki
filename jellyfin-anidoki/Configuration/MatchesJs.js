@@ -7,6 +7,8 @@ const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidoki
 
 export default function (view) {
     let common, editor, state, lifetime;
+    // opened: series headings the viewer opened or closed, by group key, kept across searches and pages.
+    const openedGroups = new Map();
     let list, page, detail, provider, match, automatic, entryPicker, users = [], linked = new Set(), showIncomplete = false, editingFor = null;
     const find = selector => view.querySelector(selector);
     const tones = { error: 'error', success: 'success' };
@@ -66,10 +68,16 @@ export default function (view) {
             list = state.setFilter(list, event.target.value);
             loadList(signal);
         }, { signal });
+        find('#sourceKinds').addEventListener('change', event => {
+            list = state.setKind(list, event.target.value);
+            loadList(signal);
+        }, { signal });
+        find('#previousPage').replaceChildren(common.icon('chevron-left'));
+        find('#nextPage').replaceChildren(common.icon('chevron-right'));
         find('#previousPage').addEventListener('click', () => { list = state.setPage(list, list.page - 1, state.pageCount(page)); loadList(signal); }, { signal });
         find('#nextPage').addEventListener('click', () => { list = state.setPage(list, list.page + 1, state.pageCount(page)); loadList(signal); }, { signal });
         find('#sourceRows').addEventListener('click', event => {
-            const button = event.target.closest?.('[data-source]');
+            const button = editor.sourceButton(event);
             if (!button) return;
             sourceOpener = button;
             openSource(button.dataset.source, null, signal, { force: true }).then(() => { if (find('#matchDialog').open) find('#dialogTitle').focus(); });
@@ -150,14 +158,9 @@ export default function (view) {
         if ([...select.options].some(option => option.value === selected)) select.value = selected;
     }
 
-    function renderFilters() {
-        find('#sourceFilters').replaceChildren(...state.filters.map(filter => {
-            const label = common.element('label', 'doki-filter-choice');
-            const input = common.element('input');
-            Object.assign(input, { type: 'radio', name: 'matchFilter', value: filter.key, checked: filter.key === list.filter });
-            label.append(input, common.element('span', '', filter.label));
-            return label;
-        }));
+    function renderFilters(counts) {
+        editor.renderSegmented(find('#sourceFilters'), 'matchFilter', state.filters, list.filter, counts?.filters);
+        editor.renderSegmented(find('#sourceKinds'), 'matchKind', state.kinds, list.kind, counts?.kinds);
     }
 
     async function loadList(signal) {
@@ -169,29 +172,24 @@ export default function (view) {
             return;
         }
         if (signal.aborted) return;
-        const rows = (page.items ?? []).map(item => {
-            const row = common.element('tr');
-            const open = common.element('button', 'doki-button', 'Open');
-            open.type = 'button';
-            open.dataset.source = item.sourceKey;
-            open.setAttribute('aria-label', `Open ${item.title}`);
-            if (detail?.sourceKey === item.sourceKey) row.setAttribute('aria-current', 'true');
-            const saved = (item.providers ?? []).map(entry => `${common.providerName(entry.provider)}: ${state.stateLabel(entry)}`).join(', ');
-            const cell = common.element('td');
-            cell.append(open);
-            row.append(common.element('td', 'doki-row-name', item.title), common.element('td', 'doki-muted', saved || 'Automatic'), cell);
-            return row;
+        const items = page.items ?? [];
+        renderFilters(page.counts);
+        // Headings start closed on the full list, and open once a search or filter has narrowed it.
+        editor.renderSourceRows(find('#sourceRows'), state.groupSources(items), {
+            opened: openedGroups, open: state.opensGroups(list), current: detail?.sourceKey, icon: common.icon,
+            season: state.seasonLabel, saved: item => state.savedLabel(item, common.providerName)
         });
-        if (!rows.length) {
-            const empty = common.element('td', 'doki-muted', list.search || list.filter ? 'Nothing matches this search.' : 'No seasons or movies found.');
+        if (!items.length) {
+            const empty = common.element('td', 'doki-muted', list.search || list.filter || list.kind ? 'Nothing matches this search.' : 'No seasons or movies found.');
             empty.colSpan = 3;
             const row = common.element('tr');
             row.append(empty);
-            rows.push(row);
+            find('#sourceRows').replaceChildren(row);
         }
-        find('#sourceRows').replaceChildren(...rows);
         const count = state.pageCount(page);
-        common.status(find('#pageStatus'), `Page ${page.page ?? 1} of ${count} · ${page.total ?? 0} ${page.total === 1 ? 'item' : 'items'}`);
+        common.status(find('#pageStatus'), state.pageLabel(page));
+        // One page needs no buttons; the label alone counts the items.
+        find('#previousPage').hidden = find('#nextPage').hidden = count <= 1;
         find('#previousPage').disabled = list.page <= 1;
         find('#nextPage').disabled = list.page >= count;
     }
@@ -211,7 +209,7 @@ export default function (view) {
         detail = loaded;
         showSourceHeading();
         if (!find('#matchDialog').open) find('#matchDialog').showModal();
-        find('#sourceRows').querySelectorAll('tr').forEach(row => row.toggleAttribute('aria-current', row.querySelector('[data-source]')?.dataset.source === sourceKey));
+        find('#sourceRows').querySelectorAll('tr[data-source]').forEach(row => row.toggleAttribute('aria-current', row.dataset.source === sourceKey));
         // Trackers in the order Settings lists them; open the one asked for, else one with a saved match, else one somebody linked.
         const order = common.providers.map(entry => entry.key);
         detail.providers = [...(detail.providers ?? [])].sort((a, b) => order.indexOf(a.provider) - order.indexOf(b.provider));
@@ -264,7 +262,10 @@ export default function (view) {
         // A draft belongs to one season and tracker; the dialog is modal, so this only happens after a save or reload.
         if (changed) closeEditor({ force: true });
         find('#resolutionBadge').textContent = state.resolutionBadge(entry.shared);
-        find('#automaticNote').textContent = entry.shared ? `Saved by ${entry.shared.updatedBy}, ${new Date(entry.shared.updatedUtc).toLocaleString()}.` : 'Sync finds the entry itself.';
+        // The episode map's description: where the map comes from, then (from drawMap) how its titles were read.
+        find('#automaticNote').textContent = entry.shared
+            ? `${entry.shared.updatedBy} saved this as the shared match on ${new Date(entry.shared.updatedUtc).toLocaleString()}. Everyone without a correction of their own syncs this way.`
+            : 'Checking what automatic matching finds…';
         find('[data-action="edit-shared"]').textContent = entry.shared ? 'Edit match' : 'Create match';
         find('[data-action="delete-shared"]').hidden = !entry.shared;
         drawHistory(entry);
@@ -368,7 +369,9 @@ export default function (view) {
         }
         if (signal.aborted || provider !== reading) return;
         if (!current()?.shared)
-            find('#automaticNote').textContent = automatic.mapping ? 'Sync finds the entry itself.' : `Nothing to save: ${state.automaticReason(automatic.reason)}.`;
+            find('#automaticNote').textContent = automatic.mapping
+                ? `Nothing is saved, so sync finds the ${common.providerName(provider)} entry by itself. This is where each episode goes today.`
+                : `Nothing is saved, and sync cannot find the ${common.providerName(provider)} entry by itself: ${state.automaticReason(automatic.reason)}. Create a match to choose one.`;
         updateButtons();
     }
 
@@ -395,7 +398,7 @@ export default function (view) {
         }
         if (signal.aborted || provider !== reading) return null;
         map.table.hidden = false;
-        map.note.textContent = [label, result.borrowedLink ? 'Titles were read through another user’s link.' : ''].filter(Boolean).join(' ');
+        map.note.textContent = [label, result.borrowedLink ? `Entry titles come from another user’s ${common.providerName(provider)} link.` : ''].filter(Boolean).join(' ');
         editor.renderEpisodeMap(map.rows, result.rows ?? [], state.describeRow);
         return result;
     }
@@ -403,9 +406,9 @@ export default function (view) {
     // The page shows what sync uses now for everyone without a correction.
     async function previewPage(signal) {
         const shared = current()?.shared;
-        if (shared) return drawMap(pageMap(), shared.mapping, 'The shared match:', signal);
-        if (automatic?.mapping) return drawMap(pageMap(), automatic.mapping, 'What automatic matching finds now:', signal);
-        hideMap(pageMap(), 'No episode map to show.');
+        if (shared) return drawMap(pageMap(), shared.mapping, '', signal);
+        if (automatic?.mapping) return drawMap(pageMap(), automatic.mapping, '', signal);
+        hideMap(pageMap(), '');
     }
 
     // The dialog shows the draft, with the chosen user's progress through it.
@@ -521,6 +524,7 @@ export default function (view) {
             return item;
         });
         find('#historyList').replaceChildren(...(items.length ? items : [common.element('li', 'doki-help', 'Nothing saved for this tracker yet.')]));
+        find('#historyCount').textContent = items.length ? `${items.length} ${items.length === 1 ? 'revision' : 'revisions'}` : 'None';
     }
 
     const userNameOf = id => users.find(user => user.Id.replaceAll('-', '') === String(id).replaceAll('-', ''))?.Name ?? 'a deleted user';
@@ -528,6 +532,9 @@ export default function (view) {
     function drawCorrections(entry) {
         const overrides = entry.overrides ?? [];
         find('#correctionsShell').hidden = overrides.length === 0;
+        find('#correctionsCount').textContent = overrides.length ? String(overrides.length) : 'None';
+        // Corrections open by themselves, since each one changes what a user syncs; an empty section stays closed.
+        find('#correctionsSection').open = overrides.length > 0;
         find('#correctionView').hidden = true;
         find('#correctionsNote').textContent = overrides.length
             ? 'A user’s correction replaces the shared match for them alone. Promote one to make it the shared match.'

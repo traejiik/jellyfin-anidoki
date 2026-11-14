@@ -110,7 +110,9 @@ internal sealed class FakeAutomaticMatches : IAutomaticMatches {
 internal sealed class FakeMatchProblems : IMatchProblems {
     public List<(MatchProblem Problem, Guid User, string SourceKey)> Flagged { get; } = new();
 
-    public IReadOnlySet<string> SourceKeys(MatchProblem problem, Guid? user) =>
+    public MatchProblemKeys SourceKeys(Guid? user) => new(Keys(MatchProblem.NeedsMatch, user), Keys(MatchProblem.NeedsReview, user));
+
+    private HashSet<string> Keys(MatchProblem problem, Guid? user) =>
         Flagged.Where(entry => entry.Problem == problem && (user == null || entry.User == user)).Select(entry => entry.SourceKey).ToHashSet();
 }
 

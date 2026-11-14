@@ -195,16 +195,28 @@ export const filters = [{ key: '', label: 'All' }, { key: 'needs-match', label: 
     { key: 'matched', label: 'Saved' }, { key: 'corrections', label: 'Corrections' }];
 export const userFilters = [{ key: '', label: 'All' }, { key: 'needs-match', label: 'Needs a match' }, { key: 'needs-review', label: 'Needs review' },
     { key: 'corrections', label: 'Your corrections' }];
-export const createList = () => ({ search: '', filter: '', page: 1 });
+export const kinds = [{ key: '', label: 'All' }, { key: 'series', label: 'Series' }, { key: 'movies', label: 'Movies' }];
+export const createList = () => ({ search: '', filter: '', kind: '', page: 1 });
+export const setKind = (list, kind) => kinds.some(item => item.key === kind) ? { ...list, kind, page: 1 } : list;
+// Headings start closed on the full list, and open once a search or a filter narrows it.
+export const opensGroups = list => !!(list.search || list.filter);
 // A new search or filter starts again from the first page.
 export const setSearch = (list, search) => ({ ...list, search, page: 1 });
 export const setFilter = (list, filter, options = filters) => options.some(item => item.key === filter) ? { ...list, filter, page: 1 } : list;
-export const pageCount = result => Math.max(1, Math.ceil((result?.total ?? 0) / (result?.pageSize || 50)));
+export const pageCount = result => Math.max(1, Math.ceil((result?.total ?? 0) / (result?.pageSize || 25)));
+// The pager's label, as the sync preview words its own: a range once there is more than one page. Pages count series
+// and movies (titles), never splitting a series' seasons.
+export function pageLabel(result) {
+    const total = result?.total ?? 0, size = result?.pageSize || 25, first = ((result?.page ?? 1) - 1) * size;
+    if (total <= size) return `${total} ${total === 1 ? 'title' : 'titles'}`;
+    return `Titles ${first + 1}–${Math.min(first + size, total)} of ${total}`;
+}
 export const setPage = (list, page, count) => ({ ...list, page: Math.min(Math.max(1, page), Math.max(1, count)) });
 export function listPath(base, list) {
     const query = new URLSearchParams();
     if (list.search.trim()) query.set('search', list.search.trim());
     if (list.filter) query.set('filter', list.filter);
+    if (list.kind) query.set('kind', list.kind);
     if (list.page > 1) query.set('page', String(list.page));
     const text = query.toString();
     return `${base}/sources${text ? `?${text}` : ''}`;
@@ -213,6 +225,33 @@ export function listPath(base, list) {
 export const routePath = (base, ...segments) => [base, ...segments.map(segment => encodeURIComponent(segment))].join('/');
 
 // One line for a provider in the source list. Providers with nothing saved are not sent, and resolve automatically.
+// The list's rows under one heading per series or movie, in the order the server sent them. A series split by the
+// page break gets a heading on each page. A heading counts its seasons and how many have anything saved.
+export function groupSources(items) {
+    const groups = [];
+    for (const item of items) {
+        const key = item.kind === 'Movie' ? item.sourceKey : item.sourceKey.split(':').slice(0, 2).join(':');
+        if (groups.at(-1)?.key !== key) groups.push({ key, title: item.name ?? item.title, movie: item.kind === 'Movie', items: [] });
+        groups.at(-1).items.push(item);
+    }
+    return groups.map(group => {
+        const saved = group.items.filter(item => (item.providers ?? []).some(entry => stateLabel(entry) !== 'Automatic')).length;
+        const count = group.movie ? 'Movie' : `${group.items.length} ${group.items.length === 1 ? 'season' : 'seasons'}`;
+        return { ...group, summary: saved ? `${count} · ${saved} saved` : count };
+    });
+}
+
+// The Season column: season 0 is where Jellyfin keeps specials.
+export function seasonLabel(item) {
+    if (item.kind === 'Movie') return 'Movie';
+    if (item.season == null) return item.title;
+    return item.season === 0 ? 'Specials' : `Season ${item.season}`;
+}
+
+// The Saved column: what each tracker has beyond automatic matching.
+export const savedLabel = (item, providerName) =>
+    (item.providers ?? []).map(entry => `${providerName(entry.provider)}: ${stateLabel(entry)}`).join(', ') || 'Automatic';
+
 export function stateLabel(state) {
     const parts = [];
     if (state.sharedRevision != null) parts.push(`Shared r${state.sharedRevision}`);
@@ -258,6 +297,7 @@ const reasons = {
     'match-target-unreadable': 'Entry could not be read',
     'past-entry-end': 'Past the entry’s last episode'
 };
+
 // One preview row in words. A row that would not sync still names where the match sends it.
 export function describeRow(row) {
     const target = row.target ? `${row.target.title} · episode ${row.targetEpisode}` : '';

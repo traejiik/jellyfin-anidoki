@@ -269,3 +269,51 @@ test('a user’s badge is their correction, else the shared match, else automati
     assert.equal(editor.effectiveBadge({ shared: { revision: 5 } }), 'Shared r5');
     assert.equal(editor.effectiveBadge({}), 'Automatic');
 });
+
+const listed = (sourceKey, name, season, providers = []) =>
+    ({ sourceKey, kind: season == null ? 'Movie' : 'Season', title: season == null ? name : `${name} · season ${season}`, name, season, providers });
+
+test('the list groups a series’ seasons under one heading, and gives each movie its own', () => {
+    const groups = editor.groupSources([
+        listed('season:aa:0', 'Adventure Time', 0), listed('season:aa:1', 'Adventure Time', 1, [{ provider: 'AniList', sharedRevision: 2 }]),
+        listed('movie:bb', 'Black Panther', null), listed('season:cc:1', 'Blue Box', 1)
+    ]);
+    assert.deepEqual(groups.map(group => [group.key, group.title, group.items.length, group.summary]), [
+        ['season:aa', 'Adventure Time', 2, '2 seasons · 1 saved'], ['movie:bb', 'Black Panther', 1, 'Movie'], ['season:cc', 'Blue Box', 1, '1 season']
+    ]);
+});
+
+test('two series with the same name stay apart, since the series ID groups them', () => {
+    const groups = editor.groupSources([listed('season:aa:1', 'Adventure Time', 1), listed('season:dd:1', 'Adventure Time', 1)]);
+    assert.equal(groups.length, 2);
+});
+
+test('the Season column names specials and movies, and falls back to the title from an older server', () => {
+    assert.equal(editor.seasonLabel(listed('season:aa:0', 'Adventure Time', 0)), 'Specials');
+    assert.equal(editor.seasonLabel(listed('season:aa:3', 'Adventure Time', 3)), 'Season 3');
+    assert.equal(editor.seasonLabel(listed('movie:bb', 'Black Panther', null)), 'Movie');
+    assert.equal(editor.seasonLabel({ sourceKey: 'season:aa:1', kind: 'Season', title: 'Adventure Time · season 1' }), 'Adventure Time · season 1');
+    assert.equal(editor.groupSources([{ sourceKey: 'season:aa:1', kind: 'Season', title: 'Adventure Time · season 1' }])[0].title, 'Adventure Time · season 1');
+});
+
+test('the Saved column lists each tracker with something saved, or says Automatic', () => {
+    const name = provider => provider === 'AniList' ? 'AniList' : provider;
+    assert.equal(editor.savedLabel(listed('season:aa:1', 'A', 1, [{ provider: 'AniList', sharedRevision: 2 }]), name), 'AniList: Shared r2');
+    assert.equal(editor.savedLabel(listed('season:aa:1', 'A', 1), name), 'Automatic');
+});
+
+test('the pager counts titles on one page, and gives the range once there are more', () => {
+    assert.equal(editor.pageLabel({ total: 2, page: 1, pageSize: 25 }), '2 titles');
+    assert.equal(editor.pageLabel({ total: 1, page: 1, pageSize: 25 }), '1 title');
+    assert.equal(editor.pageLabel({ total: 43, page: 1, pageSize: 25 }), 'Titles 1–25 of 43');
+    assert.equal(editor.pageLabel({ total: 43, page: 2, pageSize: 25 }), 'Titles 26–43 of 43');
+});
+
+test('the type filter narrows the list to series or movies, from the first page', () => {
+    const list = editor.setKind({ ...editor.createList(), page: 3 }, 'movies');
+    assert.deepEqual(list, { search: '', filter: '', kind: 'movies', page: 1 });
+    assert.equal(editor.listPath('AniDoki/matches', list), 'AniDoki/matches/sources?kind=movies');
+    assert.equal(editor.setKind(list, 'books'), list, 'an unknown type changes nothing');
+    assert.equal(editor.opensGroups(list), false, 'movies have no headings, and the type alone opens no series');
+    assert.equal(editor.opensGroups({ ...list, filter: 'matched' }), true);
+});

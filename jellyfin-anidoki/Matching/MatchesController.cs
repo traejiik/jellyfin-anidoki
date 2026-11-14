@@ -21,8 +21,8 @@ namespace jellyfin_anidoki.Matching;
 [MatchErrors]
 public sealed class MatchesController(MatchService matches, IUserManager users) : ControllerBase {
     [HttpGet("sources")]
-    public IActionResult Sources([FromQuery] string? search, [FromQuery] string? filter, [FromQuery] int page = 1) =>
-        this.From(matches.ListSources(null, search, filter, page));
+    public IActionResult Sources([FromQuery] string? search, [FromQuery] string? filter, [FromQuery] int page = 1, [FromQuery] string? kind = null) =>
+        this.From(matches.ListSources(null, search, filter, page, kind));
 
     [HttpGet("entries")]
     public Task<IActionResult> SearchEntries([FromQuery] ApiName provider, [FromQuery] string? query, CancellationToken cancellationToken) =>
@@ -95,8 +95,8 @@ public sealed class MatchesController(MatchService matches, IUserManager users) 
 [MatchErrors]
 public sealed class UserMatchesController(MatchService matches, IUserManager users) : ControllerBase {
     [HttpGet("sources")]
-    public IActionResult Sources([FromQuery] string? search, [FromQuery] string? filter, [FromQuery] int page = 1) =>
-        Me() is { } user ? this.From(matches.ListSources(user, search, filter, page)) : Unauthorized();
+    public IActionResult Sources([FromQuery] string? search, [FromQuery] string? filter, [FromQuery] int page = 1, [FromQuery] string? kind = null) =>
+        Me() is { } user ? this.From(matches.ListSources(user, search, filter, page, kind)) : Unauthorized();
 
     /// <summary>Through the user's own link only.</summary>
     [HttpGet("entries")]
