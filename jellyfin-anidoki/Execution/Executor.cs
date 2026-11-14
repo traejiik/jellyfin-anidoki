@@ -137,7 +137,7 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
         ResolvedTarget target = trace.Target;
         EntryState state = planned.Read;
         PlanDecision decision = planned.Decision;
-        if (decision is Write && mode == ApplyMode.Strict) {
+        if (decision is Write strictWrite && mode == ApplyMode.Strict) {
             EntryState? current = await tracker.ReadEntry(target.Entry, cancellationToken);
             if (current == null) {
                 Emit(UnreadableOutcome(trace));
@@ -150,6 +150,8 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
             }
 
             state = current;
+            // A preview stores its plan without titles; name the entry as this read does, as a sync's outcome would.
+            decision = strictWrite with { PlannedAgainst = strictWrite.PlannedAgainst with { Titles = current.Titles } };
         } else if (decision is Write && clock.GetUtcNow() - state.ReadAt > StaleAfter) {
             EntryState? fresh = await tracker.ReadEntry(target.Entry, cancellationToken);
             if (fresh == null) {

@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Preview;
 using jellyfin_anidoki.Resolution;
@@ -197,5 +199,72 @@ public class PreviewStoreTests {
         _operations.DeleteFinishedBefore(OperationRunner.Retention);
 
         Assert.That(_store.Page(id, null, null, 0, 10).Total, Is.Zero);
+    }
+
+    [Test]
+    public void ChosenRowsReadBackInPlannedOrderWithoutUnknownOnes() {
+        Guid id = Finished();
+        _store.Add(id, Row(0, "B · season 1"));
+        _store.Add(id, Row(1, "A · season 1"));
+        _store.Add(id, Row(2, "C · season 1"));
+
+        IReadOnlyList<PreviewRow> rows = _store.Rows(id, [2, 0, 7]);
+
+        Assert.That(rows.Select(row => row.Seq), Is.EqualTo(new[] { 0, 2 }));
+    }
+
+    [Test]
+    public void ClaimingMarksOnlyTheChosenRowsAndUsesUpThePreview() {
+        Guid id = Finished();
+        foreach (int seq in new[] { 0, 1, 2 })
+            _store.Add(id, Row(seq));
+        Guid apply = Guid.NewGuid();
+
+        Assert.That(_store.Claim(id, [0, 2], apply), Is.True);
+
+        Assert.That(_store.Page(id, null, null, 0, 10).Rows.OrderBy(row => row.Seq).Select(row => row.AppliedOperationId),
+            Is.EqualTo(new Guid?[] { apply, null, apply }));
+        Assert.That(Applicable(id), Is.False);
+    }
+
+    [Test]
+    public void ASecondClaimOnTheSamePreviewIsRefused() {
+        Guid id = Finished();
+        _store.Add(id, Row(0));
+        _store.Add(id, Row(1));
+        Assert.That(_store.Claim(id, [0], Guid.NewGuid()), Is.True);
+
+        Assert.That(_store.Claim(id, [1], Guid.NewGuid()), Is.False);
+
+        Assert.That(_store.Rows(id, [1]).Single().AppliedOperationId, Is.Null);
+    }
+
+    [Test]
+    public void ReleasingAClaimMakesThePreviewApplicableAgain() {
+        Guid id = Finished();
+        _store.Add(id, Row(0));
+        Guid apply = Guid.NewGuid();
+        _store.Claim(id, [0], apply);
+
+        _store.Release(id, apply);
+
+        Assert.That(Applicable(id), Is.True);
+    }
+
+    [Test]
+    public void AppliedOutcomesAreTheLastActionOfEachRow() {
+        Guid apply = Guid.NewGuid();
+        _operations.Create(apply, _user, OperationKind.SyncToTrackers, "x");
+        static OutcomeDetail For(int seq) => new(null, null, null, null, null, null, null, null, seq);
+        _operations.AddAction(apply, 1, OperationTestSupport.Outcome(OutcomeKind.Confirmed, true), For(0));
+        _operations.AddAction(apply, 2, OperationTestSupport.Outcome(OutcomeKind.Confirmed, true), For(2));
+        _operations.AddAction(apply, 3, OperationTestSupport.Outcome(OutcomeKind.Unconfirmed), For(2));
+        _operations.AddAction(apply, 4, OperationTestSupport.Outcome(OutcomeKind.Skipped), null);
+
+        IReadOnlyDictionary<int, AppliedOutcome> outcomes = _store.Outcomes(apply);
+
+        Assert.That(outcomes.Keys, Is.EquivalentTo(new[] { 0, 2 }));
+        Assert.That(outcomes[0], Is.EqualTo(new AppliedOutcome(OutcomeKind.Confirmed, "progress")));
+        Assert.That(outcomes[2], Is.EqualTo(new AppliedOutcome(OutcomeKind.Unconfirmed, "progress")));
     }
 }

@@ -772,6 +772,20 @@ public class ExecutorTests {
     }
 
     [Test]
+    public async Task StrictNamesTheEntryAsTheRereadDoesWhenThePlanCarriesNoTitles() {
+        // A preview stores its plan without titles; the outcome must still name the entry.
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        tracker.ScriptedReads.Enqueue(StateAt(3));
+        var (executor, recorded) = Recording(tracker);
+        var planned = await PlanOne(executor, PlayedFrom(StateAt(3) with { Titles = null }, 5));
+
+        Assert.That(await executor.ApplyPlanned(planned, ApplyMode.Strict, CancellationToken.None), Is.True);
+
+        Assert.That(fake.Writes, Has.Count.EqualTo(1));
+        Assert.That(recorded.Single().Outcome.TargetTitle, Is.EqualTo("Fixture Show"));
+    }
+
+    [Test]
     public async Task StrictTreatsAnUnreadableEntryAsUnresolved() {
         var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
         tracker.ScriptedReads.Enqueue(null);

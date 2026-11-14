@@ -117,6 +117,12 @@ test('unknown reasons pass through unchanged', () => {
     assert.equal(reasonLabel('no-anidb-id'), 'The entry has no AniDB ID to match it with');
     assert.equal(reasonLabel('manual-sync-rewatch'), 'Manual sync does not update rewatches');
 });
+
+test('apply refusals read as plain reasons', () => {
+    assert.equal(reasonLabel('preview-stale'), 'Changed since the preview; refresh it to see it again');
+    assert.equal(reasonLabel('cancelled'), 'Not applied because the apply was cancelled');
+    assert.equal(reasonLabel('provider-stopped'), 'Not tried because the tracker stopped answering');
+});
 test('a status reason reads as a change or as already matching, by row kind', () => {
     assert.equal(reasonLabel('status', 'Change'), 'The status should match what you have watched');
     assert.equal(reasonLabel('status', 'NoChange'), 'The status already matches');

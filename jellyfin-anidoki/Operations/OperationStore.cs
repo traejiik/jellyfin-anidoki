@@ -12,9 +12,11 @@ namespace jellyfin_anidoki.Operations;
 /// <see cref="InvalidOperationException"/> when the database is unavailable.
 /// </summary>
 public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock) {
-    public void Create(Guid id, Guid userId, OperationKind kind, string source) =>
-        Execute("INSERT INTO operations (id, user_id, kind, state, source, created_utc) VALUES ($id, $user, $kind, $state, $source, $now)",
-            ("$id", Id(id)), ("$user", Id(userId)), ("$kind", kind.ToString()), ("$state", nameof(OperationState.Queued)), ("$source", source), ("$now", Now()));
+    /// <param name="previewOf">The preview an apply writes the selected rows of; null for anything else.</param>
+    public void Create(Guid id, Guid userId, OperationKind kind, string source, Guid? previewOf = null) =>
+        Execute("INSERT INTO operations (id, user_id, kind, state, source, created_utc, preview_of) VALUES ($id, $user, $kind, $state, $source, $now, $previewOf)",
+            ("$id", Id(id)), ("$user", Id(userId)), ("$kind", kind.ToString()), ("$state", nameof(OperationState.Queued)), ("$source", source), ("$now", Now()),
+            ("$previewOf", previewOf is { } preview ? Id(preview) : DBNull.Value));
 
     public void MarkRunning(Guid id) =>
         Execute("UPDATE operations SET state = $state, started_utc = $now WHERE id = $id",
@@ -27,9 +29,9 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
     public void AddAction(Guid id, int sequence, ProviderWriteOutcome outcome, OutcomeDetail? detail = null) =>
         Execute("""
             INSERT INTO operation_actions (operation_id, seq, provider, target_id, target_title, outcome, step, progress, status, meaningful,
-                source_item, source_episode, target_episode, resolved_by, resolution_note, planned_change, planned_against, match_revision)
+                source_item, source_episode, target_episode, resolved_by, resolution_note, planned_change, planned_against, match_revision, preview_seq)
             VALUES ($id, $seq, $provider, $target, $title, $outcome, $step, $progress, $status, $meaningful,
-                $sourceItem, $sourceEpisode, $targetEpisode, $resolvedBy, $note, $plannedChange, $plannedAgainst, $matchRevision)
+                $sourceItem, $sourceEpisode, $targetEpisode, $resolvedBy, $note, $plannedChange, $plannedAgainst, $matchRevision, $previewSeq)
             """,
             ("$id", Id(id)), ("$seq", sequence), ("$provider", outcome.Provider.ToString()), ("$target", outcome.TargetId),
             ("$title", outcome.TargetTitle), ("$outcome", outcome.Kind.ToString()), ("$step", outcome.Step),
@@ -43,7 +45,8 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
             ("$note", (object?)detail?.Note ?? DBNull.Value),
             ("$plannedChange", detail?.PlannedChange is { } change ? ActionJson.Write(change) : DBNull.Value),
             ("$plannedAgainst", detail?.PlannedAgainst is { } against ? ActionJson.Write(against) : DBNull.Value),
-            ("$matchRevision", (object?)detail?.MatchRevision ?? DBNull.Value));
+            ("$matchRevision", (object?)detail?.MatchRevision ?? DBNull.Value),
+            ("$previewSeq", (object?)detail?.PreviewSeq ?? DBNull.Value));
 
     public void Finish(Guid id, OperationState state, string? message) =>
         Execute("UPDATE operations SET state = $state, finished_utc = $now, message = $message WHERE id = $id",
@@ -135,7 +138,7 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
     private static OperationView? Read(SqliteConnection connection, string id) {
         OperationView? view;
         using (var command = connection.CreateCommand()) {
-            command.CommandText = "SELECT id, user_id, kind, state, source, created_utc, started_utc, finished_utc, message, done, total FROM operations WHERE id = $id";
+            command.CommandText = "SELECT id, user_id, kind, state, source, created_utc, started_utc, finished_utc, message, done, total, preview_of FROM operations WHERE id = $id";
             command.Parameters.AddWithValue("$id", id);
             using var reader = command.ExecuteReader();
             if (!reader.Read())
@@ -152,7 +155,8 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
                 reader.IsDBNull(8) ? null : reader.GetString(8),
                 reader.GetInt32(9),
                 reader.IsDBNull(10) ? null : reader.GetInt32(10),
-                new Dictionary<string, int>());
+                new Dictionary<string, int>(),
+                reader.IsDBNull(11) ? null : Guid.Parse(reader.GetString(11)));
         }
         var counts = new Dictionary<string, int>();
         using (var command = connection.CreateCommand()) {

@@ -159,6 +159,9 @@ internal static class StorageMigrations {
                 PRIMARY KEY (operation_id, seq)
             );
             ALTER TABLE operations ADD COLUMN preview_of TEXT;
+            """),
+        (7, """
+            ALTER TABLE operation_actions ADD COLUMN preview_seq INTEGER;
             """)
     ];
 

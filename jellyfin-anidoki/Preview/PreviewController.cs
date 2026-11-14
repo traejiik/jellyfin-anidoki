@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -21,7 +22,7 @@ using Microsoft.Extensions.Logging;
 
 namespace jellyfin_anidoki.Preview;
 
-/// <summary>Starts and reads read-only previews of a manual sync. Admin only, like manual sync (D9).</summary>
+/// <summary>Starts, reads and applies previews of a manual sync. Admin only, like manual sync (D9).</summary>
 [ApiController]
 [Route("AniDoki/preview")]
 [Authorize(Policy = Policies.RequiresElevation)]
@@ -29,7 +30,11 @@ public sealed class PreviewController(OperationRunner runner, OperationStore sto
     ISeasonWatchState watchState, IUserManager users, ILibraryManager library, IUserDataManager userData, ILoggerFactory loggerFactory,
     IHttpClientFactory httpClientFactory, IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor,
     IApplicationPaths applicationPaths, IMemoryCache memoryCache) : ControllerBase {
-    private const string Unavailable = "AniDoki storage is unavailable, so the preview could not be started or read.";
+    private const string Unavailable = "AniDoki storage is unavailable, so the preview could not be started, read or applied.";
+    private const string Refresh = "This preview can no longer be applied. Refresh the preview.";
+
+    /// <summary>The most rows one apply takes.</summary>
+    public const int MaxApplyRows = 10000;
 
     [HttpPost]
     public ActionResult<OperationStarted> Start([FromQuery] Guid userId, [FromQuery] SyncAction syncAction, [FromQuery] string? provider,
@@ -95,6 +100,47 @@ public sealed class PreviewController(OperationRunner runner, OperationStore sto
             return rows.Page(operationId, kind, provider, offset, limit);
         });
     }
+
+    /// <summary>
+    /// Writes the chosen rows of a preview to trackers, each as previewed or not at all (D4), as a <c>SyncToTrackers</c> run
+    /// that names its preview. Only the newest cleanly finished preview, within a day and not yet applied, can be applied.
+    /// </summary>
+    [HttpPost("{operationId:guid}/apply")]
+    public ActionResult<OperationStarted> Apply(Guid operationId, [FromBody] ApplyRequest? request) {
+        IReadOnlyList<int> seqs = request?.Rows?.Distinct().ToList() ?? [];
+        if (seqs.Count == 0 || seqs.Count > MaxApplyRows)
+            return BadRequest($"Choose from 1 to {MaxApplyRows} rows to apply.");
+        try {
+            if (store.Read(operationId) is not { Kind: OperationKind.PreviewToTrackers or OperationKind.PreviewFromTrackers } preview)
+                return NotFound();
+            if (preview.Kind == OperationKind.PreviewFromTrackers)
+                return BadRequest("Applying a preview from trackers is not available yet.");
+            if ((store.FindActive(preview.UserId, OperationKind.SyncToTrackers) ?? store.FindActive(preview.UserId, OperationKind.PreviewToTrackers)) is { } running)
+                return Conflict(new OperationStarted(running));
+            if (!rows.IsApplicable(preview))
+                return Conflict(Refresh);
+            IReadOnlyList<PreviewRow> chosen = rows.Rows(operationId, seqs);
+            if (chosen.Count != seqs.Count || chosen.Any(row => !row.Selectable))
+                return BadRequest("Choose only rows of this preview that can be applied.");
+            Guid applyId = Guid.NewGuid();
+            // Taking the rows before queueing means two applies of one preview cannot both start.
+            if (!rows.Claim(operationId, seqs, applyId))
+                return Conflict(Refresh);
+            var apply = new PreviewApply(library, loggerFactory, httpClientFactory, serverApplicationHost, httpContextAccessor, memoryCache,
+                new Delayer(), matches, watchState, preview.UserId, chosen);
+            OperationRunner.Handle? handle = runner.Enqueue(preview.UserId, OperationKind.SyncToTrackers, Selected(chosen.Count), apply.Run,
+                applyId, operationId);
+            if (handle == null) {
+                rows.Release(operationId, applyId);
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, Unavailable);
+            }
+            return Accepted(new OperationStarted(handle.OperationId));
+        } catch (Exception error) when (error is InvalidOperationException or SqliteException) {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, Unavailable);
+        }
+    }
+
+    private static string Selected(int count) => count == 1 ? "1 selected change from a preview" : $"{count} selected changes from a preview";
 
     private ActionResult<T> Guarded<T>(Func<ActionResult<T>> read) {
         try {

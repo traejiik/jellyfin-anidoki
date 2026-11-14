@@ -1,0 +1,174 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Execution;
+using jellyfin_anidoki.Interfaces;
+using jellyfin_anidoki.Matching;
+using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Notifications;
+using jellyfin_anidoki.Operations;
+using jellyfin_anidoki.Planning;
+using jellyfin_anidoki.Resolution;
+using jellyfin_anidoki.Trackers;
+using MediaBrowser.Controller;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Library;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+
+namespace jellyfin_anidoki.Preview;
+
+/// <summary>
+/// Writes the selected rows of a Jellyfin → Trackers preview, each exactly as previewed or not at all (D4). Each row is
+/// checked first: its tracker still linked, the saved-match setting and the effective match unchanged, the season's
+/// watched episodes unchanged. Then <see cref="Executor.ApplyPlanned"/> re-reads the entry in <see cref="ApplyMode.Strict"/>
+/// mode and refuses it if it moved. Nothing is re-planned. Runs inside an operation, which already holds the user's sync gate.
+/// </summary>
+public sealed class PreviewApply(
+    ILibraryManager libraryManager,
+    ILoggerFactory loggerFactory,
+    IHttpClientFactory httpClientFactory,
+    IServerApplicationHost serverApplicationHost,
+    IHttpContextAccessor httpContextAccessor,
+    IMemoryCache memoryCache,
+    IAsyncDelayer delayer,
+    MatchStore matches,
+    ISeasonWatchState watchState,
+    Guid userId,
+    IReadOnlyList<PreviewRow> selected) {
+    /// <summary>Something the row was planned from changed; the outcome's note says what.</summary>
+    public const string Stale = "preview-stale";
+
+    /// <summary>D8: the apply was cancelled before this row.</summary>
+    public const string Cancelled = "cancelled";
+
+    /// <summary>D8: this row's tracker refused or rate-limited an earlier row, so it was not asked.</summary>
+    public const string ProviderStopped = "provider-stopped";
+
+    private readonly ILogger<PreviewApply> _logger = loggerFactory.CreateLogger<PreviewApply>();
+
+    /// <summary>Tests set this to substitute an in-memory tracker; production leaves it null so the real client is built.</summary>
+    internal Func<ApiName, UserConfig, ITrackerClient>? ClientOverride { get; set; }
+
+    public async Task Run(OperationContext operation) {
+        UserConfig? user = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(config => config.UserId == userId);
+        bool applySavedMatches = Plugin.Instance?.PluginConfiguration.applySavedMatches ?? false;
+        var clients = new TrackerClientFactory(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache,
+            delayer, _logger) { Override = ClientOverride };
+        var trackers = new Dictionary<ApiName, ITrackerProvider?>();
+        var fingerprints = new Dictionary<Guid, string?>();
+        var stopped = new HashSet<ApiName>();
+        operation.ReportProgress(0, selected.Count);
+        for (int i = 0; i < selected.Count; i++) {
+            PreviewRow row = selected[i];
+            // The same wait between seasons as Run sync, so a large apply does not trip a tracker's rate limit.
+            if (i > 0 && row.SourceKey != selected[i - 1].SourceKey)
+                await delayer.Delay(TimeSpan.FromSeconds(2));
+            if (operation.CancellationToken.IsCancellationRequested) {
+                // D8: every row not reached is recorded, so the result lists exactly what was and was not applied.
+                foreach (PreviewRow unreached in selected.Skip(i))
+                    Refuse(operation, unreached, Cancelled, null);
+                operation.Message = $"Cancelled after {i} of {Rows(selected.Count)}. Updates already sent were kept; " +
+                    $"the other {selected.Count - i} were not applied.";
+                operation.CancellationToken.ThrowIfCancellationRequested();
+            }
+            await ApplyRow(operation, row, user, applySavedMatches, clients, trackers, fingerprints, stopped);
+            operation.ReportProgress(i + 1, selected.Count);
+        }
+        operation.Message = Summary(operation.Outcomes);
+        _logger.LogInformation("Applied {RowCount} selected preview rows for user {UserId}", selected.Count, userId);
+    }
+
+    private async Task ApplyRow(OperationContext operation, PreviewRow row, UserConfig? user, bool applySavedMatches,
+        TrackerClientFactory clients, Dictionary<ApiName, ITrackerProvider?> trackers, Dictionary<Guid, string?> fingerprints,
+        HashSet<ApiName> stopped) {
+        if (stopped.Contains(row.Provider)) {
+            Refuse(operation, row, ProviderStopped, null);
+            return;
+        }
+        if (StaleBecause(row, user, applySavedMatches, fingerprints) is { } why) {
+            Refuse(operation, row, Stale, why);
+            return;
+        }
+        // StaleBecause refuses a row whose user or link is gone, so the user is known from here on.
+        if (!trackers.TryGetValue(row.Provider, out ITrackerProvider? tracker)) {
+            tracker = clients.Create(row.Provider, user!) is { } client ? clients.Adapt(row.Provider, client) : null;
+            trackers[row.Provider] = tracker;
+        }
+        if (tracker == null) {
+            Refuse(operation, row, Stale, "not-configured");
+            return;
+        }
+        var executor = new Executor(tracker, new PlanRules(user!.PlanToWatchOnly, user.RewatchCompleted), PlanPolicy.ManualSync,
+            new PlaybackOutcomeCollector((outcome, detail) => operation.Record(outcome, Tagged(detail, row))), TimeProvider.System, _logger,
+            new ActionSource(row.SourceItem, row.SourceEpisode ?? SyncSource.MovieProgress));
+        // D8: a row being written is finished even if the apply is cancelled meanwhile, so the write is not cut off.
+        if (!await executor.ApplyPlanned(Planned(row), ApplyMode.Strict, CancellationToken.None))
+            stopped.Add(row.Provider);
+    }
+
+    /// <returns>What no longer matches the preview (the outcome's note), or null when everything still does.</returns>
+    private string? StaleBecause(PreviewRow row, UserConfig? user, bool applySavedMatches, Dictionary<Guid, string?> fingerprints) {
+        if (user?.UserApiAuth?.Any(auth => auth.Name == row.Provider) != true)
+            return "not-linked";
+        if (applySavedMatches != row.ApplySavedMatches)
+            return "match-setting";
+        if (matches.GetEffective(userId, row.Provider, row.SourceKey, true)?.RecordedRevision != row.MatchRevision)
+            return "match";
+        if (!fingerprints.TryGetValue(row.SourceItem, out string? fingerprint)) {
+            fingerprint = Fingerprint(row.SourceItem);
+            fingerprints[row.SourceItem] = fingerprint;
+        }
+        if (fingerprint == null)
+            return "item-missing";
+        return fingerprint == row.WatchedFingerprint ? null : "watched";
+    }
+
+    /// <summary>The same fingerprint the preview stored, from the same item; null when the item is gone.</summary>
+    private string? Fingerprint(Guid item) =>
+        libraryManager.GetItemById(item) is Video video && SyncSource.From(video) is { } source
+            ? WatchedFingerprint.Of(watchState.Watched(source, userId).Select(episode => episode.Number))
+            : null;
+
+    /// <summary>The write as previewed, rebuilt from the row. Only selectable rows reach here, and they carry both snapshots.</summary>
+    internal static PlannedTarget Planned(PreviewRow row) {
+        EntryState read = row.PlannedAgainst!;
+        EntryChange change = row.PlannedChange!;
+        var target = new ResolvedTarget(read.Entry, row.TargetEpisode ?? change.Progress, TargetRole.Played, row.TargetTitle,
+            MatchRevision: row.MatchRevision);
+        var write = new Write(change, row.Reason, Planner.AsPlanned(read, ProviderQuirks.For(row.Provider)));
+        return new PlannedTarget(new ActionTrace(target, row.ResolvedBy ?? ResolvedBy.Ids, row.ResolutionNote), read, write);
+    }
+
+    private void Refuse(OperationContext operation, PreviewRow row, string step, string? note) {
+        _logger.LogInformation("({ApiName}) {Title}: {Kind} ({Step})", row.Provider, row.TargetTitle, OutcomeKind.Skipped, step);
+        operation.Record(new ProviderWriteOutcome(row.Provider, row.TargetId, row.TargetTitle, OutcomeKind.Skipped, null, null,
+            !ProviderCapabilities.For(row.Provider).TracksProgress, step, false), Detail(row, note));
+    }
+
+    private static OutcomeDetail Detail(PreviewRow row, string? note) =>
+        new(row.SourceItem, row.SourceEpisode, row.TargetEpisode, row.ResolvedBy, note, row.PlannedChange, row.PlannedAgainst,
+            row.MatchRevision, row.Seq);
+
+    private static OutcomeDetail Tagged(OutcomeDetail? detail, PreviewRow row) =>
+        detail == null ? Detail(row, null) : detail with { PreviewSeq = row.Seq };
+
+    private static string? Summary(IReadOnlyList<ProviderWriteOutcome> outcomes) {
+        int stale = outcomes.Count(outcome => outcome.Step == Stale);
+        int stopped = outcomes.Count(outcome => outcome.Step == ProviderStopped);
+        var parts = new List<string>();
+        if (stale > 0)
+            parts.Add($"{Rows(stale)} changed since the preview and {(stale == 1 ? "was" : "were")} not applied; " +
+                $"refresh the preview to see {(stale == 1 ? "it" : "them")} again.");
+        if (stopped > 0)
+            parts.Add($"{Rows(stopped)} {(stopped == 1 ? "was" : "were")} not tried because {(stopped == 1 ? "its" : "their")} tracker stopped answering.");
+        return parts.Count == 0 ? null : string.Join(" ", parts);
+    }
+
+    private static string Rows(int count) => count == 1 ? "1 row" : $"{count} rows";
+}

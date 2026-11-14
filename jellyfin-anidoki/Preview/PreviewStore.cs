@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Storage;
@@ -128,6 +129,84 @@ public sealed class PreviewStore(AniDokiDatabase database, TimeProvider clock) {
         applied.CommandText = "SELECT COUNT(*) FROM preview_rows WHERE operation_id = $id AND applied_operation_id IS NOT NULL";
         Set(applied, "$id", Id(view.OperationId));
         return (long)applied.ExecuteScalar()! == 0;
+    }
+
+    /// <summary>The chosen rows, in the order they were planned. Seqs that do not exist are left out.</summary>
+    public IReadOnlyList<PreviewRow> Rows(Guid operationId, IReadOnlyCollection<int> seqs) {
+        IReadOnlyList<int> chosen = seqs.Distinct().ToList();
+        if (chosen.Count == 0)
+            return [];
+        using var connection = database.Open();
+        using var select = connection.CreateCommand();
+        select.CommandText = $"SELECT {Columns} FROM preview_rows WHERE operation_id = $id AND seq IN ({SeqList(chosen)}) ORDER BY seq";
+        SetSeqs(select, operationId, chosen);
+        using var reader = select.ExecuteReader();
+        var rows = new List<PreviewRow>();
+        while (reader.Read())
+            rows.Add(ReadRow(reader));
+        return rows;
+    }
+
+    /// <summary>
+    /// Marks the chosen rows as taken by <paramref name="applyId"/>, unless a row of this preview already was. One immediate
+    /// transaction, so two applies of the same preview cannot both succeed.
+    /// </summary>
+    /// <returns>False when the preview was already applied.</returns>
+    public bool Claim(Guid operationId, IReadOnlyCollection<int> seqs, Guid applyId) {
+        IReadOnlyList<int> chosen = seqs.Distinct().ToList();
+        if (chosen.Count == 0)
+            return false;
+        using var connection = database.Open();
+        // Microsoft.Data.Sqlite begins IMMEDIATE by default, so the check and the update run under the write lock.
+        using var transaction = connection.BeginTransaction();
+        using (var taken = connection.CreateCommand()) {
+            taken.Transaction = transaction;
+            taken.CommandText = "SELECT COUNT(*) FROM preview_rows WHERE operation_id = $id AND applied_operation_id IS NOT NULL";
+            Set(taken, "$id", Id(operationId));
+            if ((long)taken.ExecuteScalar()! > 0)
+                return false;
+        }
+        using (var claim = connection.CreateCommand()) {
+            claim.Transaction = transaction;
+            claim.CommandText = $"UPDATE preview_rows SET applied_operation_id = $apply WHERE operation_id = $id AND seq IN ({SeqList(chosen)})";
+            SetSeqs(claim, operationId, chosen);
+            Set(claim, "$apply", Id(applyId));
+            claim.ExecuteNonQuery();
+        }
+        transaction.Commit();
+        return true;
+    }
+
+    /// <summary>Undoes <see cref="Claim"/> when the apply could not be queued.</summary>
+    public void Release(Guid operationId, Guid applyId) {
+        using var connection = database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE preview_rows SET applied_operation_id = NULL WHERE operation_id = $id AND applied_operation_id = $apply";
+        Set(command, "$id", Id(operationId));
+        Set(command, "$apply", Id(applyId));
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>The last outcome an apply recorded for each preview row it reached, by row seq.</summary>
+    public IReadOnlyDictionary<int, AppliedOutcome> Outcomes(Guid applyId) {
+        using var connection = database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT preview_seq, outcome, step FROM operation_actions WHERE operation_id = $id AND preview_seq IS NOT NULL ORDER BY seq";
+        Set(command, "$id", Id(applyId));
+        using var reader = command.ExecuteReader();
+        var outcomes = new Dictionary<int, AppliedOutcome>();
+        while (reader.Read())
+            outcomes[reader.GetInt32(0)] = new AppliedOutcome(Enum.Parse<OutcomeKind>(reader.GetString(1)), reader.GetString(2));
+        return outcomes;
+    }
+
+    // Parameter names only, never values, go into the text.
+    private static string SeqList(IReadOnlyList<int> seqs) => string.Join(", ", seqs.Select((_, index) => $"$seq{index}"));
+
+    private static void SetSeqs(SqliteCommand command, Guid operationId, IReadOnlyList<int> seqs) {
+        Set(command, "$id", Id(operationId));
+        for (int index = 0; index < seqs.Count; index++)
+            Set(command, $"$seq{index}", seqs[index]);
     }
 
     private static void SetFilter(SqliteCommand command, Guid operationId, IReadOnlyList<PreviewRowKind> kinds, ApiName? provider) {

@@ -49,7 +49,8 @@ public sealed record OperationView(
     [property: JsonPropertyName("message")] string? Message,
     [property: JsonPropertyName("done")] int Done,
     [property: JsonPropertyName("total")] int? Total,
-    [property: JsonPropertyName("counts")] IReadOnlyDictionary<string, int> Counts);
+    [property: JsonPropertyName("counts")] IReadOnlyDictionary<string, int> Counts,
+    [property: JsonPropertyName("previewOf")] Guid? PreviewOf = null);
 
 public sealed record OperationStarted([property: JsonPropertyName("operationId")] Guid OperationId);
 

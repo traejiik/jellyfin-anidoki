@@ -25,10 +25,12 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
 
     /// <summary>Records the operation as queued and starts it after any earlier operation for the same user.</summary>
     /// <returns>Null when it could not be recorded because storage is unavailable; nothing runs then.</returns>
-    public Handle? Enqueue(Guid userId, OperationKind kind, string source, Func<OperationContext, Task> run, Guid? operationId = null) {
+    /// <param name="previewOf">The preview an apply writes the selected rows of.</param>
+    public Handle? Enqueue(Guid userId, OperationKind kind, string source, Func<OperationContext, Task> run, Guid? operationId = null,
+        Guid? previewOf = null) {
         Guid id = operationId ?? Guid.NewGuid();
         try {
-            store.Create(id, userId, kind, source);
+            store.Create(id, userId, kind, source, previewOf);
         } catch (Exception error) when (error is InvalidOperationException or SqliteException) {
             logger.LogWarning("{OperationKind} for user {UserId} was not started because AniDoki storage is unavailable: {ErrorMessage}", kind, userId, error.Message);
             return null;
