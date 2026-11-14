@@ -55,6 +55,7 @@ internal sealed class InboundHarness : IDisposable {
     private readonly Dictionary<(string Source, int Id), int> _aniDb = new();
     private readonly List<string> _animeList = new();
     private readonly List<BaseItem> _series = new();
+    private readonly Dictionary<Guid, BaseItem> _items = new();
     private readonly Dictionary<Guid, UserItemData> _data = new();
     private readonly IHttpClientFactory _http;
 
@@ -74,7 +75,10 @@ internal sealed class InboundHarness : IDisposable {
         BaseItem.LibraryManager = Library.Object;
         User = new User("test", "authentication", "password-reset") { Id = UserId };
         Users.Setup(manager => manager.GetUserById(UserId)).Returns(User);
-        Library.Setup(manager => manager.GetItemList(It.IsAny<InternalItemsQuery>())).Returns(() => _series.ToList());
+        // A query by ID answers those items, as a fresh load would; any other query is the user's library of series.
+        Library.Setup(manager => manager.GetItemList(It.IsAny<InternalItemsQuery>())).Returns((InternalItemsQuery query) => query.ItemIds.Length > 0
+            ? query.ItemIds.Where(_items.ContainsKey).Select(id => _items[id]).ToList()
+            : _series.ToList());
 
         UserData = new Mock<IUserDataManager>(strictUserData ? MockBehavior.Strict : MockBehavior.Loose);
         UserData.Setup(manager => manager.GetUserData(It.IsAny<User>(), It.IsAny<BaseItem>())).Returns((User _, BaseItem item) => DataFor(item));
@@ -179,6 +183,7 @@ internal sealed class InboundHarness : IDisposable {
     }
 
     private void Register(BaseItem item) {
+        _items[item.Id] = item;
         Library.Setup(manager => manager.GetItemById(item.Id)).Returns(item);
         Library.Setup(manager => manager.GetItemById<BaseItem>(item.Id)).Returns(item);
         if (item is Series series)
