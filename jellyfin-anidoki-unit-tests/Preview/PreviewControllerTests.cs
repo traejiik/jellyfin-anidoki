@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using jellyfin_anidoki;
@@ -11,7 +12,9 @@ using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Preview;
+using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Storage;
+using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki_unit_tests.Matching;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Common.Configuration;
@@ -192,6 +195,7 @@ public class PreviewControllerTests {
         Assert.That(StatusOf(controller.Start(_user.Id, SyncAction.UpdateProvider, TrackerChoice.All)), Is.EqualTo(503));
         Assert.That(StatusOf(controller.Read(Guid.NewGuid())), Is.EqualTo(503));
         Assert.That(StatusOf(controller.Rows(Guid.NewGuid(), null, null)), Is.EqualTo(503));
+        Assert.That(StatusOf(controller.Apply(Guid.NewGuid(), new ApplyRequest([0]))), Is.EqualTo(503));
     }
 
     [Test]
@@ -225,5 +229,102 @@ public class PreviewControllerTests {
         Assert.That(page.Rows, Has.Count.EqualTo(1));
         Assert.That(_controller.Read(id).Value!.RowCounts, Is.EqualTo(new Dictionary<string, int> { ["Change"] = 2, ["NoChange"] = 1 }));
         Assert.That(_controller.Rows(id, [PreviewRowKind.Change, PreviewRowKind.NoChange], null, 0, 10).Value!.Total, Is.EqualTo(3));
+    }
+
+    /// <summary>
+    /// A finished, applicable preview with one row per kind. Each row's season is not in the library, so applying it refuses the
+    /// row before any tracker is asked.
+    /// </summary>
+    private async Task<Guid> PreviewWithRows(params PreviewRowKind[] kinds) {
+        var result = Start();
+        await _runner.Drain();
+        Guid id = IdOf(result);
+        for (int seq = 0; seq < kinds.Length; seq++)
+            _rows.Add(id, ApplyRow(seq, kinds[seq]));
+        return id;
+    }
+
+    private static PreviewRow ApplyRow(int seq, PreviewRowKind kind) =>
+        new(seq, PreviewDirection.ToTrackers, ApiName.AniList, "season:x:1", Guid.NewGuid(), "Show · season 1", 5, "500", "Entry 500", 5,
+            kind, "progress", ResolvedBy.Ids, null, null, false, "1-5", new EntryChange(5, TrackerStatus.Watching),
+            new EntryState(new EntryRef(ApiName.AniList, 500, null), 12, new ListState(TrackerStatus.Watching, 3, false, 0), DateTimeOffset.UnixEpoch),
+            kind is PreviewRowKind.Change or PreviewRowKind.Reduction, kind == PreviewRowKind.Change, null);
+
+    private ActionResult<OperationStarted> Apply(Guid preview, params int[] rows) => _controller.Apply(preview, new ApplyRequest(rows));
+
+    [Test]
+    public async Task ApplyingSelectedRowsStartsASyncToTrackersThatNamesItsPreview() {
+        Guid preview = await PreviewWithRows(PreviewRowKind.Change, PreviewRowKind.Change, PreviewRowKind.NoChange);
+
+        var result = Apply(preview, 0, 1);
+
+        Assert.That(result.Result, Is.InstanceOf<AcceptedResult>());
+        await _runner.Drain();
+        OperationView apply = _store.Read(IdOf(result))!;
+        Assert.Multiple(() => {
+            Assert.That(apply.Kind, Is.EqualTo(OperationKind.SyncToTrackers));
+            Assert.That(apply.PreviewOf, Is.EqualTo(preview));
+            Assert.That(apply.Source, Is.EqualTo("2 selected changes from a preview"));
+            Assert.That(apply.State, Is.EqualTo(OperationState.Skipped));
+            Assert.That(apply.Counts, Is.EqualTo(new Dictionary<string, int> { ["Skipped"] = 2 }));
+            Assert.That(apply.Message, Does.StartWith("2 rows changed since the preview"));
+            Assert.That(_rows.Page(preview, null, null, 0, 10).Rows.Select(row => row.AppliedOperationId),
+                Is.EqualTo(new Guid?[] { apply.OperationId, apply.OperationId, null }));
+            Assert.That(_controller.Read(preview).Value!.Applicable, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task ASecondApplyOfTheSamePreviewAnswersConflict() {
+        Guid preview = await PreviewWithRows(PreviewRowKind.Change, PreviewRowKind.Change);
+        Assert.That(Apply(preview, 0).Result, Is.InstanceOf<AcceptedResult>());
+        await _runner.Drain();
+
+        Assert.That(StatusOf(Apply(preview, 1)), Is.EqualTo(409));
+    }
+
+    [Test]
+    public async Task AnOlderPreviewAnswersConflict() {
+        Guid older = await PreviewWithRows(PreviewRowKind.Change);
+        Start();
+        await _runner.Drain();
+
+        Assert.That(StatusOf(Apply(older, 0)), Is.EqualTo(409));
+    }
+
+    [TestCase(7)]
+    [TestCase(1)]
+    public async Task AnUnknownOrUnselectableRowIsRejectedAndNothingIsClaimed(int seq) {
+        Guid preview = await PreviewWithRows(PreviewRowKind.Change, PreviewRowKind.NoChange);
+
+        Assert.That(Apply(preview, 0, seq).Result, Is.InstanceOf<BadRequestObjectResult>());
+
+        Assert.That(_controller.Read(preview).Value!.Applicable, Is.True);
+    }
+
+    [Test]
+    public async Task NoRowsIsRejected() {
+        Guid preview = await PreviewWithRows(PreviewRowKind.Change);
+
+        Assert.That(Apply(preview).Result, Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(_controller.Apply(preview, new ApplyRequest(null)).Result, Is.InstanceOf<BadRequestObjectResult>());
+    }
+
+    [Test]
+    public void APreviewFromTrackersCannotBeAppliedYet() {
+        Guid id = Guid.NewGuid();
+        _store.Create(id, _user.Id, OperationKind.PreviewFromTrackers, "x");
+        _store.MarkRunning(id);
+        _store.Finish(id, OperationState.Succeeded, null);
+
+        Assert.That(Apply(id, 0).Result, Is.InstanceOf<BadRequestObjectResult>());
+    }
+
+    [Test]
+    public void ApplyingSomethingThatIsNotAPreviewIsNotFound() {
+        Guid id = Guid.NewGuid();
+        _store.Create(id, _user.Id, OperationKind.SyncToTrackers, "x");
+
+        Assert.That(Apply(id, 0).Result, Is.InstanceOf<NotFoundResult>());
     }
 }
