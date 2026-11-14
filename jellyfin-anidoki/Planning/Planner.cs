@@ -10,9 +10,7 @@ namespace jellyfin_anidoki.Planning;
 /// </summary>
 public static class Planner {
     public static PlanDecision Plan(PlanInput input) {
-        EntryState state = input.Quirks.MissingEntryReadsAsWatching && input.Entry.List == null
-            ? input.Entry with { List = new ListState(TrackerStatus.Watching, 0, false, null) }
-            : input.Entry;
+        EntryState state = AsPlanned(input.Entry, input.Quirks);
         PlanDecision decision = input.Capabilities.TracksProgress ? PlanProgress(input, state) : PlanStatusOnly(input, state);
         // manual marks never start or finish a rewatch; P1 already prevents it, this keeps it true if the rules move
         if (input.Policy == PlanPolicy.ConfirmedManual && decision is Write { Change.Rewatch: not RewatchTransition.None })
@@ -22,6 +20,15 @@ public static class Planner {
             return new NoChange("manual-sync-rewatch");
         return decision;
     }
+
+    /// <summary>
+    /// The entry as the planner reads it: an entry Kitsu reports as not on the list counts as Watching at 0. A write's
+    /// <see cref="Write.PlannedAgainst"/> is this, so a write rebuilt from a stored read must go through it too.
+    /// </summary>
+    public static EntryState AsPlanned(EntryState entry, ProviderQuirks quirks) =>
+        quirks.MissingEntryReadsAsWatching && entry.List == null
+            ? entry with { List = new ListState(TrackerStatus.Watching, 0, false, null) }
+            : entry;
 
     private static PlanDecision PlanProgress(PlanInput input, EntryState state) {
         int episode = input.Episode;
