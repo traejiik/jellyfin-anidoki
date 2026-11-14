@@ -145,14 +145,25 @@ public sealed record SourceSummaryContract(
     [property: JsonPropertyName("sourceKey")] string SourceKey,
     [property: JsonPropertyName("kind")] MatchSourceKind Kind,
     [property: JsonPropertyName("title")] string Title,
-    [property: JsonPropertyName("providers")] IReadOnlyList<ProviderStateContract> Providers);
+    [property: JsonPropertyName("providers")] IReadOnlyList<ProviderStateContract> Providers,
+    [property: JsonPropertyName("name")] string? Name = null,
+    [property: JsonPropertyName("season")] int? Season = null);
 
+/// <param name="Total">Series and movies, which pages count; each page holds every season of its series.</param>
 /// <param name="Page">1-based.</param>
 public sealed record SourcePageContract(
     [property: JsonPropertyName("items")] IReadOnlyList<SourceSummaryContract> Items,
     [property: JsonPropertyName("total")] int Total,
     [property: JsonPropertyName("page")] int Page,
-    [property: JsonPropertyName("pageSize")] int PageSize);
+    [property: JsonPropertyName("pageSize")] int PageSize,
+    [property: JsonPropertyName("counts")] SourceCountsContract? Counts = null);
+
+/// <summary>How many series and movies each list option would show, keyed by its query value ("" for All).</summary>
+/// <param name="Filters">Per status filter, with the current type applied.</param>
+/// <param name="Kinds">Per type, with the current status filter applied.</param>
+public sealed record SourceCountsContract(
+    [property: JsonPropertyName("filters")] IReadOnlyDictionary<string, int> Filters,
+    [property: JsonPropertyName("kinds")] IReadOnlyDictionary<string, int> Kinds);
 
 public sealed record ProviderDetailContract(
     [property: JsonPropertyName("provider")] ApiName Provider,
@@ -184,11 +195,13 @@ public sealed record UserSourceDetailContract(
 
 /// <param name="Outcome"><c>mapped</c>, <c>ignored</c>, or the reason sync would record: <c>not-in-match</c>, <c>match-target-unreadable</c>, <c>past-entry-end</c>.</param>
 /// <param name="Target">Where the match sends the episode, even when it would not sync.</param>
+/// <param name="EntryEpisodes">The target entry's episode count, when it could be read and is known.</param>
 public sealed record PreviewRowContract(
     [property: JsonPropertyName("sourceEpisode")] int SourceEpisode,
     [property: JsonPropertyName("outcome")] string Outcome,
     [property: JsonPropertyName("target")] EntryContract? Target,
-    [property: JsonPropertyName("targetEpisode")] int? TargetEpisode);
+    [property: JsonPropertyName("targetEpisode")] int? TargetEpisode,
+    [property: JsonPropertyName("entryEpisodes")] int? EntryEpisodes = null);
 
 /// <param name="Progress">Highest-watched progress (D5).</param>
 /// <param name="ListStatus">The entry on the user's list now; null when it is not on it.</param>

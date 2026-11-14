@@ -119,4 +119,10 @@ public class LibraryFilterTests {
 
         Assert.That(LibraryFilter.Scope(Admin, all, Library().Object, NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Excluded));
     }
+
+    [Test]
+    public void TheMatchListAsksTheSameQuestionAsSync() {
+        // An item in no library, as Scope says for every user once the admin chooses: left out of the admin list too.
+        Assert.That(LibraryFilter.InAnimeLibraries(Admin, Library().Object, new Episode()), Is.False);
+    }
 }

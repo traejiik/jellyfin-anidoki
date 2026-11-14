@@ -70,9 +70,14 @@ public class MatchProblemsTests {
         Record(user, movie.Id, OutcomeKind.Confirmed, "ambiguous (2 candidates)");
         Record(user, Guid.NewGuid(), OutcomeKind.Unresolved, "no-title-match");
 
-        Assert.That(Problems().SourceKeys(MatchProblem.NeedsMatch, null), Is.EquivalentTo(new[] { SyncSource.From(broken)!.SourceKey }),
+        Assert.That(Problems().SourceKeys(null).Of(MatchProblem.NeedsMatch), Is.EquivalentTo(new[] { SyncSource.From(broken)!.SourceKey }),
             "a later sync that resolved clears a season, and an item the library no longer has is skipped");
-        Assert.That(Problems().SourceKeys(MatchProblem.NeedsReview, user), Is.EquivalentTo(new[] { $"movie:{movie.Id:N}" }));
+        Assert.That(Problems().SourceKeys(user).Of(MatchProblem.NeedsReview), Is.EquivalentTo(new[] { $"movie:{movie.Id:N}" }));
+
+        // One read of history answers both problems.
+        MatchProblemKeys both = Problems().SourceKeys(user);
+        Assert.That(both.NeedsMatch, Is.EquivalentTo(new[] { SyncSource.From(broken)!.SourceKey }));
+        Assert.That(both.NeedsReview, Is.EquivalentTo(new[] { $"movie:{movie.Id:N}" }));
     }
 
     [Test]
@@ -85,8 +90,8 @@ public class MatchProblemsTests {
         _clock.Now += TimeSpan.FromDays(31);
         Record(bob, bobs.Id, OutcomeKind.Unresolved, "no-title-match");
 
-        Assert.That(Problems().SourceKeys(MatchProblem.NeedsMatch, alice), Is.Empty);
-        Assert.That(Problems().SourceKeys(MatchProblem.NeedsMatch, null), Is.EquivalentTo(new[] { SyncSource.From(bobs)!.SourceKey }));
+        Assert.That(Problems().SourceKeys(alice).Of(MatchProblem.NeedsMatch), Is.Empty);
+        Assert.That(Problems().SourceKeys(null).Of(MatchProblem.NeedsMatch), Is.EquivalentTo(new[] { SyncSource.From(bobs)!.SourceKey }));
     }
 
     [Test]
@@ -99,6 +104,6 @@ public class MatchProblemsTests {
         _store.AddAction(id, 1, new ProviderWriteOutcome(jellyfin_anidoki.Configuration.ApiName.Kitsu, "7", "Split Show", OutcomeKind.Confirmed, 20, null, false, "progress", true),
             new OutcomeDetail(episode.Id, 20, 20, ResolvedBy.Ids, null, null, null));
 
-        Assert.That(Problems().SourceKeys(MatchProblem.NeedsMatch, user), Has.Count.EqualTo(1));
+        Assert.That(Problems().SourceKeys(user).Of(MatchProblem.NeedsMatch), Has.Count.EqualTo(1));
     }
 }

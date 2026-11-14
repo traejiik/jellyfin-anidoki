@@ -93,7 +93,7 @@ export default async function (section, common, cache, signal) {
         showList();
         find('#userSourceRows').querySelectorAll('tr[aria-current]').forEach(row => row.removeAttribute('aria-current'));
         loadList().then(() => {
-            const again = sourceOpener && find(`#userSourceRows [data-source="${CSS.escape(sourceOpener.dataset.source)}"]`);
+            const again = sourceOpener && find(`#userSourceRows button[data-source="${CSS.escape(sourceOpener.dataset.source)}"]`);
             (again ?? find('#userSourceSearch')).focus();
             sourceOpener = null;
         });
@@ -125,8 +125,12 @@ export default async function (section, common, cache, signal) {
             memory.list = state.setFilter(memory.list, event.target.value, state.userFilters);
             loadList();
         }, { signal });
+        find('#userSourceKinds').addEventListener('change', event => {
+            memory.list = state.setKind(memory.list, event.target.value);
+            loadList();
+        }, { signal });
         find('#userSourceRows').addEventListener('click', event => {
-            const button = event.target.closest?.('[data-source]');
+            const button = editor.sourceButton(event);
             if (!button) return;
             sourceOpener = button;
             openSource(button.dataset.source, null, { force: true }).then(() => { if (detail) find('#userDialogTitle').focus(); });
@@ -189,14 +193,9 @@ export default async function (section, common, cache, signal) {
         }, signal);
     }
 
-    function renderFilters() {
-        find('#userSourceFilters').replaceChildren(...state.userFilters.map(filter => {
-            const label = common.element('label', 'doki-filter-choice');
-            const input = common.element('input');
-            Object.assign(input, { type: 'radio', name: 'userMatchFilter', value: filter.key, checked: filter.key === memory.list.filter });
-            label.append(input, common.element('span', '', filter.label));
-            return label;
-        }));
+    function renderFilters(counts) {
+        editor.renderSegmented(find('#userSourceFilters'), 'userMatchFilter', state.userFilters, memory.list.filter, counts?.filters);
+        editor.renderSegmented(find('#userSourceKinds'), 'userMatchKind', state.kinds, memory.list.kind ?? '', counts?.kinds);
     }
 
     async function loadList() {
@@ -208,33 +207,32 @@ export default async function (section, common, cache, signal) {
             return;
         }
         if (signal.aborted) return;
-        const rows = (page.items ?? []).map(item => {
-            const row = common.element('tr');
-            const open = common.element('button', 'doki-button', 'Open');
-            open.type = 'button';
-            open.dataset.source = item.sourceKey;
-            open.setAttribute('aria-label', `Open ${item.title}`);
-            if (detail?.sourceKey === item.sourceKey) row.setAttribute('aria-current', 'true');
-            const saved = (item.providers ?? []).map(entry => `${common.providerName(entry.provider)}: ${state.stateLabel(entry)}`).join(', ');
-            const cell = common.element('td');
-            cell.append(open);
-            row.append(common.element('td', 'doki-row-name', item.title), common.element('td', 'doki-muted', saved || 'Automatic'), cell);
-            return row;
+        const items = page.items ?? [];
+        renderFilters(page.counts);
+        // Headings start closed on the full list, and open once a search or filter has narrowed it.
+        editor.renderSourceRows(find('#userSourceRows'), state.groupSources(items), {
+            opened: memory.opened ??= new Map(), open: state.opensGroups(memory.list), current: detail?.sourceKey,
+            icon: common.icon, season: state.seasonLabel, saved: item => state.savedLabel(item, common.providerName)
         });
         // An empty list says so in the space the table would fill, rather than as a lone row.
         find('#userSourceEmpty').textContent = memory.list.search ? 'Nothing matches this search.'
             : memory.list.filter === 'needs-match' ? 'Every season you synced recently found its entry.'
-                : memory.list.filter ? 'Nothing to show here.' : 'No seasons or movies in the libraries you sync.';
-        find('#userSourceEmpty').hidden = rows.length > 0;
-        find('#userSourceRows').closest('.doki-table-shell').hidden = rows.length === 0;
-        find('#userSourceRows').replaceChildren(...rows);
-        common.status(find('#userPageStatus'), `Page ${page.page ?? 1} of ${state.pageCount(page)} · ${page.total ?? 0} ${page.total === 1 ? 'item' : 'items'}`);
+                : memory.list.filter || memory.list.kind ? 'Nothing to show here.' : 'No seasons or movies in the libraries you sync.';
+        find('#userSourceEmpty').hidden = items.length > 0;
+        find('#userSourceRows').closest('.doki-table-shell').hidden = items.length === 0;
+        common.status(find('#userPageStatus'), state.pageLabel(page));
         updatePager();
     }
 
     function updatePager() {
         if (!memory.list) return;
         const count = state.pageCount(page);
+        // One page needs no buttons; the label alone counts the items.
+        for (const [action, icon] of [['previous-page', 'chevron-left'], ['next-page', 'chevron-right']]) {
+            const button = find(`[data-action="${action}"]`);
+            if (!button.firstChild) button.append(common.icon(icon));
+            button.hidden = count <= 1;
+        }
         find('[data-action="previous-page"]').disabled = memory.list.page <= 1;
         find('[data-action="next-page"]').disabled = memory.list.page >= count;
     }
@@ -254,7 +252,7 @@ export default async function (section, common, cache, signal) {
         detail = loaded;
         showView('detail');
         showSourceHeading();
-        find('#userSourceRows').querySelectorAll('tr').forEach(row => row.toggleAttribute('aria-current', row.querySelector('[data-source]')?.dataset.source === sourceKey));
+        find('#userSourceRows').querySelectorAll('tr[data-source]').forEach(row => row.toggleAttribute('aria-current', row.dataset.source === sourceKey));
         // Trackers in the order Settings lists them; open the one asked for, else one with a correction, else the first.
         const order = common.providers.map(entry => entry.key);
         detail.providers = [...(detail.providers ?? [])].sort((a, b) => order.indexOf(a.provider) - order.indexOf(b.provider));
@@ -426,7 +424,7 @@ export default async function (section, common, cache, signal) {
         if (signal.aborted || provider !== reading) return null;
         map.table.hidden = false;
         map.note.textContent = label;
-        editor.renderEpisodeMap(map.rows, result.rows ?? [], state.describeRow);
+        editor.renderEpisodeMap(map.rows, result.rows ?? [], { runs: state.episodeRuns, describe: state.describeRun, provider: common.providerName(provider), icon: common.icon });
         drawProgress(map.progress, result.progress);
         return result;
     }

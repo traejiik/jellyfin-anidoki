@@ -221,9 +221,44 @@ test('provider states and rows read as words', () => {
     assert.equal(editor.stateLabel({ provider: 'AniList' }), 'Automatic');
     assert.equal(editor.resolutionBadge(null), 'Automatic');
     assert.equal(editor.resolutionBadge({ revision: 4 }), 'Shared r4');
-    assert.deepEqual(editor.describeRow({ outcome: 'mapped', target: entry(101), targetEpisode: 3 }), { text: 'Entry 101 · episode 3', tone: '' });
-    assert.deepEqual(editor.describeRow({ outcome: 'past-entry-end', target: entry(101), targetEpisode: 13 }), { text: 'Past the entry’s last episode: Entry 101 · episode 13', tone: 'error' });
-    assert.deepEqual(editor.describeRow({ outcome: 'not-in-match' }), { text: 'Not in this match', tone: 'error' });
+});
+
+const mapRow = (sourceEpisode, id, targetEpisode, outcome = 'mapped', entryEpisodes = 12) =>
+    ({ sourceEpisode, outcome, target: id ? entry(id) : null, targetEpisode, entryEpisodes });
+
+test('the episode map joins episodes that sync alike into runs', () => {
+    const rows = [
+        ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => mapRow(n, 101, n)),
+        ...[13, 14, 15].map(n => mapRow(n, 102, n - 12)),
+        mapRow(16, null, null, 'ignored'),
+        mapRow(18, 102, 6), // the library has no episode 17
+        mapRow(19, 102, 7, 'past-entry-end')
+    ];
+    const runs = editor.episodeRuns(rows);
+    assert.deepEqual(runs.map(run => [run.from, run.to, run.outcome, run.target?.id ?? null, run.targetFrom, run.targetTo]), [
+        [1, 12, 'mapped', 101, 1, 12], [13, 15, 'mapped', 102, 1, 3], [16, 16, 'ignored', null, null, null],
+        [18, 18, 'mapped', 102, 6, 6], [19, 19, 'past-entry-end', 102, 7, 7]
+    ]);
+    assert.equal(editor.episodeRuns(rows, { each: true }).length, rows.length, 'every episode, one run each');
+});
+
+test('an entry episode that does not count up by one starts a new run', () => {
+    const runs = editor.episodeRuns([mapRow(1, 101, 1), mapRow(2, 101, 5), mapRow(3, 101, 6)]);
+    assert.deepEqual(runs.map(run => [run.from, run.to, run.targetFrom, run.targetTo]), [[1, 1, 1, 1], [2, 3, 5, 6]]);
+});
+
+test('a run reads as its episodes, its entry and the entry’s own numbers', () => {
+    const [whole] = editor.episodeRuns([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => mapRow(n, 101, n)));
+    assert.deepEqual(editor.describeRun(whole, 'AniList'), { episodes: '1–12', entry: 'Entry 101', entryNote: 'AniList · 12 episodes',
+        numbers: '1–12', tone: '' });
+    const [part] = editor.episodeRuns([mapRow(13, 102, 1, 'mapped', 0), mapRow(14, 102, 2, 'mapped', 0)].map(row => ({ ...row, entryEpisodes: null })));
+    assert.deepEqual(editor.describeRun(part, 'AniList'), { episodes: '13–14', entry: 'Entry 102', entryNote: 'AniList', numbers: '1–2', tone: '' });
+    const [past] = editor.episodeRuns([mapRow(19, 102, 13, 'past-entry-end'), mapRow(20, 102, 14, 'past-entry-end')]);
+    assert.deepEqual(editor.describeRun(past), { episodes: '19–20', entry: 'Past the entry’s last episode',
+        entryNote: 'Would go to Entry 102, episodes 13–14, but sync skips them.', numbers: '—', tone: 'attention' });
+    const [missing] = editor.episodeRuns([mapRow(7, null, null, 'not-in-match')]);
+    assert.equal(editor.describeRun(missing).entryNote, 'Sync skips it. Create a match to choose an entry.');
+    assert.equal(editor.describeRun(editor.episodeRuns([mapRow(3, null, null, 'ignored')])[0]).tone, 'muted');
 });
 
 test('an orphan reads as what was saved and when', () => {
@@ -268,4 +303,52 @@ test('a user’s badge is their correction, else the shared match, else automati
     assert.equal(editor.effectiveBadge({ personal: { revision: 2 }, shared: { revision: 5 } }), 'Personal r2');
     assert.equal(editor.effectiveBadge({ shared: { revision: 5 } }), 'Shared r5');
     assert.equal(editor.effectiveBadge({}), 'Automatic');
+});
+
+const listed = (sourceKey, name, season, providers = []) =>
+    ({ sourceKey, kind: season == null ? 'Movie' : 'Season', title: season == null ? name : `${name} · season ${season}`, name, season, providers });
+
+test('the list groups a series’ seasons under one heading, and gives each movie its own', () => {
+    const groups = editor.groupSources([
+        listed('season:aa:0', 'Adventure Time', 0), listed('season:aa:1', 'Adventure Time', 1, [{ provider: 'AniList', sharedRevision: 2 }]),
+        listed('movie:bb', 'Black Panther', null), listed('season:cc:1', 'Blue Box', 1)
+    ]);
+    assert.deepEqual(groups.map(group => [group.key, group.title, group.items.length, group.summary]), [
+        ['season:aa', 'Adventure Time', 2, '2 seasons · 1 saved'], ['movie:bb', 'Black Panther', 1, 'Movie'], ['season:cc', 'Blue Box', 1, '1 season']
+    ]);
+});
+
+test('two series with the same name stay apart, since the series ID groups them', () => {
+    const groups = editor.groupSources([listed('season:aa:1', 'Adventure Time', 1), listed('season:dd:1', 'Adventure Time', 1)]);
+    assert.equal(groups.length, 2);
+});
+
+test('the Season column names specials and movies, and falls back to the title from an older server', () => {
+    assert.equal(editor.seasonLabel(listed('season:aa:0', 'Adventure Time', 0)), 'Specials');
+    assert.equal(editor.seasonLabel(listed('season:aa:3', 'Adventure Time', 3)), 'Season 3');
+    assert.equal(editor.seasonLabel(listed('movie:bb', 'Black Panther', null)), 'Movie');
+    assert.equal(editor.seasonLabel({ sourceKey: 'season:aa:1', kind: 'Season', title: 'Adventure Time · season 1' }), 'Adventure Time · season 1');
+    assert.equal(editor.groupSources([{ sourceKey: 'season:aa:1', kind: 'Season', title: 'Adventure Time · season 1' }])[0].title, 'Adventure Time · season 1');
+});
+
+test('the Saved column lists each tracker with something saved, or says Automatic', () => {
+    const name = provider => provider === 'AniList' ? 'AniList' : provider;
+    assert.equal(editor.savedLabel(listed('season:aa:1', 'A', 1, [{ provider: 'AniList', sharedRevision: 2 }]), name), 'AniList: Shared r2');
+    assert.equal(editor.savedLabel(listed('season:aa:1', 'A', 1), name), 'Automatic');
+});
+
+test('the pager counts titles on one page, and gives the range once there are more', () => {
+    assert.equal(editor.pageLabel({ total: 2, page: 1, pageSize: 25 }), '2 titles');
+    assert.equal(editor.pageLabel({ total: 1, page: 1, pageSize: 25 }), '1 title');
+    assert.equal(editor.pageLabel({ total: 43, page: 1, pageSize: 25 }), 'Titles 1–25 of 43');
+    assert.equal(editor.pageLabel({ total: 43, page: 2, pageSize: 25 }), 'Titles 26–43 of 43');
+});
+
+test('the type filter narrows the list to series or movies, from the first page', () => {
+    const list = editor.setKind({ ...editor.createList(), page: 3 }, 'movies');
+    assert.deepEqual(list, { search: '', filter: '', kind: 'movies', page: 1 });
+    assert.equal(editor.listPath('AniDoki/matches', list), 'AniDoki/matches/sources?kind=movies');
+    assert.equal(editor.setKind(list, 'books'), list, 'an unknown type changes nothing');
+    assert.equal(editor.opensGroups(list), false, 'movies have no headings, and the type alone opens no series');
+    assert.equal(editor.opensGroups({ ...list, filter: 'matched' }), true);
 });

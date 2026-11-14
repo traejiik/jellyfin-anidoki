@@ -26,42 +26,74 @@ public sealed record MatchResult(MatchOutcome Outcome, object? Body = null) {
 /// </summary>
 public sealed class MatchService(MatchStore store, IMatchLibrary library, IMatchTrackers trackers, IAutomaticMatches automatic,
     ISeasonWatchState watchState, IMatchProblems problems, IUserManager users) {
-    public const int PageSize = 50;
+    /// <summary>Series and movies per page of the list; a series' seasons are never split across pages.</summary>
+    public const int PageSize = 25;
 
     public const string MatchedFilter = "matched";
     public const string CorrectionsFilter = "corrections";
     public const string NeedsMatchFilter = "needs-match";
     public const string NeedsReviewFilter = "needs-review";
 
-    public MatchResult ListSources(Guid? viewer, string? search, string? filter, int page) {
+    public const string SeriesKind = "series";
+    public const string MoviesKind = "movies";
+
+    /// <summary>Every status filter and type, as the list's counts name them; "" is All.</summary>
+    private static readonly string[] Filters = ["", NeedsMatchFilter, NeedsReviewFilter, MatchedFilter, CorrectionsFilter];
+    private static readonly string[] Kinds = ["", SeriesKind, MoviesKind];
+
+    /// <param name="kind">Series, movies, or both when null or empty.</param>
+    public MatchResult ListSources(Guid? viewer, string? search, string? filter, int page, string? kind = null) {
         if (filter is not (null or "" or MatchedFilter or CorrectionsFilter or NeedsMatchFilter or NeedsReviewFilter))
             return new MatchResult(MatchOutcome.BadRequest, $"Unknown filter \"{filter}\".");
-        // A user's problems come from their own syncs only, so the chip says nothing about anyone else's.
-        IReadOnlySet<string>? flagged = filter switch {
-            NeedsMatchFilter => problems.SourceKeys(MatchProblem.NeedsMatch, viewer),
-            NeedsReviewFilter => problems.SourceKeys(MatchProblem.NeedsReview, viewer),
-            _ => null
-        };
+        if (kind is not (null or "" or SeriesKind or MoviesKind))
+            return new MatchResult(MatchOutcome.BadRequest, $"Unknown kind \"{kind}\".");
+        // A user's problems come from their own syncs only, so the filter says nothing about anyone else's.
+        (IReadOnlySet<string> needsMatch, IReadOnlySet<string> needsReview) = problems.SourceKeys(viewer);
         Dictionary<string, MatchSourceSummary> saved = store.ListSources().ToDictionary(summary => summary.Source.SourceKey);
         ILookup<string, OverrideSummary>? own = viewer is Guid user ? store.ListOverrides(owner: user).ToLookup(entry => entry.Scope.SourceKey) : null;
         IReadOnlyCollection<ApiName>? linked = viewer is Guid id ? trackers.Links(id).Keys.ToList() : null;
 
-        var items = library.List(viewer)
-            .Where(entry => flagged == null || flagged.Contains(entry.SourceKey))
+        bool Shows(SourceSummaryContract item, string? status) => status switch {
+            NeedsMatchFilter => needsMatch.Contains(item.SourceKey),
+            NeedsReviewFilter => needsReview.Contains(item.SourceKey),
+            MatchedFilter => item.Providers.Any(state => state.SharedRevision != null || state.PersonalRevision != null),
+            CorrectionsFilter => item.Providers.Any(state => state.Corrections > 0 || state.PersonalRevision != null),
+            _ => true
+        };
+        static bool IsKind(SourceSummaryContract item, string? type) => type switch {
+            SeriesKind => item.Kind == MatchSourceKind.Season,
+            MoviesKind => item.Kind == MatchSourceKind.Movie,
+            _ => true
+        };
+
+        var searched = library.List(viewer)
             .Where(entry => string.IsNullOrWhiteSpace(search) || entry.Title.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase))
             .Select(entry => new SourceSummaryContract(entry.SourceKey, entry.Kind, entry.Title,
-                own == null ? AdminStates(saved.GetValueOrDefault(entry.SourceKey)) : UserStates(saved.GetValueOrDefault(entry.SourceKey), own[entry.SourceKey], linked!)))
-            .Where(item => filter switch {
-                MatchedFilter => item.Providers.Any(state => state.SharedRevision != null || state.PersonalRevision != null),
-                CorrectionsFilter => item.Providers.Any(state => state.Corrections > 0 || state.PersonalRevision != null),
-                _ => true
-            })
-            .OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
-            .ThenBy(item => item.SourceKey, StringComparer.Ordinal)
+                own == null ? AdminStates(saved.GetValueOrDefault(entry.SourceKey)) : UserStates(saved.GetValueOrDefault(entry.SourceKey), own[entry.SourceKey], linked!),
+                entry.Name ?? entry.Title, entry.Season))
             .ToList();
+        // Each option counts the titles it would show with the search and the other filter as they are.
+        static int Titles(IEnumerable<SourceSummaryContract> items) => items.Select(TitleKey).Distinct().Count();
+        var counts = new SourceCountsContract(
+            Filters.ToDictionary(status => status, status => Titles(searched.Where(item => IsKind(item, kind) && Shows(item, status)))),
+            Kinds.ToDictionary(type => type, type => Titles(searched.Where(item => Shows(item, filter) && IsKind(item, type)))));
+
+        var items = searched
+            .Where(item => Shows(item, filter) && IsKind(item, kind))
+            .OrderBy(item => item.Name ?? item.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(TitleKey, StringComparer.Ordinal)
+            .ThenBy(item => item.Season)
+            .ToList();
+        // A page holds whole series, so the list can head each one once with all its seasons beneath.
+        var titles = items.GroupBy(TitleKey).ToList();
         int current = Math.Max(page, 1);
-        return MatchResult.Ok(new SourcePageContract(items.Skip((current - 1) * PageSize).Take(PageSize).ToList(), items.Count, current, PageSize));
+        return MatchResult.Ok(new SourcePageContract(titles.Skip((current - 1) * PageSize).Take(PageSize).SelectMany(title => title).ToList(),
+            titles.Count, current, PageSize, counts));
     }
+
+    /// <summary>The series a season belongs to, as its source key without the season; a movie's own key.</summary>
+    private static string TitleKey(SourceSummaryContract item) =>
+        item.Kind == MatchSourceKind.Movie ? item.SourceKey : item.SourceKey[..item.SourceKey.LastIndexOf(':')];
 
     /// <summary>Admin: every provider's shared match and history, and who has an override.</summary>
     public MatchResult Detail(string sourceKey) {
@@ -282,10 +314,12 @@ public sealed class MatchService(MatchStore store, IMatchLibrary library, IMatch
     private static PreviewRowContract Row(Match match, int episode, string title, IReadOnlyDictionary<EntryRef, EntryState> entries) {
         var mapped = RangeResolver.Map(match, episode) as MappedEpisode;
         EntryContract? target = mapped == null ? null : EntryContract.From(mapped.Target);
+        // Zero means the tracker does not know the length yet (an airing show), which the map leaves unsaid.
+        int? length = mapped != null && entries.TryGetValue(mapped.Target.Entry, out EntryState? state) && state.TotalEpisodes > 0 ? state.TotalEpisodes : null;
         return RangeResolver.Resolve(match, episode, title, entries) switch {
-            Resolved => new PreviewRowContract(episode, "mapped", target, mapped!.TargetEpisode),
+            Resolved => new PreviewRowContract(episode, "mapped", target, mapped!.TargetEpisode, length),
             Ignored => new PreviewRowContract(episode, "ignored", null, null),
-            Unresolved unresolved => new PreviewRowContract(episode, unresolved.Reason, target, mapped?.TargetEpisode),
+            Unresolved unresolved => new PreviewRowContract(episode, unresolved.Reason, target, mapped?.TargetEpisode, length),
             _ => throw new InvalidOperationException("Unknown resolution.")
         };
     }

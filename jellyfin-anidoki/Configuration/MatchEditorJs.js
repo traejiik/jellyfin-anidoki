@@ -251,16 +251,125 @@ export function bindPageActions(root, handlers, signal) {
     }, { signal });
 }
 
-// The episode map's rows. describe is match-editor-state.js's describeRow.
-export function renderEpisodeMap(tbody, rows, describe) {
-    tbody.replaceChildren(...rows.map(row => {
-        const line = describe(row);
-        const tr = element('tr');
-        const cell = element('td', line.tone === 'error' ? 'doki-status' : line.tone === 'muted' ? 'doki-muted' : '', line.text);
-        if (line.tone) cell.dataset.tone = line.tone;
-        tr.append(element('td', 'doki-mono', String(row.sourceEpisode)), cell);
-        return tr;
-    }));
+// The season and movie list: a heading per series that opens and closes it, then a row per season; a movie is one row
+// of its own, since it has nothing to open. A row opens the
+// season's dialog from anywhere on it; its edit button is the way there from the keyboard. opened remembers, by group
+// key, which headings the viewer opened or closed; open says how a heading starts otherwise. groups and labels come
+// from match-editor-state.js's groupSources, seasonLabel and savedLabel.
+export function renderSourceRows(tbody, groups, { opened, open, current, season, saved, icon }) {
+    const rows = [];
+    const sourceRow = (item, className, name) => {
+        const row = element('tr', className);
+        row.dataset.source = item.sourceKey;
+        if (item.sourceKey === current) row.setAttribute('aria-current', 'true');
+        const edit = element('button', 'doki-button doki-button-quiet doki-icon-button');
+        edit.type = 'button';
+        edit.dataset.source = item.sourceKey;
+        edit.setAttribute('aria-label', `Edit ${item.title}`);
+        edit.append(icon('pencil'));
+        const actions = element('td');
+        actions.append(edit);
+        row.append(name, element('td', 'doki-muted', saved(item)), actions);
+        return row;
+    };
+    for (const group of groups) {
+        if (group.movie) {
+            const name = element('td'), title = element('span', 'doki-source-title');
+            title.append(element('span', 'doki-preview-season', group.title), element('em', 'doki-preview-summary', 'Movie'));
+            name.append(title);
+            rows.push(...group.items.map(item => sourceRow(item, 'doki-source-row doki-source-movie', name)));
+            continue;
+        }
+        const heading = element('tr', 'doki-source-group'), cell = element('th');
+        cell.scope = 'colgroup';
+        cell.colSpan = 3;
+        const toggle = element('button', 'doki-preview-toggle');
+        toggle.type = 'button';
+        toggle.append(icon('chevron-right'), element('span', 'doki-preview-season', group.title), element('em', 'doki-preview-summary', group.summary));
+        cell.append(toggle);
+        heading.append(cell);
+        const children = group.items.map(item => sourceRow(item, 'doki-source-row', element('td', 'doki-row-name', season(item))));
+        const show = shown => {
+            toggle.setAttribute('aria-expanded', String(shown));
+            children.forEach(row => { row.hidden = !shown; });
+        };
+        toggle.addEventListener('click', () => {
+            const shown = toggle.getAttribute('aria-expanded') !== 'true';
+            opened.set(group.key, shown);
+            show(shown);
+        });
+        show(opened.get(group.key) ?? (open || group.items.some(item => item.sourceKey === current)));
+        rows.push(heading, ...children);
+    }
+    tbody.replaceChildren(...rows);
+}
+
+// A segmented control: one radio per option, styled as a row of joined buttons, after the fieldset's legend. Its change
+// event bubbles to the caller. Drawn once; later calls only move the selection and update each option's count (from
+// counts, keyed by option), so a click never replaces the radio that has focus.
+export function renderSegmented(group, name, options, selected, counts) {
+    if (!group.querySelector(':scope > label'))
+        group.append(...options.map(option => {
+            const label = element('label');
+            const input = element('input', 'doki-sr-only');
+            Object.assign(input, { type: 'radio', name, value: option.key });
+            const count = element('span', 'doki-segmented-count');
+            count.dataset.key = option.key;
+            label.append(input, element('span', '', option.label), count);
+            return label;
+        }));
+    group.querySelectorAll('input').forEach(input => { input.checked = input.value === selected; });
+    group.querySelectorAll('.doki-segmented-count').forEach(count => { count.textContent = counts?.[count.dataset.key] ?? ''; });
+}
+
+// The edit button of the row a click landed on, or null when it missed every row.
+export function sourceButton(event) {
+    return event.target.closest?.('tr[data-source]')?.querySelector('button[data-source]') ?? null;
+}
+
+// The episode map: one row per run of episodes that sync alike, with a footer button that lists every episode instead.
+// runs and describe are match-editor-state.js's episodeRuns and describeRun; provider names the tracker in each note.
+export function renderEpisodeMap(tbody, rows, { runs, describe, provider = '', icon }) {
+    const table = tbody.closest('table');
+    table.querySelector('tfoot')?.remove();
+    table.removeAttribute('data-every-episode');
+    const draw = each => {
+        // Every episode at once would repeat each note on every row; the runs view keeps them.
+        table.toggleAttribute('data-every-episode', each);
+        tbody.replaceChildren(...runs(rows, { each }).map(run => {
+            const line = describe(run, provider);
+            const tr = element('tr');
+            if (line.tone) tr.dataset.tone = line.tone;
+            const stacked = (text, note, className = '') => {
+                const cell = element('td', className);
+                cell.append(element('span', 'doki-map-value', text));
+                if (note) cell.append(element('span', 'doki-map-note-line', note));
+                return cell;
+            };
+            tr.append(element('td', 'doki-map-episodes', line.episodes), stacked(line.entry, line.entryNote, 'doki-map-entry'), element('td', 'doki-map-numbers', line.numbers));
+            return tr;
+        }));
+    };
+    draw(false);
+    // A map whose every run is one episode long has nothing to expand.
+    if (runs(rows).length === rows.length) return;
+    const foot = element('tfoot'), row = element('tr'), cell = element('td');
+    cell.colSpan = 3;
+    const toggle = element('button', 'doki-map-toggle');
+    toggle.type = 'button';
+    const label = element('span');
+    const show = each => {
+        toggle.setAttribute('aria-expanded', String(each));
+        label.textContent = each ? 'Show runs' : `Show every episode (${rows.length})`;
+        draw(each);
+    };
+    toggle.append(icon('chevron-right'), label);
+    toggle.addEventListener('click', () => show(toggle.getAttribute('aria-expanded') !== 'true'));
+    cell.append(toggle);
+    row.append(cell);
+    foot.append(row);
+    table.append(foot);
+    show(false);
 }
 
 // One entry picker per editor: which row it serves, its results, and its searches. search(query) resolves to the

@@ -62,16 +62,19 @@
                                         <input class="doki-input" id="userSourceSearch" type="search" placeholder="Search by title" autocomplete="off">
                                         <button class="doki-button" type="button" data-action="search-sources">Search</button>
                                     </div>
-                                    <fieldset class="doki-chip-row"><legend class="doki-sr-only">Show</legend><div class="doki-actions" id="userSourceFilters"></div></fieldset>
+                                    <div class="doki-list-filters">
+                                        <fieldset class="doki-segmented" id="userSourceFilters"><legend class="doki-sr-only">Show</legend></fieldset>
+                                        <fieldset class="doki-segmented" id="userSourceKinds"><legend class="doki-sr-only">Type</legend></fieldset>
+                                    </div>
                                     <div class="doki-table-shell"><table class="doki-user-table doki-source-table">
-                                        <thead><tr><th scope="col">Title</th><th scope="col">Saved</th><th scope="col"><span class="doki-sr-only">Open</span></th></tr></thead>
+                                        <thead><tr><th scope="col">Season</th><th scope="col">Saved</th><th scope="col"><span class="doki-sr-only">Edit</span></th></tr></thead>
                                         <tbody id="userSourceRows"></tbody>
                                     </table></div>
                                     <p class="doki-empty" id="userSourceEmpty" role="status" hidden></p>
-                                    <div class="doki-actions doki-pager">
-                                        <button class="doki-button" type="button" data-action="previous-page">Previous</button>
+                                    <div class="doki-preview-pager doki-pager">
+                                        <button class="doki-button doki-icon-button" type="button" data-action="previous-page" aria-label="Previous page"></button>
                                         <span class="doki-status" id="userPageStatus" role="status"></span>
-                                        <button class="doki-button" type="button" data-action="next-page">Next</button>
+                                        <button class="doki-button doki-icon-button" type="button" data-action="next-page" aria-label="Next page"></button>
                                     </div>
                                 </div>
                                 <div class="doki-dialog-body" data-view="detail">
@@ -84,7 +87,7 @@
                                             <h4 id="userEpisodeMapTitle">Episode map</h4>
                                             <p class="doki-help doki-map-note" id="userEpisodeMapNote"></p>
                                             <div class="doki-table-shell"><table class="doki-user-table doki-episode-map" aria-labelledby="userEpisodeMapTitle">
-                                                <thead><tr><th scope="col">Episode</th><th scope="col">Syncs to</th></tr></thead>
+                                                <thead><tr><th scope="col">Library episodes</th><th scope="col">Syncs to</th><th scope="col">Tracker episodes</th></tr></thead>
                                                 <tbody id="userEpisodeRows"></tbody>
                                             </table></div>
                                             <div class="doki-map-progress" id="userProgress"></div>
@@ -108,7 +111,7 @@
                                         <h4 id="userDraftMapTitle">Preview</h4>
                                         <p class="doki-help doki-map-note" id="userDraftMapNote"></p>
                                         <div class="doki-table-shell" hidden><table class="doki-user-table doki-episode-map" aria-labelledby="userDraftMapTitle">
-                                            <thead><tr><th scope="col">Episode</th><th scope="col">Syncs to</th></tr></thead>
+                                            <thead><tr><th scope="col">Library episodes</th><th scope="col">Syncs to</th><th scope="col">Tracker episodes</th></tr></thead>
                                             <tbody id="userDraftRows"></tbody>
                                         </table></div>
                                         <div class="doki-map-progress" id="userDraftProgress"></div>

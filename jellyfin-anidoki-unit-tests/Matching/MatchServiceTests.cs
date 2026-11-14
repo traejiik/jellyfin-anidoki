@@ -188,9 +188,9 @@ public class MatchServiceTests {
         var preview = Body<PreviewContract>(await _service.Preview(_fixture.SharedScope, request, _fixture.Admin.Id, null, null, CancellationToken.None));
 
         Assert.That(preview.Rows, Has.Count.EqualTo(48));
-        Assert.That(preview.Rows[0], Is.EqualTo(new PreviewRowContract(1, "mapped", Entry(A), 1)));
+        Assert.That(preview.Rows[0], Is.EqualTo(new PreviewRowContract(1, "mapped", Entry(A), 1, 12)), "a row carries its entry's length");
         Assert.That(preview.Rows[5].Outcome, Is.EqualTo("ignored"));
-        Assert.That(preview.Rows[6], Is.EqualTo(new PreviewRowContract(7, "past-entry-end", Entry(B), 13)));
+        Assert.That(preview.Rows[6], Is.EqualTo(new PreviewRowContract(7, "past-entry-end", Entry(B), 13, 12)));
         Assert.That(preview.Rows[12], Is.EqualTo(new PreviewRowContract(13, "match-target-unreadable", Entry(999), 1)));
         Assert.That(preview.Rows[24], Is.EqualTo(new PreviewRowContract(25, "not-in-match", null, null)));
         Assert.That(preview.Errors.Select(issue => issue.Rule), Is.EquivalentTo(new[] { "V4", "V6" }), "errors are shown, and the table is still drawn");
@@ -360,6 +360,68 @@ public class MatchServiceTests {
         Assert.That(past.Items, Is.Empty);
         Assert.That(past.Total, Is.EqualTo(2));
         Assert.That(_service.ListSources(null, null, "needs-everything", 1).Outcome, Is.EqualTo(MatchOutcome.BadRequest));
+    }
+
+    /// <summary>A library of many series, each with seasons 10, 2 and 1 listed out of order.</summary>
+    private sealed class ManySeriesLibrary(int count) : IMatchLibrary {
+        public IReadOnlyList<LibrarySourceEntry> List(Guid? viewer) => Enumerable.Range(1, count)
+            .SelectMany(series => new[] { 10, 2, 1 }.Select(season => new LibrarySourceEntry($"season:{series:x32}:{season}", MatchSourceKind.Season,
+                $"Show {series:D2} · season {season}", $"Show {series:D2}", season)))
+            .Append(new LibrarySourceEntry($"movie:{0:x32}", MatchSourceKind.Movie, "Show 05", "Show 05"))
+            .ToList();
+
+        public LibrarySource? Find(string sourceKey, Guid? viewer) => null;
+
+        public IReadOnlyList<LibrarySourceEntry> Candidates(MatchSource orphan, int? seasonNumber) => [];
+    }
+
+    [Test]
+    public void TheSourceListPagesWholeSeriesWithTheirSeasonsInOrder() {
+        var service = new MatchService(_fixture.Store, new ManySeriesLibrary(MatchService.PageSize + 5), _fixture.Trackers, _fixture.Automatic,
+            _fixture.WatchState, _fixture.Problems, _fixture.Users.Object);
+
+        var first = Body<SourcePageContract>(service.ListSources(null, null, null, 1));
+        var second = Body<SourcePageContract>(service.ListSources(null, null, null, 2));
+
+        // 30 series and a movie sharing a series' name: 31 titles, never split across the two pages.
+        Assert.That(first.Total, Is.EqualTo(MatchService.PageSize + 6));
+        Assert.That(first.Items.Where(item => item.Kind == MatchSourceKind.Season).Select(item => item.Name).Distinct().Count(), Is.EqualTo(MatchService.PageSize - 1));
+        Assert.That(first.Items.Count + second.Items.Count, Is.EqualTo((MatchService.PageSize + 5) * 3 + 1));
+        Assert.That(first.Items.Select(item => item.Name).Intersect(second.Items.Select(item => item.Name)), Is.Empty);
+        Assert.That(first.Items.Take(3).Select(item => item.Season), Is.EqualTo(new int?[] { 1, 2, 10 }), "season 10 sorts after season 2");
+        Assert.That(first.Items.Where(item => item.Name == "Show 05").Select(item => item.Kind).Distinct().Count(), Is.EqualTo(2), "the movie and the series stay apart");
+    }
+
+    [Test]
+    public void TheSourceListNarrowsToSeriesOrMovies() {
+        var service = new MatchService(_fixture.Store, new ManySeriesLibrary(3), _fixture.Trackers, _fixture.Automatic,
+            _fixture.WatchState, _fixture.Problems, _fixture.Users.Object);
+
+        var series = Body<SourcePageContract>(service.ListSources(null, null, null, 1, MatchService.SeriesKind));
+        var movies = Body<SourcePageContract>(service.ListSources(null, null, null, 1, MatchService.MoviesKind));
+
+        Assert.That(series.Total, Is.EqualTo(3));
+        Assert.That(series.Items.Select(item => item.Kind).Distinct(), Is.EqualTo(new[] { MatchSourceKind.Season }));
+        Assert.That(movies.Items.Select(item => item.Kind), Is.EqualTo(new[] { MatchSourceKind.Movie }));
+        Assert.That(service.ListSources(null, null, null, 1, "books").Outcome, Is.EqualTo(MatchOutcome.BadRequest));
+    }
+
+    [Test]
+    public void EachListOptionCountsTheTitlesItWouldShowWithTheOtherFilterApplied() {
+        var service = new MatchService(_fixture.Store, new ManySeriesLibrary(3), _fixture.Trackers, _fixture.Automatic,
+            _fixture.WatchState, _fixture.Problems, _fixture.Users.Object);
+
+        var series = Body<SourcePageContract>(service.ListSources(null, null, null, 1, MatchService.SeriesKind)).Counts!;
+        var searched = Body<SourcePageContract>(service.ListSources(null, "show 01", null, 1)).Counts!;
+        var matched = Body<SourcePageContract>(service.ListSources(null, null, MatchService.MatchedFilter, 1)).Counts!;
+
+        // Three series of three seasons each count as three titles, not nine; the movie counts once.
+        Assert.That(series.Kinds, Is.EqualTo(new Dictionary<string, int> { [""] = 4, ["series"] = 3, ["movies"] = 1 }));
+        Assert.That(series.Filters[""], Is.EqualTo(3), "the status counts keep the type filter");
+        Assert.That(series.Filters[MatchService.MatchedFilter], Is.EqualTo(0));
+        Assert.That(searched.Kinds[""], Is.EqualTo(1), "counts follow the search");
+        Assert.That(matched.Kinds[""], Is.EqualTo(0), "the type counts keep the status filter");
+        Assert.That(matched.Filters[""], Is.EqualTo(4));
     }
 
     [Test]
