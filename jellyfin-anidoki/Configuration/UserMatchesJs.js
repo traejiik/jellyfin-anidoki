@@ -424,7 +424,7 @@ export default async function (section, common, cache, signal) {
         if (signal.aborted || provider !== reading) return null;
         map.table.hidden = false;
         map.note.textContent = label;
-        editor.renderEpisodeMap(map.rows, result.rows ?? [], state.describeRow);
+        editor.renderEpisodeMap(map.rows, result.rows ?? [], { runs: state.episodeRuns, describe: state.describeRun, provider: common.providerName(provider), icon: common.icon });
         drawProgress(map.progress, result.progress);
         return result;
     }

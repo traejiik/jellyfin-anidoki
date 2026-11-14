@@ -327,16 +327,49 @@ export function sourceButton(event) {
     return event.target.closest?.('tr[data-source]')?.querySelector('button[data-source]') ?? null;
 }
 
-// The episode map's rows. describe is match-editor-state.js's describeRow.
-export function renderEpisodeMap(tbody, rows, describe) {
-    tbody.replaceChildren(...rows.map(row => {
-        const line = describe(row);
-        const tr = element('tr');
-        const cell = element('td', line.tone === 'error' ? 'doki-status' : line.tone === 'muted' ? 'doki-muted' : '', line.text);
-        if (line.tone) cell.dataset.tone = line.tone;
-        tr.append(element('td', 'doki-mono', String(row.sourceEpisode)), cell);
-        return tr;
-    }));
+// The episode map: one row per run of episodes that sync alike, with a footer button that lists every episode instead.
+// runs and describe are match-editor-state.js's episodeRuns and describeRun; provider names the tracker in each note.
+export function renderEpisodeMap(tbody, rows, { runs, describe, provider = '', icon }) {
+    const table = tbody.closest('table');
+    table.querySelector('tfoot')?.remove();
+    table.removeAttribute('data-every-episode');
+    const draw = each => {
+        // Every episode at once would repeat each note on every row; the runs view keeps them.
+        table.toggleAttribute('data-every-episode', each);
+        tbody.replaceChildren(...runs(rows, { each }).map(run => {
+            const line = describe(run, provider);
+            const tr = element('tr');
+            if (line.tone) tr.dataset.tone = line.tone;
+            const stacked = (text, note, className = '') => {
+                const cell = element('td', className);
+                cell.append(element('span', 'doki-map-value', text));
+                if (note) cell.append(element('span', 'doki-map-note-line', note));
+                return cell;
+            };
+            tr.append(element('td', 'doki-map-episodes', line.episodes), stacked(line.entry, line.entryNote, 'doki-map-entry'), element('td', 'doki-map-numbers', line.numbers));
+            return tr;
+        }));
+    };
+    draw(false);
+    // A map whose every run is one episode long has nothing to expand.
+    if (runs(rows).length === rows.length) return;
+    const foot = element('tfoot'), row = element('tr'), cell = element('td');
+    cell.colSpan = 3;
+    const toggle = element('button', 'doki-map-toggle');
+    toggle.type = 'button';
+    const label = element('span');
+    const show = each => {
+        toggle.setAttribute('aria-expanded', String(each));
+        label.textContent = each ? 'Show runs' : `Show every episode (${rows.length})`;
+        draw(each);
+    };
+    toggle.append(icon('chevron-right'), label);
+    toggle.addEventListener('click', () => show(toggle.getAttribute('aria-expanded') !== 'true'));
+    cell.append(toggle);
+    row.append(cell);
+    foot.append(row);
+    table.append(foot);
+    show(false);
 }
 
 // One entry picker per editor: which row it serves, its results, and its searches. search(query) resolves to the

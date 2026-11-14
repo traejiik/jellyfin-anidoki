@@ -314,10 +314,12 @@ public sealed class MatchService(MatchStore store, IMatchLibrary library, IMatch
     private static PreviewRowContract Row(Match match, int episode, string title, IReadOnlyDictionary<EntryRef, EntryState> entries) {
         var mapped = RangeResolver.Map(match, episode) as MappedEpisode;
         EntryContract? target = mapped == null ? null : EntryContract.From(mapped.Target);
+        // Zero means the tracker does not know the length yet (an airing show), which the map leaves unsaid.
+        int? length = mapped != null && entries.TryGetValue(mapped.Target.Entry, out EntryState? state) && state.TotalEpisodes > 0 ? state.TotalEpisodes : null;
         return RangeResolver.Resolve(match, episode, title, entries) switch {
-            Resolved => new PreviewRowContract(episode, "mapped", target, mapped!.TargetEpisode),
+            Resolved => new PreviewRowContract(episode, "mapped", target, mapped!.TargetEpisode, length),
             Ignored => new PreviewRowContract(episode, "ignored", null, null),
-            Unresolved unresolved => new PreviewRowContract(episode, unresolved.Reason, target, mapped?.TargetEpisode),
+            Unresolved unresolved => new PreviewRowContract(episode, unresolved.Reason, target, mapped?.TargetEpisode, length),
             _ => throw new InvalidOperationException("Unknown resolution.")
         };
     }

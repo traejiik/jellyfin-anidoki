@@ -188,9 +188,9 @@ public class MatchServiceTests {
         var preview = Body<PreviewContract>(await _service.Preview(_fixture.SharedScope, request, _fixture.Admin.Id, null, null, CancellationToken.None));
 
         Assert.That(preview.Rows, Has.Count.EqualTo(48));
-        Assert.That(preview.Rows[0], Is.EqualTo(new PreviewRowContract(1, "mapped", Entry(A), 1)));
+        Assert.That(preview.Rows[0], Is.EqualTo(new PreviewRowContract(1, "mapped", Entry(A), 1, 12)), "a row carries its entry's length");
         Assert.That(preview.Rows[5].Outcome, Is.EqualTo("ignored"));
-        Assert.That(preview.Rows[6], Is.EqualTo(new PreviewRowContract(7, "past-entry-end", Entry(B), 13)));
+        Assert.That(preview.Rows[6], Is.EqualTo(new PreviewRowContract(7, "past-entry-end", Entry(B), 13, 12)));
         Assert.That(preview.Rows[12], Is.EqualTo(new PreviewRowContract(13, "match-target-unreadable", Entry(999), 1)));
         Assert.That(preview.Rows[24], Is.EqualTo(new PreviewRowContract(25, "not-in-match", null, null)));
         Assert.That(preview.Errors.Select(issue => issue.Rule), Is.EquivalentTo(new[] { "V4", "V6" }), "errors are shown, and the table is still drawn");

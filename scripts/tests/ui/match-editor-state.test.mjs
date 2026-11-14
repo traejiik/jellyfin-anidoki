@@ -221,9 +221,44 @@ test('provider states and rows read as words', () => {
     assert.equal(editor.stateLabel({ provider: 'AniList' }), 'Automatic');
     assert.equal(editor.resolutionBadge(null), 'Automatic');
     assert.equal(editor.resolutionBadge({ revision: 4 }), 'Shared r4');
-    assert.deepEqual(editor.describeRow({ outcome: 'mapped', target: entry(101), targetEpisode: 3 }), { text: 'Entry 101 · episode 3', tone: '' });
-    assert.deepEqual(editor.describeRow({ outcome: 'past-entry-end', target: entry(101), targetEpisode: 13 }), { text: 'Past the entry’s last episode: Entry 101 · episode 13', tone: 'error' });
-    assert.deepEqual(editor.describeRow({ outcome: 'not-in-match' }), { text: 'Not in this match', tone: 'error' });
+});
+
+const mapRow = (sourceEpisode, id, targetEpisode, outcome = 'mapped', entryEpisodes = 12) =>
+    ({ sourceEpisode, outcome, target: id ? entry(id) : null, targetEpisode, entryEpisodes });
+
+test('the episode map joins episodes that sync alike into runs', () => {
+    const rows = [
+        ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => mapRow(n, 101, n)),
+        ...[13, 14, 15].map(n => mapRow(n, 102, n - 12)),
+        mapRow(16, null, null, 'ignored'),
+        mapRow(18, 102, 6), // the library has no episode 17
+        mapRow(19, 102, 7, 'past-entry-end')
+    ];
+    const runs = editor.episodeRuns(rows);
+    assert.deepEqual(runs.map(run => [run.from, run.to, run.outcome, run.target?.id ?? null, run.targetFrom, run.targetTo]), [
+        [1, 12, 'mapped', 101, 1, 12], [13, 15, 'mapped', 102, 1, 3], [16, 16, 'ignored', null, null, null],
+        [18, 18, 'mapped', 102, 6, 6], [19, 19, 'past-entry-end', 102, 7, 7]
+    ]);
+    assert.equal(editor.episodeRuns(rows, { each: true }).length, rows.length, 'every episode, one run each');
+});
+
+test('an entry episode that does not count up by one starts a new run', () => {
+    const runs = editor.episodeRuns([mapRow(1, 101, 1), mapRow(2, 101, 5), mapRow(3, 101, 6)]);
+    assert.deepEqual(runs.map(run => [run.from, run.to, run.targetFrom, run.targetTo]), [[1, 1, 1, 1], [2, 3, 5, 6]]);
+});
+
+test('a run reads as its episodes, its entry and the entry’s own numbers', () => {
+    const [whole] = editor.episodeRuns([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => mapRow(n, 101, n)));
+    assert.deepEqual(editor.describeRun(whole, 'AniList'), { episodes: '1–12', entry: 'Entry 101', entryNote: 'AniList · 12 episodes',
+        numbers: '1–12', tone: '' });
+    const [part] = editor.episodeRuns([mapRow(13, 102, 1, 'mapped', 0), mapRow(14, 102, 2, 'mapped', 0)].map(row => ({ ...row, entryEpisodes: null })));
+    assert.deepEqual(editor.describeRun(part, 'AniList'), { episodes: '13–14', entry: 'Entry 102', entryNote: 'AniList', numbers: '1–2', tone: '' });
+    const [past] = editor.episodeRuns([mapRow(19, 102, 13, 'past-entry-end'), mapRow(20, 102, 14, 'past-entry-end')]);
+    assert.deepEqual(editor.describeRun(past), { episodes: '19–20', entry: 'Past the entry’s last episode',
+        entryNote: 'Would go to Entry 102, episodes 13–14, but sync skips them.', numbers: '—', tone: 'attention' });
+    const [missing] = editor.episodeRuns([mapRow(7, null, null, 'not-in-match')]);
+    assert.equal(editor.describeRun(missing).entryNote, 'Sync skips it. Create a match to choose an entry.');
+    assert.equal(editor.describeRun(editor.episodeRuns([mapRow(3, null, null, 'ignored')])[0]).tone, 'muted');
 });
 
 test('an orphan reads as what was saved and when', () => {

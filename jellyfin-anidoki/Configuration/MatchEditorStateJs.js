@@ -298,12 +298,45 @@ const reasons = {
     'past-entry-end': 'Past the entry’s last episode'
 };
 
-// One preview row in words. A row that would not sync still names where the match sends it.
-export function describeRow(row) {
-    const target = row.target ? `${row.target.title} · episode ${row.targetEpisode}` : '';
-    if (row.outcome === 'mapped') return { text: target, tone: '' };
-    if (row.outcome === 'ignored') return { text: 'Ignored', tone: 'muted' };
-    return { text: [reasons[row.outcome] ?? row.outcome, target].filter(Boolean).join(': '), tone: 'error' };
+// The episode map's rows joined into runs: neighbouring library episodes with the same outcome and entry, whose entry
+// episodes also count up by one. A gap in the library's numbering starts a new run. each: true keeps one run per
+// episode, for "Show every episode".
+export function episodeRuns(rows, { each = false } = {}) {
+    const runs = [];
+    const sameEntry = (a, b) => (a?.id ?? null) === (b?.id ?? null) && (a?.alternativeId ?? null) === (b?.alternativeId ?? null);
+    for (const row of rows) {
+        const last = runs.at(-1);
+        const joins = !each && last && row.sourceEpisode === last.to + 1 && row.outcome === last.outcome && sameEntry(row.target, last.target)
+            && (row.targetEpisode == null ? last.targetTo == null : row.targetEpisode === last.targetTo + 1);
+        if (joins) {
+            last.to = row.sourceEpisode;
+            last.targetTo = row.targetEpisode ?? null;
+        } else {
+            runs.push({ from: row.sourceEpisode, to: row.sourceEpisode, outcome: row.outcome, target: row.target ?? null,
+                targetFrom: row.targetEpisode ?? null, targetTo: row.targetEpisode ?? null, entryEpisodes: row.entryEpisodes ?? null });
+        }
+    }
+    return runs;
+}
+
+const span = (from, to) => from === to ? String(from) : `${from}–${to}`;
+const episodeCount = count => `${count} ${count === 1 ? 'episode' : 'episodes'}`;
+
+// One run in words, for the three columns: library episodes, where they sync (with a note beneath naming the tracker
+// and the entry's length), and which of the entry's episodes they become. tone: '' when it syncs, 'muted' when ignored on purpose, 'attention' when it would not sync.
+export function describeRun(run, providerName = '') {
+    const episodes = span(run.from, run.to);
+    const sendsTo = run.targetFrom == null ? '' : span(run.targetFrom, run.targetTo);
+    if (run.outcome === 'mapped') {
+        const length = run.entryEpisodes ? episodeCount(run.entryEpisodes) : '';
+        return { episodes, entry: run.target?.title ?? '', entryNote: [providerName, length].filter(Boolean).join(' · '), numbers: sendsTo, tone: '' };
+    }
+    if (run.outcome === 'ignored')
+        return { episodes, entry: 'Ignored', entryNote: 'The match skips these on purpose.', numbers: '—', tone: 'muted' };
+    return { episodes, entry: reasons[run.outcome] ?? run.outcome,
+        entryNote: run.target ? `Would go to ${run.target.title}${sendsTo ? `, episode${run.targetFrom === run.targetTo ? '' : 's'} ${sendsTo}` : ''}, but sync skips ${run.from === run.to ? 'it' : 'them'}.`
+            : `Sync skips ${run.from === run.to ? 'it' : 'them'}. Create a match to choose an entry.`,
+        numbers: '—', tone: 'attention' };
 }
 
 // One line under an orphan: what was saved, and when it was last changed.

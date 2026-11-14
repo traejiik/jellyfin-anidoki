@@ -195,11 +195,13 @@ public sealed record UserSourceDetailContract(
 
 /// <param name="Outcome"><c>mapped</c>, <c>ignored</c>, or the reason sync would record: <c>not-in-match</c>, <c>match-target-unreadable</c>, <c>past-entry-end</c>.</param>
 /// <param name="Target">Where the match sends the episode, even when it would not sync.</param>
+/// <param name="EntryEpisodes">The target entry's episode count, when it could be read and is known.</param>
 public sealed record PreviewRowContract(
     [property: JsonPropertyName("sourceEpisode")] int SourceEpisode,
     [property: JsonPropertyName("outcome")] string Outcome,
     [property: JsonPropertyName("target")] EntryContract? Target,
-    [property: JsonPropertyName("targetEpisode")] int? TargetEpisode);
+    [property: JsonPropertyName("targetEpisode")] int? TargetEpisode,
+    [property: JsonPropertyName("entryEpisodes")] int? EntryEpisodes = null);
 
 /// <param name="Progress">Highest-watched progress (D5).</param>
 /// <param name="ListStatus">The entry on the user's list now; null when it is not on it.</param>

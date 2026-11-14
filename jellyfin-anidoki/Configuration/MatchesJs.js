@@ -399,7 +399,7 @@ export default function (view) {
         if (signal.aborted || provider !== reading) return null;
         map.table.hidden = false;
         map.note.textContent = [label, result.borrowedLink ? `Entry titles come from another user’s ${common.providerName(provider)} link.` : ''].filter(Boolean).join(' ');
-        editor.renderEpisodeMap(map.rows, result.rows ?? [], state.describeRow);
+        editor.renderEpisodeMap(map.rows, result.rows ?? [], { runs: state.episodeRuns, describe: state.describeRun, provider: common.providerName(provider), icon: common.icon });
         return result;
     }
 
