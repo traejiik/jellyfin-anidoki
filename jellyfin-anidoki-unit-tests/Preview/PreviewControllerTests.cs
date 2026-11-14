@@ -310,14 +310,53 @@ public class PreviewControllerTests {
         Assert.That(_controller.Apply(preview, new ApplyRequest(null)).Result, Is.InstanceOf<BadRequestObjectResult>());
     }
 
-    [Test]
-    public void APreviewFromTrackersCannotBeAppliedYet() {
+    /// <summary>A finished, applicable preview from AniList with one selectable season row per seq.</summary>
+    private Guid InboundPreviewWithRows(int count) {
         Guid id = Guid.NewGuid();
-        _store.Create(id, _user.Id, OperationKind.PreviewFromTrackers, "x");
+        _store.Create(id, _user.Id, OperationKind.PreviewFromTrackers, "AniList (Both)");
         _store.MarkRunning(id);
         _store.Finish(id, OperationState.Succeeded, null);
+        for (int seq = 0; seq < count; seq++) {
+            Guid season = Guid.NewGuid();
+            _rows.Add(id, new PreviewRow(seq, PreviewDirection.FromTrackers, ApiName.AniList, "season:x:1", season, "Show · season 1", 4, "1001",
+                "Show", 4, PreviewRowKind.Change, "mark-played", null, null, null, false, "", null, null, true, true, null,
+                new InboundChange(season, [], new DateTime(2026, 1, 2), true), new InboundEntry(ApiName.AniList, 1001, "Show", jellyfin_anidoki.Models.Mal.Status.Completed, 4, null)));
+        }
+        return id;
+    }
 
-        Assert.That(Apply(id, 0).Result, Is.InstanceOf<BadRequestObjectResult>());
+    [Test]
+    public async Task ApplyingAPreviewFromTrackersStartsASyncFromTrackersThatNamesItsPreview() {
+        Guid preview = InboundPreviewWithRows(2);
+
+        var result = Apply(preview, 0, 1);
+
+        Assert.That(result.Result, Is.InstanceOf<AcceptedResult>());
+        await _runner.Drain();
+        OperationView apply = _store.Read(IdOf(result))!;
+        Assert.Multiple(() => {
+            Assert.That(apply.Kind, Is.EqualTo(OperationKind.SyncFromTrackers));
+            Assert.That(apply.PreviewOf, Is.EqualTo(preview));
+            Assert.That(apply.Source, Is.EqualTo("2 selected seasons from a preview"));
+            Assert.That(OperationStates.IsFinished(apply.State), Is.True);
+            Assert.That(_controller.Read(preview).Value!.Applicable, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task AnActiveSyncFromTrackersBlocksApplyingAPreviewFromTrackers() {
+        Guid preview = InboundPreviewWithRows(1);
+        ActionResult<OperationStarted> result;
+        Guid sync;
+        using (await SyncExecutionGate.Shared.Enter(_user.Id)) {
+            sync = _runner.Enqueue(_user.Id, OperationKind.SyncFromTrackers, "x", _ => Task.CompletedTask)!.OperationId;
+            result = Apply(preview, 0);
+        }
+
+        Assert.That(result.Result, Is.InstanceOf<ConflictObjectResult>());
+        Assert.That(IdOf(result), Is.EqualTo(sync));
+        await _runner.Drain();
+        Assert.That(_controller.Read(preview).Value!.Applicable, Is.True);
     }
 
     [Test]

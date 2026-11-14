@@ -97,7 +97,7 @@ public class Sync {
 
         User user = _userManager.GetUserById(Guid.Parse(userId));
         foreach (InboundSeasonPlan season in plan.Seasons)
-            Apply(user, season, userId);
+            Apply(user, season);
         operation.Result = OperationState.Succeeded;
         operation.Message = plan.EntryCount == 1 ? "Checked 1 tracker entry." : $"Checked {plan.EntryCount} tracker entries.";
     }
@@ -188,7 +188,10 @@ public class Sync {
         return plans;
     }
 
-    private void Apply(User user, InboundSeasonPlan plan, string userId) {
+    /// <summary>Reads the tracker list for the statuses this sync was built with. Null when the tracker gave none.</summary>
+    internal Task<List<Anime>> ReadList(Guid userId) => GetAnimeList(userId.ToString());
+
+    private void Apply(User user, InboundSeasonPlan plan) {
         if (plan.SeasonIgnored) {
             _logger.LogDebug("(Sync) Ignoring {SeasonName}; ignore tag detected", plan.Season.Name);
             return;
@@ -196,16 +199,24 @@ public class Sync {
 
         foreach (Episode ignored in plan.IgnoredEpisodes)
             _logger.LogDebug("(Sync) Ignoring {ItemName}; ignore tag detected", ignored.Name);
-        foreach (Episode episode in plan.Episodes) {
-            _logger.LogInformation("(Sync) Setting {SeriesName} season {SeasonIndexNumber} episode {EpisodeIndexNumber} for user {UserId} as played...", episode.Series.Name, episode.Season.IndexNumber, episode.IndexNumber, userId);
-            _userDataManager.SaveUserData(user, episode, SetUserData(user, episode, plan.PlayedDate), UserDataSaveReason.UpdateUserData, CancellationToken.None);
+        Mark(user, plan.Season, plan.Episodes, plan.PlayedDate, plan.MarksSeason);
+    }
+
+    /// <summary>
+    /// Marks the episodes played on <paramref name="playedDate"/>, then the season unless <paramref name="marksSeason"/> is false.
+    /// The one place a sync from trackers saves user data; applying a preview from trackers marks through it too.
+    /// </summary>
+    internal void Mark(User user, Season season, IReadOnlyList<Episode> episodes, DateTime playedDate, bool marksSeason) {
+        foreach (Episode episode in episodes) {
+            _logger.LogInformation("(Sync) Setting {SeriesName} season {SeasonIndexNumber} episode {EpisodeIndexNumber} for user {UserId} as played...", episode.Series.Name, episode.Season.IndexNumber, episode.IndexNumber, user.Id);
+            _userDataManager.SaveUserData(user, episode, SetUserData(user, episode, playedDate), UserDataSaveReason.UpdateUserData, CancellationToken.None);
         }
 
-        if (!plan.MarksSeason) {
-            _logger.LogDebug("(Sync) Not marking season {SeasonName} as played; one or more episodes carry the ignore tag", plan.Season.Name);
+        if (!marksSeason) {
+            _logger.LogDebug("(Sync) Not marking season {SeasonName} as played; one or more episodes carry the ignore tag", season.Name);
         } else {
             // this could fail because show has ovas, hard to detect. todo warn users
-            _userDataManager.SaveUserData(user, plan.Season, SetUserData(user, plan.Season, plan.PlayedDate), UserDataSaveReason.UpdateUserData, CancellationToken.None);
+            _userDataManager.SaveUserData(user, season, SetUserData(user, season, playedDate), UserDataSaveReason.UpdateUserData, CancellationToken.None);
             _logger.LogInformation("(Sync) Saved");
         }
     }

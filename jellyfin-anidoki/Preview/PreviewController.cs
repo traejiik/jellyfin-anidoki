@@ -102,8 +102,9 @@ public sealed class PreviewController(OperationRunner runner, OperationStore sto
     }
 
     /// <summary>
-    /// Writes the chosen rows of a preview to trackers, each as previewed or not at all (D4), as a <c>SyncToTrackers</c> run
-    /// that names its preview. Only the newest cleanly finished preview, within a day and not yet applied, can be applied.
+    /// Applies the chosen rows of a preview, each as previewed or not at all (D4): a preview to trackers as a <c>SyncToTrackers</c>
+    /// run, a preview from trackers as a <c>SyncFromTrackers</c> run, either naming its preview. Only the newest cleanly finished
+    /// preview, within a day and not yet applied, can be applied.
     /// </summary>
     [HttpPost("{operationId:guid}/apply")]
     public ActionResult<OperationStarted> Apply(Guid operationId, [FromBody] ApplyRequest? request) {
@@ -113,9 +114,9 @@ public sealed class PreviewController(OperationRunner runner, OperationStore sto
         try {
             if (store.Read(operationId) is not { Kind: OperationKind.PreviewToTrackers or OperationKind.PreviewFromTrackers } preview)
                 return NotFound();
-            if (preview.Kind == OperationKind.PreviewFromTrackers)
-                return BadRequest("Applying a preview from trackers is not available yet.");
-            if ((store.FindActive(preview.UserId, OperationKind.SyncToTrackers) ?? store.FindActive(preview.UserId, OperationKind.PreviewToTrackers)) is { } running)
+            bool inbound = preview.Kind == OperationKind.PreviewFromTrackers;
+            OperationKind syncKind = inbound ? OperationKind.SyncFromTrackers : OperationKind.SyncToTrackers;
+            if ((store.FindActive(preview.UserId, syncKind) ?? store.FindActive(preview.UserId, preview.Kind)) is { } running)
                 return Conflict(new OperationStarted(running));
             if (!rows.IsApplicable(preview))
                 return Conflict(Refresh);
@@ -126,10 +127,14 @@ public sealed class PreviewController(OperationRunner runner, OperationStore sto
             // Taking the rows before queueing means two applies of one preview cannot both start.
             if (!rows.Claim(operationId, seqs, applyId))
                 return Conflict(Refresh);
-            var apply = new PreviewApply(library, loggerFactory, httpClientFactory, serverApplicationHost, httpContextAccessor, memoryCache,
-                new Delayer(), matches, watchState, preview.UserId, chosen);
-            OperationRunner.Handle? handle = runner.Enqueue(preview.UserId, OperationKind.SyncToTrackers, Selected(chosen.Count), apply.Run,
-                applyId, operationId);
+            Func<OperationContext, Task> run = inbound
+                ? new InboundApply(new Sync(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, users, library,
+                    applicationPaths, userData, memoryCache, new Delayer(), chosen[0].Provider, SyncHelper.Status.Both), library, users, userData,
+                    loggerFactory, preview.UserId, chosen).Run
+                : new PreviewApply(library, loggerFactory, httpClientFactory, serverApplicationHost, httpContextAccessor, memoryCache,
+                    new Delayer(), matches, watchState, preview.UserId, chosen).Run;
+            string source = inbound ? Seasons(chosen.Count) : Selected(chosen.Count);
+            OperationRunner.Handle? handle = runner.Enqueue(preview.UserId, syncKind, source, run, applyId, operationId);
             if (handle == null) {
                 rows.Release(operationId, applyId);
                 return StatusCode(StatusCodes.Status503ServiceUnavailable, Unavailable);
@@ -141,6 +146,8 @@ public sealed class PreviewController(OperationRunner runner, OperationStore sto
     }
 
     private static string Selected(int count) => count == 1 ? "1 selected change from a preview" : $"{count} selected changes from a preview";
+
+    private static string Seasons(int count) => count == 1 ? "1 selected season from a preview" : $"{count} selected seasons from a preview";
 
     private ActionResult<T> Guarded<T>(Func<ActionResult<T>> read) {
         try {

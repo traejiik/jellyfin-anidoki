@@ -26,8 +26,7 @@ internal static class InboundRows {
             1 => "1 episode carries the ignore tag, so the season itself is not marked",
             _ => string.Create(CultureInfo.InvariantCulture, $"{ignored} episodes carry the ignore tag, so the season itself is not marked")
         };
-        string fingerprint = WatchedFingerprint.Of(season.Children.OfType<Episode>()
-            .Where(episode => episode.IndexNumber != null && Played(episode)).Select(episode => episode.IndexNumber!.Value));
+        string fingerprint = Fingerprint(season, Played);
         Anime entry = plan.Source.entry;
         return new PreviewRow(0, PreviewDirection.FromTrackers, provider, SourceKey(season), season.Id, Title(season),
             plan.Episodes.Count == 0 ? null : plan.Episodes.Max(episode => episode.IndexNumber), TargetId(entry), entry.Title ?? "",
@@ -54,6 +53,11 @@ internal static class InboundRows {
 
     private static string TargetId(Anime entry) => entry.Id.ToString(CultureInfo.InvariantCulture);
 
-    private static InboundEntry Entry(Anime entry, ApiName provider) =>
+    /// <summary>The season's played episode numbers, as an inbound row stores them and an apply compares them.</summary>
+    internal static string Fingerprint(Season season, Func<BaseItem, bool> played) =>
+        WatchedFingerprint.Of(season.Children.OfType<Episode>()
+            .Where(episode => episode.IndexNumber != null && played(episode)).Select(episode => episode.IndexNumber!.Value));
+
+    internal static InboundEntry Entry(Anime entry, ApiName provider) =>
         new(provider, entry.Id, entry.Title ?? "", entry.MyListStatus?.Status, entry.MyListStatus?.NumEpisodesWatched ?? 0, entry.MyListStatus?.FinishDate);
 }
