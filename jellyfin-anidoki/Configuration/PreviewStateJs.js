@@ -7,21 +7,96 @@ export const filters = [
     { key: 'problems', label: 'Problems', kinds: ['Unresolved', 'Failed'] },
     { key: 'all', label: 'Everything', kinds: [] }
 ];
-const filterOf = key => filters.find(filter => filter.key === key) ?? filters[filters.length - 1];
-const everything = counts => Object.values(counts ?? {}).reduce((sum, count) => sum + count, 0);
+// Once a preview is applied, its own tab lists the rows that were, with their results. Counted from counts.Applied.
+const applied = { key: 'applied', label: 'Applied', kinds: [] };
+const filterOf = key => key === applied.key ? applied : filters.find(filter => filter.key === key) ?? filters[filters.length - 1];
+const everything = counts => Object.entries(counts ?? {}).filter(([kind]) => kind !== 'Applied').reduce((sum, [, count]) => sum + count, 0);
+
+// The tabs a preview shows: nothing can lower progress from trackers, and an applied preview leads with what was applied.
+export function filtersFor(direction, isApplied) {
+    const shown = filters.filter(filter => direction !== 'FromTrackers' || filter.key !== 'reductions');
+    return isApplied ? [applied, ...shown] : shown;
+}
 
 export function filterCount(key, counts) {
+    if (key === applied.key) return counts?.Applied ?? 0;
     const { kinds } = filterOf(key);
     return kinds.length ? kinds.reduce((sum, kind) => sum + (counts?.[kind] ?? 0), 0) : everything(counts);
 }
 
-// Opens on the first view that has something in it.
-export const defaultFilter = counts => filters.find(filter => filter.kinds.length && filterCount(filter.key, counts) > 0)?.key ?? 'all';
+// Opens on what was applied, else on the first view that has something in it.
+export function defaultFilter(counts, { direction = 'ToTrackers', applied: isApplied = false } = {}) {
+    if (isApplied) return applied.key;
+    return filtersFor(direction, false).find(filter => filter.kinds.length && filterCount(filter.key, counts) > 0)?.key ?? 'all';
+}
 
 export function rowsPath(operationId, key, offset) {
     const query = new URLSearchParams({ offset: String(offset), limit: String(pageSize) });
-    filterOf(key).kinds.forEach(kind => query.append('kind', kind));
+    if (key === applied.key) query.append('applied', 'true');
+    else filterOf(key).kinds.forEach(kind => query.append('kind', kind));
     return `AniDoki/preview/${operationId}/rows?${query}`;
+}
+
+// Selection. selectable is the server's [{seq, kind, selectedByDefault}]: only rows that can be applied (D3).
+const inFilter = (row, key) => key !== applied.key && (filterOf(key).kinds.length === 0 || filterOf(key).kinds.includes(row.kind));
+export const defaultSelection = selectable => new Set(selectable.filter(row => row.selectedByDefault).map(row => row.seq));
+
+// Ticks or clears every applicable row of one tab, wherever it is paged.
+export function selectAll(selected, selectable, key, on) {
+    const next = new Set(selected);
+    selectable.filter(row => inFilter(row, key)).forEach(row => (on ? next.add(row.seq) : next.delete(row.seq)));
+    return next;
+}
+
+// What the tab's header checkbox shows: 'empty' hides it.
+export function filterSelection(selected, selectable, key) {
+    const rows = selectable.filter(row => inFilter(row, key));
+    const ticked = rows.filter(row => selected.has(row.seq)).length;
+    return !rows.length ? 'empty' : ticked === 0 ? 'none' : ticked === rows.length ? 'all' : 'some';
+}
+
+// The footer: how much is selected and what the button does. A ticked reduction is confirmed first.
+export function selectionSummary(selected, selectable, direction) {
+    const chosen = selectable.filter(row => selected.has(row.seq));
+    const reductions = chosen.filter(row => row.kind === 'Reduction').map(row => row.seq);
+    const count = chosen.length, inbound = direction === 'FromTrackers';
+    const noun = inbound ? ['season', 'seasons'] : ['change', 'changes'];
+    return {
+        count, reductions,
+        status: `${count} of ${selectable.length} ${selectable.length === 1 ? noun[0] : noun[1]} selected`,
+        button: inbound ? `Mark ${plural(count, 'season', 'seasons')} played` : `Apply ${plural(count, 'change', 'changes')}`,
+        needsConfirm: reductions.length > 0
+    };
+}
+
+// One applied row's result: a short label, its tone and its icon (the data-icon masks). No outcome yet reads as waiting
+// while the apply runs, and as nothing afterwards.
+export function resultLabel(outcome, providerName, provider, direction, running) {
+    const tracker = providerName(provider);
+    if (!outcome) return running ? { text: 'Waiting', tone: 'neutral', icon: 'clock' } : null;
+    if (outcome.kind === 'Confirmed') return { text: direction === 'FromTrackers' ? 'Marked played' : 'Updated', tone: 'success', icon: 'check' };
+    if (outcome.kind === 'NoChange') return { text: 'Already up to date', tone: 'neutral', icon: 'dash' };
+    if (outcome.kind === 'Unconfirmed') return { text: 'Not confirmed', tone: 'attention', icon: 'triangle' };
+    if (outcome.kind === 'Failed') {
+        const failed = { rejected: `Refused by ${tracker}`, unauthorized: `${tracker} sign-in rejected`, 'rate-limited': `${tracker} is limiting requests`,
+            transient: `${tracker} didn’t respond` };
+        return { text: failed[outcome.step] ?? 'Failed', tone: 'error', icon: 'cross' };
+    }
+    const skipped = { 'preview-stale': 'Changed since the preview', cancelled: 'Not reached', 'provider-stopped': 'Not tried' };
+    return { text: skipped[outcome.step] ?? 'Skipped', tone: 'attention', icon: 'skip' };
+}
+
+// Why a preview can no longer be applied (D4), as its notice says it.
+export const outOfDateLabel = state => state === 'Succeeded'
+    ? 'This preview is out of date. Refresh it to apply changes.'
+    : 'This preview didn’t finish cleanly. Refresh it to apply changes.';
+
+// A watched fingerprint (1-2,6) as words: Episodes 1–2, 6.
+export function episodeRange(fingerprint) {
+    const parts = (fingerprint ?? '').split(',').filter(Boolean);
+    if (!parts.length) return '';
+    if (parts.length === 1 && !parts[0].includes('-')) return `Episode ${parts[0]}`;
+    return `Episodes ${parts.map(part => part.replace('-', '–')).join(', ')}`;
 }
 
 // One line under the table: a lone page only counts its rows; past one page, which rows and of how many.
@@ -65,8 +140,8 @@ export function groupSummary(rows) {
 
 // Why a row proposes what it does, in a short plain sentence.
 const reasons = {
-    progress: 'You have watched more in Jellyfin', status: 'The status should match what you have watched',
-    'rewatch-count': 'Finishing a rewatch adds one to the rewatch count', reduction: 'The tracker has more watched than Jellyfin',
+    progress: 'Jellyfin is ahead', status: 'The status should match what you have watched',
+    'rewatch-count': 'Finishing a rewatch adds one to the rewatch count', reduction: 'The tracker is ahead',
     'already-watched': 'Already watched on the tracker', 'manual-sync-rewatch': 'Manual sync does not update rewatches',
     'completed-on-tracker': 'Already completed on the tracker', 'dropped-on-tracker': 'Marked as dropped on the tracker',
     'plan-to-watch-only': 'Your rules only update entries on Plan to watch', 'rewatch-disabled': 'Already completed, and rewatch tracking is off',
@@ -76,7 +151,7 @@ const reasons = {
     rejected: 'The tracker refused the update',
     'preview-stale': 'Changed since the preview; refresh it to see it again', cancelled: 'Not applied because the apply was cancelled',
     'provider-stopped': 'Not tried because the tracker stopped answering',
-    'mark-played': 'Watched on the tracker, not yet played in Jellyfin', 'already-played': 'Already played in Jellyfin',
+    'mark-played': 'The tracker is ahead', 'already-played': 'Already played in Jellyfin',
     ignored: 'The season has AniDōki’s ignore tag', 'no-anidb-id': 'The entry has no AniDB ID to match it with',
     'no-season': 'The anime list does not link this entry to a season'
 };
@@ -95,6 +170,19 @@ const notes = {
     'not-in-match': 'The saved match does not cover this episode', 'match-target-unreadable': 'The entry in the saved match could not be read'
 };
 export const noteLabel = note => note ? notes[note] ?? note : '';
+
+// An unresolved row's reason in one line that names the tracker.
+const shortNotes = {
+    'no-ids': tracker => `No IDs to search ${tracker} with`, 'not-found': tracker => `Not on ${tracker}`,
+    'no-title-match': tracker => `No title match on ${tracker}`, 'no-special-match': tracker => `No special or OVA match on ${tracker}`,
+    'sequel-fetch-failed': tracker => `${tracker}’s sequels couldn’t be read`, 'no-cour-covers-episode': tracker => `No ${tracker} part covers this episode`,
+    'past-entry-end': tracker => `Past the ${tracker} entry’s last episode`, 'offset-not-representable': tracker => `Can’t place this episode on ${tracker}`,
+    'not-in-match': () => 'The saved match doesn’t cover this episode', 'match-target-unreadable': tracker => `The saved match’s ${tracker} entry couldn’t be read`
+};
+function unresolvedLabel(row, tracker) {
+    if (row.resolutionNote) return shortNotes[row.resolutionNote]?.(tracker) ?? row.resolutionNote;
+    return row.reason === 'resolve' ? `Not on ${tracker}` : reasonLabel(row.reason, row.kind);
+}
 
 const statusNames = {
     Watching: 'Watching', Completed: 'Completed', OnHold: 'On hold', On_hold: 'On hold', Dropped: 'Dropped',
@@ -121,7 +209,9 @@ const withQuiet = cells => ({ ...cells, nowQuiet: placeholders.has(cells.now), p
 export function describeRow(row, providerName) {
     const tracker = providerName(row.provider);
     const entry = row.targetTitle || (row.targetId ? `Entry ${row.targetId}` : 'No matching entry');
-    const why = reasonLabel(row.reason, row.kind);
+    // Reasons that say which side is ahead name the tracker; an unresolved row says in one line what went wrong where.
+    const ahead = ['reduction', 'mark-played'].includes(row.reason);
+    const why = row.kind === 'Unresolved' ? unresolvedLabel(row, tracker) : ahead ? `${tracker} is ahead` : reasonLabel(row.reason, row.kind);
     const proposedTone = row.kind === 'Reduction' ? 'attention' : '';
     const whyTone = row.kind === 'Failed' ? 'error' : row.kind === 'Unresolved' ? 'attention' : '';
     const base = { provider: row.provider, tracker, entry, why, proposedTone, whyTone };
@@ -133,7 +223,9 @@ export function describeRow(row, providerName) {
             now: !row.sourceKey ? '—' : row.watchedFingerprint ? `Played ${row.watchedFingerprint}` : 'Nothing played', nowNote: row.sourceKey ? 'In Jellyfin' : '',
             proposed: marks ? `→ ${markLabel(mark)}` : idle[row.kind] ?? '—',
             proposedNote: marks ? (mark.marksSeason && mark.episodes?.length ? 'Marked played, with the season' : 'Marked played') : '',
-            whyNote: row.resolutionNote ? noteLabel(row.resolutionNote) : (from ? `${statusName(from.status)} · ${from.progress} watched on ${tracker}` : '')
+            whyNote: row.kind === 'Unresolved' ? ''
+                : marks && mark.unplayed ? `${episodeRange(mark.unplayed)} not watched`
+                    : from ? `${statusName(from.status)} · ${from.progress} watched on ${tracker}` : ''
         });
     }
     const against = row.plannedAgainst, list = against?.List, change = row.plannedChange, total = against?.TotalEpisodes;
@@ -143,5 +235,5 @@ export function describeRow(row, providerName) {
     if (change && row.kind === 'Change') [proposed, proposedNote] = value(change.Status, change.Progress);
     if (change && row.kind === 'Reduction') [proposed, proposedNote] = [progress(change.Progress, total), 'Would lower progress'];
     if (change && ['Change', 'Reduction'].includes(row.kind)) proposed = `→ ${proposed}`;
-    return withQuiet({ ...base, now, nowNote, proposed, proposedNote, whyNote: noteLabel(row.resolutionNote) });
+    return withQuiet({ ...base, now, nowNote, proposed, proposedNote, whyNote: row.kind === 'Unresolved' ? '' : noteLabel(row.resolutionNote) });
 }
