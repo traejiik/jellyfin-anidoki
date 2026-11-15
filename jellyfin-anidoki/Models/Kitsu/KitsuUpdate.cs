@@ -59,6 +59,9 @@ namespace jellyfin_anidoki.Models.Kitsu {
 
         public class KitsuLibraryEntryListRoot {
             [JsonPropertyName("data")] public List<KitsuLibraryEntry>? Data { get; set; }
+
+            /// <summary>The entries' anime, when the request asked for <c>include=anime</c>.</summary>
+            [JsonPropertyName("included")] public List<KitsuSearch.KitsuAnime>? Included { get; set; }
         }
 
         public class KitsuLibraryEntryPostPatchRoot {

@@ -95,7 +95,11 @@ public sealed class AniListTrackerClient(AniListApiCalls api) : ITrackerClient, 
             Status.Plan_to_watch => AniListSearch.MediaListStatus.Planning,
             _ => AniListSearch.MediaListStatus.Current
         };
-        var animeList = await api.GetAnimeList(userId.Value, aniListStatus);
+        return ConvertList(await api.GetAnimeList(userId.Value, aniListStatus), status);
+    }
+
+    /// <summary>The list as read for one status: each entry carries that status, since the list query filters by it.</summary>
+    internal static List<Anime> ConvertList(List<AniListMediaList.Entries>? animeList, Status status) {
         var converted = new List<Anime>();
         if (animeList == null)
             return converted;
@@ -108,7 +112,9 @@ public sealed class AniListTrackerClient(AniListApiCalls api) : ITrackerClient, 
                 finishDate = new DateTime(media.CompletedAt.Year.Value, media.CompletedAt.Month.Value, media.CompletedAt.Day.Value);
             converted.Add(new Anime {
                 Id = media.Media.Id,
+                Title = media.Media.Title?.English ?? media.Media.Title?.Romaji,
                 MyListStatus = new MyListStatus {
+                    Status = status,
                     FinishDate = finishDate.ToShortDateString(),
                     NumEpisodesWatched = media.Progress ?? -1
                 }
