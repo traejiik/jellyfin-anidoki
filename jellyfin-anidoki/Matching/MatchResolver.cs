@@ -40,7 +40,7 @@ public sealed class MatchResolver(ISourceResolver automatic, MatchStore matches,
         string? note = await ShadowNote(source, tracker, cancellationToken);
         if (note == null)
             return answer;
-        logger.LogDebug("({ApiName}) {SavedMatchNote}", tracker.Name, note);
+        logger.LogDebug("({Provider}) Saved match check: {SavedMatchNote}", tracker.Name, note);
         return answer switch {
             Resolved resolved => resolved with { Note = Join(resolved.Note, note) },
             Unresolved unresolved => unresolved with { Note = Join(unresolved.Note ?? unresolved.Reason, note) },
@@ -109,7 +109,7 @@ public sealed class MatchResolver(ISourceResolver automatic, MatchStore matches,
                 _ => null
             };
         } catch (Exception error) when (error is TrackerFailureException or SqliteException or InvalidOperationException) {
-            logger.LogDebug("({ApiName}) Could not check the saved match: {ErrorMessage}", tracker.Name, error.Message);
+            logger.LogDebug("({Provider}) Could not check the saved match: {ErrorMessage}", tracker.Name, error.Message);
             return "saved match could not be checked";
         }
     }

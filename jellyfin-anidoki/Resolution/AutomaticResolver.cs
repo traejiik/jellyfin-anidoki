@@ -39,7 +39,7 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
             return await ByCrossIds(source, ids, tracker, cancellationToken);
         // A Mixed library syncs a title only through its IDs. Annict and Shikimori match a search on the MAL ID, so they may still search with one.
         if (source.IdsOnly && !(tracker.Name is ApiName.Annict or ApiName.Shikimori && ids.Ids.MyAnimeList is > 0)) {
-            logger.LogInformation("({ApiName}) {Title} is in a Mixed library and resolved no ID; not searching by title", tracker.Name, source.SearchTitle);
+            logger.LogInformation("({Provider}) {Title} is in a Mixed library and has no known ID; not searching by title", tracker.Name, source.SearchTitle);
             return new Unresolved("no-ids", new UnresolvedRecord("", source.SearchTitle ?? ""), None);
         }
         // Annict works differently to the other providers, so it always goes the traditional route.
@@ -56,12 +56,12 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
         int progress = ids.IdProgress(source);
         EntryState? entry = await tracker.ReadEntry(new EntryRef(tracker.Name, id, null), cancellationToken);
         if (entry == null) {
-            logger.LogInformation("({ApiName}) Could not retrieve the matched anime from the provider; not updating", tracker.Name);
+            logger.LogInformation("({Provider}) Could not read the entry matched to {Title}; not updating", tracker.Name, source.SearchTitle);
             return new Unresolved("not-found", new UnresolvedRecord(id.ToString(), ""), None);
         }
 
         if (source.Kind == MediaKind.Series && entry.TotalEpisodes > 0 && entry.TotalEpisodes < progress) {
-            logger.LogDebug("({ApiName}) Watched episode passes total episodes in the resolved entry! Checking for additional seasons/cours...", tracker.Name);
+            logger.LogDebug("({Provider}) The watched episode is past the entry's last episode; checking later seasons and cours", tracker.Name);
             var walk = await chain.Walk(ChainLink.Of(entry), progress, cancellationToken);
             if (walk.Target == null)
                 return new Unresolved(walk.FailureReason!, Record(ChainLink.Of(entry)), walk.EarlierParts);
@@ -75,7 +75,7 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
     private async Task<SourceResolution> ByCrossIds(SyncSource source, SourceIds ids, ITrackerProvider tracker, CancellationToken cancellationToken) {
         EntryRef? entry = await tracker.FindByCrossIds(ids.ToResolvedIds(), source.SearchTitle, MediaKind.Series, cancellationToken);
         if (entry == null) {
-            logger.LogInformation("({ApiName}) Could not retrieve the matched anime from the provider; not updating", tracker.Name);
+            logger.LogInformation("({Provider}) Could not read the entry matched to {Title}; not updating", tracker.Name, source.SearchTitle);
             return new Unresolved("not-found", new UnresolvedRecord("", source.SearchTitle ?? ""), None);
         }
 
@@ -85,7 +85,7 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
     private async Task<SourceResolution> ByTitle(SyncSource source, SourceIds ids, ITrackerProvider tracker,
         RelationChainSegmenter chain, CancellationToken cancellationToken) {
         string kind = source.Kind == MediaKind.Series ? "series" : "movie";
-        logger.LogDebug("({ApiName}) Searching for {AnimeType}: {SearchTitle}", tracker.Name, kind, source.SearchTitle);
+        logger.LogDebug("({Provider}) Searching for the {AnimeType} {Title}", tracker.Name, kind, source.SearchTitle);
         int? mal = ids.Ids.MyAnimeList;
         // Annict, and Shikimori when the IDs give a MAL ID, match on it instead of titles and skip season handling.
         bool ByMalId(EntryCandidate candidate) => tracker.Name == ApiName.Annict || (tracker.Name == ApiName.Shikimori && mal != null && candidate.Entry.Id > 0);
@@ -93,7 +93,7 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
 
         var matching = (await tracker.Search(source.SearchTitle, cancellationToken)).Where(Matches).ToList();
         if (matching.Count == 0) {
-            logger.LogWarning("({ApiName}) Series not found", tracker.Name);
+            logger.LogInformation("({Provider}) {Title} was not found by title search", tracker.Name, source.SearchTitle);
             return new Unresolved("no-title-match", new UnresolvedRecord("", source.SearchTitle ?? ""), None);
         }
 
@@ -103,14 +103,14 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
         int candidates = matching.Select(candidate => candidate.Entry).Distinct().Count();
         if (candidates < 2 || answer is not Resolved resolved)
             return answer;
-        logger.LogDebug("({ApiName}) {Count} candidates matched the title; took the first", tracker.Name, candidates);
+        logger.LogDebug("({Provider}) {Count} candidates matched the title; took the first", tracker.Name, candidates);
         return resolved with { Note = $"ambiguous ({candidates} candidates)" };
     }
 
     /// <summary>The first matching search result, followed to the season and cour the episode belongs to.</summary>
     private async Task<SourceResolution> FromCandidate(EntryCandidate candidate, bool byMalId, SyncSource source, SourceIds ids,
         ITrackerProvider tracker, RelationChainSegmenter chain, string kind, CancellationToken cancellationToken) {
-        logger.LogDebug("({ApiName}) Found matching {AnimeType}: {Title}", tracker.Name, kind, TitleMatching.Display(candidate.Titles));
+        logger.LogDebug("({Provider}) Found the matching {AnimeType} {Title}", tracker.Name, kind, TitleMatching.Display(candidate.Titles));
         var match = ChainLink.Of(candidate);
         int episode = ids.TitleProgress(source);
         if (source.Kind == MediaKind.Movie || byMalId)
@@ -119,11 +119,11 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
             // if this is not the first season, then we need to look up the related season.
             var season = await chain.FollowSequels(candidate.Entry, source.SeasonNumber - 1, cancellationToken);
             if (season == null) {
-                logger.LogWarning("({ApiName}) Could not find next season", tracker.Name);
+                logger.LogInformation("({Provider}) Could not find season {SeasonNumber} of {Title}", tracker.Name, source.SeasonNumber, TitleMatching.Display(candidate.Titles));
                 return new Unresolved("sequel-fetch-failed", null, None);
             }
 
-            logger.LogDebug("({ApiName}) Season being watched is {Title}", tracker.Name, TitleMatching.Display(season.Titles));
+            logger.LogDebug("({Provider}) The season being watched is {Title}", tracker.Name, TitleMatching.Display(season.Titles));
             return new Resolved(Played(ChainLink.Of(season), episode), ResolvedBy.SequelChain, None);
         }
 
@@ -147,7 +147,7 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
             // first cour without walking.
             //
             // The comparison and the walk use Jellyfin's raw episode number, not the offset one.
-            logger.LogDebug("({ApiName}) Watched episode passes total episodes in season! Checking for additional seasons/cours...", tracker.Name);
+            logger.LogDebug("({Provider}) The watched episode is past the season's last episode; checking later seasons and cours", tracker.Name);
             var walk = await chain.Walk(match, source.EpisodeNumber, cancellationToken);
             if (walk.Target == null)
                 return new Unresolved(walk.FailureReason!, Record(match), walk.EarlierParts);
@@ -179,7 +179,7 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
             }
         }
 
-        logger.LogWarning("({ApiName}) Could not find OVA", tracker.Name);
+        logger.LogInformation("({Provider}) Could not find the special {ItemName} among the relations of {Title}", tracker.Name, name, source.SearchTitle);
         return new Unresolved("no-special-match", null, None);
     }
 

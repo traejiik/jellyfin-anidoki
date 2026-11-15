@@ -63,7 +63,7 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
         try {
             int interrupted = store.MarkInterrupted();
             if (interrupted > 0)
-                logger.LogInformation("Marked {OperationCount} operations left by the previous run as interrupted", interrupted);
+                logger.LogInformation("Marked {Count} operations left by the previous run as interrupted", interrupted);
         } catch (Exception error) when (error is InvalidOperationException or SqliteException) {
             logger.LogWarning("Could not review operations left by the previous run: {ErrorMessage}", error.Message);
         }
@@ -77,7 +77,7 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
         try {
             await Drain().WaitAsync(cancellationToken);
         } catch (OperationCanceledException) {
-            logger.LogWarning("Stopped before every operation had finished");
+            logger.LogWarning("Jellyfin stopped before every operation had finished");
         }
     }
 
@@ -130,7 +130,7 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
         try {
             int removed = store.DeleteFinishedBefore(Retention);
             if (removed > 0)
-                logger.LogDebug("Removed {OperationCount} operations older than {RetentionDays} days", removed, Retention.TotalDays);
+                logger.LogDebug("Removed {Count} operations older than {RetentionDays} days", removed, Retention.TotalDays);
         } catch (Exception error) when (error is InvalidOperationException or SqliteException) {
             logger.LogWarning("Could not remove old operations: {ErrorMessage}", error.Message);
         }

@@ -257,7 +257,7 @@ namespace jellyfin_anidoki.Api {
                     return StatusCode(500, "Could not authenticate");
             } catch (Exception e) {
                 // The provider's response stays in the log; the settings page gets a sentence it can show as is.
-                _logger.LogWarning("({ApiName}) Sign-in with password failed: {ErrorMessage}", provider, e.Message);
+                _logger.LogWarning("({Provider}) Sign-in with password failed: {ErrorMessage}", provider, e.Message);
                 string name = Notifications.Discord.DiscordOutcomeText.ProviderName(provider);
                 if (CallbackPage.ErrorCodeFrom(e.Message) == "invalid_grant")
                     return BadRequest(provider == ApiName.Kitsu
@@ -306,7 +306,7 @@ namespace jellyfin_anidoki.Api {
                 return Forbid();
             UserConfig? userConfig = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(item => item.UserId == jellyfinUser.Id);
             if (userConfig == null) {
-                _logger.LogError("User not found in config");
+                _logger.LogWarning("User {UserId} has no AniDoki settings", jellyfinUser.Id);
                 return StatusCode(500, "User not found in config");
             }
 
@@ -332,7 +332,7 @@ namespace jellyfin_anidoki.Api {
                     try {
                         kitsuApiCalls = new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, userConfig);
                     } catch (ArgumentNullException) {
-                        _logger.LogError("User could not be retrieved from API");
+                        _logger.LogWarning("({Provider}) Could not read the linked user of user {UserId}", ApiName.Kitsu, jellyfinUser.Id);
                         return StatusCode(500, "User could not be retrieved from API");
                     }
 
@@ -349,7 +349,7 @@ namespace jellyfin_anidoki.Api {
                     try {
                         annictApiCalls = new AnnictApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, userConfig);
                     } catch (ArgumentNullException) {
-                        _logger.LogError("User could not be retrieved from API");
+                        _logger.LogWarning("({Provider}) Could not read the linked user of user {UserId}", ApiName.Annict, jellyfinUser.Id);
                         return StatusCode(500, "User could not be retrieved from API");
                     }
 
@@ -375,7 +375,7 @@ namespace jellyfin_anidoki.Api {
                             Name = shikimoriUserApiCall.Name
                         });
                     } else {
-                        _logger.LogError("User could not be retrieved from API");
+                        _logger.LogWarning("({Provider}) Could not read the linked user of user {UserId}", ApiName.Shikimori, jellyfinUser.Id);
                         return StatusCode(500, "User could not be retrieved from API");
                     }
                 case ApiName.Simkl:
@@ -491,7 +491,7 @@ namespace jellyfin_anidoki.Api {
                 }
 
                 if (!_libraryManager.UserHasAccessToLibraries(libraryIds, jellyfinUser)) {
-                    _logger.LogError("User {JellyfinUserId} does not have access to requested libraries ({Libraries})", jellyfinUser.Id, String.Join(", ", libraries));
+                    _logger.LogWarning("User {UserId} asked to sync libraries they cannot open: {Libraries}", jellyfinUser.Id, String.Join(", ", libraries));
                     return Forbid();
                 }
 
@@ -563,7 +563,7 @@ namespace jellyfin_anidoki.Api {
             Stream? stream = Plugin.Instance.GetType().Assembly.GetManifestResourceStream(view.EmbeddedResourcePath);
 
             if (stream == null) {
-                _logger.LogError("Failed to get resource {Resource}", view.EmbeddedResourcePath);
+                _logger.LogError("Could not find the embedded page {Resource}", view.EmbeddedResourcePath);
                 return NotFound();
             }
 
@@ -583,14 +583,14 @@ namespace jellyfin_anidoki.Api {
             CallbackState.TryReadOrigin(state, out _, out ApiName? markedProvider);
             if (storedState == null) {
                 bool elsewhere = CallbackState.IsFromOtherServer(state, _serverApplicationHost.SystemId);
-                _logger.LogInformation("({ApiName}) Sign-in callback had no matching link: {Reason}", markedProvider, elsewhere ? "issued by another server" : "expired or already used");
+                _logger.LogInformation("The sign-in callback for {Provider} had no matching link: {Reason}", markedProvider, elsewhere ? "issued by another server" : "expired or already used");
                 return CallbackPageResult(elsewhere ? CallbackOutcome.WrongServer : CallbackOutcome.Expired, markedProvider, null);
             }
 
             string? jellyfinUser = _userManager.GetUserById(storedState.UserId)?.Username;
             if (!string.IsNullOrEmpty(error) || string.IsNullOrEmpty(code)) {
                 string? errorCode = CallbackPage.SafeErrorCode(error);
-                _logger.LogInformation("({ApiName}) Sign-in was not approved: {ErrorCode}", storedState.ApiName, errorCode ?? "no code returned");
+                _logger.LogInformation("({Provider}) Sign-in was not approved: {ErrorCode}", storedState.ApiName, errorCode ?? "no code returned");
                 return CallbackPageResult(error == "access_denied" ? CallbackOutcome.Declined : CallbackOutcome.ProviderError, storedState.ApiName, jellyfinUser, errorCode, storedState.ReturnToAdmin);
             }
             try {
@@ -599,7 +599,7 @@ namespace jellyfin_anidoki.Api {
                     return CallbackPageResult(CallbackOutcome.ProviderError, storedState.ApiName, jellyfinUser, returnToAdmin: storedState.ReturnToAdmin);
             } catch (Exception exception) {
                 // this endpoint is anonymous; only the OAuth error code reaches the page, the response stays in the server log
-                _logger.LogError("({ApiName}) Could not complete sign-in: {ErrorMessage}", storedState.ApiName, exception.Message);
+                _logger.LogWarning("({Provider}) Could not complete sign-in: {ErrorMessage}", storedState.ApiName, exception.Message);
                 return CallbackPageResult(CallbackOutcome.ProviderError, storedState.ApiName, jellyfinUser, CallbackPage.ErrorCodeFrom(exception.Message), storedState.ReturnToAdmin);
             }
             if (!string.IsNullOrEmpty(Plugin.Instance?.PluginConfiguration.callbackRedirectUrl)) {
@@ -609,7 +609,7 @@ namespace jellyfin_anidoki.Api {
                 if (Uri.TryCreate(replacedCallbackRedirectUrl, UriKind.Absolute, out _)) {
                     return Redirect(replacedCallbackRedirectUrl);
                 } else {
-                    _logger.LogWarning("Invalid redirect URL ({RedirectUrl}), skipping redirect.", replacedCallbackRedirectUrl);
+                    _logger.LogWarning("The callback redirect URL {Url} is not valid; showing the result page instead", replacedCallbackRedirectUrl);
                 }
             }
 
@@ -780,7 +780,7 @@ namespace jellyfin_anidoki.Api {
             if (deauthenticateUser.success) {
                 return Ok();
             } else {
-                _logger.LogError("Error while deauthenticating user {JellyfinUserId}: {Reason}", jellyfinUser.Id, deauthenticateUser.reason);
+                _logger.LogError("({Provider}) Could not unlink the account of user {UserId}: {Reason}", apiName, jellyfinUser.Id, deauthenticateUser.reason);
                 return StatusCode(500);
             }
         }

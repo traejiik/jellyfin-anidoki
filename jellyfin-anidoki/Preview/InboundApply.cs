@@ -69,7 +69,7 @@ public sealed class InboundApply(
             operation.ReportProgress(i + 1, selected.Count);
         }
         operation.Message = PreviewApply.Summary(results, inbound: true);
-        _logger.LogInformation("Applied {RowCount} selected preview rows from {ApiName} for user {UserId}", selected.Count, provider, userId);
+        _logger.LogInformation("({Provider}) Applied {Count} selected preview rows for user {UserId}", provider, selected.Count, userId);
     }
 
     private void ApplyRow(OperationContext operation, PreviewRow row, User user, Dictionary<int, InboundEntry> entries) {
@@ -84,7 +84,7 @@ public sealed class InboundApply(
         }
 
         sync.Mark(user, season!, episodes, mark.PlayedDate, mark.MarksSeason);
-        _logger.LogInformation("({ApiName}) {Title}: {Kind} ({Step})", row.Provider, row.SourceTitle, OutcomeKind.Confirmed, row.Reason);
+        _logger.LogInformation("({Provider}) {Title}: {Kind} ({Step})", row.Provider, row.SourceTitle, OutcomeKind.Confirmed, row.Reason);
         operation.Record(new ProviderWriteOutcome(row.Provider, row.TargetId, row.TargetTitle, OutcomeKind.Confirmed, row.SourceEpisode, null,
             false, row.Reason, true), PreviewApply.Detail(row, null));
     }

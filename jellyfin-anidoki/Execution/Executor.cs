@@ -160,7 +160,7 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
             }
 
             bool moved = !SameEntry(state, fresh);
-            logger.LogDebug("({ApiName}) Read again before writing a stale plan; entry changed: {Moved}", tracker.Name, moved);
+            logger.LogDebug("({Provider}) Read the entry again before writing a stale plan; entry changed: {Moved}", tracker.Name, moved);
             state = fresh;
             decision = Decide(target, fresh);
             if (moved && decision is Write) {
@@ -200,7 +200,7 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
 
     private async Task Apply(Write write, EntryState read, ActionTrace trace, CancellationToken cancellationToken) {
         EntryState planned = write.PlannedAgainst;
-        logger.LogDebug("({ApiName}) Planned {Change} for {Title}", tracker.Name, write.Change, TitleMatching.Display(planned.Titles));
+        logger.LogDebug("({Provider}) Planned {Change} for {Title}", tracker.Name, write.Change, TitleMatching.Display(planned.Titles));
         _plannedChange = write.Change;
         _plannedRead = read;
         OutcomeDetail detail = Detail(trace, write.Change, read);
@@ -214,7 +214,7 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
         }
 
         if (receipt == null) {
-            logger.LogError("({ApiName}) Could not update anime status", tracker.Name);
+            logger.LogWarning("({Provider}) The tracker did not acknowledge the update of {Title}", tracker.Name, TitleMatching.Display(planned.Titles));
             RecordWrite(planned, OutcomeKind.Unconfirmed, write.Reason, null, false, detail);
             return;
         }
@@ -226,7 +226,7 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
         }
 
         // the first call was acknowledged and a later one was not: record both, as the per-call writes did
-        logger.LogError("({ApiName}) Could not finish updating anime status", tracker.Name);
+        logger.LogWarning("({Provider}) The tracker acknowledged only part of the update of {Title}", tracker.Name, TitleMatching.Display(planned.Titles));
         RecordWrite(planned, changed ? OutcomeKind.Confirmed : OutcomeKind.NoChange, StatusOnly ? "status" : "progress", receipt, changed, detail);
         RecordWrite(planned, OutcomeKind.Unconfirmed, write.Reason, null, false, detail);
     }
@@ -265,7 +265,7 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
         new(source?.ItemId, source?.Episode, trace.Target.TargetEpisode, trace.By, note ?? trace.Note, change, read == null ? null : read with { Titles = null }, trace.Target.MatchRevision);
 
     private PlannedOutcome UnreadableOutcome(ActionTrace trace) {
-        logger.LogInformation("({ApiName}) Could not retrieve the matched anime from the provider; not updating", tracker.Name);
+        logger.LogDebug("({Provider}) Could not read the matched entry {EntryId}; not updating", tracker.Name, trace.Target.Entry.Id);
         EntryRef entry = trace.Target.Entry;
         return new PlannedOutcome(Outcome(entry.AlternativeId ?? (entry.Lookup == null ? entry.Id.ToString() : ""), entry.Lookup?.Title ?? "",
             OutcomeKind.Unresolved, "resolve"), Detail(trace, note: "not-found"), false);
@@ -311,7 +311,7 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
     private void Emit(PlannedOutcome planned) => Emit(planned.Outcome, planned.Detail);
 
     private void Emit(ProviderWriteOutcome outcome, OutcomeDetail? detail) {
-        logger.LogInformation("({ApiName}) {Title}: {Kind} ({Step})", tracker.Name, outcome.TargetTitle, outcome.Kind, outcome.Step);
+        logger.LogInformation("({Provider}) {Title}: {Kind} ({Step})", tracker.Name, outcome.TargetTitle, outcome.Kind, outcome.Step);
         outcomes?.Record(outcome, detail);
     }
 

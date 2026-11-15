@@ -26,6 +26,6 @@ internal static class PlaybackNotificationPublisher {
                 return;
             store.Publish(new(Guid.NewGuid(), context.OperationId, 0, DateTimeOffset.UtcNow, user, context.SessionId,
                 context.SourceItemId, context.SourceTitle, context.SourceEpisode, context.IsMovie, collector.Outcomes));
-        } catch (Exception) { logger.LogWarning("AniDoki could not deliver a playback update notification; tracker writes are unchanged."); }
+        } catch (Exception error) { logger.LogWarning(error, "Could not deliver a playback update notification; tracker writes are unaffected"); }
     }
 }

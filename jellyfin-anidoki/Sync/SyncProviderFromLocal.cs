@@ -49,7 +49,7 @@ public class SyncProviderFromLocal(
     /// already holds the user's sync gate.
     /// </summary>
     public async Task SyncFromLocal(OperationContext operation) {
-        _logger.LogInformation("(Sync) Starting sync to provider from local process");
+        _logger.LogDebug("Starting a sync to trackers for user {UserId}", _userId);
         await SyncEpisodes(LatestWatchedEpisodes.For(_userId, userManager, libraryManager, _logger), operation);
     }
 
@@ -68,7 +68,7 @@ public class SyncProviderFromLocal(
             }
             Episode episode = targets[i];
             if (SyncHelper.MediaShouldBeIgnored(episode)) {
-                _logger.LogDebug("(Sync) Ignoring {ItemName}; ignore tag detected", episode.Name);
+                _logger.LogDebug("Ignoring {ItemName}; it carries the ignore tag", episode.Name);
             } else {
                 try {
                     await pipeline.Run(episode, _userId, true, collector, SyncUpdateSource.ManualSync, operation.CancellationToken);
@@ -76,10 +76,10 @@ public class SyncProviderFromLocal(
                     operation.Message = $"Cancelled after {i} of {Seasons(targets.Count)}. Updates already sent were kept.";
                     throw;
                 } catch (Exception e) {
-                    _logger.LogError("(Sync) Could not sync item; error: {ErrorMessage}", e.Message);
+                    _logger.LogError(e, "Could not sync {SeriesName} season {SeasonNumber}", episode.SeriesName, episode.ParentIndexNumber);
                 }
                 if (i < targets.Count - 1) {
-                    _logger.LogDebug("(Sync) Waiting 2 seconds before continuing...");
+                    _logger.LogDebug("Waiting 2 seconds before the next season");
                     await delayer.Delay(TimeSpan.FromSeconds(2));
                 }
             }

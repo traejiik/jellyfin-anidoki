@@ -125,7 +125,7 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
         try {
             return LibraryFilter.InAnimeLibraries(anime, library, item);
         } catch (Exception e) {
-            logger.LogDebug(e, "Could not tell whether {Item} is in an anime library; leaving it out of the match list", item.Name);
+            logger.LogDebug(e, "Could not tell whether {ItemName} is in an anime library; leaving it out of the match list", item.Name);
             return false;
         }
     }

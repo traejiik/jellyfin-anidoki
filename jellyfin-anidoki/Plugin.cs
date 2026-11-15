@@ -99,7 +99,7 @@ namespace jellyfin_anidoki {
                     _logger.LogError("AniDoki storage is unavailable; tracker syncs are paused and settings cannot be saved: {StorageError}", StorageError);
                     return;
                 }
-                _logger.LogInformation("Moved {CredentialCount} credentials from the plugin configuration into the AniDoki database", legacy.Count);
+                _logger.LogInformation("Moved {Count} credentials from the plugin configuration into the AniDoki database", legacy.Count);
             } catch (Exception error) when (error is InvalidOperationException or Microsoft.Data.Sqlite.SqliteException or IOException) {
                 StorageError = $"Credentials could not be loaded: {error.Message}";
                 _logger.LogError("AniDoki storage is unavailable; tracker syncs are paused and settings cannot be saved: {StorageError}", StorageError);
@@ -214,7 +214,7 @@ namespace jellyfin_anidoki {
 
         public override void OnUninstalling() {
             RemovePluginPages(ApplicationPaths);
-            try { Notifications.NotificationWebIntegration.Remove(); } catch (Exception) { _logger.LogWarning("Could not remove AniDoki notification bootstrap on uninstall."); }
+            try { Notifications.NotificationWebIntegration.Remove(); } catch (Exception error) { _logger.LogWarning(error, "Could not remove AniDoki's notification bootstrap on uninstall"); }
             RemoveData();
             base.OnUninstalling();
         }

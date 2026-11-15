@@ -154,7 +154,6 @@ class LogConventionRuleTests(unittest.TestCase):
 
 
 class RepositoryLogTests(unittest.TestCase):
-    @unittest.expectedFailure  # until the sweep is done
     def test_every_log_call_follows_the_conventions(self):
         found = scan(SOURCE)
         self.assertEqual(found, [], f'{len(found)} log calls break the conventions:\n' + '\n'.join(found))

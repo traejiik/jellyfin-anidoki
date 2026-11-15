@@ -73,13 +73,13 @@ public class SyncHelper {
                         var season = series.Children.Select(season => season as Season).FirstOrDefault(season => season?.IndexNumber == found.season);
                         if (season != null) {
                             seasons.Add((season, found));
-                            logger.LogInformation("(Sync) Retrieved");
+                            logger.LogDebug("Matched {SeriesName} season {SeasonNumber} to AniDB ID {AniDbId}", series.Name, season.IndexNumber, animeListAnime.AnimeListAnime.Anidbid);
                         } else {
-                            logger.LogWarning("(Sync) Could not retrieve season from Jellyfin library");
+                            logger.LogDebug("{SeriesName} has no season {SeasonNumber} in Jellyfin for AniDB ID {AniDbId}", series.Name, found.season, animeListAnime.AnimeListAnime.Anidbid);
                         }
                     }
                 } else {
-                    logger.LogWarning("(Sync) Could not retrieve AniDb ID from this season");
+                    logger.LogDebug("An anime list row for {SeriesName} has no AniDB ID", series.Name);
                 }
 
             }
@@ -115,7 +115,7 @@ public class SyncHelper {
             } else if (seasons != null) {
                 seasonsList = seasons.ToList();
             } else {
-                logger.LogWarning("(Sync) Season could not be retrieved from Jellyfin; skipping...");
+                logger.LogDebug("The anime list has no seasons for AniDB ID {AniDbId}", id.AniDb.Value);
                 return null;
             }
 
