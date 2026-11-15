@@ -10,6 +10,7 @@ using jellyfin_anidoki.Enums;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Preview;
 using jellyfin_anidoki.Resolution;
@@ -205,6 +206,7 @@ public class PreviewControllerTests {
 
         Assert.That(_controller.Read(id).Result, Is.InstanceOf<NotFoundResult>());
         Assert.That(_controller.Rows(id, null, null).Result, Is.InstanceOf<NotFoundResult>());
+        Assert.That(_controller.Selectable(id).Result, Is.InstanceOf<NotFoundResult>());
     }
 
     [TestCase(-1, 50)]
@@ -267,11 +269,27 @@ public class PreviewControllerTests {
             Assert.That(apply.Source, Is.EqualTo("2 selected changes from a preview"));
             Assert.That(apply.State, Is.EqualTo(OperationState.Skipped));
             Assert.That(apply.Counts, Is.EqualTo(new Dictionary<string, int> { ["Skipped"] = 2 }));
-            Assert.That(apply.Message, Does.StartWith("2 rows changed since the preview"));
+            Assert.That(apply.Message, Is.EqualTo("2 changed since the preview"));
             Assert.That(_rows.Page(preview, null, null, 0, 10).Rows.Select(row => row.AppliedOperationId),
                 Is.EqualTo(new Guid?[] { apply.OperationId, apply.OperationId, null }));
             Assert.That(_controller.Read(preview).Value!.Applicable, Is.False);
+            Assert.That(_controller.Read(preview).Value!.AppliedOperationId, Is.EqualTo(apply.OperationId));
+            PreviewPage applied = _controller.Rows(preview, null, null, 0, 10, applied: true).Value!;
+            Assert.That(applied.Total, Is.EqualTo(2));
+            Assert.That(applied.Rows.Select(row => row.Outcome),
+                Has.All.EqualTo(new AppliedOutcome(OutcomeKind.Skipped, PreviewApply.Stale)));
         });
+    }
+
+    [Test]
+    public async Task ThePageCanListEveryRowItCouldApplyWithItsDefault() {
+        Guid preview = await PreviewWithRows(PreviewRowKind.Change, PreviewRowKind.Reduction, PreviewRowKind.NoChange);
+
+        var selectable = (IReadOnlyList<SelectableRow>)((ObjectResult)_controller.Selectable(preview).Result!).Value!;
+
+        Assert.That(selectable, Is.EqualTo(new[] {
+            new SelectableRow(0, PreviewRowKind.Change, true), new SelectableRow(1, PreviewRowKind.Reduction, false)
+        }));
     }
 
     [Test]

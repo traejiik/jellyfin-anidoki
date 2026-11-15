@@ -20,10 +20,10 @@ test('outbound refuses a tracker that is not linked', () => {
     assert.throws(() => buildSyncRequest({ ...form(), syncAction: 'UpdateProvider', trackers: 'Mal' }, ['Simkl']), /linked tracker/i);
 });
 const names = key => ({ AniList: 'AniList', Mal: 'MyAnimeList' })[key] ?? key;
-test('a run summary names the direction, user and trackers', () => {
-    assert.equal(describeRequest({ syncAction: 'UpdateProvider', provider: allTrackers }, 'viewer', names), 'Jellyfin → Trackers · viewer · All linked trackers');
-    assert.equal(describeRequest({ syncAction: 'UpdateProvider', provider: 'Mal' }, 'viewer', names), 'Jellyfin → Trackers · viewer · MyAnimeList');
-    assert.equal(describeRequest({ syncAction: 'UpdateJellyfin', provider: 'AniList', status: 'Both' }, 'viewer', names), 'Tracker → Jellyfin · viewer · AniList · Both');
+test('a run summary names the way it goes by its trackers', () => {
+    assert.equal(describeRequest({ syncAction: 'UpdateProvider', provider: allTrackers }, names), 'Jellyfin → All trackers');
+    assert.equal(describeRequest({ syncAction: 'UpdateProvider', provider: 'Mal' }, names), 'Jellyfin → MyAnimeList');
+    assert.equal(describeRequest({ syncAction: 'UpdateJellyfin', provider: 'AniList', status: 'Both' }, names), 'AniList → Jellyfin');
 });
 test('selected user and provider are captured independently of later edits', () => {
     const input = form(); const submitted = buildSyncRequest(input, ['AniList']); input.userId = 'u2'; input.provider = 'Mal';
@@ -89,4 +89,18 @@ test('a finished run fills the bar, or stops where it was cancelled', () => {
     assert.deepEqual(runProgress('Cancelled', 4, 40), { value: 4, max: 40 });
     assert.deepEqual(runProgress('NoChange', 0, 0), { value: 1, max: 1 });
     assert.deepEqual(runProgress('Failed'), { value: 1, max: 1 });
+});
+
+test('a finished apply shows its one-line result alone, or its heading when it has none', () => {
+    const apply = changes => view({ kind: 'SyncToTrackers', previewOf: 'p1', ...changes });
+    assert.equal(describeOperation(apply({ state: 'Partial', counts: { Confirmed: 3, Skipped: 1, Failed: 1 }, message: '3 updated · 1 changed since the preview · 1 failed' })).message,
+        '3 updated · 1 changed since the preview · 1 failed');
+    assert.equal(describeOperation(apply({ state: 'Cancelled', message: 'Stopped after 2 of 5. Updates already sent were kept.' })).message,
+        'Stopped after 2 of 5. Updates already sent were kept.');
+    assert.equal(describeOperation(apply({ state: 'Succeeded', message: null })).message, 'Finished');
+    assert.equal(describeOperation(apply({ state: 'Succeeded', message: '2 updated' })).tone, 'success');
+});
+test('a running apply counts changes outbound and seasons inbound', () => {
+    assert.equal(describeOperation(view({ kind: 'SyncToTrackers', previewOf: 'p1', state: 'Running', done: 2, total: 5 })).message, 'Running: 2 of 5 changes checked…');
+    assert.equal(describeOperation(view({ kind: 'SyncFromTrackers', previewOf: 'p1', state: 'Running', done: 1, total: 2 })).message, 'Running: 1 of 2 seasons checked…');
 });

@@ -23,6 +23,16 @@ public sealed class PreviewStore(AniDokiDatabase database, TimeProvider clock) {
     /// <summary>The most rows one page returns.</summary>
     public const int MaxPageSize = 200;
 
+    private const string PageOrder = "source_title COLLATE NOCASE, source_key, provider, seq";
+
+    // The last action the claiming apply recorded for the row: its outcome and step, as columns 22 and 23.
+    private const string LastOutcome = """
+        (SELECT outcome FROM operation_actions a WHERE a.operation_id = preview_rows.applied_operation_id AND a.preview_seq = preview_rows.seq
+         ORDER BY a.seq DESC LIMIT 1),
+        (SELECT step FROM operation_actions a WHERE a.operation_id = preview_rows.applied_operation_id AND a.preview_seq = preview_rows.seq
+         ORDER BY a.seq DESC LIMIT 1)
+        """;
+
     private const string Columns = """
         seq, direction, provider, source_key, source_item, source_title, source_episode, target_id, target_title, target_episode,
         kind, reason, resolved_by, resolution_note, match_revision, apply_saved_matches, watched_fingerprint, planned_change,
@@ -66,11 +76,14 @@ public sealed class PreviewStore(AniDokiDatabase database, TimeProvider clock) {
 
     /// <summary>One page of rows, by season title (series, then season), source, tracker, then the order they were planned in.</summary>
     /// <param name="kinds">Rows of any of these kinds; null or empty for every kind.</param>
-    public PreviewPage Page(Guid operationId, IReadOnlyCollection<PreviewRowKind>? kinds, ApiName? provider, int offset, int limit) {
+    /// <param name="appliedOnly">Only rows an apply has claimed.</param>
+    public PreviewPage Page(Guid operationId, IReadOnlyCollection<PreviewRowKind>? kinds, ApiName? provider, int offset, int limit,
+        bool appliedOnly = false) {
         IReadOnlyList<PreviewRowKind> chosen = kinds?.Distinct().ToList() ?? [];
         // Parameter names only, never values, go into the text.
         string filter = "operation_id = $id AND ($provider IS NULL OR provider = $provider)" +
-            (chosen.Count == 0 ? "" : $" AND kind IN ({string.Join(", ", chosen.Select((_, index) => $"$kind{index}"))})");
+            (chosen.Count == 0 ? "" : $" AND kind IN ({string.Join(", ", chosen.Select((_, index) => $"$kind{index}"))})") +
+            (appliedOnly ? " AND applied_operation_id IS NOT NULL" : "");
         using var connection = database.Open();
         int total;
         using (var count = connection.CreateCommand()) {
@@ -81,8 +94,8 @@ public sealed class PreviewStore(AniDokiDatabase database, TimeProvider clock) {
         var rows = new List<PreviewRow>();
         using (var select = connection.CreateCommand()) {
             select.CommandText = $"""
-                SELECT {Columns} FROM preview_rows WHERE {filter}
-                ORDER BY source_title COLLATE NOCASE, source_key, provider, seq
+                SELECT {Columns}, {LastOutcome} FROM preview_rows WHERE {filter}
+                ORDER BY {PageOrder}
                 LIMIT $limit OFFSET $offset
                 """;
             SetFilter(select, operationId, chosen, provider);
@@ -93,6 +106,28 @@ public sealed class PreviewStore(AniDokiDatabase database, TimeProvider clock) {
                 rows.Add(ReadRow(reader));
         }
         return new PreviewPage(total, rows);
+    }
+
+    /// <summary>Every row that can be applied, in page order, with whether it starts selected.</summary>
+    public IReadOnlyList<SelectableRow> Selectable(Guid operationId) {
+        using var connection = database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT seq, kind, selected_by_default FROM preview_rows WHERE operation_id = $id AND selectable = 1 ORDER BY {PageOrder}";
+        Set(command, "$id", Id(operationId));
+        using var reader = command.ExecuteReader();
+        var rows = new List<SelectableRow>();
+        while (reader.Read())
+            rows.Add(new SelectableRow(reader.GetInt32(0), Enum.Parse<PreviewRowKind>(reader.GetString(1)), reader.GetInt64(2) != 0));
+        return rows;
+    }
+
+    /// <summary>The apply that claimed this preview's rows, or null while none has.</summary>
+    public Guid? AppliedBy(Guid operationId) {
+        using var connection = database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT applied_operation_id FROM preview_rows WHERE operation_id = $id AND applied_operation_id IS NOT NULL LIMIT 1";
+        Set(command, "$id", Id(operationId));
+        return command.ExecuteScalar() is string applied ? Guid.Parse(applied) : null;
     }
 
     public IReadOnlyDictionary<string, int> Counts(Guid operationId) {
@@ -245,7 +280,10 @@ public sealed class PreviewStore(AniDokiDatabase database, TimeProvider clock) {
             reader.GetInt64(20) != 0,
             reader.IsDBNull(21) ? null : Guid.Parse(reader.GetString(21)),
             change == null || !inbound ? null : ActionJson.Read<InboundChange>(change),
-            against == null || !inbound ? null : ActionJson.Read<InboundEntry>(against));
+            against == null || !inbound ? null : ActionJson.Read<InboundEntry>(against),
+            reader.FieldCount > 23 && !reader.IsDBNull(22)
+                ? new AppliedOutcome(Enum.Parse<OutcomeKind>(reader.GetString(22)), reader.GetString(23))
+                : null);
     }
 
     private static void Set(SqliteCommand command, string name, object? value) => command.Parameters.AddWithValue(name, value ?? DBNull.Value);

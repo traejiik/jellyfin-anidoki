@@ -63,6 +63,7 @@ public sealed class PreviewApply(
         var trackers = new Dictionary<ApiName, ITrackerProvider?>();
         var fingerprints = new Dictionary<Guid, string?>();
         var stopped = new HashSet<ApiName>();
+        var results = new List<ProviderWriteOutcome>();
         operation.ReportProgress(0, selected.Count);
         for (int i = 0; i < selected.Count; i++) {
             PreviewRow row = selected[i];
@@ -71,10 +72,10 @@ public sealed class PreviewApply(
                 await delayer.Delay(TimeSpan.FromSeconds(2));
             if (operation.CancellationToken.IsCancellationRequested)
                 StopCancelled(operation, selected, i, _logger);
-            await ApplyRow(operation, row, user, applySavedMatches, clients, trackers, fingerprints, stopped);
+            await ApplyCounted(operation, results, () => ApplyRow(operation, row, user, applySavedMatches, clients, trackers, fingerprints, stopped));
             operation.ReportProgress(i + 1, selected.Count);
         }
-        operation.Message = Summary(operation.Outcomes);
+        operation.Message = Summary(results);
         _logger.LogInformation("Applied {RowCount} selected preview rows for user {UserId}", selected.Count, userId);
     }
 
@@ -146,8 +147,7 @@ public sealed class PreviewApply(
         // Every row not reached is recorded, so the result lists exactly what was and was not applied.
         foreach (PreviewRow unreached in selected.Skip(reached))
             Refuse(operation, unreached, Cancelled, null, logger);
-        operation.Message = $"Cancelled after {reached} of {Rows(selected.Count)}. Updates already sent were kept; " +
-            $"the other {selected.Count - reached} were not applied.";
+        operation.Message = $"Stopped after {reached} of {selected.Count}. Updates already sent were kept.";
         operation.CancellationToken.ThrowIfCancellationRequested();
     }
 
@@ -165,17 +165,36 @@ public sealed class PreviewApply(
     private static OutcomeDetail Tagged(OutcomeDetail? detail, PreviewRow row) =>
         detail == null ? Detail(row, null) : detail with { PreviewSeq = row.Seq };
 
-    internal static string? Summary(IReadOnlyList<ProviderWriteOutcome> outcomes) {
-        int stale = outcomes.Count(outcome => outcome.Step == Stale);
-        int stopped = outcomes.Count(outcome => outcome.Step == ProviderStopped);
-        var parts = new List<string>();
-        if (stale > 0)
-            parts.Add($"{Rows(stale)} changed since the preview and {(stale == 1 ? "was" : "were")} not applied; " +
-                $"refresh the preview to see {(stale == 1 ? "it" : "them")} again.");
-        if (stopped > 0)
-            parts.Add($"{Rows(stopped)} {(stopped == 1 ? "was" : "were")} not tried because {(stopped == 1 ? "its" : "their")} tracker stopped answering.");
-        return parts.Count == 0 ? null : string.Join(" ", parts);
+    /// <summary>
+    /// One line counting each row's result, in the words the preview shows for them: <c>3 updated · 1 changed since the
+    /// preview · 1 failed</c>. Null when no row was reached.
+    /// </summary>
+    /// <param name="results">The last outcome recorded for each row.</param>
+    /// <param name="inbound">Inbound rows are marked played rather than updated.</param>
+    internal static string? Summary(IEnumerable<ProviderWriteOutcome> results, bool inbound = false) {
+        IReadOnlyList<ProviderWriteOutcome> rows = results.ToList();
+        (string Label, Func<ProviderWriteOutcome, bool> Counts)[] parts = [
+            (inbound ? "marked played" : "updated", outcome => outcome.Kind == OutcomeKind.Confirmed),
+            ("already up to date", outcome => outcome.Kind == OutcomeKind.NoChange),
+            ("changed since the preview", outcome => outcome is { Kind: OutcomeKind.Skipped, Step: Stale }),
+            ("not reached", outcome => outcome is { Kind: OutcomeKind.Skipped, Step: Cancelled }),
+            ("not tried", outcome => outcome is { Kind: OutcomeKind.Skipped, Step: ProviderStopped }),
+            ("skipped", outcome => outcome is { Kind: OutcomeKind.Skipped, Step: not (Stale or Cancelled or ProviderStopped) }),
+            ("not found", outcome => outcome.Kind == OutcomeKind.Unresolved),
+            ("failed", outcome => outcome.Kind == OutcomeKind.Failed),
+            ("not confirmed", outcome => outcome.Kind == OutcomeKind.Unconfirmed)
+        ];
+        string[] counted = parts.Select(part => (Count: rows.Count(part.Counts), part.Label)).Where(part => part.Count > 0)
+            .Select(part => $"{part.Count} {part.Label}").ToArray();
+        return counted.Length == 0 ? null : string.Join(" · ", counted);
     }
 
-    private static string Rows(int count) => count == 1 ? "1 row" : $"{count} rows";
+    /// <summary>Runs one row's apply and keeps the last outcome it recorded, which is that row's result.</summary>
+    internal static async Task ApplyCounted(OperationContext operation, List<ProviderWriteOutcome> results, Func<Task> apply) {
+        int before = operation.Outcomes.Count;
+        await apply();
+        IReadOnlyList<ProviderWriteOutcome> after = operation.Outcomes;
+        if (after.Count > before)
+            results.Add(after[^1]);
+    }
 }

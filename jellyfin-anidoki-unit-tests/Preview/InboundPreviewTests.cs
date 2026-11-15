@@ -89,11 +89,25 @@ public class InboundPreviewTests {
             Assert.That(row.PlannedMark!.Episodes, Is.EqualTo(season.Children.Select(episode => episode.Id)));
             Assert.That(row.PlannedMark.MarksSeason, Is.True);
             Assert.That(row.PlannedMark.PlayedDate, Is.EqualTo(new DateTime(2026, 1, 2)));
+            Assert.That(row.PlannedMark.Unplayed, Is.EqualTo("1-4"));
             Assert.That(row.TrackerEntry, Is.EqualTo(new InboundEntry(ApiName.AniList, 1001, "Alpha", Status.Completed, 4, "2026-01-02")));
             Assert.That(row.Selectable && row.SelectedByDefault, Is.True);
             Assert.That(context.Result, Is.EqualTo(OperationState.Succeeded));
             Assert.That(context.Message, Is.EqualTo("Previewed 1 tracker entry: 1 season to mark as played. Nothing was changed."));
         });
+    }
+
+    [Test]
+    public async Task AChangeNamesThePlannedEpisodesNotYetPlayed() {
+        var series = Show(6);
+        foreach (BaseItem episode in InboundHarness.SeasonOf(series, 1).Children.Take(2))
+            _harness.Played(episode);
+        _harness.Entry(1001, "Alpha", Status.Completed, 6, "2026-01-02");
+
+        var (_, rows) = await RunPreview();
+
+        Assert.That(rows.Single().WatchedFingerprint, Is.EqualTo("1-2"));
+        Assert.That(rows.Single().PlannedMark!.Unplayed, Is.EqualTo("3-6"));
     }
 
     [Test]

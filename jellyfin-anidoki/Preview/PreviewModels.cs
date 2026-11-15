@@ -27,6 +27,7 @@ public enum PreviewRowKind { Change, Reduction, NoChange, Skipped, Unresolved, F
 /// <param name="PlannedAgainst">The entry as read, before quirks and without titles; null when it was not read.</param>
 /// <param name="PlannedMark">Inbound only: what would be marked played.</param>
 /// <param name="TrackerEntry">Inbound only: the tracker entry as read (D4 compares status, progress and finish date).</param>
+/// <param name="Outcome">What the apply that claimed this row recorded for it last; null until then, and on rows not read by page.</param>
 public sealed record PreviewRow(
     [property: JsonPropertyName("seq")] int Seq,
     [property: JsonPropertyName("direction")] PreviewDirection Direction,
@@ -51,14 +52,18 @@ public sealed record PreviewRow(
     [property: JsonPropertyName("selectedByDefault")] bool SelectedByDefault,
     [property: JsonPropertyName("appliedOperationId")] Guid? AppliedOperationId,
     [property: JsonPropertyName("plannedMark")] InboundChange? PlannedMark = null,
-    [property: JsonPropertyName("trackerEntry")] InboundEntry? TrackerEntry = null);
+    [property: JsonPropertyName("trackerEntry")] InboundEntry? TrackerEntry = null,
+    [property: JsonPropertyName("outcome")] AppliedOutcome? Outcome = null);
 
 /// <summary>What an inbound row would mark played: these episodes, then the season unless an episode is ignored.</summary>
+/// <param name="Unplayed">The planned episodes not yet played when previewed, as a watched fingerprint (<c>3-6</c>); null on
+/// rows from before it was recorded.</param>
 public sealed record InboundChange(
     [property: JsonPropertyName("seasonItem")] Guid SeasonItem,
     [property: JsonPropertyName("episodes")] IReadOnlyList<Guid> Episodes,
     [property: JsonPropertyName("playedDate")] DateTime PlayedDate,
-    [property: JsonPropertyName("marksSeason")] bool MarksSeason);
+    [property: JsonPropertyName("marksSeason")] bool MarksSeason,
+    [property: JsonPropertyName("unplayed")] string? Unplayed = null);
 
 /// <summary>The tracker entry an inbound row was planned from.</summary>
 public sealed record InboundEntry(
@@ -75,10 +80,18 @@ public sealed record PreviewPage(
 
 /// <param name="RowCounts">Rows per <see cref="PreviewRowKind"/>, by name.</param>
 /// <param name="Applicable">D4: the newest cleanly finished preview for this user and direction, within 24 hours, not yet applied.</param>
+/// <param name="AppliedOperationId">The apply that claimed this preview's rows; null until one did.</param>
 public sealed record PreviewView(
     [property: JsonPropertyName("operation")] OperationView Operation,
     [property: JsonPropertyName("rowCounts")] IReadOnlyDictionary<string, int> RowCounts,
-    [property: JsonPropertyName("applicable")] bool Applicable);
+    [property: JsonPropertyName("applicable")] bool Applicable,
+    [property: JsonPropertyName("appliedOperationId")] Guid? AppliedOperationId = null);
+
+/// <summary>A row that can be applied, with whether it starts selected (D3): enough to select rows on pages not loaded.</summary>
+public sealed record SelectableRow(
+    [property: JsonPropertyName("seq")] int Seq,
+    [property: JsonPropertyName("kind")] PreviewRowKind Kind,
+    [property: JsonPropertyName("selectedByDefault")] bool SelectedByDefault);
 
 /// <summary>The rows of a preview to apply, by <see cref="PreviewRow.Seq"/>.</summary>
 public sealed record ApplyRequest([property: JsonPropertyName("rows")] IReadOnlyList<int>? Rows);

@@ -86,20 +86,28 @@ public sealed class PreviewController(OperationRunner runner, OperationStore sto
     public ActionResult<PreviewView> Read(Guid operationId) => Guarded<PreviewView>(() => {
         if (store.Read(operationId) is not { Kind: OperationKind.PreviewToTrackers or OperationKind.PreviewFromTrackers } view)
             return NotFound();
-        return new PreviewView(view, rows.Counts(operationId), rows.IsApplicable(view));
+        return new PreviewView(view, rows.Counts(operationId), rows.IsApplicable(view), rows.AppliedBy(operationId));
     });
 
     [HttpGet("{operationId:guid}/rows")]
     public ActionResult<PreviewPage> Rows(Guid operationId, [FromQuery] PreviewRowKind[]? kind, [FromQuery] ApiName? provider,
-        [FromQuery] int offset = 0, [FromQuery] int limit = 50) {
+        [FromQuery] int offset = 0, [FromQuery] int limit = 50, [FromQuery] bool applied = false) {
         if (offset < 0 || limit < 1 || limit > PreviewStore.MaxPageSize)
             return BadRequest($"Use an offset of 0 or more and a limit from 1 to {PreviewStore.MaxPageSize}.");
         return Guarded<PreviewPage>(() => {
             if (store.Read(operationId) is not { Kind: OperationKind.PreviewToTrackers or OperationKind.PreviewFromTrackers })
                 return NotFound();
-            return rows.Page(operationId, kind, provider, offset, limit);
+            return rows.Page(operationId, kind, provider, offset, limit, applied);
         });
     }
+
+    /// <summary>Every row of a preview that can be applied, with whether it starts selected, so the page can select rows it has not loaded.</summary>
+    [HttpGet("{operationId:guid}/selectable")]
+    public ActionResult<IReadOnlyList<SelectableRow>> Selectable(Guid operationId) => Guarded<IReadOnlyList<SelectableRow>>(() => {
+        if (store.Read(operationId) is not { Kind: OperationKind.PreviewToTrackers or OperationKind.PreviewFromTrackers })
+            return NotFound();
+        return Ok(rows.Selectable(operationId));
+    });
 
     /// <summary>
     /// Applies the chosen rows of a preview, each as previewed or not at all (D4): a preview to trackers as a <c>SyncToTrackers</c>

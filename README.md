@@ -38,7 +38,9 @@ Some trackers split one Jellyfin season into several entries: AniList lists Stee
 
 Administrators run a sync by hand from the **Manual sync** tab, in either direction: **Tracker → Jellyfin** marks episodes played from one linked tracker's Completed and Watching lists, and **Jellyfin → Trackers** sends each season's highest watched episode to all linked trackers or one of them.
 
-**Preview changes** opens a window showing what that sync would do without changing anything: one row per season and tracker entry, with the entry's current state, the proposed value and the reason. **Lowers progress** lists entries where the tracker is ahead of Jellyfin; a sync never lowers progress, and from 1.7.0 these can be applied one by one. **Problems** lists what could not be matched or read. **Run sync**, on the page or in the preview window, applies the current rules straight away, as before. A progress bar below the form follows the latest run; you can leave the page and come back to it.
+**Preview changes** opens a window showing what that sync would do without changing anything: one row per season and tracker entry, with the entry's current state, the proposed value and the reason. Tick the rows you want and press **Apply** (from trackers, **Mark … played**): changes start ticked. **Lowers progress** lists entries where the tracker is ahead of Jellyfin; they start unticked, a sync never lowers them by itself, and ticking one asks you to confirm first. **Problems** lists what could not be matched or read.
+
+Each ticked row is checked again just before it is written, and one that changed since the preview is skipped rather than written. While the changes are applied, each row shows its result, and **Stop** finishes the row being written and leaves the rest. A preview can be applied once, within a day, and only while it is the newest; otherwise **Refresh preview** makes a new one. **Run sync without preview** applies the current rules straight away, as before. A progress bar below the form follows the latest run; you can leave the page and come back to it.
 
 ### Playback update notifications
 

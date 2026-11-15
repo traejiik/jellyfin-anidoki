@@ -270,6 +270,13 @@
     .anidoki .doki-preview-table td:last-child { grid-column: auto; grid-row: auto; align-self: start; padding: 0; border: 0; text-align: start; }
     .anidoki .doki-preview-table td.doki-preview-entry, .anidoki .doki-preview-table td:last-child, .anidoki .doki-preview-table td[colspan] { grid-column: 1 / -1; }
     .anidoki .doki-preview-table td[data-label]:not(.doki-preview-entry)::before { content: attr(data-label); display: block; margin-bottom: 2px; color: var(--doki-muted); font-size: .6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+    /* The tick or result sits in its own narrow column beside the card. */
+    .anidoki .doki-preview-table tr:not(.doki-preview-group) { grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr); }
+    .anidoki .doki-preview-table td.doki-select-cell { grid-column: 1; grid-row: 1 / span 3; padding-top: 4px; }
+    .anidoki .doki-preview-table td.doki-preview-entry, .anidoki .doki-preview-table td:last-child { grid-column: 2 / -1; }
+    .anidoki .doki-preview-table td[colspan] { grid-column: 1 / -1; }
+    .anidoki .doki-preview-dialog .doki-dialog-footer > .doki-status { flex-basis: 100%; }
+    .anidoki .doki-preview-dialog .doki-dialog-footer > .doki-actions, .anidoki .doki-preview-dialog .doki-dialog-footer .doki-button-primary { width: 100%; }
     .anidoki .doki-preview-group th { display: block; }
     .anidoki .doki-preview-tabs > div { padding-inline: 16px; }
 }
@@ -473,9 +480,10 @@
 .anidoki .doki-run { display: flex; flex-direction: column; gap: 10px; }
 .anidoki .doki-run > * { margin: 0; }
 .anidoki .doki-run-summary { font-weight: 600; overflow-wrap: anywhere; }
-.anidoki .doki-run-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.anidoki .doki-run-line > .doki-status { flex: 1 1 16rem; margin: 0; }
-.anidoki .doki-run-line > .doki-actions { margin: 0; }
+/* A run's summary: whose it is, in its own small section, then which way it goes. Also the preview dialog's subtitle. */
+.anidoki .doki-run-summary:not([hidden]), .anidoki #previewRequest { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.anidoki .doki-run-user { display: inline-flex; align-items: baseline; gap: 4px; padding: 2px 10px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-sm); background: var(--doki-ground); color: var(--doki-text); font-size: .8125rem; font-weight: 400; }
+.anidoki .doki-run-user > strong { font-weight: 700; }
 .anidoki .doki-progress { height: 8px; border-radius: 999px; overflow: hidden; background: var(--doki-edge); }
 .anidoki .doki-progress > span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--doki-accent); }
 .anidoki .doki-progress[data-tone="success"] > span { background: var(--tjk-success); }
@@ -501,9 +509,10 @@
 .anidoki .doki-preview-tab:has(input:checked) { border-color: var(--doki-accent); color: var(--doki-text); font-weight: 700; }
 .anidoki .doki-preview-tab:has(input:focus-visible) { outline: 2px solid var(--doki-accent); outline-offset: -2px; border-radius: var(--tjk-radius-xs); }
 .anidoki .doki-preview-tab-count { color: var(--doki-faint); font-size: .75rem; font-weight: 400; }
-.anidoki .doki-preview-table th:nth-child(1) { width: 32%; }
-.anidoki .doki-preview-table th:nth-child(2) { width: 18%; }
-.anidoki .doki-preview-table th:nth-child(3) { width: 20%; }
+.anidoki .doki-preview-table th:nth-child(1) { width: 44px; }
+.anidoki .doki-preview-table th:nth-child(2) { width: 30%; }
+.anidoki .doki-preview-table th:nth-child(3) { width: 16%; }
+.anidoki .doki-preview-table th:nth-child(4) { width: 19%; }
 .anidoki .doki-preview-table th:last-child { width: auto; }
 .anidoki .doki-preview-table td { vertical-align: top; border-top-color: color-mix(in srgb, var(--doki-edge) 45%, transparent); }
 .anidoki .doki-preview-table td:last-child { text-align: start; }
@@ -511,7 +520,12 @@
 /* Wide only: on narrow screens the stacked layout above sets its own spacing. */
 @media (min-width: 50.0625rem) {
     .anidoki .doki-preview-table td { padding-block: 10px; }
-    .anidoki .doki-preview-table :is(th, td):first-child:not([colspan]), .anidoki .doki-source-table :is(th, td):first-child:not([colspan]) { padding-inline-start: 42px; }
+    .anidoki .doki-source-table :is(th, td):first-child:not([colspan]) { padding-inline-start: 42px; }
+    /* The tick sits under the season's chevron; the entry starts just past it. */
+    .anidoki .doki-preview-table .doki-select-cell { padding: 12px 0 0 16px; }
+    /* In the header the box lines up with the column labels, not with the rows' first line. */
+    .anidoki .doki-preview-table th.doki-select-cell { padding-block: 0; vertical-align: middle; }
+    .anidoki .doki-preview-table .doki-select-cell + :is(th, td) { padding-inline-start: 10px; }
 }
 .anidoki .doki-preview-group th { padding: 0; border-top: 1px solid var(--doki-edge); background: var(--doki-ground); }
 .anidoki .doki-preview-toggle { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 10px 16px; border: 0; background: none; color: var(--doki-text); font: inherit; text-align: start; cursor: pointer; }
@@ -529,6 +543,46 @@
 .anidoki .doki-preview-note { color: var(--doki-muted); font-size: .75rem; overflow-wrap: anywhere; }
 .anidoki .doki-preview-table td[data-tone="attention"] .doki-preview-value > :first-child { color: var(--tjk-warning); }
 .anidoki .doki-preview-table td[data-tone="error"] .doki-preview-value > :first-child { color: var(--tjk-error); }
+.anidoki .doki-preview-table td[data-tone="success"] .doki-preview-value > :first-child { color: var(--tjk-success); }
+/* Selection: an unticked row recedes; a ticked reduction keeps a warning edge so it stands out in a long list. */
+.anidoki .doki-preview-table tr[data-selected="false"] > td:not(.doki-select-cell) { opacity: .62; }
+.anidoki .doki-preview-table tr[data-reduction="true"][data-selected="true"] > td.doki-select-cell { box-shadow: inset 3px 0 0 var(--tjk-warning); }
+.anidoki .doki-select-cell .doki-choice-checkbox { cursor: pointer; }
+/* A result's icon is a mask in its tone, from the same set as the toast's results. */
+.anidoki .doki-outcome { display: block; width: 16px; height: 16px; margin-top: 2px; background: var(--doki-muted);
+    -webkit-mask: var(--doki-icon) center / contain no-repeat; mask: var(--doki-icon) center / contain no-repeat; }
+.anidoki [data-tone="success"] > .doki-outcome { background: var(--tjk-success); }
+.anidoki [data-tone="attention"] > .doki-outcome { background: var(--tjk-warning); }
+.anidoki [data-tone="error"] > .doki-outcome { background: var(--tjk-error); }
+.anidoki .doki-result { font-weight: 600; }
+/* A one-line notice above the rows, with its icon. */
+.anidoki .doki-banner { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-ground); font-size: .875rem; }
+.anidoki .doki-banner[hidden] { display: none; }
+.anidoki .doki-banner[data-icon]::before { content: ''; flex: none; width: 16px; height: 16px; background: var(--tjk-warning);
+    -webkit-mask: var(--doki-icon) center / contain no-repeat; mask: var(--doki-icon) center / contain no-repeat; }
+/* An apply's progress above its rows: the line over a thin bar, Stop beside them, as tall as the notice and with no box. */
+/* Every run's progress, in the dialog and on the page: one line over a thin bar, with small buttons beside them and no box. */
+.anidoki .doki-run-row { display: flex; align-items: center; gap: 14px; padding: 8px 0; }
+.anidoki .doki-run-row[hidden] { display: none; }
+.anidoki .doki-preview > .doki-run-row { margin-bottom: 8px; }
+.anidoki .doki-run-row-progress { display: flex; flex: 1 1 auto; flex-direction: column; gap: 6px; min-width: 0; }
+.anidoki .doki-run-row-progress > .doki-status { margin: 0; color: var(--doki-text); font-size: .8125rem; font-weight: 600; line-height: 1.3; }
+.anidoki .doki-run-row-progress > .doki-status[data-tone="success"] { color: var(--tjk-success); }
+.anidoki .doki-run-row-progress > .doki-status[data-tone="error"] { color: var(--tjk-error); }
+.anidoki .doki-run-row .doki-progress { height: 6px; }
+.anidoki .doki-run-row > .doki-actions { flex: none; flex-wrap: nowrap; gap: 8px; }
+.anidoki .doki-button.doki-button-small { flex: none; min-height: 32px; padding: 4px 12px; gap: 6px; font-size: .8125rem; }
+.anidoki .doki-stop::before { content: ''; width: 10px; height: 10px; border-radius: 2px; background: currentColor; }
+/* The confirmation over the preview: what a reduction would lower, before anything is written. */
+.anidoki .doki-confirm { width: min(30rem, calc(100vw - 32px)); padding: 0; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-lg); background: var(--doki-solid-surface); color: var(--doki-text); font: inherit; }
+.anidoki .doki-confirm::backdrop { background: rgb(0 0 0 / .45); }
+.anidoki .doki-confirm-body { display: flex; flex-direction: column; gap: 14px; padding: 22px 24px 18px; }
+.anidoki .doki-confirm-body > * { margin: 0; }
+.anidoki .doki-confirm-list { display: flex; flex-direction: column; gap: 8px; padding: 0; list-style: none; }
+.anidoki .doki-confirm-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--tjk-warning) 55%, transparent); border-radius: var(--tjk-radius-md); background: color-mix(in srgb, var(--tjk-warning) 10%, transparent); }
+.anidoki .doki-confirm-item .doki-provider-logo { width: 28px; height: 28px; flex-basis: 28px; padding: 3px; border-radius: var(--tjk-radius-sm); }
+.anidoki .doki-confirm-change { color: var(--tjk-warning); font-size: .875rem; font-weight: 600; }
+.anidoki .doki-confirm-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--doki-edge); }
 .anidoki .doki-preview-pager { display: flex; align-items: center; gap: 8px; }
 .anidoki .doki-dialog-footer .doki-preview-pager .doki-status { flex: none; }
 .anidoki .doki-provider-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--doki-edge); margin: 18px 0 20px; }

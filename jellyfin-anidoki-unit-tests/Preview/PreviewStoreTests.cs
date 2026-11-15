@@ -267,4 +267,66 @@ public class PreviewStoreTests {
         Assert.That(outcomes[0], Is.EqualTo(new AppliedOutcome(OutcomeKind.Confirmed, "progress")));
         Assert.That(outcomes[2], Is.EqualTo(new AppliedOutcome(OutcomeKind.Unconfirmed, "progress")));
     }
+
+    /// <summary>A preview of three rows whose rows 0 and 2 were applied: row 0 confirmed, row 2 confirmed then unconfirmed.</summary>
+    private (Guid Preview, Guid Apply) Applied() {
+        Guid id = Finished();
+        foreach (int seq in new[] { 0, 1, 2 })
+            _store.Add(id, Row(seq));
+        Guid apply = Guid.NewGuid();
+        _store.Claim(id, [0, 2], apply);
+        _operations.Create(apply, _user, OperationKind.SyncToTrackers, "x");
+        static OutcomeDetail For(int seq) => new(null, null, null, null, null, null, null, null, seq);
+        _operations.AddAction(apply, 1, OperationTestSupport.Outcome(OutcomeKind.Confirmed, true), For(0));
+        _operations.AddAction(apply, 2, OperationTestSupport.Outcome(OutcomeKind.Confirmed, true), For(2));
+        _operations.AddAction(apply, 3, OperationTestSupport.Outcome(OutcomeKind.Unconfirmed), For(2));
+        return (id, apply);
+    }
+
+    [Test]
+    public void PageRowsCarryTheLastOutcomeOfTheirApply() {
+        Guid id = Applied().Preview;
+
+        IEnumerable<AppliedOutcome?> outcomes = _store.Page(id, null, null, 0, 10).Rows.OrderBy(row => row.Seq).Select(row => row.Outcome);
+
+        Assert.That(outcomes, Is.EqualTo(new AppliedOutcome?[] {
+            new(OutcomeKind.Confirmed, "progress"), null, new(OutcomeKind.Unconfirmed, "progress")
+        }));
+    }
+
+    [Test]
+    public void TheAppliedFilterKeepsOnlyClaimedRowsAndCountsOnlyThem() {
+        Guid id = Applied().Preview;
+
+        PreviewPage page = _store.Page(id, null, null, 0, 10, appliedOnly: true);
+
+        Assert.That(page.Total, Is.EqualTo(2));
+        Assert.That(page.Rows.Select(row => row.Seq), Is.EquivalentTo(new[] { 0, 2 }));
+    }
+
+    [Test]
+    public void SelectableRowsAreListedInPageOrderWithTheirDefaults() {
+        Guid id = Finished();
+        _store.Add(id, Row(0, "B · season 1"));
+        _store.Add(id, Row(1, "A · season 1", PreviewRowKind.Reduction));
+        _store.Add(id, Row(2, "C · season 1", PreviewRowKind.NoChange));
+
+        IReadOnlyList<SelectableRow> selectable = _store.Selectable(id);
+
+        Assert.That(selectable, Is.EqualTo(new[] {
+            new SelectableRow(1, PreviewRowKind.Reduction, false), new SelectableRow(0, PreviewRowKind.Change, true)
+        }));
+    }
+
+    [Test]
+    public void AppliedByNamesTheApplyOnceRowsAreClaimed() {
+        Guid id = Finished();
+        _store.Add(id, Row(0));
+        Assert.That(_store.AppliedBy(id), Is.Null);
+        Guid apply = Guid.NewGuid();
+
+        _store.Claim(id, [0], apply);
+
+        Assert.That(_store.AppliedBy(id), Is.EqualTo(apply));
+    }
 }
