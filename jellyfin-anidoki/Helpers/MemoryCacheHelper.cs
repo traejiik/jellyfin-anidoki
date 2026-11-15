@@ -53,7 +53,7 @@ public class MemoryCacheHelper {
     public static async Task CheckRateLimiting(ApiName provider, ILogger logger, IMemoryCache memoryCache, IAsyncDelayer delayer) {
         DateTime lastCallDateTime = memoryCache.Get<DateTime>(GetLastCallDateTimeKey(provider));
         if (lastCallDateTime != default) {
-            logger.LogDebug("({Provider}) Delaying API call to prevent 429 (too many requests)...", provider);
+            logger.LogDebug("({Provider}) Delaying the request to stay under the rate limit", provider);
             await delayer.Delay(DateTime.UtcNow.Subtract(lastCallDateTime));
         }
     }
@@ -77,7 +77,7 @@ public class MemoryCacheHelper {
     public static void CheckResponseHeadersForRateLimiting(HttpResponseMessage responseMessage, ILogger logger, ApiName provider, IMemoryCache memoryCache) {
         if (responseMessage.Headers.TryGetValues(XRateLimitRemainingHeader, out IEnumerable<string> remainingValues)) {
             if (int.TryParse(remainingValues.First(), out int parsedRemaining) && parsedRemaining <= 0) {
-                logger.LogWarning("({ApiName}) Reached rate limit. Implementing a generous backoff before running the next request.", provider);
+                logger.LogWarning("({Provider}) Reached rate limit; waiting 2 minutes before the next request", provider);
                 SetRateLimitingForProvider(provider, memoryCache, TimeSpan.FromMinutes(2));
             }
         }
@@ -85,7 +85,7 @@ public class MemoryCacheHelper {
         if (responseMessage.Headers.TryGetValues(XRateLimitResetHeader, out IEnumerable<string> resetValues)) {
             if (DateTimeOffset.TryParse(resetValues.First(), out DateTimeOffset resetTime) && resetTime > DateTimeOffset.UtcNow) {
                 TimeSpan delay = resetTime - DateTimeOffset.UtcNow;
-                logger.LogDebug("({Provider}) Rate limit until {ResetTime}. Waiting {DelayTotalSeconds} seconds.", provider, resetTime, delay.TotalSeconds);
+                logger.LogDebug("({Provider}) Rate limit until {ResetTime}; waiting {DelaySeconds} seconds", provider, resetTime, delay.TotalSeconds);
                 SetRateLimitingForProvider(provider, memoryCache, delay);
             }
         }

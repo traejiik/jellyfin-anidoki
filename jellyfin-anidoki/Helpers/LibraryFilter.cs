@@ -45,10 +45,10 @@ public static class LibraryFilter {
         try {
             LibraryScope scope = AnimeScope(animeLibraries, libraryManager, item);
             if (scope == LibraryScope.Excluded)
-                logger.LogInformation("Item is not in an anime library, or has no anime ID in a Mixed library; ignoring");
+                logger.LogDebug("{ItemName} is not in an anime library, or has no anime ID in a Mixed library; ignoring it", item.Name);
             return scope;
         } catch (Exception e) {
-            logger.LogInformation("Library check ran into an issue: {ErrorMessage}", e.Message);
+            logger.LogWarning(e, "Could not check which library {ItemName} is in; ignoring it", item.Name);
             return LibraryScope.Excluded;
         }
     }
@@ -122,10 +122,10 @@ public static class LibraryFilter {
                 }
             }
 
-            logger.LogInformation("Item is in a folder the user does not want to be monitored; ignoring");
+            logger.LogDebug("{ItemName} is not in a library this user syncs; ignoring it", item.Name);
             return false;
         } catch (Exception e) {
-            logger.LogInformation("Library check ran into an issue: {ErrorMessage}", e.Message);
+            logger.LogWarning(e, "Could not check which library {ItemName} is in; ignoring it", item.Name);
             return false;
         }
     }

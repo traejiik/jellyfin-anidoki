@@ -151,7 +151,7 @@ public class ShikimoriApiCalls {
 
             List<ShikimoriAnime> animes;
             if (!data.TryGetValue("animes", out animes)) {
-                _logger.LogWarning("GraphQL response does not contain animes query");
+                _logger.LogWarning("({Provider}) The GraphQL response has no animes field", ApiName.Shikimori);
                 break;
             }
 
@@ -190,7 +190,7 @@ public class ShikimoriApiCalls {
 
         List<ShikimoriAnime> animes;
         if (!data.TryGetValue("animes", out animes)) {
-            _logger.LogWarning("GraphQL response does not contain animes query");
+            _logger.LogWarning("({Provider}) The GraphQL response has no animes field", ApiName.Shikimori);
             return null;
         }
 
@@ -239,7 +239,7 @@ public class ShikimoriApiCalls {
 
             List<ShikimoriAnime> animes;
             if (!data.TryGetValue("animes", out animes)) {
-                _logger.LogWarning("GraphQL response does not contain animes query");
+                _logger.LogWarning("({Provider}) The GraphQL response has no animes field", ApiName.Shikimori);
                 return null;
             }
 
@@ -299,12 +299,12 @@ public class ShikimoriApiCalls {
     private async Task<string?> GetUserId() {
         string? shikimoriUserId = _userConfig?.KeyPairs.FirstOrDefault(keypair => keypair.Key == "ShikimoriUserId")?.Value;
         if (shikimoriUserId == null || string.IsNullOrEmpty(shikimoriUserId)) {
-            _logger.LogInformation("No Shikimori user ID stored in the config. Attempting to retrieve...");
+            _logger.LogDebug("({Provider}) No stored user ID; reading the linked user", ApiName.Shikimori);
             User? user = await GetUserInformation();
             if (user != null) {
                 shikimoriUserId = user.Id.ToString();
             } else {
-                _logger.LogError("Could not retrieve Shikimori user ID");
+                _logger.LogWarning("({Provider}) Could not read the linked user's ID", ApiName.Shikimori);
                 return null;
             }
         }
@@ -359,19 +359,19 @@ public class ShikimoriApiCalls {
             StreamReader streamReader = new StreamReader(await apiCall.Content.ReadAsStreamAsync());
             response = JsonSerializer.Deserialize<GraphqlResponse<T>>(await streamReader.ReadToEndAsync());
         } catch (Exception e) {
-            _logger.LogError("Could not deserialize GraphQL response, reason: {ErrorMessage}", e.Message);
+            _logger.LogError(e, "({Provider}) Could not read the GraphQL response", ApiName.Shikimori);
             return null;
         }
 
         if (response.Errors != null && response.Errors.Any()) {
             foreach (GraphqlError error in response.Errors) {
-                _logger.LogError("GraphQL error: {ErrorMessage}", error.Message);
+                _logger.LogWarning("({Provider}) The GraphQL request was rejected: {ErrorMessage}", ApiName.Shikimori, error.Message);
             }
             return null;
         }
 
         if (response.Data == null) {
-            _logger.LogError("GraphQL returned empty data");
+            _logger.LogWarning("({Provider}) The GraphQL response has no data", ApiName.Shikimori);
             return null;
         }
 

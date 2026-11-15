@@ -54,11 +54,11 @@ public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IAppl
             string Dump(Dictionary<string, string>? ids) => ids == null || ids.Count == 0
                 ? "<none>"
                 : string.Join(", ", ids.Select(kv => $"{kv.Key}={kv.Value}"));
-            logger.LogDebug("[anidoki-diag] Series '{SeriesName}' providers: {SeriesProviderIds}", episode.Series?.Name, Dump(episode.Series?.ProviderIds));
-            logger.LogDebug("[anidoki-diag] Season {SeasonIndexNumber} providers: {SeasonProviderIds}", episode.Season?.IndexNumber, Dump(episode.Season?.ProviderIds));
-            logger.LogDebug("[anidoki-diag] Episode {EpisodeIndexNumber} '{EpisodeName}' providers: {EpisodeProviderIds}", episode.IndexNumber, episode.Name, Dump(episode.ProviderIds));
-            logger.LogDebug("[anidoki-diag] Series contains {SeasonCount} season(s)", episode.Series?.Children.OfType<Season>().Count());
-            logger.LogDebug("[anidoki-diag] Titles -> name: '{EpisodeSeriesName}', originalTitle: '{SeriesOriginalTitle}'", episode.SeriesName, episode.Series?.OriginalTitle ?? "<none>");
+            logger.LogDebug("Series {SeriesName} has provider IDs {ProviderIds}", episode.Series?.Name, Dump(episode.Series?.ProviderIds));
+            logger.LogDebug("Season {SeasonNumber} has provider IDs {ProviderIds}", episode.Season?.IndexNumber, Dump(episode.Season?.ProviderIds));
+            logger.LogDebug("Episode {EpisodeNumber} ({ItemName}) has provider IDs {ProviderIds}", episode.IndexNumber, episode.Name, Dump(episode.ProviderIds));
+            logger.LogDebug("Series {SeriesName} has {Count} seasons", episode.Series?.Name, episode.Series?.Children.OfType<Season>().Count());
+            logger.LogDebug("The series is named {SeriesName}, originally {OriginalTitle}", episode.SeriesName, episode.Series?.OriginalTitle ?? "<none>");
         }
 
         // An episode whose series cannot be found has no IDs to look up; title search still runs.
@@ -69,15 +69,15 @@ public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IAppl
         AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? ids = null;
         (int? aniDbId, int? episodeOffset) aniDbId = (null, null);
         if (source.Item.ProviderIds != null && source.FallbackAniListId is int retrievedAniListId) {
-            logger.LogDebug("AniList ID found. Retrieving provider IDs from offline database...");
+            logger.LogDebug("Looking up tracker IDs for AniList ID {AniListId}", retrievedAniListId);
             ids = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(httpClientFactory.CreateClient(NamedClient.Default), logger, retrievedAniListId, AnimeOfflineDatabaseHelpers.Source.Anilist);
             if (ids is null) {
                 ids = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
                     Anilist = retrievedAniListId
                 };
-                logger.LogWarning("Did not get provider IDs, defaulting to episode provided AniList ID");
+                logger.LogDebug("ARM has no IDs for AniList ID {AniListId}; using that ID alone", retrievedAniListId);
             } else {
-                logger.LogDebug("Retrieved provider IDs");
+                logger.LogDebug("Found tracker IDs for AniList ID {AniListId}", retrievedAniListId);
             }
         } else if (episode != null
                        ? (AnimeListHelpers.HasProviderId(series!.ProviderIds, "Tvdb") ||
@@ -88,22 +88,22 @@ public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IAppl
             AnimeListHelpers.AnimeListXml animeListXml = await AnimeListHelpers.GetAnimeListFileContents(logger, loggerFactory, httpClientFactory, applicationPaths);
             aniDbId = await AnimeListHelpers.GetAniDbId(logger, source.Item, source.EpisodeNumber, source.SeasonNumber, animeListXml);
             if (aniDbId.aniDbId != null) {
-                logger.LogDebug("Retrieving provider IDs from offline database for AniDb ID {AniDbId}...", aniDbId.aniDbId.Value);
+                logger.LogDebug("Looking up tracker IDs for AniDB ID {AniDbId}", aniDbId.aniDbId.Value);
                 ids = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(httpClientFactory.CreateClient(NamedClient.Default), logger, aniDbId.aniDbId.Value, AnimeOfflineDatabaseHelpers.Source.Anidb);
                 if (ids is null) {
                     ids = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
                         AniDb = aniDbId.aniDbId
                     };
-                    logger.LogWarning("Did not get provider IDs, defaulting to episode provided AniDb ID");
+                    logger.LogDebug("ARM has no IDs for AniDB ID {AniDbId}; using that ID alone", aniDbId.aniDbId.Value);
                 } else {
                     // Distinguish "ARM gave us a usable ID" from "ARM gave us a row
                     // that carries none". Only the former avoids the title-search
                     // fallback; reporting both as success would make the fallback look
                     // like a bug in ID resolution rather than a gap in the database.
                     if (ids.Anilist is null or 0 && ids.MyAnimeList is null or 0 && ids.Kitsu is null or 0) {
-                        logger.LogWarning("ARM server has a record for AniDb ID {AniDbId} but no tracker IDs; falling back to title search", aniDbId.aniDbId.Value);
+                        logger.LogDebug("ARM knows AniDB ID {AniDbId} but lists no tracker IDs; falling back to title search", aniDbId.aniDbId.Value);
                     } else {
-                        logger.LogDebug("Retrieved provider IDs");
+                        logger.LogDebug("Found tracker IDs for AniDB ID {AniDbId}", aniDbId.aniDbId.Value);
                     }
                 }
             }
@@ -112,7 +112,7 @@ public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IAppl
                    && (animeList ?? AnimeListIndex.Shared).AniDbIdForMovie(tmdbId) is int movieAniDbId) {
             // A Mixed library's movie known only by TMDB: the anime list, which the library filter also checked,
             // maps it to AniDB. Other libraries keep resolving such movies by title, as before.
-            logger.LogDebug("TMDB ID {TmdbId} maps to AniDb ID {AniDbId} in the anime list. Retrieving provider IDs...", tmdbId, movieAniDbId);
+            logger.LogDebug("TMDB ID {TmdbId} maps to AniDB ID {AniDbId} in the anime list; looking up tracker IDs", tmdbId, movieAniDbId);
             ids = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(httpClientFactory.CreateClient(NamedClient.Default), logger, movieAniDbId, AnimeOfflineDatabaseHelpers.Source.Anidb)
                   ?? new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse { AniDb = movieAniDbId };
         }
