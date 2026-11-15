@@ -36,6 +36,10 @@ public class Helpers {
                     continue;
                 }
 
+                if (httpCall.RequestUriMatch != null && request.RequestUri != null && !httpCall.RequestUriMatch(request.RequestUri)) {
+                    continue;
+                }
+
                 return Task.FromResult(new HttpResponseMessage(httpCall.ResponseCode) { RequestMessage = request, Content = new StringContent(httpCall.ResponseContent) });
             }
 
@@ -58,6 +62,10 @@ public class Helpers {
                     continue;
                 }
 
+                if (httpCall.RequestUriMatch != null && request.RequestUri != null && !httpCall.RequestUriMatch(request.RequestUri)) {
+                    continue;
+                }
+
                 return Task.FromResult(new HttpResponseMessage(httpCall.ResponseCode) { RequestMessage = request, Content = new StringContent(httpCall.ResponseContent) });
             }
 
@@ -76,6 +84,11 @@ public class Helpers {
         /// The request URL to match to. For example, s => s.EndsWith("/update") to match with update calls. Null to capture all URLs.
         /// </summary>
         public Func<string, bool>? RequestUrlMatch { get; set; }
+
+        /// <summary>
+        /// The whole request URI to match to, query included. For example, u => u.ToString().Contains("page[offset]=500").
+        /// </summary>
+        public Func<Uri, bool>? RequestUriMatch { get; set; }
 
         /// <summary>
         /// The response code to return from the external service.

@@ -265,15 +265,36 @@ namespace jellyfin_anidoki.Api.Kitsu {
             return null;
         }
 
+        /// <summary>
+        /// Every entry of the user's list with this status, page by page until Kitsu names no next page (at most
+        /// <see cref="MaxListPages"/> pages of <see cref="ListPageSize"/>). Null when any page cannot be read, so a sync
+        /// never works from part of the list.
+        /// </summary>
         public async Task<KitsuUpdate.KitsuLibraryEntryListRoot> GetUserAnimeList(int userId, KitsuUpdate.Status status) {
-            KitsuUpdate.KitsuLibraryEntryListRoot animeList = await LibraryEntriesCall(new List<KeyValuePair<string, string>> {
-                new("filter[userId]", userId.ToString()),
-                new("filter[kind]", "anime"),
-                new("filter[status]", status.ToString()),
-                new("include", "anime"),
-            });
+            var all = new KitsuUpdate.KitsuLibraryEntryListRoot { Data = new List<KitsuUpdate.KitsuLibraryEntry>(), Included = new List<KitsuSearch.KitsuAnime>() };
+            for (int page = 0; page < MaxListPages; page++) {
+                KitsuUpdate.KitsuLibraryEntryListRoot animeList = await LibraryEntriesCall(new List<KeyValuePair<string, string>> {
+                    new("filter[userId]", userId.ToString()),
+                    new("filter[kind]", "anime"),
+                    new("filter[status]", status.ToString()),
+                    new("include", "anime"),
+                    new("page[limit]", ListPageSize.ToString()),
+                    new("page[offset]", (page * ListPageSize).ToString()),
+                });
+                if (animeList?.Data == null)
+                    return null;
+                all.Data.AddRange(animeList.Data);
+                all.Included.AddRange(animeList.Included ?? []);
+                if (string.IsNullOrEmpty(animeList.Links?.Next) || animeList.Data.Count == 0)
+                    return all;
+            }
 
-            return animeList;
+            _logger.LogWarning("(Kitsu) Read the first {Count} anime list entries; the rest were not read", MaxListPages * ListPageSize);
+            return all;
         }
+
+        // Kitsu allows library entries up to 500 a page.
+        private const int ListPageSize = 500;
+        private const int MaxListPages = 10;
     }
 }
