@@ -28,6 +28,7 @@ using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -163,9 +164,9 @@ internal sealed class InboundHarness : IDisposable {
 
     public void Played(BaseItem item) => DataFor(item).Played = true;
 
-    public Sync NewSync(SyncHelper.Status status = SyncHelper.Status.Both, ApiName provider = ApiName.AniList) {
+    public Sync NewSync(SyncHelper.Status status = SyncHelper.Status.Both, ApiName provider = ApiName.AniList, ILoggerFactory? loggers = null) {
         File.WriteAllText(Path.Combine(_directory, "anime-list-full.xml"), $"<anime-list>{string.Concat(_animeList)}</anime-list>");
-        return new Sync(_http, NullLoggerFactory.Instance, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(), Users.Object,
+        return new Sync(_http, loggers ?? NullLoggerFactory.Instance, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(), Users.Object,
             Library.Object, new Mock<IApplicationPaths>().Object, UserData.Object, new MemoryCache(new MemoryCacheOptions()), Delayer.Object,
             provider, status) {
             ListSourceOverride = (_, _) => Tracker
