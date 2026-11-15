@@ -108,12 +108,25 @@ public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITra
         KitsuUpdate.KitsuLibraryEntryListRoot animeList = await api.GetUserAnimeList(userId.Value, status: kitsuStatus);
         if (animeList == null)
             return null;
+        return ConvertList(animeList, status);
+    }
+
+    /// <summary>
+    /// The list as read for one status: each entry carries that status, since the request filters by it, and the title of
+    /// the anime the response includes for it.
+    /// </summary>
+    internal static List<Anime> ConvertList(KitsuUpdate.KitsuLibraryEntryListRoot animeList, Status status) {
+        var titles = new Dictionary<int, string?>();
+        foreach (KitsuSearch.KitsuAnime included in animeList.Included ?? [])
+            titles[included.Id] = included.Attributes?.Titles?.English ?? included.Attributes?.CanonicalTitle;
         var converted = new List<Anime>();
         foreach (KitsuUpdate.KitsuLibraryEntry entry in animeList.Data!) {
             var anime = new Anime();
-            if (entry.Relationships?.AnimeData?.Anime is { } related)
+            if (entry.Relationships?.AnimeData?.Anime is { } related) {
                 anime.Id = related.Id;
-            anime.MyListStatus = new MyListStatus();
+                anime.Title = titles.GetValueOrDefault(related.Id);
+            }
+            anime.MyListStatus = new MyListStatus { Status = status };
             if (entry.Attributes != null) {
                 anime.MyListStatus.FinishDate = entry.Attributes.FinishedAt.ToString();
                 if (entry.Attributes.Progress != null)

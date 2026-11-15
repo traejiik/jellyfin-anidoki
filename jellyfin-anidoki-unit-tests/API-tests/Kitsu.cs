@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -140,6 +141,60 @@ public class Kitsu {
         var result = await _kitsuApiCalls.GetUserAnimeStatus(1, 1);
 
         Assert.IsNotNull(result.Attributes.Progress);
+    }
+
+    private static string ListPage(int animeId, string? next) => $$"""
+        {
+          "data": [ { "id": "{{animeId}}", "type": "libraryEntries", "attributes": { "status": "current", "progress": 3 },
+                      "relationships": { "anime": { "data": { "type": "anime", "id": "{{animeId}}" } } } } ],
+          "included": [ { "id": "{{animeId}}", "type": "anime", "attributes": { "canonicalTitle": "Title {{animeId}}" } } ],
+          "links": { "next": {{(next == null ? "null" : $"\"{next}\"")}} }
+        }
+        """;
+
+    [Test]
+    public async Task TheUserListIsReadPageByPageUntilKitsuNamesNoNextPage() {
+        var requested = new List<string>();
+        Setup(new List<Helpers.HttpCall> {
+            new () {
+                RequestMethod = HttpMethod.Get,
+                RequestUriMatch = uri => { if (!uri.ToString().EndsWith("page[offset]=0")) return false; requested.Add(uri.ToString()); return true; },
+                ResponseCode = HttpStatusCode.OK,
+                ResponseContent = ListPage(500, "https://kitsu.io/api/edge/library-entries?page[offset]=500")
+            },
+            new () {
+                RequestMethod = HttpMethod.Get,
+                RequestUriMatch = uri => { if (!uri.ToString().EndsWith("page[offset]=500")) return false; requested.Add(uri.ToString()); return true; },
+                ResponseCode = HttpStatusCode.OK,
+                ResponseContent = ListPage(501, null)
+            }
+        });
+
+        var result = await _kitsuApiCalls.GetUserAnimeList(7, KitsuUpdate.Status.current);
+
+        Assert.That(result.Data!.Select(entry => entry.Relationships!.AnimeData!.Anime!.Id), Is.EqualTo(new[] { 500, 501 }));
+        Assert.That(result.Included!.Select(anime => anime.Attributes.CanonicalTitle), Is.EqualTo(new[] { "Title 500", "Title 501" }));
+        Assert.That(requested, Has.All.Contains("page[limit]=500"));
+    }
+
+    [Test]
+    public async Task AUserListWithAnUnreadablePageIsNotReadAtAll() {
+        Setup(new List<Helpers.HttpCall> {
+            new () {
+                RequestMethod = HttpMethod.Get,
+                RequestUriMatch = uri => uri.ToString().EndsWith("page[offset]=0"),
+                ResponseCode = HttpStatusCode.OK,
+                ResponseContent = ListPage(500, "https://kitsu.io/api/edge/library-entries?page[offset]=500")
+            },
+            new () {
+                RequestMethod = HttpMethod.Get,
+                RequestUriMatch = uri => uri.ToString().EndsWith("page[offset]=500"),
+                ResponseCode = HttpStatusCode.InternalServerError,
+                ResponseContent = "{}"
+            }
+        });
+
+        Assert.That(await _kitsuApiCalls.GetUserAnimeList(7, KitsuUpdate.Status.current), Is.Null);
     }
 
     [Test]

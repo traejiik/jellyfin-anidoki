@@ -363,4 +363,51 @@ public class TrackerClientConversionTests {
         };
     }
 
+    [TestCase(Status.Completed)]
+    [TestCase(Status.Watching)]
+    public void AniListListEntriesCarryTheirTitleAndTheStatusTheListWasReadFor(Status status) {
+        const string json = """
+            [
+              { "media": { "id": 227, "siteUrl": "https://anilist.co/anime/227", "title": { "english": "FLCL", "romaji": "Furi Kuri" } },
+                "completedAt": { "year": 2026, "month": 11, "day": 3 }, "progress": 6 },
+              { "media": { "id": 154587, "siteUrl": "https://anilist.co/anime/154587", "title": { "english": null, "romaji": "Sousou no Frieren" } },
+                "completedAt": { "year": null, "month": null, "day": null }, "progress": 14 }
+            ]
+            """;
+        var entries = JsonSerializer.Deserialize<List<AniListMediaList.Entries>>(json);
+
+        List<Anime> converted = AniListTrackerClient.ConvertList(entries, status);
+
+        Assert.That(converted.Select(anime => (anime.Id, anime.Title, anime.MyListStatus.Status, anime.MyListStatus.NumEpisodesWatched)),
+            Is.EqualTo(new[] { (227, "FLCL", status, 6), (154587, "Sousou no Frieren", status, 14) }));
+    }
+
+    [Test]
+    public void KitsuListEntriesTakeTheirTitleFromTheIncludedAnime() {
+        const string json = """
+            {
+              "data": [
+                { "id": "1", "type": "libraryEntries", "attributes": { "status": "completed", "progress": 28 },
+                  "relationships": { "anime": { "data": { "type": "anime", "id": "500" } } } },
+                { "id": "2", "type": "libraryEntries", "attributes": { "status": "completed", "progress": 12 },
+                  "relationships": { "anime": { "data": { "type": "anime", "id": "501" } } } },
+                { "id": "3", "type": "libraryEntries", "attributes": { "status": "completed", "progress": 3 },
+                  "relationships": { "anime": { "data": { "type": "anime", "id": "502" } } } }
+              ],
+              "included": [
+                { "id": "500", "type": "anime", "attributes": { "canonicalTitle": "Sousou no Frieren", "titles": { "en": "Frieren: Beyond Journey's End" } } },
+                { "id": "501", "type": "anime", "attributes": { "canonicalTitle": "Dungeon Meshi", "titles": { "en": null } } }
+              ]
+            }
+            """;
+        var root = JsonSerializer.Deserialize<KitsuUpdate.KitsuLibraryEntryListRoot>(json);
+
+        List<Anime> converted = KitsuTrackerClient.ConvertList(root!, Status.Completed);
+
+        Assert.That(converted.Select(anime => (anime.Id, anime.Title, anime.MyListStatus.Status, anime.MyListStatus.NumEpisodesWatched)),
+            Is.EqualTo(new[] {
+                (500, "Frieren: Beyond Journey's End", Status.Completed, 28), (501, "Dungeon Meshi", Status.Completed, 12),
+                (502, (string)null!, Status.Completed, 3)
+            }));
+    }
 }

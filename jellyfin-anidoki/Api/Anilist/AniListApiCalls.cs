@@ -286,6 +286,10 @@ namespace jellyfin_anidoki.Api.Anilist {
                     media {
                       id
                       siteUrl
+                      title {
+                        english
+                        romaji
+                      }
                     }
                     completedAt {
                       day
