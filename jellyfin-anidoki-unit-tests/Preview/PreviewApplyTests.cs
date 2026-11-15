@@ -133,7 +133,7 @@ public class PreviewApplyTests {
             Assert.That((write.EntryId, write.Progress, write.Status), Is.EqualTo((600, 5, Status.Watching)));
             Assert.That((outcome.Kind, outcome.Step, outcome.TargetTitle), Is.EqualTo((OutcomeKind.Confirmed, "progress", "Fixture Show")));
             Assert.That(_rows.Outcomes(context.OperationId)[row.Seq], Is.EqualTo(new AppliedOutcome(OutcomeKind.Confirmed, "progress")));
-            Assert.That(context.Message, Is.Null);
+            Assert.That(context.Message, Is.EqualTo("1 updated"));
         });
     }
 
@@ -148,7 +148,7 @@ public class PreviewApplyTests {
 
         Assert.That(_harness.Tracker(ApiName.AniList).Writes, Is.Empty);
         Assert.That(Only(context), Is.EqualTo((OutcomeKind.Skipped, PreviewApply.Stale)));
-        Assert.That(context.Message, Is.EqualTo("1 row changed since the preview and was not applied; refresh the preview to see it again."));
+        Assert.That(context.Message, Is.EqualTo("1 changed since the preview"));
     }
 
     [Test]
@@ -251,7 +251,7 @@ public class PreviewApplyTests {
         Assert.That(_harness.Tracker(ApiName.AniList).Writes, Has.Count.EqualTo(2));
         Assert.That(context.Outcomes.Select(outcome => outcome.Step),
             Is.EqualTo(new[] { "progress", "progress", PreviewApply.Cancelled, PreviewApply.Cancelled, PreviewApply.Cancelled }));
-        Assert.That(context.Message, Is.EqualTo("Cancelled after 2 of 5 rows. Updates already sent were kept; the other 3 were not applied."));
+        Assert.That(context.Message, Is.EqualTo("Stopped after 2 of 5. Updates already sent were kept."));
     }
 
     [Test]
@@ -277,6 +277,6 @@ public class PreviewApplyTests {
             (ApiName.Kitsu, OutcomeKind.Confirmed, "progress"),
             (ApiName.AniList, OutcomeKind.Skipped, PreviewApply.ProviderStopped)
         }));
-        Assert.That(context.Message, Is.EqualTo("1 row was not tried because its tracker stopped answering."));
+        Assert.That(context.Message, Is.EqualTo("1 updated · 1 not tried · 1 failed"));
     }
 }

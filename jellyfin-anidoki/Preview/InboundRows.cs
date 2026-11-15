@@ -32,7 +32,9 @@ internal static class InboundRows {
             plan.Episodes.Count == 0 ? null : plan.Episodes.Max(episode => episode.IndexNumber), TargetId(entry), entry.Title ?? "",
             entry.MyListStatus?.NumEpisodesWatched, kind, reason, null, note, null, applySavedMatches, fingerprint, null, null,
             kind == PreviewRowKind.Change, kind == PreviewRowKind.Change, null,
-            new InboundChange(season.Id, plan.Episodes.Select(episode => episode.Id).ToList(), plan.PlayedDate, plan.MarksSeason),
+            new InboundChange(season.Id, plan.Episodes.Select(episode => episode.Id).ToList(), plan.PlayedDate, plan.MarksSeason,
+                WatchedFingerprint.Of(plan.Episodes.Where(episode => episode.IndexNumber != null && !Played(episode))
+                    .Select(episode => episode.IndexNumber!.Value))),
             Entry(entry, provider));
     }
 

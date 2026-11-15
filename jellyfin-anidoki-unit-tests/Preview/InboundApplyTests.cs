@@ -111,7 +111,7 @@ public class InboundApplyTests {
                 Is.EqualTo((OutcomeKind.Confirmed, "mark-played", (int?)4, true)));
             Assert.That(_rows.Outcomes(context.OperationId)[row.Seq], Is.EqualTo(new AppliedOutcome(OutcomeKind.Confirmed, "mark-played")));
             Assert.That(OperationStates.FromOutcomes(context.Outcomes), Is.EqualTo(OperationState.Succeeded));
-            Assert.That(context.Message, Is.Null);
+            Assert.That(context.Message, Is.EqualTo("1 marked played"));
         });
     }
 
@@ -161,7 +161,7 @@ public class InboundApplyTests {
         Assert.That(_harness.Saves, Is.Empty);
         Assert.That(Only(context), Is.EqualTo((OutcomeKind.Skipped, PreviewApply.Stale)));
         Assert.That(Notes(context), Is.EqualTo(new[] { "tracker" }));
-        Assert.That(context.Message, Is.EqualTo("1 row changed since the preview and was not applied; refresh the preview to see it again."));
+        Assert.That(context.Message, Is.EqualTo("1 changed since the preview"));
     }
 
     [Test]
@@ -290,6 +290,6 @@ public class InboundApplyTests {
         Assert.That(_harness.Saves.Count(save => save.Contains("season 1", StringComparison.Ordinal)), Is.EqualTo(2));
         Assert.That(context.Outcomes.Select(outcome => outcome.Step),
             Is.EqualTo(new[] { "mark-played", "mark-played", PreviewApply.Cancelled }));
-        Assert.That(context.Message, Is.EqualTo("Cancelled after 2 of 3 rows. Updates already sent were kept; the other 1 were not applied."));
+        Assert.That(context.Message, Is.EqualTo("Stopped after 2 of 3. Updates already sent were kept."));
     }
 }

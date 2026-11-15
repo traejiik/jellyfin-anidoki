@@ -43,7 +43,7 @@ public sealed class InboundApply(
         ApiName provider = selected[0].Provider;
         if (user == null || config?.UserApiAuth?.Any(auth => auth.Name == provider) != true) {
             RefuseAll(operation, PreviewApply.Stale, "not-linked");
-            operation.Message = PreviewApply.Summary(operation.Outcomes);
+            operation.Message = PreviewApply.Summary(operation.Outcomes, inbound: true);
             return;
         }
 
@@ -57,13 +57,18 @@ public sealed class InboundApply(
 
         Dictionary<int, InboundEntry> entries = list.DistinctBy(anime => anime.Id)
             .ToDictionary(anime => anime.Id, anime => InboundRows.Entry(anime, provider));
+        var results = new List<ProviderWriteOutcome>();
         for (int i = 0; i < selected.Count; i++) {
             if (operation.CancellationToken.IsCancellationRequested)
                 PreviewApply.StopCancelled(operation, selected, i, _logger);
-            ApplyRow(operation, selected[i], user, entries);
+            PreviewRow row = selected[i];
+            await PreviewApply.ApplyCounted(operation, results, () => {
+                ApplyRow(operation, row, user, entries);
+                return Task.CompletedTask;
+            });
             operation.ReportProgress(i + 1, selected.Count);
         }
-        operation.Message = PreviewApply.Summary(operation.Outcomes);
+        operation.Message = PreviewApply.Summary(results, inbound: true);
         _logger.LogInformation("Applied {RowCount} selected preview rows from {ApiName} for user {UserId}", selected.Count, provider, userId);
     }
 
