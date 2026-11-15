@@ -75,7 +75,7 @@ public sealed class OutboundPreview(
             }
             Episode episode = targets[i];
             if (SyncHelper.MediaShouldBeIgnored(episode)) {
-                _logger.LogDebug("(Preview) Ignoring {ItemName}; ignore tag detected", episode.Name);
+                _logger.LogDebug("Ignoring {ItemName}; it carries the ignore tag", episode.Name);
             } else {
                 try {
                     await pipeline.ForEachProvider(episode, userId, true, null, SyncUpdateSource.ManualSync, stopped.Contains, async pass => {
@@ -91,7 +91,7 @@ public sealed class OutboundPreview(
                     throw;
                 } catch (Exception e) {
                     incomplete = true;
-                    _logger.LogError("(Preview) Could not preview {ItemName}; error: {ErrorMessage}", episode.Name, e.Message);
+                    _logger.LogError(e, "Could not preview {SeriesName} season {SeasonNumber}", episode.SeriesName, episode.ParentIndexNumber);
                 }
                 if (i < targets.Count - 1)
                     await delayer.Delay(TimeSpan.FromSeconds(2));

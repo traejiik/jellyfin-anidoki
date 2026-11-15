@@ -43,7 +43,13 @@ The build is versioned from the latest release tag (for example `1.1.1.27`), so 
 - Use PascalCase for types and methods, camelCase for locals, and `_camelCase` for private fields.
 - Keep one statement per line in new code.
 - Nullable reference types are on for the whole plugin. Older files opt out with `#nullable disable` on their first line. When you work in one of them, remove the directive if you can annotate the file without adding warnings.
-- Prefer message templates for logging (`_logger.LogInformation("Synced {Title}", title)`) over string interpolation.
+- Logging:
+  - Use message templates (`_logger.LogInformation("({Provider}) {Title}: {Kind}", provider, title, kind)`), never string interpolation.
+  - Write a full sentence with a subject and no closing punctuation or `...`.
+  - Information is one line per outcome and Debug is for steps. Warning is a failure the plugin carried on from or something the admin should act on. Error is an unexpected failure, and passes the exception as the first argument.
+  - A line about one tracker starts with `({Provider}) `; use no other prefix.
+  - Reuse the property names already in the code (`{UserId}`, `{ItemName}`, `{SeriesName}`, `{SeasonNumber}`, `{EpisodeNumber}`, `{Title}`, `{Count}`).
+  - Response bodies go to Debug only. `python3 -m unittest discover -s scripts/tests` checks these rules.
 - Comments explain why the code works the way it does. History belongs in commit messages.
 
 ## Tests

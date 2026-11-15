@@ -81,7 +81,7 @@ public class Sync {
     /// <param name="userId">ID of the user that you want to update the library of.</param>
     public async Task SyncFromProvider(string userId, OperationContext operation) {
         if (Plugin.Instance?.StorageError is { } storageError) {
-            _logger.LogWarning("(Sync) Skipping sync from the tracker because AniDoki storage is unavailable: {StorageError}", storageError);
+            _logger.LogWarning("({Provider}) The sync from the tracker was skipped because AniDoki storage is unavailable: {StorageError}", _apiName, storageError);
             operation.Result = OperationState.Failed;
             operation.Message = "AniDoki storage is unavailable, so nothing was imported.";
             return;
@@ -89,7 +89,7 @@ public class Sync {
 
         InboundPlanResult plan = await Plan(Guid.Parse(userId), operation);
         if (plan == null) {
-            _logger.LogWarning("(Sync) No anime found by provider; please make sure user is authenticated with this provider and the authenticated users watch list is populated");
+            _logger.LogWarning("({Provider}) The tracker returned no anime for user {UserId}; check that the account is linked and its list is not empty", _apiName, userId);
             operation.Result = OperationState.NoChange;
             operation.Message = "The tracker returned no anime for the selected statuses. Check that the account is linked.";
             return;
@@ -123,7 +123,7 @@ public class Sync {
         if (_apiName is ApiName.AniList or ApiName.Kitsu) {
             user = await source.GetUser();
             if (user == null || user.Id == 0) {
-                _logger.LogError("(Sync) Could not retrieve user information. Cannot proceed");
+                _logger.LogWarning("({Provider}) Could not read the linked user of user {UserId}; nothing was read from the tracker", _apiName, userId);
                 return null;
             }
         }
@@ -164,12 +164,12 @@ public class Sync {
         var userLibrary = SyncHelper.GetUsersJellyfinLibrary(userId, _userManager, _libraryManager);
         var user = _userManager.GetUserById(userId);
         if (user == null) {
-            _logger.LogError("(Sync) User with ID of {UserId} not found", userId);
+            _logger.LogWarning("User {UserId} was not found in Jellyfin; nothing was planned", userId);
             return plans;
         }
         foreach (BaseItem baseItem in userLibrary) {
             if (SyncHelper.MediaShouldBeIgnored(baseItem)) {
-                _logger.LogDebug("(Sync) Ignoring {BaseItemName}; ignore tag detected", baseItem.Name);
+                _logger.LogDebug("Ignoring {ItemName}; it carries the ignore tag", baseItem.Name);
             } else if (baseItem is Series series) {
                 (AnimeOfflineDatabaseHelpers.Source? source, int? providerId) = SyncHelper.GetSeriesProviderId(series);
 
@@ -181,7 +181,7 @@ public class Sync {
                             plans.Add(InboundPlanner.ForSeason(season, found, DateTime.UtcNow));
                     }
                 } else {
-                    _logger.LogError("(Sync) Could not retrieve necessary provider information. Skipping");
+                    _logger.LogDebug("Skipping {SeriesName}; it has no AniList or AniDB ID", series.Name);
                 }
             }
         }
@@ -193,13 +193,14 @@ public class Sync {
 
     private void Apply(User user, InboundSeasonPlan plan) {
         if (plan.SeasonIgnored) {
-            _logger.LogDebug("(Sync) Ignoring {SeasonName}; ignore tag detected", plan.Season.Name);
+            _logger.LogDebug("Ignoring {ItemName}; it carries the ignore tag", plan.Season.Name);
             return;
         }
 
         foreach (Episode ignored in plan.IgnoredEpisodes)
-            _logger.LogDebug("(Sync) Ignoring {ItemName}; ignore tag detected", ignored.Name);
+            _logger.LogDebug("Ignoring {ItemName}; it carries the ignore tag", ignored.Name);
         Mark(user, plan.Season, plan.Episodes, plan.PlayedDate, plan.MarksSeason);
+        _logger.LogInformation("({Provider}) Marked {Count} episodes of {SeriesName} season {SeasonNumber} as played for user {UserId}", _apiName, plan.Episodes.Count, plan.Season.SeriesName, plan.Season.IndexNumber, user.Id);
     }
 
     /// <summary>
@@ -208,16 +209,16 @@ public class Sync {
     /// </summary>
     internal void Mark(User user, Season season, IReadOnlyList<Episode> episodes, DateTime playedDate, bool marksSeason) {
         foreach (Episode episode in episodes) {
-            _logger.LogInformation("(Sync) Setting {SeriesName} season {SeasonIndexNumber} episode {EpisodeIndexNumber} for user {UserId} as played...", episode.Series.Name, episode.Season.IndexNumber, episode.IndexNumber, user.Id);
+            _logger.LogDebug("Marking {SeriesName} season {SeasonNumber} episode {EpisodeNumber} as played for user {UserId}", episode.Series.Name, episode.Season.IndexNumber, episode.IndexNumber, user.Id);
             _userDataManager.SaveUserData(user, episode, SetUserData(user, episode, playedDate), UserDataSaveReason.UpdateUserData, CancellationToken.None);
         }
 
         if (!marksSeason) {
-            _logger.LogDebug("(Sync) Not marking season {SeasonName} as played; one or more episodes carry the ignore tag", season.Name);
+            _logger.LogDebug("Not marking {ItemName} itself as played; one or more of its episodes carry the ignore tag", season.Name);
         } else {
             // this could fail because show has ovas, hard to detect. todo warn users
             _userDataManager.SaveUserData(user, season, SetUserData(user, season, playedDate), UserDataSaveReason.UpdateUserData, CancellationToken.None);
-            _logger.LogInformation("(Sync) Saved");
+            _logger.LogDebug("Marked {ItemName} itself as played", season.Name);
         }
     }
 
@@ -248,10 +249,10 @@ public class Sync {
         var unresolved = new List<InboundUnresolved>();
         for (var i = 0; i < animeList.Count; i++) {
             operation.ReportProgress(i, animeList.Count);
-            _logger.LogDebug("(Sync) Fetching IDs for anime with an ID of {AnimeListId}...", animeList[i].Id);
+            _logger.LogDebug("({Provider}) Looking up IDs for tracker entry {EntryId} ({Title})", _apiName, animeList[i].Id, animeList[i].Title);
             var ids = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(_httpClientFactory.CreateClient(NamedClient.Default), _logger, animeList[i].Id, AnimeOfflineDatabaseHelpers.MapFromApiName(_apiName));
             if (ids?.AniDb == null) {
-                _logger.LogError("(Sync) Could not retrieve AniDb ID; skipping item...");
+                _logger.LogInformation("({Provider}) {Title} maps to no Jellyfin season; no AniDB ID is known for tracker entry {EntryId}", _apiName, animeList[i].Title, animeList[i].Id);
                 unresolved.Add(new InboundUnresolved(animeList[i], "no-anidb-id"));
                 continue;
             }
@@ -259,7 +260,7 @@ public class Sync {
             AnimeListHelpers.AnimeListXml animeListXml = await AnimeListHelpers.GetAnimeListFileContents(_logger, _loggerFactory, _httpClientFactory, _applicationPaths);
             AnimeListHelpers.AnimeListAnime season = AnimeListHelpers.GetAniDbSeason(ids.AniDb.Value, animeListXml);
             if (season == null || (!int.TryParse(season.Defaulttvdbseason, out var seasonNumber) && season.Defaulttvdbseason != "a")) {
-                _logger.LogError("(Sync) Could not retrieve season number; skipping item...");
+                _logger.LogInformation("({Provider}) {Title} maps to no Jellyfin season; the anime list has no season for AniDB ID {AniDbId}", _apiName, animeList[i].Title, ids.AniDb.Value);
                 unresolved.Add(new InboundUnresolved(animeList[i], "no-season"));
                 await Sleep(operation.CancellationToken);
                 continue;
@@ -283,7 +284,7 @@ public class Sync {
             }
 
             animeIdProgress.Add(syncAnimeMetadata);
-            _logger.LogInformation("(Sync) Fetched");
+            _logger.LogDebug("({Provider}) Found IDs for {Title}: AniDB ID {AniDbId}, season {SeasonNumber}", _apiName, animeList[i].Title, ids.AniDb.Value, seasonNumber);
             if (i != animeList.Count - 1) {
                 await Sleep(operation.CancellationToken);
             }
@@ -297,7 +298,7 @@ public class Sync {
     /// Wait between tracker requests so we don't hammer the API, and stop here if the operation was cancelled.
     /// </summary>
     private async Task Sleep(CancellationToken cancellationToken) {
-        _logger.LogDebug("(Sync) Waiting 2 seconds before proceeding...");
+        _logger.LogDebug("Waiting {DelayMs} ms before the next tracker entry", _apiTimeOutLength);
         await _delayer.Delay(TimeSpan.FromMilliseconds(_apiTimeOutLength));
         cancellationToken.ThrowIfCancellationRequested();
     }

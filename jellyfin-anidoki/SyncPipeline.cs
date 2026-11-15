@@ -111,12 +111,12 @@ public class SyncPipeline {
         var video = e as Video;
         UserConfig? userConfig = Plugin.Instance?.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == userId);
         if (userConfig == null) {
-            _logger.LogWarning("The user {UserId} does not exist in the plugins config file. Skipping", userId);
+            _logger.LogDebug("User {UserId} has no AniDoki settings; nothing to sync", userId);
             return;
         }
 
         if (userConfig.UserApiAuth == null) {
-            _logger.LogWarning("The user {UserId} is not authenticated. Skipping", userId);
+            _logger.LogDebug("User {UserId} has no linked tracker; nothing to sync", userId);
             return;
         }
 
@@ -124,7 +124,7 @@ public class SyncPipeline {
         if (scope != LibraryScope.Excluded && video is Episode or Movie && playedToCompletion) {
             var syncSource = SyncSource.From(video);
             if (syncSource == null) {
-                _logger.LogError("Video does not contain required index numbers to sync; skipping");
+                _logger.LogWarning("{ItemName} has no season or episode number, so it cannot be synced", e.Name);
                 return;
             }
             syncSource = syncSource with { IdsOnly = scope == LibraryScope.IdsOnly };
@@ -140,7 +140,7 @@ public class SyncPipeline {
                     continue;
                 if (skip?.Invoke(userApiAuth.Name) == true)
                     continue;
-                _logger.LogDebug("Using provider {ApiName}...", userApiAuth.Name);
+                _logger.LogDebug("({Provider}) Syncing {ItemName}", userApiAuth.Name, e.Name);
                 // continue, not return: an unconfigured provider must not skip the providers after it
                 ITrackerClient? client = _clients.Create(userApiAuth.Name, userConfig);
                 if (client == null)

@@ -14,7 +14,7 @@ public sealed class MatchSweepService(MatchStore store, IUserManager userManager
         try {
             int removed = store.SweepDeletedUsers(userManager.GetUsers().Select(user => user.Id).ToList());
             if (removed > 0)
-                logger.LogInformation("Removed {OverrideCount} match overrides of deleted users", removed);
+                logger.LogInformation("Removed {Count} match overrides of deleted users", removed);
         } catch (Exception error) {
             // An exception leaving a hosted service's StartAsync stops Jellyfin from starting, and no cleanup is worth that.
             logger.LogWarning("Could not check match overrides for deleted users: {ErrorMessage}", error.Message);

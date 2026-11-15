@@ -43,7 +43,7 @@ namespace jellyfin_anidoki {
                 GitFile formattedResponse = JsonSerializer.Deserialize<GitFile>(streamText);
 
                 if (formattedResponse == null) {
-                    _logger.LogError("Could not update anime list; anime list could not be parsed");
+                    _logger.LogWarning("Could not update the anime list; the repository's file listing could not be read");
                     return false;
                 }
 
@@ -51,7 +51,7 @@ namespace jellyfin_anidoki {
                     await GetLatestAnimeList(client, formattedResponse.DownloadUrl);
                 }
             } else {
-                _logger.LogError("Could not update anime list; {StatusCode} from repo", response.StatusCode);
+                _logger.LogWarning("Could not update the anime list; the repository returned {StatusCode}", (int)response.StatusCode);
             }
 
             return true;
@@ -84,7 +84,7 @@ namespace jellyfin_anidoki {
                     }
                 }
             } catch (Exception e) {
-                _logger.LogError("Could not update anime list; {ErrorMessage}", e.Message);
+                _logger.LogError(e, "Could not download the anime list");
             }
         }
 

@@ -76,7 +76,7 @@ public sealed class PreviewApply(
             operation.ReportProgress(i + 1, selected.Count);
         }
         operation.Message = Summary(results);
-        _logger.LogInformation("Applied {RowCount} selected preview rows for user {UserId}", selected.Count, userId);
+        _logger.LogInformation("Applied {Count} selected preview rows for user {UserId}", selected.Count, userId);
     }
 
     private async Task ApplyRow(OperationContext operation, PreviewRow row, UserConfig? user, bool applySavedMatches,
@@ -153,7 +153,7 @@ public sealed class PreviewApply(
 
     /// <summary>Records a selected row as not applied, with the step and the note that say why.</summary>
     internal static void Refuse(OperationContext operation, PreviewRow row, string step, string? note, ILogger logger) {
-        logger.LogInformation("({ApiName}) {Title}: {Kind} ({Step})", row.Provider, row.TargetTitle, OutcomeKind.Skipped, step);
+        logger.LogInformation("({Provider}) {Title}: {Kind} ({Step})", row.Provider, row.TargetTitle, OutcomeKind.Skipped, step);
         operation.Record(new ProviderWriteOutcome(row.Provider, row.TargetId, row.TargetTitle, OutcomeKind.Skipped, null, null,
             !ProviderCapabilities.For(row.Provider).TracksProgress, step, false), Detail(row, note));
     }

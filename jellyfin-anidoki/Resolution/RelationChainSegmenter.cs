@@ -43,7 +43,7 @@ public sealed class RelationChainSegmenter(ITrackerProvider tracker, ILogger log
     public async Task<EntryState?> FollowSequels(EntryRef start, int hops, CancellationToken cancellationToken) {
         EntryRef current = start;
         for (int hop = 1; hop <= hops; hop++) {
-            logger.LogDebug("({ApiName}) Attempting to get season {SeasonNumber}...", tracker.Name, hop + 1);
+            logger.LogDebug("({Provider}) Reading season {SeasonNumber} from the relation chain", tracker.Name, hop + 1);
             var relations = await tracker.GetRelations(current, cancellationToken);
             if (relations == null)
                 return null;
@@ -57,7 +57,7 @@ public sealed class RelationChainSegmenter(ITrackerProvider tracker, ILogger log
         // we already have would write progress to the wrong entry.
         EntryState? season = await tracker.ReadEntry(current, cancellationToken);
         if (season == null)
-            logger.LogInformation("({ApiName}) Could not retrieve season {SeasonNumber}", tracker.Name, hops + 1);
+            logger.LogInformation("({Provider}) Could not read season {SeasonNumber} from the relation chain", tracker.Name, hops + 1);
         return season;
     }
 
@@ -77,13 +77,13 @@ public sealed class RelationChainSegmenter(ITrackerProvider tracker, ILogger log
             if (current.TotalEpisodes == 0)
                 break;
             // the current cour's sequel is always exactly one hop away
-            logger.LogDebug("({ApiName}) Attempting to get season {SeasonNumber}...", tracker.Name, 2);
+            logger.LogDebug("({Provider}) Reading season {SeasonNumber} from the relation chain", tracker.Name, 2);
             var relations = await tracker.GetRelations(current.Entry, cancellationToken);
             EntryRef? sequel = relations == null ? null : SequelIn(relations);
             EntryState? next = sequel == null ? null : await tracker.ReadEntry(sequel, cancellationToken);
             if (next == null) {
                 // the episode lies past every cour we could reach; writing it to the last one would exceed its length
-                logger.LogWarning("({ApiName}) Could not find a cour covering episode {EpisodeCount}; not updating", tracker.Name, episodeCount);
+                logger.LogInformation("({Provider}) No cour covers episode {EpisodeNumber}; not updating", tracker.Name, episodeCount);
                 return new ChainWalk(null, total, parts, relations == null ? "sequel-fetch-failed" : "no-cour-covers-episode");
             }
 
@@ -166,7 +166,7 @@ public sealed class RelationChainSegmenter(ITrackerProvider tracker, ILogger log
     private EntryRef? SequelIn(IReadOnlyList<EntryRelation> relations) {
         EntryRef? sequel = relations.FirstOrDefault(relation => relation.Kind == RelationKind.Sequel)?.Entry;
         if (sequel == null)
-            logger.LogInformation("({ApiName}) Could not find any related anime sequel", tracker.Name);
+            logger.LogDebug("({Provider}) The entry has no sequel among its relations", tracker.Name);
         return sequel;
     }
 }

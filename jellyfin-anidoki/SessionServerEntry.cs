@@ -81,7 +81,7 @@ namespace jellyfin_anidoki {
                 if (!e.PlayedToCompletion)
                     return;
                 if (SyncHelper.MediaShouldBeIgnored(e.Item)) {
-                    _logger.LogDebug("(Sync) Ignoring {ItemName}; ignore tag detected", e.Item.Name);
+                    _logger.LogDebug("Ignoring {ItemName}; it carries the ignore tag", e.Item.Name);
                     return;
                 }
                 var context = PlaybackNotificationContext.Capture(e.Item, e.Session);
@@ -92,7 +92,7 @@ namespace jellyfin_anidoki {
                         _logger.LogWarning("Playback update for {ItemName} was not started because AniDoki storage is unavailable", item.Name);
                 }
             } catch (Exception exception) {
-                _logger.LogError("Fatal error occured during anime sync job: {Exception}", exception);
+                _logger.LogError(exception, "Could not start the playback update");
             }
         }
 

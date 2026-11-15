@@ -62,7 +62,7 @@ namespace jellyfin_anidoki.Api {
             TrackerFailureKind lastFailure = TrackerFailureKind.Unauthorized;
             UserApiAuth? auth = UserConfig.UserApiAuth?.FirstOrDefault(item => item.Name == provider);
             if (auth == null) {
-                _logger.LogError("Could not find authentication details, please authenticate the plugin first");
+                _logger.LogWarning("({Provider}) No linked account for user {UserId}; link the account on the AniDoki page", provider, UserConfig.UserId);
                 TrackerCallScope.Report(TrackerFailureKind.Unauthorized);
                 return null;
             }
@@ -104,7 +104,7 @@ namespace jellyfin_anidoki.Api {
                     }
                 } catch (Exception e) {
                     // no response arrived, so the call can't be treated as a success; a write may still have landed
-                    _logger.LogError("({Provider}) {CallType} {Url} failed before a response arrived: {ErrorMessage}", provider, callType, url, e.Message);
+                    _logger.LogWarning("({Provider}) {CallType} {Url} failed before a response arrived: {ErrorMessage}", provider, callType, url, e.Message);
                     TrackerCallScope.Report(TrackerFailureKind.Transient, responseReceived: false);
                     return null;
                 }
@@ -122,7 +122,7 @@ namespace jellyfin_anidoki.Api {
                             try {
                                 newAuth = await new ApiAuthentication(provider, _httpClientFactory, _serverApplicationHost, _httpContextAccessor, _loggerFactory, _memoryCache, _delayer).GetToken(UserConfig.UserId, refreshToken: auth.RefreshToken);
                             } catch (Exception e) {
-                                _logger.LogError("Could not re-authenticate: {ErrorMessage}, please manually re-authenticate the user via the AniDoki configuration page", e.Message);
+                                _logger.LogWarning("({Provider}) Could not refresh the sign-in of user {UserId}; link the account again on the AniDoki page: {ErrorMessage}", provider, UserConfig.UserId, e.Message);
                                 TrackerCallScope.Report(TrackerFailureKind.Unauthorized);
                                 return null;
                             }
@@ -133,20 +133,22 @@ namespace jellyfin_anidoki.Api {
                             break;
                         case HttpStatusCode.TooManyRequests:
                             lastFailure = TrackerFailureKind.RateLimited;
-                            _logger.LogWarning("({Provider}) API rate limit exceeded, retrying the API call again in {TimeoutSeconds} seconds...", provider, timeoutSeconds);
+                            _logger.LogWarning("({Provider}) Rate limit exceeded; retrying in {TimeoutSeconds} seconds", provider, timeoutSeconds);
                             MemoryCacheHelper.SetRateLimitingForProvider(provider, _memoryCache, TimeSpan.FromSeconds(timeoutSeconds));
                             timeoutSeconds *= TimeoutIncrementMultiplier;
                             attempts++;
                             continue;
                         default:
-                            _logger.LogError("Unable to complete {Provider} API call ({CallType} {Url}), reason: {StatusCode}, content: \n{ResponseBody}", provider, callType.ToString(), url, responseMessage.StatusCode, await responseMessage.Content.ReadAsStringAsync());
+                            _logger.LogWarning("({Provider}) {CallType} {Url} returned {StatusCode}", provider, callType, url, (int)responseMessage.StatusCode);
+                            if (_logger.IsEnabled(LogLevel.Debug))
+                                _logger.LogDebug("({Provider}) Response body: {ResponseBody}", provider, LogText.Truncate(await responseMessage.Content.ReadAsStringAsync()));
                             TrackerCallScope.Report(TrackerCallScope.FromStatus(responseMessage.StatusCode));
                             return null;
                     }
                 }
             }
 
-            _logger.LogError("Unable to authenticate the API call, re-authenticate the plugin");
+            _logger.LogWarning("({Provider}) Gave up after {Count} attempts ({FailureKind}); if this repeats, link the account again", provider, attempts, lastFailure);
             TrackerCallScope.Report(lastFailure);
             return null;
         }

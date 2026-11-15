@@ -89,12 +89,12 @@ public class TaskProcessMarkedMedia {
             return;
         var target = batch.Where(item => !SyncHelper.MediaShouldBeIgnored(item.baseItem)).MaxBy(item => item.baseItem.IndexNumber);
         if (target.Equals(default((Guid, Guid?, Video)))) {
-            _logger.LogDebug("(Sync) Ignoring {BaseItemName}; ignore tag detected on all paired episodes", firstItem.Name);
+            _logger.LogDebug("Ignoring {ItemName}; every paired episode carries the ignore tag", firstItem.Name);
             return;
         }
 
         if (_memoryCache.TryGetValue("lastQuery", out DateTime lastQuery) && (DateTime.UtcNow - lastQuery).TotalSeconds <= 5) {
-            _logger.LogInformation("Too many requests! Waiting 5 seconds...");
+            _logger.LogDebug("Waiting 5 seconds between watched-mark updates");
             await Task.Delay(5000);
         }
         _memoryCache.Set("lastQuery", DateTime.UtcNow, new MemoryCacheEntryOptions {

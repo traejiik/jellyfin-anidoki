@@ -11,7 +11,7 @@ public class ConfigHelper {
         string? shikimoriAppName = Plugin.Instance?.PluginConfiguration.shikimoriAppName;
 
         if (string.IsNullOrEmpty(shikimoriAppName)) {
-            logger.LogError("No Shikimori app name in config. Please provide a Shikimori app name on the config page.");
+            logger.LogWarning("({Provider}) No app name is set; add one on the AniDoki settings page", ApiName.Shikimori);
         }
 
         return shikimoriAppName;
@@ -21,7 +21,7 @@ public class ConfigHelper {
         string? simklClientId = Plugin.Instance?.PluginConfiguration.ProviderApiAuth?.FirstOrDefault(item => item.Name == ApiName.Simkl)?.ClientId;
 
         if (string.IsNullOrEmpty(simklClientId)) {
-            logger.LogError("No Simkl client ID in config. Please provide a client ID for Simkl on the config page.");
+            logger.LogWarning("({Provider}) No client ID is set; add one on the AniDoki settings page", ApiName.Simkl);
         }
 
         return simklClientId;
