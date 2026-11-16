@@ -110,13 +110,14 @@ public class Sync {
     /// <param name="userId">ID of the user to get the anime list of.</param>
     /// <returns>Users' provider anime list.</returns>
     private async Task<List<Anime>?> GetAnimeList(string userId) {
-        UserConfig config = Plugin.Instance.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == Guid.Parse(userId));
-        ITrackerListSource? source = ListSourceOverride?.Invoke(_apiName, config) ?? _apiName switch {
+        UserConfig? config = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(item => item.UserId == Guid.Parse(userId));
+        // A user with no saved settings has no linked tracker, so there is nothing to read.
+        ITrackerListSource? source = ListSourceOverride?.Invoke(_apiName, config) ?? (config == null ? null : _apiName switch {
             ApiName.Mal => new MalTrackerClient(new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config)),
             ApiName.AniList => new AniListTrackerClient(new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config)),
             ApiName.Kitsu => new KitsuTrackerClient(new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config)),
             _ => null
-        };
+        });
         if (source == null)
             return null;
 

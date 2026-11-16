@@ -52,9 +52,9 @@ public class GraphQlHelper {
     }
 
     public static async Task<T?> DeserializeRequest<T>(HttpClient httpClient, ILogger logger, ApiName provider, IMemoryCache memoryCache, IAsyncDelayer delayer, string query, Dictionary<string, object>? variables) {
-        var response = await Request(httpClient, logger, provider, memoryCache, delayer, query, variables);
+        using var response = await Request(httpClient, logger, provider, memoryCache, delayer, query, variables);
         if (response != null) {
-            StreamReader streamReader = new StreamReader(await response.Content.ReadAsStreamAsync());
+            using var streamReader = new StreamReader(await response.Content.ReadAsStreamAsync());
             return JsonSerializer.Deserialize<T>(await streamReader.ReadToEndAsync());
         }
 

@@ -122,7 +122,8 @@ public class AnimeListHelpers {
             return (seasonAniDbId, null);
         }
 
-        if (animeListXml == null)
+        // A list without rows finds nothing, like a missing list.
+        if (animeListXml?.Anime is not { } animeRows)
             return (null, null);
         Dictionary<string, string> providers;
         {
@@ -140,7 +141,7 @@ public class AnimeListHelpers {
             logger.LogDebug("{ItemName} already has an AniDB ID; no lookup needed", video.Name);
             if (!int.TryParse(aniDbProviderId, out aniDbId))
                 return (null, null);
-            var foundAnime = animeListXml.Anime.Where(anime => int.TryParse(anime.Anidbid, out int xmlAniDbId) &&
+            var foundAnime = animeRows.Where(anime => int.TryParse(anime.Anidbid, out int xmlAniDbId) &&
                                                                xmlAniDbId == aniDbId &&
                                                                (
                                                                    (video is Episode episode && HasProviderId(episode.Season?.ProviderIds, aniDbKey)) ||
@@ -151,7 +152,7 @@ public class AnimeListHelpers {
             ).ToList();
             switch (foundAnime.Count()) {
                 case 1:
-                    var related = animeListXml.Anime.Where(anime => anime.Tvdbid == foundAnime.First().Tvdbid).ToList();
+                    var related = animeRows.Where(anime => anime.Tvdbid == foundAnime.First().Tvdbid).ToList();
                     if (video is Episode episode && episode.Series.Children.OfType<Season>().Count() > 1 && related.Count > 1) {
                         // contains more than 1 season, need to do a lookup
                         logger.LogDebug("Found {SeriesName} in the anime list", episode.Series.Name);
@@ -198,7 +199,7 @@ public class AnimeListHelpers {
         if (TryGetProviderId(providers, tvDbKey, out string? tvDbProviderId)) {
             if (!int.TryParse(tvDbProviderId, out var tvDbId))
                 return (null, null);
-            var related = animeListXml.Anime.Where(anime => int.TryParse(anime.Tvdbid, out int xmlTvDbId) && xmlTvDbId == tvDbId).ToList();
+            var related = animeRows.Where(anime => int.TryParse(anime.Tvdbid, out int xmlTvDbId) && xmlTvDbId == tvDbId).ToList();
 
             if (!related.Any()) {
                 logger.LogDebug("TVDB ID {TvdbId} is not in the anime list", tvDbId);
@@ -297,7 +298,7 @@ public class AnimeListHelpers {
             related
                 .Where(animeListAnime => animeListAnime.Defaulttvdbseason == "a")
                 .FirstOrDefault(animeListAnime =>
-                    animeListAnime.MappingList.Mapping.FirstOrDefault(mapping => mapping.Tvdbseason == seasonNumber
+                    animeListAnime.MappingList?.Mapping?.FirstOrDefault(mapping => mapping.Tvdbseason == seasonNumber
                     ) != null
                 )
             ?? related
@@ -364,22 +365,22 @@ public class AnimeListHelpers {
     /// <param name="aniDbId"></param>
     /// <returns>Season.</returns>
     public static AnimeListAnime? GetAniDbSeason(int aniDbId, AnimeListXml? animeListXml) {
-        if (animeListXml == null)
+        if (animeListXml?.Anime is not { } animeRows)
             return null;
 
-        return animeListXml.Anime.FirstOrDefault(anime => int.TryParse(anime.Anidbid, out int xmlAniDbId) && xmlAniDbId == aniDbId);
+        return animeRows.FirstOrDefault(anime => int.TryParse(anime.Anidbid, out int xmlAniDbId) && xmlAniDbId == aniDbId);
     }
 
 
     public static IEnumerable<AnimeListAnime>? ListAllSeasonOfAniDbSeries(int aniDbId, AnimeListXml? animeListXml) {
-        if (animeListXml == null)
+        if (animeListXml?.Anime is not { } animeRows)
             return null;
 
-        AnimeListAnime? foundXmlAnime = animeListXml.Anime.FirstOrDefault(anime => int.TryParse(anime.Anidbid, out int xmlAniDbId) && xmlAniDbId == aniDbId);
+        AnimeListAnime? foundXmlAnime = animeRows.FirstOrDefault(anime => int.TryParse(anime.Anidbid, out int xmlAniDbId) && xmlAniDbId == aniDbId);
         if (foundXmlAnime == null)
             return null;
 
-        return animeListXml.Anime.Where(anime => anime.Tvdbid == foundXmlAnime.Tvdbid);
+        return animeRows.Where(anime => anime.Tvdbid == foundXmlAnime.Tvdbid);
     }
 
     /// <summary>

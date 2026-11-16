@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using MediaBrowser.Controller.Entities.Movies;
+using Microsoft.Extensions.Logging.Abstractions;
 using jellyfin_anidoki.Helpers;
 using NUnit.Framework;
 
@@ -55,5 +58,16 @@ public class AnimeListHelperTests {
         var returned = AnimeListHelpers.GetAniDbSeason(aniDbId, animeListXml);
         Assert.IsTrue(returned != null);
         Assert.IsTrue(returned.Anidbid == aniDbId.ToString());
+    }
+
+    /// <summary>An anime list without rows finds nothing, as a missing list does, instead of throwing.</summary>
+    [Test]
+    public async Task AnAnimeListWithoutRowsFindsNothing() {
+        var empty = new AnimeListHelpers.AnimeListXml();
+        var movie = new Movie { Name = "Film", ProviderIds = new Dictionary<string, string> { ["AniDB"] = "1" } };
+
+        Assert.That(AnimeListHelpers.GetAniDbSeason(1, empty), Is.Null);
+        Assert.That(AnimeListHelpers.ListAllSeasonOfAniDbSeries(1, empty), Is.Null);
+        Assert.That(await AnimeListHelpers.GetAniDbId(NullLogger.Instance, movie, 1, 1, empty), Is.EqualTo(((int?)null, (int?)null)));
     }
 }

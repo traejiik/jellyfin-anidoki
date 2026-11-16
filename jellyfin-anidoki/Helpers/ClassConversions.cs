@@ -15,14 +15,12 @@ public class ClassConversions {
         Anime anime = new Anime {
             Id = aniListAnime.Id,
             NumEpisodes = aniListAnime.Episodes ?? 0,
-            Title = aniListAnime.Title.English,
+            Title = aniListAnime.Title?.English,
             AlternativeTitles = new AlternativeTitles {
-                En = aniListAnime.Title.English,
-                Ja = aniListAnime.Title.Native,
-                Synonyms = new List<string> {
-                    { aniListAnime.Title.Romaji },
-                    { aniListAnime.Title.UserPreferred }
-                }
+                En = aniListAnime.Title?.English,
+                Ja = aniListAnime.Title?.Native,
+                // Kept as today: a missing romaji or user-preferred title stays a null entry.
+                Synonyms = new List<string> { aniListAnime.Title?.Romaji!, aniListAnime.Title?.UserPreferred! }
             },
         };
 
@@ -57,9 +55,11 @@ public class ClassConversions {
 
         anime.RelatedAnime = new List<RelatedAnime>();
         if (aniListAnime.Relations != null)
-            foreach (AniListSearch.MediaEdge relation in aniListAnime.Relations.Media) {
+            foreach (AniListSearch.MediaEdge relation in aniListAnime.Relations.Media ?? []) {
+                if (relation.Media is not { } relatedMedia)
+                    continue;
                 RelatedAnime relatedAnime = new RelatedAnime {
-                    Anime = ConvertAniListAnime(relation.Media)
+                    Anime = ConvertAniListAnime(relatedMedia)
                 };
 
                 switch (relation.RelationType) {
@@ -81,25 +81,25 @@ public class ClassConversions {
     }
 
     public static Anime ConvertKitsuAnime(KitsuSearch.KitsuAnime kitsuAnime) {
+        // An anime without attributes is a malformed reply and stays a failed read; the titles inside them may be missing.
+        KitsuSearch.Attributes attributes = kitsuAnime.Attributes!;
         Anime anime = new Anime {
             Id = kitsuAnime.Id,
-            Title = kitsuAnime.Attributes.Titles.English,
-            NumEpisodes = kitsuAnime.Attributes.EpisodeCount ?? 0,
+            Title = attributes.Titles?.English,
+            NumEpisodes = attributes.EpisodeCount ?? 0,
             AlternativeTitles = new AlternativeTitles {
-                En = kitsuAnime.Attributes.Titles.EnJp,
-                Ja = kitsuAnime.Attributes.Titles.Japanese,
-                Synonyms = new List<string> {
-                    kitsuAnime.Attributes.Slug,
-                    kitsuAnime.Attributes.CanonicalTitle
-                }
+                En = attributes.Titles?.EnJp,
+                Ja = attributes.Titles?.Japanese,
+                // Kept as today: a missing slug or canonical title stays a null entry.
+                Synonyms = new List<string> { attributes.Slug!, attributes.CanonicalTitle! }
             },
         };
 
-        if (kitsuAnime.Attributes.EpisodeCount != null) {
-            anime.NumEpisodes = kitsuAnime.Attributes.EpisodeCount.Value;
+        if (attributes.EpisodeCount != null) {
+            anime.NumEpisodes = attributes.EpisodeCount.Value;
         }
 
-        anime.AlternativeTitles.Synonyms.AddRange(kitsuAnime.Attributes.AbbreviatedTitles);
+        anime.AlternativeTitles.Synonyms.AddRange(attributes.AbbreviatedTitles ?? []);
 
         if (kitsuAnime.RelatedAnime != null && kitsuAnime.RelatedAnime.Count > 0) {
             foreach (KitsuSearch.KitsuAnime relatedAnime in kitsuAnime.RelatedAnime) {
@@ -187,7 +187,7 @@ public class ClassConversions {
             AlternativeTitles = new AlternativeTitles {
                 En = shikimoriAnime.English,
                 Ja = shikimoriAnime.Japanese,
-                Synonyms = shikimoriAnime.Synonyms.ToList(),
+                Synonyms = (shikimoriAnime.Synonyms ?? []).ToList(),
             },
         };
 
@@ -264,7 +264,9 @@ public class ClassConversions {
             Title = simklExtendedMedia.Title,
             AlternativeTitles = new AlternativeTitles {
                 En = simklExtendedMedia.EnTitle,
-                Synonyms = simklExtendedMedia.AllTitles.Select(altTitle => altTitle.Name).ToList()
+                // A detailed anime without alternative titles stays a failed read, as the client approved file pins: the user-list
+                // read beside it reads a failure as "not on the list". Kept as today: a title without a name stays a null entry.
+                Synonyms = simklExtendedMedia.AllTitles!.Select(altTitle => altTitle.Name!).ToList()
             },
         };
 

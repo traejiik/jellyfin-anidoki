@@ -35,9 +35,9 @@ public class UpdateAnimeList {
     /// </summary>
     public async Task<bool> Update() {
         var client = _httpClientFactory.CreateClient(NamedClient.Default);
-        var response = await client.GetAsync("https://api.github.com/repos/Anime-Lists/anime-lists/contents/anime-list-full.xml");
+        using var response = await client.GetAsync("https://api.github.com/repos/Anime-Lists/anime-lists/contents/anime-list-full.xml");
         if (response.IsSuccessStatusCode) {
-            StreamReader streamReader = new StreamReader(await response.Content.ReadAsStreamAsync());
+            using var streamReader = new StreamReader(await response.Content.ReadAsStreamAsync());
             string streamText = await streamReader.ReadToEndAsync();
 
             GitFile? formattedResponse = JsonSerializer.Deserialize<GitFile>(streamText);

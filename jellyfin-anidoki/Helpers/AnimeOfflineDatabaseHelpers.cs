@@ -29,8 +29,11 @@ public class AnimeOfflineDatabaseHelpers {
             logger.LogWarning("The ARM lookup of {Source} ID {MetadataId} failed before a response arrived: {ErrorMessage}", source, metadataId, e.Message);
             return null;
         }
-        StreamReader streamReader = new StreamReader(await response.Content.ReadAsStreamAsync());
-        string streamText = await streamReader.ReadToEndAsync();
+        string streamText;
+        using (response)
+        using (var streamReader = new StreamReader(await response.Content.ReadAsStreamAsync())) {
+            streamText = await streamReader.ReadToEndAsync();
+        }
 
         // A payload that deserialises is not necessarily a usable result. ARM
         // returns literal `null` for an unknown ID and a partially-populated

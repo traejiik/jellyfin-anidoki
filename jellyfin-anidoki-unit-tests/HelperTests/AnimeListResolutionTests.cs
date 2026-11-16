@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Xml.Serialization;
 using jellyfin_anidoki.Helpers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -292,5 +294,24 @@ public class AnimeListResolutionTests {
             Assert.IsFalse(Array.Exists(seasonZeroIds, id => id == returned.aniDbId),
                 $"TVDB season {season} resolved to a season 0 row ({returned.aniDbId})");
         }
+    }
+
+    /// <summary>
+    /// Many absolute-order rows in the real anime list carry no &lt;mapping-list&gt;. Such a row has no mapping for
+    /// the season, so the lookup moves on to the season rows instead of stopping on it.
+    /// </summary>
+    [Test]
+    public void AnAbsoluteRowWithoutMappingsLeavesTheSeasonRowsToMatch() {
+        const string xml = """
+            <anime-list>
+              <anime anidbid="100" tvdbid="5" defaulttvdbseason="a" episodeoffset=""><name>Long Runner</name></anime>
+              <anime anidbid="200" tvdbid="5" defaulttvdbseason="2"><name>Long Runner Season 2</name></anime>
+            </anime-list>
+            """;
+        var list = (AnimeListHelpers.AnimeListXml?)new XmlSerializer(typeof(AnimeListHelpers.AnimeListXml)).Deserialize(new StringReader(xml));
+        List<AnimeListHelpers.AnimeListAnime> rows = list!.Anime!;
+        Assert.That(rows[0].MappingList, Is.Null, "the file's shape: no mapping list on the absolute row");
+
+        Assert.That(AnimeListHelpers.SeasonLookup(_logger, 2, 3, rows).aniDbId, Is.EqualTo(200));
     }
 }

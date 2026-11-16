@@ -41,4 +41,18 @@ public class AnimeOfflineDatabaseHelperTests {
         Assert.IsTrue(result.Kitsu == 1);
         Assert.IsTrue(result.MyAnimeList == 1);
     }
+
+    /// <summary>The ARM response, and the body read from it, are disposed whatever the answer was.</summary>
+    [TestCase(HttpStatusCode.OK, "{\"anidb\":1,\"anilist\":2}")]
+    [TestCase(HttpStatusCode.OK, "null")]
+    [TestCase(HttpStatusCode.OK, "not json")]
+    [TestCase(HttpStatusCode.NotFound, "")]
+    public async Task TheArmResponseIsDisposed(HttpStatusCode status, string body) {
+        var content = new TrackedContent(body);
+        using var client = new HttpClient(new OneResponse(new HttpResponseMessage(status) { Content = content }));
+
+        await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(client, _logger, 1, AnimeOfflineDatabaseHelpers.Source.Anilist);
+
+        Assert.That(content.Disposed, Is.True);
+    }
 }

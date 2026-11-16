@@ -15,6 +15,7 @@ using jellyfin_anidoki.Models.Annict;
 using jellyfin_anidoki.Models.Kitsu;
 using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Models.Shikimori;
+using jellyfin_anidoki.Models.Simkl;
 using jellyfin_anidoki.Trackers;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
@@ -423,4 +424,60 @@ public class TrackerClientConversionTests {
                 (502, (string)null!, Status.Completed, 3)
             }));
     }
+
+    /// <summary>An AniList anime without a title, or with a relation that has no media, still converts with its list status.</summary>
+    [Test]
+    public void AnAniListAnimeWithoutTitlesOrRelationMediaConverts() {
+        var media = new AniListSearch.Media {
+            Id = 7,
+            MediaListEntry = new AniListSearch.MediaListEntry { Progress = 3, MediaListStatus = AniListSearch.MediaListStatus.Current },
+            Relations = new AniListSearch.MediaConnection { Media = [new AniListSearch.MediaEdge { RelationType = AniListSearch.MediaRelation.Sequel }] }
+        };
+
+        Anime anime = ClassConversions.ConvertAniListAnime(media);
+
+        Assert.That(anime.Id, Is.EqualTo(7));
+        Assert.That(anime.Title, Is.Null);
+        Assert.That(anime.MyListStatus!.NumEpisodesWatched, Is.EqualTo(3));
+        Assert.That(anime.MyListStatus.Status, Is.EqualTo(Status.Watching));
+        Assert.That(anime.RelatedAnime, Is.Empty);
+    }
+
+    /// <summary>Kitsu leaves out titles and sends a null abbreviated-titles list for some anime; they read as absent.</summary>
+    [Test]
+    public void AKitsuAnimeWithoutTitlesConverts() {
+        var kitsuAnime = new KitsuSearch.KitsuAnime {
+            Id = 8,
+            Attributes = new KitsuSearch.Attributes { Slug = "kitsu-slug", EpisodeCount = 12 }
+        };
+
+        Anime anime = ClassConversions.ConvertKitsuAnime(kitsuAnime);
+
+        Assert.That(anime.Id, Is.EqualTo(8));
+        Assert.That(anime.NumEpisodes, Is.EqualTo(12));
+        Assert.That(anime.Title, Is.Null);
+        Assert.That(anime.AlternativeTitles!.Synonyms, Is.EqualTo(new[] { "kitsu-slug", null }));
+    }
+
+    /// <summary>A Shikimori anime without synonyms still converts with its list status.</summary>
+    [Test]
+    public void AShikimoriAnimeWithoutSynonymsConverts() {
+        var shikimoriAnime = new ShikimoriAnime {
+            Id = "9",
+            MalId = "9",
+            Name = "Show",
+            UserRate = new ShikimoriUserRate { Status = ShikimoriUserRate.StatusEnum.watching, Episodes = 4 }
+        };
+
+        Anime anime = ClassConversions.ConvertShikimoriAnime(shikimoriAnime);
+
+        Assert.That(anime.Id, Is.EqualTo(9));
+        Assert.That(anime.AlternativeTitles!.Synonyms, Is.Empty);
+        Assert.That(anime.MyListStatus!.NumEpisodesWatched, Is.EqualTo(4));
+    }
+
+    /// <summary>A detailed Simkl anime without alternative titles is a malformed reply and stays a failed read.</summary>
+    [Test]
+    public void ASimklAnimeWithoutAlternativeTitlesStaysAFailedRead() =>
+        Assert.Throws<ArgumentNullException>(() => ClassConversions.ConvertSimklAnime(new SimklExtendedMedia { Title = "Show" }));
 }
