@@ -10,7 +10,6 @@ using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki_unit_tests.Characterization;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Http;
@@ -48,7 +47,7 @@ public class ManualSyncRewatchTests {
         Guid id = Guid.NewGuid();
         operations.Create(id, _user, OperationKind.SyncToTrackers, "x");
         var sync = new SyncProviderFromLocal(new Mock<IUserManager>().Object, _harness.Library.Library.Object, NullLoggerFactory.Instance,
-            new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(), new Mock<IApplicationPaths>().Object,
+            new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(), IdServices.Arm(), IdServices.AnimeList(),
             new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, _user.ToString()) {
             ClientOverride = (provider, _) => _harness.Tracker(provider)
         };

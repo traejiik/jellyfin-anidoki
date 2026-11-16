@@ -50,7 +50,7 @@ public class ManualSyncTests {
         library.Setup(manager => manager.GetItemList(It.IsAny<InternalItemsQuery>())).Returns(new List<BaseItem>());
         _controller = new SyncOperationsController(_runner, _store, users.Object, library.Object, NullLoggerFactory.Instance,
             new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(),
-            new Mock<IApplicationPaths>().Object, new Mock<IUserDataManager>().Object, new MemoryCache(new MemoryCacheOptions()));
+            IdServices.Arm(), IdServices.AnimeList(), new Mock<IUserDataManager>().Object, new MemoryCache(new MemoryCacheOptions()));
         // The controller reads the user's linked trackers from the plugin configuration.
         var paths = new Mock<IApplicationPaths>();
         paths.SetupGet(p => p.PluginsPath).Returns(_directory);
@@ -93,7 +93,7 @@ public class ManualSyncTests {
         var episode = library.Episode("Fixture Show", 1, 5);
         var sync = new SyncProviderFromLocal(new Mock<IUserManager>().Object, library.Library.Object, NullLoggerFactory.Instance,
             new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(),
-            new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, _user.Id.ToString());
+            IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, _user.Id.ToString());
 
         var handle = _runner.Enqueue(_user.Id, OperationKind.SyncToTrackers, "test", operation => sync.SyncEpisodes([episode], operation))!;
         await handle.Completion.WaitAsync(TimeSpan.FromSeconds(10));
@@ -216,12 +216,12 @@ public class ManualSyncTests {
 
         public Task<Anime?> GetAnime(int id, string? alternativeId = null, bool getRelated = false) => inner.GetAnime(id, alternativeId, getRelated);
 
-        public Task<Anime?> GetAnime(AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, string title, bool getRelated = false) =>
+        public Task<Anime?> GetAnime(ArmClient.OfflineDatabaseResponse ids, string title, bool getRelated = false) =>
             inner.GetAnime(ids, title, getRelated);
 
         public Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status, bool? isRewatching = null,
             int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null, string? alternativeId = null,
-            AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? ids = null, bool? isShow = null) =>
+            ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null) =>
             inner.UpdateAnime(animeId, numberOfWatchedEpisodes, status, isRewatching, numberOfTimesRewatched, startDate, endDate, alternativeId, ids, isShow);
     }
 
@@ -237,7 +237,7 @@ public class ManualSyncTests {
         var episode = harness.Library.Episode("Fixture Show", 1, 5);
         var sync = new SyncProviderFromLocal(new Mock<IUserManager>().Object, harness.Library.Library.Object, NullLoggerFactory.Instance,
             new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(),
-            new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, _user.Id.ToString()) {
+            IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, _user.Id.ToString()) {
             ClientOverride = (_, _) => tracker
         };
 

@@ -11,7 +11,6 @@ using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Trackers;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
@@ -38,7 +37,8 @@ public sealed class ResolutionCheck(
     IHttpClientFactory httpClientFactory,
     IServerApplicationHost serverApplicationHost,
     IHttpContextAccessor httpContextAccessor,
-    IApplicationPaths applicationPaths,
+    ArmClient arm,
+    AnimeListSource animeList,
     IMemoryCache memoryCache,
     IAsyncDelayer delayer,
     MatchStore matches,
@@ -60,7 +60,7 @@ public sealed class ResolutionCheck(
         if (user == null || config == null)
             return targets;
         foreach (BaseItem item in SyncHelper.GetUsersJellyfinLibrary(userId, users, library)) {
-            if (!LibraryFilter.Includes(config, library, _logger, item))
+            if (!LibraryFilter.Includes(config, library, animeList.Index, _logger, item))
                 continue;
             if (item is Movie movie) {
                 if (!SyncHelper.MediaShouldBeIgnored(movie) && userData.GetUserData(user, movie) is { Played: true })
@@ -94,7 +94,7 @@ public sealed class ResolutionCheck(
         }
 
         var clients = new TrackerClientFactory(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, _logger) { Override = ClientOverride };
-        var sourceIds = new SourceIdResolver(httpClientFactory, applicationPaths, loggerFactory, _logger);
+        var sourceIds = new SourceIdResolver(arm, animeList, _logger);
         var automatic = new AutomaticResolver(_logger);
         // A provider that refuses us or rate-limits us will not answer the next season either.
         var stopped = new HashSet<ApiName>();
@@ -107,7 +107,7 @@ public sealed class ResolutionCheck(
                 operation.CancellationToken.ThrowIfCancellationRequested();
             }
             if (SyncSource.From(targets[i]) is { } found) {
-                var source = found with { IdsOnly = LibraryFilter.Scope(config, library, _logger, targets[i]) == LibraryScope.IdsOnly };
+                var source = found with { IdsOnly = LibraryFilter.Scope(config, library, animeList.Index, _logger, targets[i]) == LibraryScope.IdsOnly };
                 SourceIds ids = await sourceIds.Resolve(source);
                 IReadOnlyList<int> watched = watchState.Watched(source, userId).Select(episode => episode.Number).ToList();
                 foreach (UserApiAuth link in config.UserApiAuth) {

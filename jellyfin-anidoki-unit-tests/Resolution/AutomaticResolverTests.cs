@@ -34,7 +34,7 @@ public class AutomaticResolverTests {
     public void TearDown() => Assert.That(_fake?.Writes, Is.Null.Or.Empty, "resolution must never write");
 
     private static SourceIds Ids(int? mal = null, int? aniList = null, int? kitsu = null, int? aniDb = null, int? offset = null) =>
-        new(new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse { MyAnimeList = mal, Anilist = aniList, Kitsu = kitsu, AniDb = aniDb }, offset);
+        new(new ArmClient.OfflineDatabaseResponse { MyAnimeList = mal, Anilist = aniList, Kitsu = kitsu, AniDb = aniDb }, offset);
 
     private static SourceIds AllIds(int id = SyncHarness.EntryId, int? offset = null) => Ids(id, id, id, id, offset);
 

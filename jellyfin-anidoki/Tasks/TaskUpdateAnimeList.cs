@@ -1,37 +1,22 @@
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.Configuration;
+using jellyfin_anidoki.Helpers;
 using MediaBrowser.Model.Tasks;
-using Microsoft.Extensions.Logging;
 
 namespace jellyfin_anidoki;
 
 public class TaskUpdateAnimeList : IScheduledTask {
-    private readonly ILoggerFactory _loggerFactory;
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IApplicationPaths _applicationPaths;
+    private readonly AnimeListSource _animeList;
 
     public string Name => "AniDoki Update Anime List";
     public string Key => "UpdateAnimeList";
     public string Description => "Update the anime list to the latest version.";
     public string Category => "AniDoki";
 
-    public TaskUpdateAnimeList(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory,
-        IApplicationPaths applicationPaths) {
-        _loggerFactory = loggerFactory;
-        _httpClientFactory = httpClientFactory;
-        _applicationPaths = applicationPaths;
-    }
-
-
-    public Task Execute(CancellationToken cancellationToken, IProgress<double> progress) {
-        return Task.Run(async () => {
-            UpdateAnimeList updateAnimeList = new UpdateAnimeList(_httpClientFactory, _loggerFactory, _applicationPaths);
-            await updateAnimeList.Update();
-        }, cancellationToken);
+    public TaskUpdateAnimeList(AnimeListSource animeList) {
+        _animeList = animeList;
     }
 
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers() {
@@ -45,8 +30,7 @@ public class TaskUpdateAnimeList : IScheduledTask {
 
     public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken) {
         await Task.Run(async () => {
-            UpdateAnimeList updateAnimeList = new UpdateAnimeList(_httpClientFactory, _loggerFactory, _applicationPaths);
-            await updateAnimeList.Update();
+            await _animeList.Update();
         }, cancellationToken);
     }
 }

@@ -15,7 +15,7 @@ public sealed class SimklTrackerClient(SimklApiCalls api) : ITrackerClient {
 
     public Task<Anime?> GetAnime(int id, string? alternativeId = null, bool getRelated = false) => Task.FromResult<Anime?>(null);
 
-    public async Task<Anime?> GetAnime(AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, string title, bool getRelated = false) {
+    public async Task<Anime?> GetAnime(ArmClient.OfflineDatabaseResponse ids, string title, bool getRelated = false) {
         SimklIdLookupMedia? lookup = await api.GetAnimeByIdLookup(ids, title);
         if (lookup?.Ids?.Simkl is null or 0)
             return null;
@@ -28,7 +28,7 @@ public sealed class SimklTrackerClient(SimklApiCalls api) : ITrackerClient {
 
     public async Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status, bool? isRewatching = null,
         int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null, string? alternativeId = null,
-        AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? ids = null, bool? isShow = null) {
+        ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null) {
         if (isShow == null || ids == null)
             return null;
         SimklStatus simklStatus = status switch {

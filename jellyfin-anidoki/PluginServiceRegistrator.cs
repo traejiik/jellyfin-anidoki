@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace jellyfin_anidoki;
 
@@ -19,6 +20,13 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
         serviceCollection.AddSingleton<Notifications.Discord.DiscordNotificationDispatcher>();
         serviceCollection.AddHostedService(provider => provider.GetRequiredService<Notifications.Discord.DiscordNotificationDispatcher>());
         serviceCollection.AddSingleton(TimeProvider.System);
+        // The ID lookups read the plugin settings on every use, so a changed ARM server or save location applies at once.
+        serviceCollection.AddSingleton(provider => new Helpers.ArmClient(provider.GetRequiredService<IHttpClientFactory>(),
+            provider.GetRequiredService<ILogger<Helpers.ArmClient>>(), () => Plugin.Instance?.PluginConfiguration));
+        serviceCollection.AddSingleton(provider => new Helpers.AnimeListSource(provider.GetRequiredService<IHttpClientFactory>(),
+            provider.GetRequiredService<IApplicationPaths>(), provider.GetRequiredService<ILogger<Helpers.AnimeListSource>>(),
+            () => Plugin.Instance?.PluginConfiguration));
+        serviceCollection.AddSingleton(provider => provider.GetRequiredService<Helpers.AnimeListSource>().Index);
         serviceCollection.AddSingleton(provider => new Operations.OperationStore(
             Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath), provider.GetRequiredService<TimeProvider>()));
         serviceCollection.AddSingleton<Operations.OperationRunner>();

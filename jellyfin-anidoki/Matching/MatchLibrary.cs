@@ -57,7 +57,8 @@ public static class SourceKeys {
     }
 }
 
-public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager users, ILogger<JellyfinMatchLibrary> logger) : IMatchLibrary {
+public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager users, AnimeListIndex animeList, ILogger<JellyfinMatchLibrary> logger)
+    : IMatchLibrary {
     public IReadOnlyList<LibrarySourceEntry> List(Guid? viewer) {
         User? user = null;
         if (viewer is Guid id && (user = users.GetUserById(id)) == null)
@@ -123,7 +124,7 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
         if (anime is null or { Length: 0 })
             return true;
         try {
-            return LibraryFilter.InAnimeLibraries(anime, library, item);
+            return LibraryFilter.InAnimeLibraries(anime, library, animeList, item);
         } catch (Exception e) {
             logger.LogDebug(e, "Could not tell whether {ItemName} is in an anime library; leaving it out of the match list", item.Name);
             return false;
@@ -133,6 +134,6 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
     /// <summary>A user's library filter applies; a user who never saved AniDoki settings has none.</summary>
     private bool Syncs(Guid userId, BaseItem item) {
         var config = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(entry => entry.UserId == userId);
-        return config == null || LibraryFilter.Includes(config, library, logger, item);
+        return config == null || LibraryFilter.Includes(config, library, animeList, logger, item);
     }
 }

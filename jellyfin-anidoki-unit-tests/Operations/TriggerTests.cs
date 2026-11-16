@@ -13,7 +13,6 @@ using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki_unit_tests.Characterization;
 using Jellyfin.Database.Implementations.Entities;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
@@ -54,7 +53,7 @@ public class TriggerTests {
 
     private SessionServerEntry Sessions(SyncHarness harness) => new(new Mock<ISessionManager>().Object, NullLoggerFactory.Instance,
         new Mock<IHttpClientFactory>().Object, harness.Library.Library.Object, new Mock<IServerApplicationHost>().Object,
-        new HttpContextAccessor(), new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()),
+        new HttpContextAccessor(), IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()),
         new NotificationEventStore(), _runner);
 
     [Test]
@@ -106,7 +105,7 @@ public class TriggerTests {
         var movie = new Movie { Id = Guid.NewGuid(), Name = "Fixture Movie", Tags = [], ProviderIds = new Dictionary<string, string>() };
         var marks = new TaskProcessMarkedMedia(NullLoggerFactory.Instance, harness.Library.Library.Object, new MemoryCache(new MemoryCacheOptions()),
             new HttpContextAccessor(), new Mock<IServerApplicationHost>().Object, new Mock<IHttpClientFactory>().Object,
-            new Mock<IApplicationPaths>().Object, new Mock<IAsyncDelayer>().Object, _runner);
+            IdServices.Arm(), IdServices.AnimeList(), new Mock<IAsyncDelayer>().Object, _runner);
         marks.AddToUpdateList((first, brokenSeason, broken));
         marks.AddToUpdateList((second, null, movie));
 
@@ -122,7 +121,7 @@ public class TriggerTests {
         var queue = new ManualMarkQueue();
         var service = new ManualMarkService(marks, new Mock<IUserManager>().Object, new Mock<ILibraryManager>().Object,
             new Mock<IUserDataManager>().Object, NullLoggerFactory.Instance, new HttpContextAccessor(), new Mock<IServerApplicationHost>().Object,
-            new Mock<IHttpClientFactory>().Object, new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), null!);
+            new Mock<IHttpClientFactory>().Object, IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), null!);
         using var worker = new ManualMarkWorker(queue, marks, service, _runner, NullLogger<ManualMarkWorker>.Instance);
         Guid user = Guid.NewGuid();
         Guid id = Guid.NewGuid();

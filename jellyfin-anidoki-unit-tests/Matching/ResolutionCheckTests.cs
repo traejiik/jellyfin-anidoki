@@ -77,7 +77,7 @@ public class ResolutionCheckTests {
 
     private ResolutionCheck NewCheck(ISeasonWatchState watch) =>
         new(new Mock<IUserManager>().Object, _harness.Library.Library.Object, new Mock<IUserDataManager>().Object, NullLoggerFactory.Instance,
-            new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(), new Mock<IApplicationPaths>().Object,
+            new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(), IdServices.Arm(), IdServices.AnimeList(),
             new MemoryCache(new MemoryCacheOptions()), _delayer.Object, _matches, _rows, watch, _user) {
             ClientOverride = (provider, _) => _harness.Tracker(provider)
         };

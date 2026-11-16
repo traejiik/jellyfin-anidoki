@@ -276,7 +276,6 @@ read by cross ids
   GET https://api.simkl.com/search/id?client_id=client&anilist=11&kitsu=13&anidb=14&mal=12
   GET https://api.simkl.com/anime/9?extended=full&client_id=client
   GET https://api.simkl.com/sync/all-items/anime?extended=full
-  threw ArgumentNullException
 write Watching rewatching=-
   POST https://api.simkl.com/sync/history?client_id=client {"movies":null,"shows":[{"episodes":[{"number":1},{"number":2},{"number":3},{"number":4},{"number":5}],"title":null,"ids":{"anidb":14,"tmdb":null,"mal":12,"tvdb":null,"anilist":11,"kitsu":13,"simkl":500,"slug":null}}]}
 write Watching rewatching=True

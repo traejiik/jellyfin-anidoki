@@ -5,15 +5,21 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
+using MediaBrowser.Common.Net;
 using Microsoft.Extensions.Logging;
 
 namespace jellyfin_anidoki.Helpers;
 
-public class AnimeOfflineDatabaseHelpers {
-    public static async Task<OfflineDatabaseResponse?> GetProviderIdsFromMetadataProvider(HttpClient httpClient, ILogger logger, int metadataId, Source source) {
+/// <summary>
+/// Looks up an anime's IDs on other trackers through an ARM server: the admin's, else the public one. A failed or unreadable
+/// lookup is null, never an empty set of IDs.
+/// </summary>
+/// <param name="configuration">The plugin settings, read on every lookup so a changed ARM server applies to the next one.</param>
+public sealed class ArmClient(IHttpClientFactory httpClientFactory, ILogger<ArmClient> logger, Func<PluginConfiguration?> configuration) {
+    public async Task<OfflineDatabaseResponse?> GetIds(int metadataId, Source source) {
         // See https://arm.haglund.dev/docs#tag/v2/operation/v2-getIds
         string baseUrl = "https://arm.haglund.dev"; // fallback value, the public API
-        string? customArmServerBaseUrl = Plugin.Instance?.Configuration.armServerBaseUrl;
+        string? customArmServerBaseUrl = configuration()?.armServerBaseUrl;
         if (!string.IsNullOrEmpty(customArmServerBaseUrl)) {
             if (Uri.TryCreate(customArmServerBaseUrl, UriKind.Absolute, out Uri? baseUri) && (baseUri.Scheme == Uri.UriSchemeHttp || baseUri.Scheme == Uri.UriSchemeHttps)) {
                 baseUrl = baseUri.AbsoluteUri.TrimEnd('/');
@@ -22,6 +28,7 @@ public class AnimeOfflineDatabaseHelpers {
             }
         }
 
+        HttpClient httpClient = httpClientFactory.CreateClient(NamedClient.Default);
         HttpResponseMessage response;
         try {
             response = await httpClient.GetAsync($"{baseUrl}/api/v2/ids?source={source.ToString().ToLower()}&id={metadataId}");

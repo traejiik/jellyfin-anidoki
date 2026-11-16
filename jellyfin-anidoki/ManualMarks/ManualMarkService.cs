@@ -6,7 +6,6 @@ using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
@@ -18,7 +17,7 @@ namespace jellyfin_anidoki.ManualMarks;
 
 public sealed class ManualMarkService(ManualMarkStore store, IUserManager users, ILibraryManager library,
     IUserDataManager data, ILoggerFactory loggers, IHttpContextAccessor context, IServerApplicationHost host,
-    IHttpClientFactory clients, IApplicationPaths paths, IMemoryCache cache, Notifications.Discord.DiscordNotificationDispatcher discord) {
+    IHttpClientFactory clients, ArmClient arm, AnimeListSource animeList, IMemoryCache cache, Notifications.Discord.DiscordNotificationDispatcher discord) {
     /// <summary>Sends one confirmed manual mark. The operation runner already holds the user's sync gate.</summary>
     public async Task Execute(Guid operationId, OperationContext operation) {
         if (!store.TryBegin(operationId, out var request) || request == null) {
@@ -34,7 +33,7 @@ public sealed class ManualMarkService(ManualMarkStore store, IUserManager users,
             var configuration = Plugin.Instance?.PluginConfiguration;
             if (user == null || item == null || !item.IsVisible(user, false) || !data.GetUserData(user, item).Played ||
                 configuration?.watchedTickboxUpdatesProvider != true || SyncHelper.MediaShouldBeIgnored(item) ||
-                !ManualMarkRequestFilter.IsTracked(request.UserId, item, library, loggers.CreateLogger<ManualMarkService>())) {
+                !ManualMarkRequestFilter.IsTracked(request.UserId, item, library, animeList.Index, loggers.CreateLogger<ManualMarkService>())) {
                 Cancel(operationId, operation, "The item, access or tracking settings changed. Trackers were not updated.");
                 return;
             }
@@ -44,7 +43,7 @@ public sealed class ManualMarkService(ManualMarkStore store, IUserManager users,
                 return;
             }
             operation.CancellationToken.ThrowIfCancellationRequested();
-            var updater = new SyncPipeline(library, loggers, context, host, clients, paths, cache, new Delayer()) { WatchState = new Matching.JellyfinSeasonWatchState(users, data) };
+            var updater = new SyncPipeline(library, loggers, context, host, clients, arm, animeList, cache, new Delayer()) { WatchState = new Matching.JellyfinSeasonWatchState(users, data) };
             await updater.Run(item, request.UserId, true, collector, SyncUpdateSource.ConfirmedManual, operation.CancellationToken);
             discord.Enqueue(SyncOperationSummary.Capture(item, request.UserId, operationId, SyncNotificationTrigger.ConfirmedManual, collector));
             var outcomes = collector.Outcomes;

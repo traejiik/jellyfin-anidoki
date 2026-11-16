@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json.Serialization;
+using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Operations;
 using MediaBrowser.Common.Api;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
@@ -27,7 +27,7 @@ public sealed record ResolutionCheckReport(
 public sealed class ResolutionCheckController(OperationRunner runner, OperationStore store, ResolutionCheckStore rows, MatchStore matches,
     ISeasonWatchState watchState, IUserManager users, ILibraryManager library, IUserDataManager userData, ILoggerFactory loggerFactory,
     IHttpClientFactory httpClientFactory, IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor,
-    IApplicationPaths applicationPaths, IMemoryCache memoryCache) : ControllerBase {
+    ArmClient arm, AnimeListSource animeList, IMemoryCache memoryCache) : ControllerBase {
     [HttpPost]
     public ActionResult<OperationStarted> Start([FromQuery] Guid userId) {
         if (userId == Guid.Empty || users.GetUserById(userId) == null)
@@ -35,7 +35,7 @@ public sealed class ResolutionCheckController(OperationRunner runner, OperationS
         if (store.FindActive(userId, OperationKind.ResolutionCheck) is { } active)
             return Conflict(new OperationStarted(active));
         var check = new ResolutionCheck(users, library, userData, loggerFactory, httpClientFactory, serverApplicationHost, httpContextAccessor,
-            applicationPaths, memoryCache, new Delayer(), matches, rows, watchState, userId);
+            arm, animeList, memoryCache, new Delayer(), matches, rows, watchState, userId);
         OperationRunner.Handle? handle = runner.Enqueue(userId, OperationKind.ResolutionCheck, "Resolution check", check.Run);
         if (handle == null)
             return StatusCode(StatusCodes.Status503ServiceUnavailable, "AniDoki storage is unavailable, so the check was not started.");

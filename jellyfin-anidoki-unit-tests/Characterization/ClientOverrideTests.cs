@@ -60,7 +60,7 @@ public class ClientOverrideTests {
         var requested = new List<ApiName>();
         var updater = new SyncPipeline(new Mock<ILibraryManager>().Object, new NullLoggerFactory(),
             new Mock<IHttpContextAccessor>().Object, new Mock<IServerApplicationHost>().Object, new Mock<IHttpClientFactory>().Object,
-            new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object) {
+            IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object) {
             ClientOverride = (provider, _) => {
                 requested.Add(provider);
                 return fake.Object;

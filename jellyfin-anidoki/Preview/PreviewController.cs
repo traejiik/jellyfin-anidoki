@@ -10,7 +10,6 @@ using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Operations;
 using MediaBrowser.Common.Api;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
@@ -29,7 +28,7 @@ namespace jellyfin_anidoki.Preview;
 public sealed class PreviewController(OperationRunner runner, OperationStore store, PreviewStore rows, MatchStore matches,
     ISeasonWatchState watchState, IUserManager users, ILibraryManager library, IUserDataManager userData, ILoggerFactory loggerFactory,
     IHttpClientFactory httpClientFactory, IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor,
-    IApplicationPaths applicationPaths, IMemoryCache memoryCache) : ControllerBase {
+    ArmClient arm, AnimeListSource animeList, IMemoryCache memoryCache) : ControllerBase {
     private const string Unavailable = "AniDoki storage is unavailable, so the preview could not be started, read or applied.";
     private const string Refresh = "This preview can no longer be applied. Refresh the preview.";
 
@@ -67,13 +66,13 @@ public sealed class PreviewController(OperationRunner runner, OperationStore sto
         Func<OperationContext, Task> run;
         string source;
         if (inbound) {
-            var sync = new Sync(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, users, library, applicationPaths,
+            var sync = new Sync(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, users, library, arm, animeList,
                 userData, memoryCache, delayer, only!.Value, status);
             run = new InboundPreview(sync, rows, users, userData, only.Value, userId).Run;
             source = $"{only} ({status})";
         } else {
             run = new OutboundPreview(users, library, loggerFactory, httpClientFactory, serverApplicationHost, httpContextAccessor,
-                applicationPaths, memoryCache, delayer, matches, rows, watchState, userId) { OnlyProvider = only }.Run;
+                arm, animeList, memoryCache, delayer, matches, rows, watchState, userId) { OnlyProvider = only }.Run;
             source = only?.ToString() ?? "All linked trackers";
         }
         OperationRunner.Handle? handle = runner.Enqueue(userId, kind, source, run);
@@ -137,7 +136,7 @@ public sealed class PreviewController(OperationRunner runner, OperationStore sto
                 return Conflict(Refresh);
             Func<OperationContext, Task> run = inbound
                 ? new InboundApply(new Sync(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, users, library,
-                    applicationPaths, userData, memoryCache, new Delayer(), chosen[0].Provider, SyncHelper.StatusFilter.Both), library, users, userData,
+                    arm, animeList, userData, memoryCache, new Delayer(), chosen[0].Provider, SyncHelper.StatusFilter.Both), library, users, userData,
                     loggerFactory, preview.UserId, chosen).Run
                 : new PreviewApply(library, loggerFactory, httpClientFactory, serverApplicationHost, httpContextAccessor, memoryCache,
                     new Delayer(), matches, watchState, preview.UserId, chosen).Run;

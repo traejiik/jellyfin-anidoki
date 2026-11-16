@@ -1,9 +1,9 @@
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.ManualMarks;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
@@ -22,7 +22,6 @@ namespace jellyfin_anidoki {
         private readonly IServerApplicationHost _serverApplicationHost;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMemoryCache _memoryCache;
-        private readonly IApplicationPaths _applicationPaths;
         private readonly IAsyncDelayer _delayer;
         private readonly TaskProcessMarkedMedia _taskProcessMarkedMedia;
         private Task? _updateTask;
@@ -38,7 +37,7 @@ namespace jellyfin_anidoki {
             IServerApplicationHost serverApplicationHost,
             IHttpClientFactory httpClientFactory,
             IMemoryCache memoryCache,
-            IApplicationPaths applicationPaths, ManualMarkStore manualMarks, ManualMarkCapabilityRegistry capabilities, Notifications.Discord.DiscordNotificationDispatcher discord, Operations.OperationRunner runner, Matching.ISeasonWatchState watchState) {
+            ArmClient arm, AnimeListSource animeList, ManualMarkStore manualMarks, ManualMarkCapabilityRegistry capabilities, Notifications.Discord.DiscordNotificationDispatcher discord, Operations.OperationRunner runner, Matching.ISeasonWatchState watchState) {
             _manualMarks = manualMarks;
             _capabilities = capabilities;
             _userDataManager = userDataManager;
@@ -47,9 +46,8 @@ namespace jellyfin_anidoki {
             _serverApplicationHost = serverApplicationHost;
             _httpClientFactory = httpClientFactory;
             _memoryCache = memoryCache;
-            _applicationPaths = applicationPaths;
             _delayer = new Delayer();
-            _taskProcessMarkedMedia = new TaskProcessMarkedMedia(loggerFactory, _libraryManager, _memoryCache, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _delayer, runner, discord, watchState);
+            _taskProcessMarkedMedia = new TaskProcessMarkedMedia(loggerFactory, _libraryManager, _memoryCache, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, arm, animeList, _delayer, runner, discord, watchState);
         }
 
         public Task StartAsync(CancellationToken cancellationToken) {

@@ -15,7 +15,6 @@ using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Trackers;
 using Jellyfin.Database.Implementations.Entities;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
@@ -36,7 +35,8 @@ public class Sync {
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IUserManager _userManager;
     private readonly ILibraryManager _libraryManager;
-    private readonly IApplicationPaths _applicationPaths;
+    private readonly ArmClient _arm;
+    private readonly AnimeListSource _animeList;
     private readonly IUserDataManager _userDataManager;
     private readonly IMemoryCache _memoryCache;
     private readonly IAsyncDelayer _delayer;
@@ -53,7 +53,8 @@ public class Sync {
         IHttpContextAccessor httpContextAccessor,
         IUserManager userManager,
         ILibraryManager libraryManager,
-        IApplicationPaths applicationPaths,
+        ArmClient arm,
+        AnimeListSource animeList,
         IUserDataManager userDataManager,
         IMemoryCache memoryCache,
         IAsyncDelayer delayer,
@@ -65,7 +66,8 @@ public class Sync {
         _httpContextAccessor = httpContextAccessor;
         _userManager = userManager;
         _libraryManager = libraryManager;
-        _applicationPaths = applicationPaths;
+        _arm = arm;
+        _animeList = animeList;
         _userDataManager = userDataManager;
         _delayer = delayer;
         _memoryCache = memoryCache;
@@ -174,11 +176,11 @@ public class Sync {
             if (SyncHelper.MediaShouldBeIgnored(baseItem)) {
                 _logger.LogDebug("Ignoring {ItemName}; it carries the ignore tag", baseItem.Name);
             } else if (baseItem is Series series) {
-                (AnimeOfflineDatabaseHelpers.Source? source, int? providerId) = SyncHelper.GetSeriesProviderId(series);
+                (ArmClient.Source? source, int? providerId) = SyncHelper.GetSeriesProviderId(series);
 
                 if (providerId != null && providerId != 0 && source != null) {
                     var seasons = await SyncHelper.GetJellyfinSeasons(convertedWatchList, providerId.Value, series, source.Value,
-                        _logger, _loggerFactory, _httpClientFactory, _applicationPaths);
+                        _logger, _arm, _animeList);
                     foreach ((Season season, SyncAnimeMetadata found) in seasons) {
                         if (season != null)
                             plans.Add(InboundPlanner.ForSeason(season, found, DateTime.UtcNow));
@@ -255,14 +257,14 @@ public class Sync {
             operation.ReportProgress(i, animeList.Count);
             Anime entry = animeList[i];
             _logger.LogDebug("({Provider}) Looking up IDs for tracker entry {EntryId} ({Title})", _apiName, entry.Id, entry.Title);
-            var ids = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(_httpClientFactory.CreateClient(NamedClient.Default), _logger, animeList[i].Id, AnimeOfflineDatabaseHelpers.MapFromApiName(_apiName));
+            var ids = await _arm.GetIds(animeList[i].Id, ArmClient.MapFromApiName(_apiName));
             if (ids?.AniDb == null) {
                 _logger.LogInformation("({Provider}) {Title} maps to no Jellyfin season; no AniDB ID is known for tracker entry {EntryId}", _apiName, animeList[i].Title, animeList[i].Id);
                 unresolved.Add(new InboundUnresolved(animeList[i], "no-anidb-id"));
                 continue;
             }
 
-            AnimeListHelpers.AnimeListXml? animeListXml = await AnimeListHelpers.GetAnimeListFileContents(_logger, _loggerFactory, _httpClientFactory, _applicationPaths);
+            AnimeListHelpers.AnimeListXml? animeListXml = await _animeList.Read();
             AnimeListHelpers.AnimeListAnime? season = AnimeListHelpers.GetAniDbSeason(ids.AniDb.Value, animeListXml);
             if (season == null || (!int.TryParse(season.Defaulttvdbseason, out var seasonNumber) && season.Defaulttvdbseason != "a")) {
                 _logger.LogInformation("({Provider}) {Title} maps to no Jellyfin season; the anime list has no season for AniDB ID {AniDbId}", _apiName, animeList[i].Title, ids.AniDb.Value);
@@ -310,7 +312,7 @@ public class Sync {
 
 
     public class SyncAnimeMetadata {
-        public AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? ids { get; set; }
+        public ArmClient.OfflineDatabaseResponse? ids { get; set; }
         public int episodesWatched { get; set; }
         public int season { get; set; }
         public DateTime? completedAt { get; set; }

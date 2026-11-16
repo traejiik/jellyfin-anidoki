@@ -13,7 +13,6 @@ using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Planning;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Trackers;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
@@ -43,10 +42,11 @@ public class SyncPipeline {
     private readonly ISourceResolver _resolver;
     private readonly TimeProvider _clock = TimeProvider.System;
     private readonly ILibraryManager _libraryManager;
+    private readonly AnimeListIndex _animeListIndex;
 
-    private AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse _apiIds = new();
+    private ArmClient.OfflineDatabaseResponse _apiIds = new();
 
-    internal AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ResolvedIds => _apiIds;
+    internal ArmClient.OfflineDatabaseResponse ResolvedIds => _apiIds;
 
     /// <summary>Tests set this to substitute an in-memory tracker; production leaves it null so the real client is built.</summary>
     internal Func<ApiName, UserConfig, ITrackerClient>? ClientOverride {
@@ -65,13 +65,15 @@ public class SyncPipeline {
         IHttpContextAccessor httpContextAccessor,
         IServerApplicationHost serverApplicationHost,
         IHttpClientFactory httpClientFactory,
-        IApplicationPaths applicationPaths,
+        ArmClient arm,
+        AnimeListSource animeList,
         IMemoryCache memoryCache,
         IAsyncDelayer delayer) {
         _libraryManager = libraryManager;
         _logger = loggerFactory.CreateLogger<SyncPipeline>();
         _clients = new TrackerClientFactory(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, memoryCache, delayer, _logger);
-        _sourceIds = new SourceIdResolver(httpClientFactory, applicationPaths, loggerFactory, _logger);
+        _sourceIds = new SourceIdResolver(arm, animeList, _logger);
+        _animeListIndex = animeList.Index;
         _resolver = new AutomaticResolver(_logger);
     }
 
@@ -106,7 +108,7 @@ public class SyncPipeline {
         // SyncProviderFromLocal reuses one instance across series, so anything resolved
         // for the previous item must not leak into this one. Without this, an item that
         // resolves no IDs would be written to the previous item's tracker entry.
-        _apiIds = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse();
+        _apiIds = new ArmClient.OfflineDatabaseResponse();
 
         var video = e as Video;
         UserConfig? userConfig = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(item => item.UserId == userId);
@@ -120,7 +122,7 @@ public class SyncPipeline {
             return;
         }
 
-        LibraryScope scope = LibraryFilter.Scope(userConfig, _libraryManager, _logger, e);
+        LibraryScope scope = LibraryFilter.Scope(userConfig, _libraryManager, _animeListIndex, _logger, e);
         if (scope != LibraryScope.Excluded && video is Episode or Movie && playedToCompletion) {
             var syncSource = SyncSource.From(video);
             if (syncSource == null) {

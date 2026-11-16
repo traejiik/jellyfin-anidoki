@@ -13,7 +13,6 @@ using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Trackers;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
@@ -36,7 +35,8 @@ public sealed class OutboundPreview(
     IHttpClientFactory httpClientFactory,
     IServerApplicationHost serverApplicationHost,
     IHttpContextAccessor httpContextAccessor,
-    IApplicationPaths applicationPaths,
+    ArmClient arm,
+    AnimeListSource animeList,
     IMemoryCache memoryCache,
     IAsyncDelayer delayer,
     MatchStore matches,
@@ -56,7 +56,7 @@ public sealed class OutboundPreview(
 
     internal async Task PreviewEpisodes(IReadOnlyList<Episode> targets, OperationContext operation) {
         var pipeline = new SyncPipeline(libraryManager, loggerFactory, httpContextAccessor, serverApplicationHost, httpClientFactory,
-            applicationPaths, memoryCache, delayer) {
+            arm, animeList, memoryCache, delayer) {
             ClientOverride = ClientOverride,
             WatchState = watchState,
             OnlyProvider = OnlyProvider

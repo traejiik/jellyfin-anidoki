@@ -59,6 +59,7 @@ internal sealed class InboundHarness : IDisposable {
     private readonly Dictionary<Guid, BaseItem> _items = new();
     private readonly Dictionary<Guid, UserItemData> _data = new();
     private readonly IHttpClientFactory _http;
+    private readonly PluginConfiguration _configuration;
 
     public Guid UserId { get; } = Guid.NewGuid();
     public User User { get; }
@@ -99,14 +100,15 @@ internal sealed class InboundHarness : IDisposable {
         paths.SetupGet(p => p.DataPath).Returns(_directory);
         paths.SetupGet(p => p.CachePath).Returns(_directory);
         var xml = new Mock<IXmlSerializer>();
-        xml.Setup(x => x.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>())).Returns(new PluginConfiguration {
+        _configuration = new PluginConfiguration {
             animeListSaveLocation = _directory,
             UserConfig = [new UserConfig {
                 UserId = UserId,
                 LibraryToCheck = [],
                 UserApiAuth = [new UserApiAuth { Name = ApiName.AniList, AccessToken = "accessToken", RefreshToken = "refreshToken" }]
             }]
-        });
+        };
+        xml.Setup(x => x.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>())).Returns(_configuration);
         _ = new Plugin(paths.Object, new Mock<IServerConfigurationManager>().Object, xml.Object, NullLogger<Plugin>.Instance);
     }
 
@@ -167,7 +169,7 @@ internal sealed class InboundHarness : IDisposable {
     public Sync NewSync(SyncHelper.StatusFilter status = SyncHelper.StatusFilter.Both, ApiName provider = ApiName.AniList, ILoggerFactory? loggers = null) {
         File.WriteAllText(Path.Combine(_directory, "anime-list-full.xml"), $"<anime-list>{string.Concat(_animeList)}</anime-list>");
         return new Sync(_http, loggers ?? NullLoggerFactory.Instance, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(), Users.Object,
-            Library.Object, new Mock<IApplicationPaths>().Object, UserData.Object, new MemoryCache(new MemoryCacheOptions()), Delayer.Object,
+            Library.Object, IdServices.Arm(_http, _configuration), IdServices.AnimeList(_http, configuration: _configuration), UserData.Object, new MemoryCache(new MemoryCacheOptions()), Delayer.Object,
             provider, status) {
             ListSourceOverride = (_, _) => Tracker
         };
@@ -211,7 +213,7 @@ internal sealed class InboundHarness : IDisposable {
             var query = HttpUtility.ParseQueryString(request.RequestUri!.Query);
             int id = int.Parse(query["id"]!, CultureInfo.InvariantCulture);
             string body = aniDb.TryGetValue((query["source"]!, id), out int found)
-                ? JsonSerializer.Serialize(new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse { AniDb = found })
+                ? JsonSerializer.Serialize(new ArmClient.OfflineDatabaseResponse { AniDb = found })
                 : "null";
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
         }

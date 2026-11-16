@@ -71,7 +71,8 @@ public class TrackerClientConversionTests {
             Assert.AreEqual(mediaList[i].Attributes!.Titles!.English, animeList[i].Title);
             Assert.AreEqual(mediaList[i].Attributes!.Titles!.English, animeList[i].AlternativeTitles!.En);
             Assert.AreEqual(mediaList[i].Attributes!.Titles!.Japanese, animeList[i].AlternativeTitles!.Ja);
-            Assert.AreEqual(new List<string> { mediaList[i].Attributes!.Slug!, mediaList[i].Attributes!.CanonicalTitle!, "Synonym1", "Synonym2" }, animeList[i].AlternativeTitles!.Synonyms);
+            // The fixture has no slug, so it is left out rather than kept as a null entry.
+            Assert.AreEqual(new List<string> { "Title", "Synonym1", "Synonym2" }, animeList[i].AlternativeTitles!.Synonyms);
         }
     }
 
@@ -162,7 +163,7 @@ public class TrackerClientConversionTests {
                 Assert.AreEqual(matchingRelated.Attributes!.Titles!.English, relatedAnime.Anime!.Title);
                 Assert.AreEqual(matchingRelated.Attributes!.Titles!.English, relatedAnime.Anime!.AlternativeTitles!.En);
                 Assert.AreEqual(matchingRelated.Attributes.Titles.Japanese, relatedAnime.Anime.AlternativeTitles.Ja);
-                Assert.AreEqual(new List<string> { matchingRelated.Attributes!.Slug!, matchingRelated.Attributes!.CanonicalTitle!, "Synonym1", "Synonym2" }, relatedAnime.Anime!.AlternativeTitles!.Synonyms);
+                Assert.AreEqual(new List<string> { "Title", "Synonym1", "Synonym2" }, relatedAnime.Anime!.AlternativeTitles!.Synonyms);
             }
         }
     }
@@ -173,7 +174,7 @@ public class TrackerClientConversionTests {
     [TestCase(5, null, 5, KitsuUpdate.Status.current, 5, false, 5, Status.Watching)]
     [TestCase(5, true, null, KitsuUpdate.Status.planned, 5, true, 0, Status.Plan_to_watch)]
     public async Task KitsuGetConvertedUserListTest(int progress, bool reconsuming, int reconsumeCount, KitsuUpdate.Status status, int expectedProgress, bool expectedReconsuming, int expectedReconsumeCount, Status expectedStatus) {
-        IHttpClientFactory httpClientFactory = null;
+        IHttpClientFactory httpClientFactory = null!;
         ILoggerFactory loggerFactory = new NullLoggerFactory();
         Mock<IServerApplicationHost> serverApplicationHost = new Mock<IServerApplicationHost>();
         Mock<IHttpContextAccessor> httpContextAccessor = new Mock<IHttpContextAccessor>();
@@ -247,7 +248,7 @@ public class TrackerClientConversionTests {
         var result = await helpers.UpdateAnime(1, 5, Status.Watching, isRewatching: true,
             numberOfTimesRewatched: 2, alternativeId: "1");
         Assert.That(result, Is.Not.Null);
-        Assert.That(result.AcknowledgedProgress, Is.EqualTo(5));
+        Assert.That(result!.AcknowledgedProgress, Is.EqualTo(5));
         Assert.That(result.AcknowledgedStatus, Is.EqualTo(Status.Watching));
         Assert.That(result.AcknowledgedRewatching, Is.Null);
         Assert.That(result.AcknowledgedRewatchCount, Is.Null);
@@ -456,7 +457,17 @@ public class TrackerClientConversionTests {
         Assert.That(anime.Id, Is.EqualTo(8));
         Assert.That(anime.NumEpisodes, Is.EqualTo(12));
         Assert.That(anime.Title, Is.Null);
-        Assert.That(anime.AlternativeTitles!.Synonyms, Is.EqualTo(new[] { "kitsu-slug", null }));
+        Assert.That(anime.AlternativeTitles!.Synonyms, Is.EqualTo(new[] { "kitsu-slug" }));
+    }
+
+    /// <summary>A missing romaji or user-preferred title is left out of an AniList anime's synonyms, not kept as a null entry.</summary>
+    [Test]
+    public void AMissingAniListTitleIsLeftOutOfTheSynonyms() {
+        var media = new AniListSearch.Media { Id = 7, Title = new AniListSearch.Title { English = "English", Romaji = "Romaji" } };
+
+        Anime anime = ClassConversions.ConvertAniListAnime(media);
+
+        Assert.That(anime.AlternativeTitles!.Synonyms, Is.EqualTo(new[] { "Romaji" }));
     }
 
     /// <summary>A Shikimori anime without synonyms still converts with its list status.</summary>
@@ -476,8 +487,51 @@ public class TrackerClientConversionTests {
         Assert.That(anime.MyListStatus!.NumEpisodesWatched, Is.EqualTo(4));
     }
 
-    /// <summary>A detailed Simkl anime without alternative titles is a malformed reply and stays a failed read.</summary>
+    /// <summary>A detailed Simkl anime without alternative titles has no synonyms; the field is optional.</summary>
     [Test]
-    public void ASimklAnimeWithoutAlternativeTitlesStaysAFailedRead() =>
-        Assert.Throws<ArgumentNullException>(() => ClassConversions.ConvertSimklAnime(new SimklExtendedMedia { Title = "Show" }));
+    public void ASimklAnimeWithoutAlternativeTitlesHasNoSynonyms() {
+        Anime anime = ClassConversions.ConvertSimklAnime(new SimklExtendedMedia { Title = "Show", TotalEpisodes = 12 });
+
+        Assert.That(anime.Title, Is.EqualTo("Show"));
+        Assert.That(anime.NumEpisodes, Is.EqualTo(12));
+        Assert.That(anime.AlternativeTitles!.Synonyms, Is.Empty);
+    }
+
+    /// <summary>A Simkl alternative title without a name is left out of the synonyms, not kept as a null entry.</summary>
+    [Test]
+    public void ANamelessSimklTitleIsLeftOutOfTheSynonyms() {
+        var media = new SimklExtendedMedia { Title = "Show", AllTitles = [new AltTitle { Name = "Other" }, new AltTitle()] };
+
+        Anime anime = ClassConversions.ConvertSimklAnime(media);
+
+        Assert.That(anime.AlternativeTitles!.Synonyms, Is.EqualTo(new[] { "Other" }));
+    }
+
+    /// <summary>
+    /// Only the missing field became optional: a Simkl detail read that fails or cannot be read is still no anime, never one
+    /// with empty titles.
+    /// </summary>
+    [TestCase(HttpStatusCode.InternalServerError, "")]
+    [TestCase(HttpStatusCode.OK, "not json")]
+    public async Task AFailedSimklDetailReadIsStillNoAnime(HttpStatusCode status, string body) {
+        IHttpClientFactory http = null!;
+        Helpers.MockHttpCalls(new List<Helpers.HttpCall> {
+            new() { RequestUrlMatch = url => url.EndsWith("/search/id"), ResponseCode = HttpStatusCode.OK, ResponseContent = "[{\"title\":\"Show\",\"ids\":{\"simkl\":9}}]" },
+            new() { RequestUrlMatch = url => url.EndsWith("/anime/9"), ResponseCode = status, ResponseContent = body },
+            new() { RequestUrlMatch = url => url.Contains("/sync/all-items"), ResponseCode = HttpStatusCode.OK, ResponseContent = "{\"anime\":[]}" }
+        }, ref http);
+        var user = new UserConfig { UserApiAuth = [new UserApiAuth { Name = ApiName.Simkl, AccessToken = "access", RefreshToken = "refresh" }] };
+        var client = new SimklTrackerClient(new jellyfin_anidoki.Api.Simkl.SimklApiCalls(http, new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object,
+            new Mock<IHttpContextAccessor>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object,
+            new Dictionary<string, string> { { "simkl-api-key", "client" } }, user));
+
+        Anime? anime = null;
+        try {
+            anime = await client.GetAnime(new ArmClient.OfflineDatabaseResponse { Anilist = 11 }, "Show");
+        } catch (Exception) {
+            // A thrown failure is also a failed read.
+        }
+
+        Assert.That(anime, Is.Null);
+    }
 }

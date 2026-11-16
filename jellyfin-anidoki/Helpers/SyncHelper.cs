@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
@@ -29,11 +27,11 @@ public class SyncHelper {
     /// <summary>
     /// Get the preferred series provider ID. 
     /// </summary>
-    public static (AnimeOfflineDatabaseHelpers.Source? source, int? providerId) GetSeriesProviderId(Series series) {
+    public static (ArmClient.Source? source, int? providerId) GetSeriesProviderId(Series series) {
         if (series.ProviderIds.ContainsKey("AniList") && int.TryParse(series.ProviderIds["AniList"], out int providerId)) {
-            return (AnimeOfflineDatabaseHelpers.Source.Anilist, providerId);
+            return (ArmClient.Source.Anilist, providerId);
         } else if (series.ProviderIds.ContainsKey("AniDB") && int.TryParse(series.ProviderIds["AniDB"], out providerId)) {
-            return (AnimeOfflineDatabaseHelpers.Source.Anidb, providerId);
+            return (ArmClient.Source.Anidb, providerId);
         }
 
         return (null, null);
@@ -50,19 +48,17 @@ public class SyncHelper {
     public static async Task<List<(Season Season, Sync.SyncAnimeMetadata Found)>> GetJellyfinSeasons(List<Sync.SyncAnimeMetadata> convertedWatchList,
         int providerId,
         Series series,
-        AnimeOfflineDatabaseHelpers.Source source,
+        ArmClient.Source source,
         ILogger logger,
-        ILoggerFactory loggerFactory,
-        IHttpClientFactory httpClientFactory,
-        IApplicationPaths applicationPaths) {
+        ArmClient arm,
+        AnimeListSource animeList) {
         List<(Season Season, Sync.SyncAnimeMetadata Found)> seasons = new List<(Season Season, Sync.SyncAnimeMetadata Found)>();
 
         List<AnimeListAnimeOfflineDatabaseCombo>? seasonIdsFromJellyfin = await GetSeasonIdsFromJellyfin(providerId,
             source,
             logger,
-            loggerFactory,
-            httpClientFactory,
-            applicationPaths);
+            arm,
+            animeList);
 
         if (seasonIdsFromJellyfin != null) {
             foreach (AnimeListAnimeOfflineDatabaseCombo animeListAnime in seasonIdsFromJellyfin) {
@@ -93,14 +89,13 @@ public class SyncHelper {
     /// </summary>
     /// <param name="providerId">ID of the provider.</param>
     /// <returns>List of season IDs.</returns>
-    public static async Task<List<AnimeListAnimeOfflineDatabaseCombo>?> GetSeasonIdsFromJellyfin(int providerId, AnimeOfflineDatabaseHelpers.Source source,
+    public static async Task<List<AnimeListAnimeOfflineDatabaseCombo>?> GetSeasonIdsFromJellyfin(int providerId, ArmClient.Source source,
         ILogger logger,
-        ILoggerFactory loggerFactory,
-        IHttpClientFactory httpClientFactory,
-        IApplicationPaths applicationPaths) {
-        var id = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(httpClientFactory.CreateClient(NamedClient.Default), logger, providerId, source);
+        ArmClient arm,
+        AnimeListSource animeList) {
+        var id = await arm.GetIds(providerId, source);
         if (id is { AniDb: { } }) {
-            AnimeListHelpers.AnimeListXml? animeListXml = await AnimeListHelpers.GetAnimeListFileContents(logger, loggerFactory, httpClientFactory, applicationPaths);
+            AnimeListHelpers.AnimeListXml? animeListXml = await animeList.Read();
             var seasons = AnimeListHelpers.ListAllSeasonOfAniDbSeries(id.AniDb.Value, animeListXml);
             List<AnimeListHelpers.AnimeListAnime> seasonsList;
             if (seasons != null) {
@@ -144,7 +139,7 @@ public class SyncHelper {
 
     public class AnimeListAnimeOfflineDatabaseCombo {
         public required AnimeListHelpers.AnimeListAnime AnimeListAnime { get; set; }
-        public AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? OfflineDatabaseResponse { get; set; }
+        public ArmClient.OfflineDatabaseResponse? OfflineDatabaseResponse { get; set; }
     }
 
     /// <summary>Which tracker list entries a sync reads. Its name must stay unique among the types the plugin's routes

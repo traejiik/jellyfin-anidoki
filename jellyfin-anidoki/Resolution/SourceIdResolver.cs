@@ -1,11 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Trackers;
-using MediaBrowser.Common.Configuration;
-using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using Microsoft.Extensions.Logging;
@@ -14,7 +11,7 @@ namespace jellyfin_anidoki.Resolution;
 
 /// <summary>Tracker IDs the ID databases give for a source, and the episode offset the anime list applies.</summary>
 /// <param name="AniDbOffset">The anime list's episode offset for this season, or null when it gave none.</param>
-public sealed record SourceIds(AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse Ids, int? AniDbOffset) {
+public sealed record SourceIds(ArmClient.OfflineDatabaseResponse Ids, int? AniDbOffset) {
     /// <summary>
     /// Movies have no season, so resolved IDs apply to them directly. Specials (season 0) keep using title search,
     /// which finds the OVA by name.
@@ -47,9 +44,7 @@ public sealed record SourceIds(AnimeOfflineDatabaseHelpers.OfflineDatabaseRespon
 }
 
 /// <summary>Looks up a source's tracker IDs through the ARM server and the anime list. Logs as its caller.</summary>
-/// <param name="animeList">The anime list's TMDB movie IDs; the shared index unless a test gives its own.</param>
-public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths,
-    ILoggerFactory loggerFactory, ILogger logger, AnimeListIndex? animeList = null) {
+public sealed class SourceIdResolver(ArmClient arm, AnimeListSource animeList, ILogger logger) {
     public async Task<SourceIds> Resolve(SyncSource source) {
         var episode = source.Item as Episode;
         // Diagnostics: prints exactly which provider IDs Jellyfin holds at
@@ -71,17 +66,17 @@ public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IAppl
         // An episode whose series cannot be found has no IDs to look up; title search still runs.
         Series? series = episode?.Series;
         if (episode != null && series == null)
-            return new SourceIds(new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), null);
+            return new SourceIds(new ArmClient.OfflineDatabaseResponse(), null);
 
-        AnimeListIndex index = animeList ?? AnimeListIndex.Shared;
+        AnimeListIndex index = animeList.Index;
         MovieAniDbCheck? movieCheck = source.Item is Movie movie ? MovieAniDbCheck.For(movie, index) : null;
-        AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? ids = null;
+        ArmClient.OfflineDatabaseResponse? ids = null;
         (int? aniDbId, int? episodeOffset) aniDbId = (null, null);
         if (source.Item.ProviderIds != null && source.FallbackAniListId is int retrievedAniListId) {
             logger.LogDebug("Looking up tracker IDs for AniList ID {AniListId}", retrievedAniListId);
-            ids = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(httpClientFactory.CreateClient(NamedClient.Default), logger, retrievedAniListId, AnimeOfflineDatabaseHelpers.Source.Anilist);
+            ids = await arm.GetIds(retrievedAniListId, ArmClient.Source.Anilist);
             if (ids is null) {
-                ids = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
+                ids = new ArmClient.OfflineDatabaseResponse {
                     Anilist = retrievedAniListId
                 };
                 logger.LogDebug("ARM has no IDs for AniList ID {AniListId}; using that ID alone", retrievedAniListId);
@@ -99,7 +94,7 @@ public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IAppl
             AnimeListHelpers.TryGetProviderId(source.Item.ProviderIds, "AniDB", out string? heldAniDbId);
             logger.LogWarning("AniDB ID {AniDbId} on {ItemName} belongs to another title in the anime list; not syncing by it until the movie's metadata is fixed",
                 heldAniDbId, source.Item.Name);
-            return new SourceIds(new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), null) { Problem = SourceIds.AniDbConflict };
+            return new SourceIds(new ArmClient.OfflineDatabaseResponse(), null) { Problem = SourceIds.AniDbConflict };
         } else if (movieCheck is { Verdict: MovieAniDbVerdict.Unconfirmed or MovieAniDbVerdict.NotListed } && source.IdsOnly) {
             logger.LogDebug("The anime list does not tie {ItemName}'s AniDB ID to its TMDB or IMDb ID; not using it in a Mixed library", source.Item.Name);
         } else if (episode != null
@@ -108,13 +103,13 @@ public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IAppl
                           AnimeListHelpers.HasProviderId(series.ProviderIds, "Anidb"))
                        : source.Item.ProviderIds != null &&
                          AnimeListHelpers.HasProviderId(source.Item.ProviderIds, "Anidb")) {
-            AnimeListHelpers.AnimeListXml? animeListXml = await AnimeListHelpers.GetAnimeListFileContents(logger, loggerFactory, httpClientFactory, applicationPaths);
+            AnimeListHelpers.AnimeListXml? animeListXml = await animeList.Read();
             aniDbId = await AnimeListHelpers.GetAniDbId(logger, source.Item, source.EpisodeNumber, source.SeasonNumber, animeListXml);
             if (aniDbId.aniDbId != null) {
                 logger.LogDebug("Looking up tracker IDs for AniDB ID {AniDbId}", aniDbId.aniDbId.Value);
-                ids = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(httpClientFactory.CreateClient(NamedClient.Default), logger, aniDbId.aniDbId.Value, AnimeOfflineDatabaseHelpers.Source.Anidb);
+                ids = await arm.GetIds(aniDbId.aniDbId.Value, ArmClient.Source.Anidb);
                 if (ids is null) {
-                    ids = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
+                    ids = new ArmClient.OfflineDatabaseResponse {
                         AniDb = aniDbId.aniDbId
                     };
                     logger.LogDebug("ARM has no IDs for AniDB ID {AniDbId}; using that ID alone", aniDbId.aniDbId.Value);
@@ -139,11 +134,11 @@ public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IAppl
             ids = await LookUpAniDb(movieAniDbId);
         }
 
-        return new SourceIds(ids ?? new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), aniDbId.episodeOffset);
+        return new SourceIds(ids ?? new ArmClient.OfflineDatabaseResponse(), aniDbId.episodeOffset);
     }
 
     /// <summary>A movie's tracker IDs by its AniDB ID; the AniDB ID alone when ARM has none.</summary>
-    private async Task<AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse> LookUpAniDb(int aniDbId) =>
-        await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(httpClientFactory.CreateClient(NamedClient.Default), logger, aniDbId, AnimeOfflineDatabaseHelpers.Source.Anidb)
-        ?? new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse { AniDb = aniDbId };
+    private async Task<ArmClient.OfflineDatabaseResponse> LookUpAniDb(int aniDbId) =>
+        await arm.GetIds(aniDbId, ArmClient.Source.Anidb)
+        ?? new ArmClient.OfflineDatabaseResponse { AniDb = aniDbId };
 }

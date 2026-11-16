@@ -143,7 +143,7 @@ public class SimklApiCalls {
         }
     }
 
-    public async Task<SimklIdLookupMedia?> GetAnimeByIdLookup(AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, string title) {
+    public async Task<SimklIdLookupMedia?> GetAnimeByIdLookup(ArmClient.OfflineDatabaseResponse ids, string title) {
         UrlBuilder url = new UrlBuilder {
             Base = $"{ApiBaseUrl}/search/id"
         };
@@ -225,10 +225,10 @@ public class SimklApiCalls {
         }
     }
 
-    public async Task<bool> UpdateAnime(int animeId, SimklStatus updateStatus, bool isShow, AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, int numberOfWatchedEpisodes) =>
+    public async Task<bool> UpdateAnime(int animeId, SimklStatus updateStatus, bool isShow, ArmClient.OfflineDatabaseResponse ids, int numberOfWatchedEpisodes) =>
         await UpdateAnimeReceipt(animeId, updateStatus, isShow, ids, numberOfWatchedEpisodes) != null;
 
-    internal async Task<UpdateAnimeStatusResponse?> UpdateAnimeReceipt(int animeId, SimklStatus updateStatus, bool isShow, AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, int numberOfWatchedEpisodes) {
+    internal async Task<UpdateAnimeStatusResponse?> UpdateAnimeReceipt(int animeId, SimklStatus updateStatus, bool isShow, ArmClient.OfflineDatabaseResponse ids, int numberOfWatchedEpisodes) {
         UrlBuilder url = new UrlBuilder {
             Base = $"{ApiBaseUrl}/sync/history"
         };

@@ -1,12 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Entities.Movies;
@@ -381,33 +378,6 @@ public class AnimeListHelpers {
             return null;
 
         return animeRows.Where(anime => anime.Tvdbid == foundXmlAnime.Tvdbid);
-    }
-
-    /// <summary>
-    /// Get the contents of the anime list file.
-    /// </summary>
-    /// <param name="logger">Logger.</param>
-    /// <returns></returns>
-    public static async Task<AnimeListXml?> GetAnimeListFileContents(ILogger logger, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths) {
-        UpdateAnimeList updateAnimeList = new UpdateAnimeList(httpClientFactory, loggerFactory, applicationPaths);
-
-        try {
-            FileInfo animeListXml = new FileInfo(updateAnimeList.Path);
-            if (!animeListXml.Exists) {
-                logger.LogInformation("The anime list was not found at {Path}; downloading it", updateAnimeList.Path);
-                if (await updateAnimeList.Update()) {
-                    logger.LogInformation("Downloaded the anime list to {Path}", updateAnimeList.Path);
-                }
-            }
-
-            using (var stream = File.OpenRead(updateAnimeList.Path)) {
-                var serializer = new XmlSerializer(typeof(AnimeListXml));
-                return (AnimeListXml?)serializer.Deserialize(stream);
-            }
-        } catch (Exception e) {
-            logger.LogError(e, "Could not read the anime list at {Path}; run the AniDoki Update Anime List task to download it again", updateAnimeList.Path);
-            return null;
-        }
     }
 
     [XmlRoot(ElementName = "anime")]

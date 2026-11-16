@@ -67,12 +67,12 @@ public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITra
         return userList;
     }
 
-    public Task<Anime?> GetAnime(AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, string title, bool getRelated = false) =>
+    public Task<Anime?> GetAnime(ArmClient.OfflineDatabaseResponse ids, string title, bool getRelated = false) =>
         Task.FromResult<Anime?>(null);
 
     public async Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status, bool? isRewatching = null,
         int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null, string? alternativeId = null,
-        AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? ids = null, bool? isShow = null) {
+        ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null) {
         KitsuUpdate.Status kitsuStatus = status switch {
             Status.Watching => KitsuUpdate.Status.current,
             Status.Completed or Status.Rewatching => isRewatching == true ? KitsuUpdate.Status.current : KitsuUpdate.Status.completed,

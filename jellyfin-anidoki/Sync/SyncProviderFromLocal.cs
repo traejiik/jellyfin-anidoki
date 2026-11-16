@@ -10,7 +10,6 @@ using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Trackers;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
@@ -27,7 +26,8 @@ public class SyncProviderFromLocal(
     IHttpClientFactory httpClientFactory,
     IServerApplicationHost serverApplicationHost,
     IHttpContextAccessor httpContextAccessor,
-    IApplicationPaths applicationPaths,
+    ArmClient arm,
+    AnimeListSource animeList,
     IMemoryCache memoryCache,
     IAsyncDelayer delayer,
     string userId,
@@ -51,7 +51,7 @@ public class SyncProviderFromLocal(
     }
 
     internal async Task SyncEpisodes(IReadOnlyList<Episode> targets, OperationContext operation) {
-        var pipeline = new SyncPipeline(libraryManager, loggerFactory, httpContextAccessor, serverApplicationHost, httpClientFactory, applicationPaths, memoryCache, delayer) {
+        var pipeline = new SyncPipeline(libraryManager, loggerFactory, httpContextAccessor, serverApplicationHost, httpClientFactory, arm, animeList, memoryCache, delayer) {
             ClientOverride = ClientOverride,
             WatchState = watchState,
             OnlyProvider = OnlyProvider
