@@ -40,7 +40,7 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
         // A Mixed library syncs a title only through its IDs. Annict and Shikimori match a search on the MAL ID, so they may still search with one.
         if (source.IdsOnly && !(tracker.Name is ApiName.Annict or ApiName.Shikimori && ids.Ids.MyAnimeList is > 0)) {
             logger.LogInformation("({Provider}) {Title} is in a Mixed library and has no known ID; not searching by title", tracker.Name, source.SearchTitle);
-            return new Unresolved("no-ids", new UnresolvedRecord("", source.SearchTitle ?? ""), None);
+            return new Unresolved(ids.Problem ?? "no-ids", new UnresolvedRecord("", source.SearchTitle ?? ""), None);
         }
         // Annict works differently to the other providers, so it always goes the traditional route.
         return await ByTitle(source, ids, tracker, chain, cancellationToken);

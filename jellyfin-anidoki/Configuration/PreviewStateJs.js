@@ -162,6 +162,7 @@ export const reasonLabel = (reason, kind) => (kind === 'NoChange' ? quietReasons
 // Why a season could not be matched, from the resolver's note.
 const notes = {
     'no-ids': 'The series has no tracker or AniDB IDs to search with', 'not-found': 'The tracker has no matching entry',
+    'anidb-conflict': 'The movie’s AniDB ID belongs to another title; fix its metadata in Jellyfin',
     'no-title-match': 'No entry’s title matched the series', 'no-special-match': 'No special or OVA on the tracker matched',
     'sequel-fetch-failed': 'The entry’s sequels could not be read from the tracker',
     'no-cour-covers-episode': 'None of the tracker’s parts of this series include this episode',
@@ -174,6 +175,7 @@ export const noteLabel = note => note ? notes[note] ?? note : '';
 // An unresolved row's reason in one line that names the tracker.
 const shortNotes = {
     'no-ids': tracker => `No IDs to search ${tracker} with`, 'not-found': tracker => `Not on ${tracker}`,
+    'anidb-conflict': () => 'Its AniDB ID belongs to another title',
     'no-title-match': tracker => `No title match on ${tracker}`, 'no-special-match': tracker => `No special or OVA match on ${tracker}`,
     'sequel-fetch-failed': tracker => `${tracker}’s sequels couldn’t be read`, 'no-cour-covers-episode': tracker => `No ${tracker} part covers this episode`,
     'past-entry-end': tracker => `Past the ${tracker} entry’s last episode`, 'offset-not-representable': tracker => `Can’t place this episode on ${tracker}`,

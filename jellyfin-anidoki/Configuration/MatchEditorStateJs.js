@@ -269,6 +269,7 @@ export const effectiveBadge = entry => entry.personal ? `Personal r${entry.perso
 const automaticReasons = {
     'offset-not-representable': 'it uses an episode offset a match cannot hold',
     'no-ids': 'the season has no IDs to find it by',
+    'anidb-conflict': 'its AniDB ID belongs to another title',
     'no-title-match': 'no entry’s title matches',
     'sequel-fetch-failed': 'a sequel could not be read',
     'no-cour-covers-episode': 'no part of the series covers this episode'

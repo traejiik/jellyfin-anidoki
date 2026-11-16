@@ -460,6 +460,15 @@ public class AutomaticResolverTests {
     }
 
     [Test]
+    public async Task IdsOnlyReportsWhyTheIdsWereRefused() {
+        Searching(ApiName.AniList, [Entry(600, Show, 12)]);
+
+        var resolution = await Resolve(ApiName.AniList, Episode(1, 3) with { IdsOnly = true }, Ids() with { Problem = SourceIds.AniDbConflict });
+
+        AssertUnresolved(resolution, "anidb-conflict", new UnresolvedRecord("", Show));
+    }
+
+    [Test]
     public async Task IdsOnlyStillResolvesByAnId() {
         var resolution = await Resolve(ApiName.AniList, Episode(1, 3) with { IdsOnly = true }, AllIds(), Entry(SyncHarness.EntryId, Show, 12));
 
