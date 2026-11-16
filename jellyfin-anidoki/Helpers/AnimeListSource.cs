@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
@@ -60,9 +61,13 @@ public sealed class AnimeListSource {
                 }
             }
 
+            long started = Stopwatch.GetTimestamp();
             using (var stream = File.OpenRead(path)) {
                 var serializer = new XmlSerializer(typeof(AnimeListHelpers.AnimeListXml));
-                return (AnimeListHelpers.AnimeListXml?)serializer.Deserialize(stream);
+                var list = (AnimeListHelpers.AnimeListXml?)serializer.Deserialize(stream);
+                if (_logger.IsEnabled(LogLevel.Debug))
+                    _logger.LogDebug("Read the anime list in {ElapsedMs} ms", LogText.ElapsedMs(started));
+                return list;
             }
         } catch (Exception e) {
             _logger.LogError(e, "Could not read the anime list at {Path}; run the AniDoki Update Anime List task to download it again", path);
@@ -75,6 +80,14 @@ public sealed class AnimeListSource {
     /// </summary>
     /// <returns>False when the repository could not be asked or the new list could not be downloaded.</returns>
     public async Task<bool> Update() {
+        long started = Stopwatch.GetTimestamp();
+        bool updated = await UpdateFile();
+        if (_logger.IsEnabled(LogLevel.Debug))
+            _logger.LogDebug("Checked the anime list for an update in {ElapsedMs} ms", LogText.ElapsedMs(started));
+        return updated;
+    }
+
+    private async Task<bool> UpdateFile() {
         string path = Path;
         var client = _httpClientFactory.CreateClient(NamedClient.Default);
         using var response = await client.GetAsync("https://api.github.com/repos/Anime-Lists/anime-lists/contents/anime-list-full.xml");

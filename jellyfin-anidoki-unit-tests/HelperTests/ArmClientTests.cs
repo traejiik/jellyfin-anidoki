@@ -100,6 +100,116 @@ public class ArmClientTests {
         Assert.That(logs.Entries.Select(entry => entry.Category).Distinct(), Is.EqualTo(new[] { typeof(ArmClient).FullName }));
     }
 
+    private const string Ids = "{\"anidb\":10,\"anilist\":20,\"myanimelist\":30,\"kitsu\":40}";
+
+    private static ArmClient Cached(Scripted handler, TimeProvider? clock = null, PluginConfiguration? configuration = null, int maxEntries = 10_000) {
+        PluginConfiguration settings = configuration ?? new PluginConfiguration();
+        return new ArmClient(Factory(handler), NullLogger<ArmClient>.Instance, () => settings, clock, maxEntries);
+    }
+
+    [Test]
+    public async Task ASecondLookupOfTheSameIdIsAnsweredFromTheCache() {
+        var handler = new Scripted(Ids);
+        ArmClient arm = Cached(handler);
+
+        ArmClient.OfflineDatabaseResponse? first = await arm.GetIds(5, ArmClient.Source.Anilist);
+        ArmClient.OfflineDatabaseResponse? second = await arm.GetIds(5, ArmClient.Source.Anilist);
+
+        Assert.That(handler.Requests, Has.Count.EqualTo(1));
+        Assert.That(second, Is.Not.Null);
+        Assert.That((second!.AniDb, second.Anilist, second.MyAnimeList, second.Kitsu), Is.EqualTo((first!.AniDb, first.Anilist, first.MyAnimeList, first.Kitsu)));
+    }
+
+    [Test]
+    public async Task AnotherIdSourceOrServerIsAskedAgain() {
+        var handler = new Scripted(Ids);
+        var configuration = new PluginConfiguration();
+        ArmClient arm = Cached(handler, configuration: configuration);
+
+        await arm.GetIds(5, ArmClient.Source.Anilist);
+        await arm.GetIds(6, ArmClient.Source.Anilist);
+        await arm.GetIds(5, ArmClient.Source.Kitsu);
+        configuration.armServerBaseUrl = "https://arm.other.test";
+        await arm.GetIds(5, ArmClient.Source.Anilist);
+
+        Assert.That(handler.Requests.Select(uri => uri.ToString()), Is.EqualTo(new[] {
+            "https://arm.haglund.dev/api/v2/ids?source=anilist&id=5",
+            "https://arm.haglund.dev/api/v2/ids?source=anilist&id=6",
+            "https://arm.haglund.dev/api/v2/ids?source=kitsu&id=5",
+            "https://arm.other.test/api/v2/ids?source=anilist&id=5"
+        }));
+    }
+
+    [Test]
+    public async Task ACachedAnswerExpiresAfterAnHour() {
+        var handler = new Scripted(Ids);
+        var clock = new Operations.MutableTime(new DateTimeOffset(2026, 11, 16, 12, 0, 0, TimeSpan.Zero));
+        ArmClient arm = Cached(handler, clock);
+
+        await arm.GetIds(5, ArmClient.Source.Anilist);
+        clock.Now += TimeSpan.FromHours(1) - TimeSpan.FromSeconds(1);
+        await arm.GetIds(5, ArmClient.Source.Anilist);
+        Assert.That(handler.Requests, Has.Count.EqualTo(1));
+
+        clock.Now += TimeSpan.FromSeconds(1);
+        await arm.GetIds(5, ArmClient.Source.Anilist);
+        Assert.That(handler.Requests, Has.Count.EqualTo(2));
+    }
+
+    /// <summary>Fail-closed: a failed or empty answer is never kept, so the next lookup asks again and only a later success is cached.</summary>
+    [TestCase("500")]
+    [TestCase("throw")]
+    [TestCase("not json")]
+    [TestCase("null")]
+    public async Task AFailedLookupIsNotCached(string failure) {
+        var handler = new Scripted(failure, failure, Ids);
+        ArmClient arm = Cached(handler);
+
+        Assert.That(await arm.GetIds(5, ArmClient.Source.Anilist), Is.Null);
+        Assert.That(await arm.GetIds(5, ArmClient.Source.Anilist), Is.Null);
+        Assert.That(await arm.GetIds(5, ArmClient.Source.Anilist), Is.Not.Null);
+        Assert.That((await arm.GetIds(5, ArmClient.Source.Anilist))?.AniDb, Is.EqualTo(10));
+
+        Assert.That(handler.Requests, Has.Count.EqualTo(3));
+    }
+
+    [Test]
+    public async Task ChangingAnAnswerDoesNotChangeTheCache() {
+        ArmClient arm = Cached(new Scripted(Ids));
+
+        ArmClient.OfflineDatabaseResponse? first = await arm.GetIds(5, ArmClient.Source.Anilist);
+        first!.AniDb = 999;
+        ArmClient.OfflineDatabaseResponse? second = await arm.GetIds(5, ArmClient.Source.Anilist);
+
+        Assert.That(second!.AniDb, Is.EqualTo(10));
+        Assert.That(second, Is.Not.SameAs(first));
+    }
+
+    [Test]
+    public async Task TheCacheStaysWithinItsBound() {
+        ArmClient arm = Cached(new Scripted(Ids), maxEntries: 2);
+
+        for (int id = 1; id <= 5; id++)
+            await arm.GetIds(id, ArmClient.Source.Anilist);
+
+        Assert.That(arm.CachedCount, Is.LessThanOrEqualTo(2));
+    }
+
+    /// <summary>Answers each request with the next scripted reply, repeating the last: a body, "500", or "throw".</summary>
+    private sealed class Scripted(params string[] replies) : HttpMessageHandler {
+        public List<Uri> Requests { get; } = new();
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) {
+            Requests.Add(request.RequestUri!);
+            string reply = replies[Math.Min(Requests.Count - 1, replies.Length - 1)];
+            return reply switch {
+                "throw" => throw new HttpRequestException("connection refused"),
+                "500" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError) { Content = new StringContent("") }),
+                _ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(reply) })
+            };
+        }
+    }
+
     private sealed class Recording(List<Uri> requests) : HttpMessageHandler {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) {
             requests.Add(request.RequestUri!);

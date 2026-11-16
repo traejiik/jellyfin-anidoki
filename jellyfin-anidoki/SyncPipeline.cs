@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -85,7 +86,10 @@ public class SyncPipeline {
                 return;
             }
 
+            long started = Stopwatch.GetTimestamp();
             await pass.Executor.Execute(pass.Resolution!, cancellationToken);
+            if (_logger.IsEnabled(LogLevel.Debug))
+                _logger.LogDebug("({Provider}) Planned and applied {ItemName} in {ElapsedMs} ms", pass.Tracker.Name, e.Name, LogText.ElapsedMs(started));
         }, cancellationToken);
 
     /// <summary>
@@ -131,7 +135,10 @@ public class SyncPipeline {
             }
             syncSource = syncSource with { IdsOnly = scope == LibraryScope.IdsOnly };
 
+            long idsStarted = Stopwatch.GetTimestamp();
             SourceIds sourceIds = await _sourceIds.Resolve(syncSource);
+            if (_logger.IsEnabled(LogLevel.Debug))
+                _logger.LogDebug("Looked up tracker IDs for {ItemName} in {ElapsedMs} ms", e.Name, LogText.ElapsedMs(idsStarted));
             _apiIds = sourceIds.Ids;
             var rules = new PlanRules(userConfig.PlanToWatchOnly, userConfig.RewatchCompleted);
             ISourceResolver resolver = new MatchResolver(_resolver, new MatchStore(Plugin.Instance!.Database, _clock), userId,
@@ -150,8 +157,11 @@ public class SyncPipeline {
                 ITrackerProvider tracker = _clients.Adapt(userApiAuth.Name, client);
                 var executor = new Executor(tracker, rules, policy, collector, _clock, _logger, new ActionSource(video.Id, syncSource.EpisodeNumber));
                 SourceResolution resolution;
+                long resolveStarted = Stopwatch.GetTimestamp();
                 try {
                     resolution = await resolver.Resolve(syncSource, sourceIds, tracker, cancellationToken);
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("({Provider}) Resolved {ItemName} in {ElapsedMs} ms", userApiAuth.Name, e.Name, LogText.ElapsedMs(resolveStarted));
                 } catch (TrackerFailureException failure) {
                     // continue, not rethrow: one provider's failure must not stop the providers after it
                     await handle(new ProviderPass(tracker, executor, syncSource, null, failure));
