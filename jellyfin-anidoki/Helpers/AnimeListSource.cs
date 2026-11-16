@@ -73,6 +73,7 @@ public sealed class AnimeListSource {
     /// <summary>
     /// Update the anime list file to the latest version.
     /// </summary>
+    /// <returns>False when the repository could not be asked or the new list could not be downloaded.</returns>
     public async Task<bool> Update() {
         string path = Path;
         var client = _httpClientFactory.CreateClient(NamedClient.Default);
@@ -89,10 +90,11 @@ public sealed class AnimeListSource {
             }
 
             if (FileSizeHasChanged(path, formattedResponse.Size)) {
-                await GetLatestAnimeList(client, path, formattedResponse.DownloadUrl);
+                return await GetLatestAnimeList(client, path, formattedResponse.DownloadUrl);
             }
         } else {
             _logger.LogWarning("Could not update the anime list; the repository returned {StatusCode}", (int)response.StatusCode);
+            return false;
         }
 
         return true;
@@ -116,7 +118,8 @@ public sealed class AnimeListSource {
     /// <param name="httpClient">HTTP client.</param>
     /// <param name="path">Where to write the file.</param>
     /// <param name="downloadUrl">Download URL of the anime list file.</param>
-    private async Task GetLatestAnimeList(HttpClient httpClient, string path, string? downloadUrl) {
+    /// <returns>Whether the file was written.</returns>
+    private async Task<bool> GetLatestAnimeList(HttpClient httpClient, string path, string? downloadUrl) {
         try {
             Directory.CreateDirectory(path.EndsWith(FileName) ? path.Replace(FileName, "") : path);
             await using (var response = await httpClient.GetStreamAsync(downloadUrl)) {
@@ -125,8 +128,10 @@ public sealed class AnimeListSource {
                     await response.CopyToAsync(fileStream);
                 }
             }
+            return true;
         } catch (Exception e) {
             _logger.LogError(e, "Could not download the anime list");
+            return false;
         }
     }
 

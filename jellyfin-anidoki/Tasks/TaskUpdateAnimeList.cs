@@ -19,12 +19,6 @@ public class TaskUpdateAnimeList : IScheduledTask {
         _animeList = animeList;
     }
 
-    public Task Execute(CancellationToken cancellationToken, IProgress<double> progress) {
-        return Task.Run(async () => {
-            await _animeList.Update();
-        }, cancellationToken);
-    }
-
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers() {
         var trigger = new TaskTriggerInfo {
             Type = TaskTriggerInfoType.IntervalTrigger,

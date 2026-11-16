@@ -54,11 +54,35 @@ public class AnimeListSourceTests {
     }
 
     [Test]
+    public async Task AnUpdateTheRepositoryRefusesReportsFailure() {
+        bool updated = await Source((HttpStatusCode.InternalServerError, "")).Update();
+
+        Assert.That(updated, Is.False);
+    }
+
+    [Test]
+    public async Task AnUpdateWhoseDownloadFailsReportsFailure() {
+        bool updated = await Source((HttpStatusCode.OK, Listing), (HttpStatusCode.InternalServerError, "")).Update();
+
+        Assert.That(updated, Is.False);
+        Assert.That(System.IO.File.Exists(File), Is.False);
+    }
+
+    [Test]
     public async Task AnUpdateDownloadsAChangedList() {
         bool updated = await Source((HttpStatusCode.OK, Listing), (HttpStatusCode.OK, List)).Update();
 
         Assert.That(updated, Is.True);
         Assert.That(await System.IO.File.ReadAllTextAsync(File), Is.EqualTo(List));
+    }
+
+    [Test]
+    public async Task AMissingListThatCannotBeDownloadedIsNotReportedAsDownloaded() {
+        var list = await Source((HttpStatusCode.InternalServerError, "")).Read();
+
+        Assert.That(list, Is.Null);
+        Assert.That(_logs.At(LogLevel.Information).Where(line => line.StartsWith("Downloaded the anime list")), Is.Empty);
+        Assert.That(_logs.At(LogLevel.Error), Has.Length.EqualTo(1));
     }
 
     [Test]
