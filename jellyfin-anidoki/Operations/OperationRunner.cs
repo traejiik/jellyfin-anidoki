@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -90,11 +91,20 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
         CancellationTokenSource cancellation, TaskCompletionSource completion) {
         var context = new OperationContext(id, userId, store, logger, cancellation.Token);
         IDisposable? lease = null;
+        IDisposable? scope = null;
         try {
-            // Return to the caller (often an event handler) before any work starts.
+            // Return to the caller (often an event handler) before any work starts. The scope opens after this, so it never reaches the caller.
             await Task.Yield();
+            // Every line written while this runs, by any class, carries these. The stock log templates do not print scopes,
+            // so the operation's own started and finished lines still name it.
+            scope = logger.BeginScope(new Dictionary<string, object> {
+                ["OperationId"] = id,
+                ["OperationKind"] = kind,
+                ["UserId"] = userId,
+            });
             lease = await gate;
             cancellation.Token.ThrowIfCancellationRequested();
+            logger.LogDebug("{OperationKind} {OperationId} started for user {UserId}", kind, id, userId);
             store.MarkRunning(id);
             await run(context);
             OperationState state = context.Result ?? OperationStates.FromOutcomes(context.Outcomes);
@@ -115,6 +125,7 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
             _active.TryRemove(id, out _);
             cancellation.Dispose();
             completion.TrySetResult();
+            scope?.Dispose();
         }
     }
 

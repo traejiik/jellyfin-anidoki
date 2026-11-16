@@ -112,6 +112,48 @@ AniDōki is designed for stock Jellyfin 12.2 and works with any theme: its pages
 
 Downgrading from 1.5.0 to an earlier version pauses syncing until you upgrade again: 1.5.0 adds to AniDōki's database, and earlier versions refuse a database newer than they know. Nothing is deleted.
 
+## Troubleshooting
+
+### Where the logs are
+
+Open **Logs** in Jellyfin's admin dashboard, or read the files named `log_yyyyMMdd.log` in Jellyfin's log folder (`/config/log` in the official Docker image; see [Jellyfin's configuration docs](https://jellyfin.org/docs/general/administration/configuration/) for other installs). AniDōki's lines are the ones whose source starts with `jellyfin_anidoki`.
+
+Each sync, preview, playback update and manual confirmation is an operation. By default AniDōki writes one line per result and one when the operation finishes:
+
+```text
+[2026-11-16 01:17:20.241 +00:00] [INF] [9] jellyfin_anidoki.Operations.OperationRunner: PreviewFromTrackers ae39d23a-6331-4704-9539-80c61e122cf1 finished as Succeeded
+```
+
+The log file writes text values in quotes and tracker names and states without them.
+
+### Turning on AniDōki's detailed log
+
+To see every step AniDōki takes, create a file named `logging.json` next to `logging.default.json` in Jellyfin's config folder (`/config/config` in the official Docker image) with:
+
+```json
+{
+    "Serilog": {
+        "MinimumLevel": {
+            "Override": {
+                "jellyfin_anidoki": "Debug"
+            }
+        }
+    }
+}
+```
+
+Then restart Jellyfin. Only AniDōki's lines become more detailed; the rest of Jellyfin logs as before. Each operation now starts with a line such as `SyncFromTrackers ea09840b-… started for user d468bb03-…`, and the lines up to its `finished as` line belong to it. The detailed log is long, so delete the file and restart Jellyfin again once you are done.
+
+### Reporting a problem
+
+When you open an issue, include:
+
+- the AniDōki version (Settings > Admin Dashboard > Plugins; a development build looks like `1.7.0.12`) and the Jellyfin version;
+- the tracker involved, what you did and roughly when;
+- the AniDōki lines from that operation, with the detailed log turned on if you can reproduce it.
+
+AniDōki never writes tokens or passwords to the log, but check the excerpt for anything from other plugins before posting it publicly.
+
 ## Build
 
 You need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), Python 3 and git.
