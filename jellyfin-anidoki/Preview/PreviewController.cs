@@ -38,7 +38,7 @@ public sealed class PreviewController(OperationRunner runner, OperationStore sto
 
     [HttpPost]
     public ActionResult<OperationStarted> Start([FromQuery] Guid userId, [FromQuery] SyncAction syncAction, [FromQuery] string? provider,
-        [FromQuery] SyncHelper.Status status = SyncHelper.Status.Both) {
+        [FromQuery] SyncHelper.StatusFilter status = SyncHelper.StatusFilter.Both) {
         if (userId == Guid.Empty || users.GetUserById(userId) == null)
             return BadRequest("Select an existing Jellyfin user.");
         bool inbound = syncAction == SyncAction.UpdateJellyfin;
@@ -137,7 +137,7 @@ public sealed class PreviewController(OperationRunner runner, OperationStore sto
                 return Conflict(Refresh);
             Func<OperationContext, Task> run = inbound
                 ? new InboundApply(new Sync(httpClientFactory, loggerFactory, serverApplicationHost, httpContextAccessor, users, library,
-                    applicationPaths, userData, memoryCache, new Delayer(), chosen[0].Provider, SyncHelper.Status.Both), library, users, userData,
+                    applicationPaths, userData, memoryCache, new Delayer(), chosen[0].Provider, SyncHelper.StatusFilter.Both), library, users, userData,
                     loggerFactory, preview.UserId, chosen).Run
                 : new PreviewApply(library, loggerFactory, httpClientFactory, serverApplicationHost, httpContextAccessor, memoryCache,
                     new Delayer(), matches, watchState, preview.UserId, chosen).Run;
