@@ -106,7 +106,7 @@ public static class LibraryFilter {
             return false;
         if (MovieAniDbCheck.For(film, animeList) is { } check)
             return check.Confirms;
-        return AnimeListHelpers.TryGetProviderId(film.ProviderIds, "Tmdb", out string tmdbId) && animeList.AniDbIdForMovie(tmdbId) != null;
+        return AnimeListHelpers.TryGetProviderId(film.ProviderIds, "Tmdb", out string? tmdbId) && animeList.AniDbIdForMovie(tmdbId) != null;
     }
 
     /// <summary>The per-user filter used before 1.6.0, unchanged. Removed with LibraryToCheck in 2.0.0.</summary>

@@ -1,4 +1,3 @@
-#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -46,7 +45,7 @@ public class Sync {
     private int _apiTimeOutLength = 2000;
 
     /// <summary>Tests set this to substitute an in-memory tracker list; production leaves it null so the real client is built.</summary>
-    internal Func<ApiName, UserConfig, ITrackerListSource> ListSourceOverride { get; set; }
+    internal Func<ApiName, UserConfig?, ITrackerListSource>? ListSourceOverride { get; set; }
 
     public Sync(IHttpClientFactory httpClientFactory,
         ILoggerFactory loggerFactory,
@@ -87,7 +86,7 @@ public class Sync {
             return;
         }
 
-        InboundPlanResult plan = await Plan(Guid.Parse(userId), operation);
+        InboundPlanResult? plan = await Plan(Guid.Parse(userId), operation);
         if (plan == null) {
             _logger.LogWarning("({Provider}) The tracker returned no anime for user {UserId}; check that the account is linked and its list is not empty", _apiName, userId);
             operation.Result = OperationState.NoChange;
@@ -95,9 +94,12 @@ public class Sync {
             return;
         }
 
-        User user = _userManager.GetUserById(Guid.Parse(userId));
-        foreach (InboundSeasonPlan season in plan.Seasons)
-            Apply(user, season);
+        // PlanLibrary plans no season for a user Jellyfin does not know, so a missing user marks nothing.
+        User? user = _userManager.GetUserById(Guid.Parse(userId));
+        if (user != null) {
+            foreach (InboundSeasonPlan season in plan.Seasons)
+                Apply(user, season);
+        }
         operation.Result = OperationState.Succeeded;
         operation.Message = plan.EntryCount == 1 ? "Checked 1 tracker entry." : $"Checked {plan.EntryCount} tracker entries.";
     }
@@ -107,9 +109,9 @@ public class Sync {
     /// </summary>
     /// <param name="userId">ID of the user to get the anime list of.</param>
     /// <returns>Users' provider anime list.</returns>
-    private async Task<List<Anime>> GetAnimeList(string userId) {
+    private async Task<List<Anime>?> GetAnimeList(string userId) {
         UserConfig config = Plugin.Instance.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == Guid.Parse(userId));
-        ITrackerListSource source = ListSourceOverride?.Invoke(_apiName, config) ?? _apiName switch {
+        ITrackerListSource? source = ListSourceOverride?.Invoke(_apiName, config) ?? _apiName switch {
             ApiName.Mal => new MalTrackerClient(new MalApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config)),
             ApiName.AniList => new AniListTrackerClient(new AniListApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config)),
             ApiName.Kitsu => new KitsuTrackerClient(new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, config)),
@@ -118,7 +120,7 @@ public class Sync {
         if (source == null)
             return null;
 
-        MalApiCalls.User user = new MalApiCalls.User();
+        MalApiCalls.User? user = new MalApiCalls.User();
         // MAL's list needs no user ID; AniList and Kitsu do.
         if (_apiName is ApiName.AniList or ApiName.Kitsu) {
             user = await source.GetUser();
@@ -134,8 +136,8 @@ public class Sync {
             case SyncHelper.Status.Watching:
                 return await source.GetAnimeList(Status.Watching, user?.Id);
             case SyncHelper.Status.Both:
-                List<Anime> completed = await source.GetAnimeList(Status.Completed, user?.Id);
-                List<Anime> watching = await source.GetAnimeList(Status.Watching, user?.Id);
+                List<Anime>? completed = await source.GetAnimeList(Status.Completed, user?.Id);
+                List<Anime>? watching = await source.GetAnimeList(Status.Watching, user?.Id);
                 if (completed != null && watching != null) {
                     return completed.Concat(watching).ToList();
                 }
@@ -150,7 +152,7 @@ public class Sync {
     /// Reads the tracker list and the user's library and decides what to mark, without marking anything. Null when the
     /// tracker gave no list. The preview runs this alone; <see cref="SyncFromProvider"/> applies what it returns.
     /// </summary>
-    internal async Task<InboundPlanResult> Plan(Guid userId, OperationContext operation) {
+    internal async Task<InboundPlanResult?> Plan(Guid userId, OperationContext operation) {
         var completedList = await GetAnimeList(userId.ToString());
         if (completedList == null)
             return null;
@@ -189,7 +191,7 @@ public class Sync {
     }
 
     /// <summary>Reads the tracker list for the statuses this sync was built with. Null when the tracker gave none.</summary>
-    internal Task<List<Anime>> ReadList(Guid userId) => GetAnimeList(userId.ToString());
+    internal Task<List<Anime>?> ReadList(Guid userId) => GetAnimeList(userId.ToString());
 
     private void Apply(User user, InboundSeasonPlan plan) {
         if (plan.SeasonIgnored) {
@@ -230,7 +232,8 @@ public class Sync {
     /// <param name="completedDate">Played date.</param>
     /// <returns>User item data.</returns>
     private UserItemData SetUserData(User user, BaseItem itemToBeUpdated, DateTime? completedDate) {
-        var userItemData = _userDataManager.GetUserData(user, itemToBeUpdated);
+        // Jellyfin creates the user data row when it reads one, so a null here is unexpected; it stays an exception, which the operation reports.
+        var userItemData = _userDataManager.GetUserData(user, itemToBeUpdated)!;
         userItemData.Played = true;
         if (completedDate != null) {
             userItemData.LastPlayedDate = completedDate.Value;
@@ -249,7 +252,8 @@ public class Sync {
         var unresolved = new List<InboundUnresolved>();
         for (var i = 0; i < animeList.Count; i++) {
             operation.ReportProgress(i, animeList.Count);
-            _logger.LogDebug("({Provider}) Looking up IDs for tracker entry {EntryId} ({Title})", _apiName, animeList[i].Id, animeList[i].Title);
+            Anime entry = animeList[i];
+            _logger.LogDebug("({Provider}) Looking up IDs for tracker entry {EntryId} ({Title})", _apiName, entry.Id, entry.Title);
             var ids = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(_httpClientFactory.CreateClient(NamedClient.Default), _logger, animeList[i].Id, AnimeOfflineDatabaseHelpers.MapFromApiName(_apiName));
             if (ids?.AniDb == null) {
                 _logger.LogInformation("({Provider}) {Title} maps to no Jellyfin season; no AniDB ID is known for tracker entry {EntryId}", _apiName, animeList[i].Title, animeList[i].Id);
@@ -257,8 +261,8 @@ public class Sync {
                 continue;
             }
 
-            AnimeListHelpers.AnimeListXml animeListXml = await AnimeListHelpers.GetAnimeListFileContents(_logger, _loggerFactory, _httpClientFactory, _applicationPaths);
-            AnimeListHelpers.AnimeListAnime season = AnimeListHelpers.GetAniDbSeason(ids.AniDb.Value, animeListXml);
+            AnimeListHelpers.AnimeListXml? animeListXml = await AnimeListHelpers.GetAnimeListFileContents(_logger, _loggerFactory, _httpClientFactory, _applicationPaths);
+            AnimeListHelpers.AnimeListAnime? season = AnimeListHelpers.GetAniDbSeason(ids.AniDb.Value, animeListXml);
             if (season == null || (!int.TryParse(season.Defaulttvdbseason, out var seasonNumber) && season.Defaulttvdbseason != "a")) {
                 _logger.LogInformation("({Provider}) {Title} maps to no Jellyfin season; the anime list has no season for AniDB ID {AniDbId}", _apiName, animeList[i].Title, ids.AniDb.Value);
                 unresolved.Add(new InboundUnresolved(animeList[i], "no-season"));
@@ -267,8 +271,8 @@ public class Sync {
             }
 
             int episodesWatched;
-            if ((animeList[i].MyListStatus != null && animeList[i].MyListStatus.NumEpisodesWatched != 0)) {
-                episodesWatched = int.TryParse(season.Episodeoffset, out int offset) ? animeList[i].MyListStatus.NumEpisodesWatched + offset : animeList[i].MyListStatus.NumEpisodesWatched;
+            if (entry.MyListStatus is { NumEpisodesWatched: not 0 } listStatus) {
+                episodesWatched = int.TryParse(season.Episodeoffset, out int offset) ? listStatus.NumEpisodesWatched + offset : listStatus.NumEpisodesWatched;
             } else {
                 episodesWatched = -1;
             }
@@ -305,10 +309,10 @@ public class Sync {
 
 
     public class SyncAnimeMetadata {
-        public AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids { get; set; }
+        public AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? ids { get; set; }
         public int episodesWatched { get; set; }
         public int season { get; set; }
         public DateTime? completedAt { get; set; }
-        public Anime entry { get; set; }
+        public required Anime entry { get; set; }
     }
 }

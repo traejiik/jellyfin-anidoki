@@ -90,13 +90,13 @@ public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IAppl
             }
         } else if (movieCheck is { Verdict: MovieAniDbVerdict.Agrees or MovieAniDbVerdict.Replaced, AniDbId: int checkedAniDbId }) {
             if (movieCheck.Verdict == MovieAniDbVerdict.Replaced) {
-                AnimeListHelpers.TryGetProviderId(source.Item.ProviderIds, "AniDB", out string heldAniDbId);
+                AnimeListHelpers.TryGetProviderId(source.Item.ProviderIds, "AniDB", out string? heldAniDbId);
                 logger.LogInformation("The anime list gives {ItemName}'s TMDB ID AniDB ID {ListAniDbId}, not the {AniDbId} Jellyfin holds; using the anime list's",
                     source.Item.Name, checkedAniDbId, heldAniDbId);
             }
             ids = await LookUpAniDb(checkedAniDbId);
         } else if (movieCheck is { Verdict: MovieAniDbVerdict.Conflicts }) {
-            AnimeListHelpers.TryGetProviderId(source.Item.ProviderIds, "AniDB", out string heldAniDbId);
+            AnimeListHelpers.TryGetProviderId(source.Item.ProviderIds, "AniDB", out string? heldAniDbId);
             logger.LogWarning("AniDB ID {AniDbId} on {ItemName} belongs to another title in the anime list; not syncing by it until the movie's metadata is fixed",
                 heldAniDbId, source.Item.Name);
             return new SourceIds(new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), null) { Problem = SourceIds.AniDbConflict };
@@ -108,7 +108,7 @@ public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IAppl
                           AnimeListHelpers.HasProviderId(series.ProviderIds, "Anidb"))
                        : source.Item.ProviderIds != null &&
                          AnimeListHelpers.HasProviderId(source.Item.ProviderIds, "Anidb")) {
-            AnimeListHelpers.AnimeListXml animeListXml = await AnimeListHelpers.GetAnimeListFileContents(logger, loggerFactory, httpClientFactory, applicationPaths);
+            AnimeListHelpers.AnimeListXml? animeListXml = await AnimeListHelpers.GetAnimeListFileContents(logger, loggerFactory, httpClientFactory, applicationPaths);
             aniDbId = await AnimeListHelpers.GetAniDbId(logger, source.Item, source.EpisodeNumber, source.SeasonNumber, animeListXml);
             if (aniDbId.aniDbId != null) {
                 logger.LogDebug("Looking up tracker IDs for AniDB ID {AniDbId}", aniDbId.aniDbId.Value);
@@ -131,7 +131,7 @@ public sealed class SourceIdResolver(IHttpClientFactory httpClientFactory, IAppl
                 }
             }
         } else if (source.IdsOnly && source.Kind == MediaKind.Movie
-                   && AnimeListHelpers.TryGetProviderId(source.Item.ProviderIds, "Tmdb", out string tmdbId)
+                   && AnimeListHelpers.TryGetProviderId(source.Item.ProviderIds, "Tmdb", out string? tmdbId)
                    && index.AniDbIdForMovie(tmdbId) is int movieAniDbId) {
             // A Mixed library's movie known only by TMDB: the anime list, which the library filter also checked,
             // maps it to AniDB. Other libraries keep resolving such movies by title, as before.

@@ -35,12 +35,12 @@ public sealed record MovieAniDbCheck(MovieAniDbVerdict Verdict, int? AniDbId) {
 
     /// <returns>The check of the movie's AniDB ID, or null when it has none that parses.</returns>
     public static MovieAniDbCheck? For(Movie movie, AnimeListIndex animeList) {
-        if (!AnimeListHelpers.TryGetProviderId(movie.ProviderIds, "AniDB", out string raw) || !int.TryParse(raw, out int aniDbId))
+        if (!AnimeListHelpers.TryGetProviderId(movie.ProviderIds, "AniDB", out string? raw) || !int.TryParse(raw, out int aniDbId))
             return null;
         if (movie.ProviderIds.Keys.Any(key => key.StartsWith("Shoko", StringComparison.OrdinalIgnoreCase)))
             return new MovieAniDbCheck(MovieAniDbVerdict.Trusted, aniDbId);
-        AnimeListHelpers.TryGetProviderId(movie.ProviderIds, "Tmdb", out string tmdbId);
-        AnimeListHelpers.TryGetProviderId(movie.ProviderIds, "Imdb", out string imdbId);
+        AnimeListHelpers.TryGetProviderId(movie.ProviderIds, "Tmdb", out string? tmdbId);
+        AnimeListHelpers.TryGetProviderId(movie.ProviderIds, "Imdb", out string? imdbId);
         return animeList.CheckMovie(aniDbId, tmdbId, imdbId);
     }
 }
