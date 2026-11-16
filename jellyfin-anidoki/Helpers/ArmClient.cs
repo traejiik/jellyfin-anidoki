@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
@@ -30,6 +31,7 @@ public sealed class ArmClient(IHttpClientFactory httpClientFactory, ILogger<ArmC
 
         HttpClient httpClient = httpClientFactory.CreateClient(NamedClient.Default);
         HttpResponseMessage response;
+        long started = Stopwatch.GetTimestamp();
         try {
             response = await httpClient.GetAsync($"{baseUrl}/api/v2/ids?source={source.ToString().ToLower()}&id={metadataId}");
         } catch (Exception e) {
@@ -47,7 +49,8 @@ public sealed class ArmClient(IHttpClientFactory httpClientFactory, ILogger<ArmC
         // object when the offline database has the entry but not yet the
         // cross-references. Those are very different situations, so the raw
         // response is logged and each case is reported separately below.
-        logger.LogDebug("ARM answered {StatusCode} for {Source} ID {MetadataId}: {ResponseBody}", (int)response.StatusCode, source, metadataId, LogText.Truncate(streamText));
+        if (logger.IsEnabled(LogLevel.Debug))
+            logger.LogDebug("ARM answered {StatusCode} for {Source} ID {MetadataId} in {ElapsedMs} ms: {ResponseBody}", (int)response.StatusCode, source, metadataId, LogText.ElapsedMs(started), LogText.Truncate(streamText));
         if (!response.IsSuccessStatusCode) {
             logger.LogWarning("The ARM server returned {StatusCode} for {Source} ID {MetadataId}; treating it as no result", (int)response.StatusCode, source, metadataId);
             return null;

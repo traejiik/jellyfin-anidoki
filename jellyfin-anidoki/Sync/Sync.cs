@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -99,8 +100,11 @@ public class Sync {
         // PlanLibrary plans no season for a user Jellyfin does not know, so a missing user marks nothing.
         User? user = _userManager.GetUserById(Guid.Parse(userId));
         if (user != null) {
+            long started = Stopwatch.GetTimestamp();
             foreach (InboundSeasonPlan season in plan.Seasons)
                 Apply(user, season);
+            if (_logger.IsEnabled(LogLevel.Debug))
+                _logger.LogDebug("({Provider}) Applied {Count} season plans in {ElapsedMs} ms", _apiName, plan.Seasons.Count, LogText.ElapsedMs(started));
         }
         operation.Result = OperationState.Succeeded;
         operation.Message = plan.EntryCount == 1 ? "Checked 1 tracker entry." : $"Checked {plan.EntryCount} tracker entries.";
@@ -156,12 +160,23 @@ public class Sync {
     /// tracker gave no list. The preview runs this alone; <see cref="SyncFromProvider"/> applies what it returns.
     /// </summary>
     internal async Task<InboundPlanResult?> Plan(Guid userId, OperationContext operation) {
+        long started = Stopwatch.GetTimestamp();
         var completedList = await GetAnimeList(userId.ToString());
         if (completedList == null)
             return null;
+        if (_logger.IsEnabled(LogLevel.Debug))
+            _logger.LogDebug("({Provider}) Read {Count} tracker entries in {ElapsedMs} ms", _apiName, completedList.Count, LogText.ElapsedMs(started));
 
+        started = Stopwatch.GetTimestamp();
         var (found, unresolved) = await GetMetadataIdsFromAnime(completedList, operation);
-        return new InboundPlanResult(completedList.Count, await PlanLibrary(userId, found), unresolved);
+        if (_logger.IsEnabled(LogLevel.Debug))
+            _logger.LogDebug("({Provider}) Looked up IDs for {Count} tracker entries in {ElapsedMs} ms", _apiName, completedList.Count, LogText.ElapsedMs(started));
+
+        started = Stopwatch.GetTimestamp();
+        List<InboundSeasonPlan> seasons = await PlanLibrary(userId, found);
+        if (_logger.IsEnabled(LogLevel.Debug))
+            _logger.LogDebug("({Provider}) Planned {Count} seasons from the library in {ElapsedMs} ms", _apiName, seasons.Count, LogText.ElapsedMs(started));
+        return new InboundPlanResult(completedList.Count, seasons, unresolved);
     }
 
     private async Task<List<InboundSeasonPlan>> PlanLibrary(Guid userId, List<SyncAnimeMetadata> convertedWatchList) {
@@ -306,7 +321,10 @@ public class Sync {
     /// </summary>
     private async Task Sleep(CancellationToken cancellationToken) {
         _logger.LogDebug("Waiting {DelayMs} ms before the next tracker entry", _apiTimeOutLength);
+        long started = Stopwatch.GetTimestamp();
         await _delayer.Delay(TimeSpan.FromMilliseconds(_apiTimeOutLength));
+        if (_logger.IsEnabled(LogLevel.Debug))
+            _logger.LogDebug("Waited {ElapsedMs} ms before the next tracker entry", LogText.ElapsedMs(started));
         cancellationToken.ThrowIfCancellationRequested();
     }
 

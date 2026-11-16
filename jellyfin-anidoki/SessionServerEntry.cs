@@ -1,5 +1,6 @@
 #nullable disable
 using System;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -86,10 +87,11 @@ namespace jellyfin_anidoki {
                     return;
                 }
                 var context = PlaybackNotificationContext.Capture(e.Item, e.Session);
+                long stopped = Stopwatch.GetTimestamp();
                 BaseItem item = e.Item;
                 foreach (User user in e.Users) {
                     Guid userId = user.Id;
-                    if (_runner.Enqueue(userId, OperationKind.Playback, OperationSources.Describe(item), operation => RunPlayback(item, userId, context, operation)) == null)
+                    if (_runner.Enqueue(userId, OperationKind.Playback, OperationSources.Describe(item), operation => RunPlayback(item, userId, context, stopped, operation)) == null)
                         _logger.LogWarning("Playback update for {ItemName} was not started because AniDoki storage is unavailable", item.Name);
                 }
             } catch (Exception exception) {
@@ -97,7 +99,9 @@ namespace jellyfin_anidoki {
             }
         }
 
-        private async Task RunPlayback(BaseItem item, Guid userId, PlaybackNotificationContext context, OperationContext operation) {
+        private async Task RunPlayback(BaseItem item, Guid userId, PlaybackNotificationContext context, long stopped, OperationContext operation) {
+            if (_logger.IsEnabled(LogLevel.Debug))
+                _logger.LogDebug("Started the playback update for {ItemName} {ElapsedMs} ms after playback stopped", item.Name, LogText.ElapsedMs(stopped));
             var collector = new PlaybackOutcomeCollector(operation.Record);
             var pipeline = new SyncPipeline(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _arm, _animeList, _memoryCache, _delayer) { WatchState = _watchState };
             try {
@@ -107,6 +111,8 @@ namespace jellyfin_anidoki {
                     _manualMarks?.Supersede(userId, item.Id);
                 _discord?.Enqueue(SyncOperationSummary.Capture(item, userId, operation.OperationId, SyncNotificationTrigger.Playback, collector));
                 PlaybackNotificationPublisher.Publish(collector, context, userId, _notifications, _logger);
+                if (_logger.IsEnabled(LogLevel.Debug))
+                    _logger.LogDebug("Finished the playback update for {ItemName} {ElapsedMs} ms after playback stopped; a toast is published only for a confirmed change", item.Name, LogText.ElapsedMs(stopped));
             }
         }
     }

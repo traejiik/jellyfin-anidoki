@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -67,6 +68,7 @@ public class SyncProviderFromLocal(
             if (SyncHelper.MediaShouldBeIgnored(episode)) {
                 _logger.LogDebug("Ignoring {ItemName}; it carries the ignore tag", episode.Name);
             } else {
+                long seasonStarted = Stopwatch.GetTimestamp();
                 try {
                     await pipeline.Run(episode, _userId, true, collector, SyncUpdateSource.ManualSync, operation.CancellationToken);
                 } catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested) {
@@ -75,9 +77,14 @@ public class SyncProviderFromLocal(
                 } catch (Exception e) {
                     _logger.LogError(e, "Could not sync {SeriesName} season {SeasonNumber}", episode.SeriesName, episode.ParentIndexNumber);
                 }
+                if (_logger.IsEnabled(LogLevel.Debug))
+                    _logger.LogDebug("Synced {SeriesName} season {SeasonNumber} in {ElapsedMs} ms", episode.SeriesName, episode.ParentIndexNumber, LogText.ElapsedMs(seasonStarted));
                 if (i < targets.Count - 1) {
                     _logger.LogDebug("Waiting 2 seconds before the next season");
+                    long waitStarted = Stopwatch.GetTimestamp();
                     await delayer.Delay(TimeSpan.FromSeconds(2));
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("Waited {ElapsedMs} ms before the next season", LogText.ElapsedMs(waitStarted));
                 }
             }
             operation.ReportProgress(i + 1, targets.Count);

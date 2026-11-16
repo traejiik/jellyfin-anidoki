@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace jellyfin_anidoki.Helpers;
 
 /// <summary>Text shaping for log lines.</summary>
@@ -10,4 +12,7 @@ internal static class LogText {
             return "";
         return text.Length <= MaxBodyLength ? text : text[..MaxBodyLength] + "...";
     }
+
+    /// <summary>Whole milliseconds since <paramref name="startedTimestamp"/>, a <see cref="Stopwatch.GetTimestamp"/> value, for an <c>{ElapsedMs}</c> line.</summary>
+    public static long ElapsedMs(long startedTimestamp) => (long)Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds;
 }

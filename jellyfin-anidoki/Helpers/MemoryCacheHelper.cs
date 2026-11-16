@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -53,7 +54,10 @@ public class MemoryCacheHelper {
         DateTime lastCallDateTime = memoryCache.Get<DateTime>(GetLastCallDateTimeKey(provider));
         if (lastCallDateTime != default) {
             logger.LogDebug("({Provider}) Delaying the request to stay under the rate limit", provider);
+            long started = Stopwatch.GetTimestamp();
             await delayer.Delay(DateTime.UtcNow.Subtract(lastCallDateTime));
+            if (logger.IsEnabled(LogLevel.Debug))
+                logger.LogDebug("({Provider}) Waited {ElapsedMs} ms to stay under the rate limit", provider, LogText.ElapsedMs(started));
         }
     }
 

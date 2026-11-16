@@ -48,7 +48,7 @@ The build is versioned from the latest release tag (for example `1.1.1.27`), so 
   - Write a full sentence with a subject and no closing punctuation or `...`.
   - Information is one line per outcome and Debug is for steps. Warning is a failure the plugin carried on from or something the admin should act on. Error is an unexpected failure, and passes the exception as the first argument.
   - A line about one tracker starts with `({Provider}) `; use no other prefix.
-  - Reuse the property names already in the code (`{UserId}`, `{ItemName}`, `{SeriesName}`, `{SeasonNumber}`, `{EpisodeNumber}`, `{Title}`, `{Count}`).
+  - Reuse the property names already in the code (`{UserId}`, `{ItemName}`, `{SeriesName}`, `{SeasonNumber}`, `{EpisodeNumber}`, `{Title}`, `{Count}`, and `{ElapsedMs}` for how long a step took).
   - Lines written during a sync already carry the operation's ID, kind and user through a logging scope, so messages do not need to repeat them.
   - Response bodies go to Debug only. `python3 -m unittest discover -s scripts/tests` checks these rules.
 - Comments explain why the code works the way it does. History belongs in commit messages.

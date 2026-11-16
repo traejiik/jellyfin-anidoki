@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -77,6 +78,7 @@ public sealed class OutboundPreview(
             if (SyncHelper.MediaShouldBeIgnored(episode)) {
                 _logger.LogDebug("Ignoring {ItemName}; it carries the ignore tag", episode.Name);
             } else {
+                long seasonStarted = Stopwatch.GetTimestamp();
                 try {
                     await pipeline.ForEachProvider(episode, userId, true, null, SyncUpdateSource.ManualSync, stopped.Contains, async pass => {
                         foreach (PreviewRow row in await RowsFor(pass, applySavedMatches, operation.CancellationToken)) {
@@ -93,8 +95,14 @@ public sealed class OutboundPreview(
                     incomplete = true;
                     _logger.LogError(e, "Could not preview {SeriesName} season {SeasonNumber}", episode.SeriesName, episode.ParentIndexNumber);
                 }
-                if (i < targets.Count - 1)
+                if (_logger.IsEnabled(LogLevel.Debug))
+                    _logger.LogDebug("Previewed {SeriesName} season {SeasonNumber} in {ElapsedMs} ms", episode.SeriesName, episode.ParentIndexNumber, LogText.ElapsedMs(seasonStarted));
+                if (i < targets.Count - 1) {
+                    long waitStarted = Stopwatch.GetTimestamp();
                     await delayer.Delay(TimeSpan.FromSeconds(2));
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("Waited {ElapsedMs} ms before the next season", LogText.ElapsedMs(waitStarted));
+                }
             }
             operation.ReportProgress(i + 1, targets.Count);
         }
@@ -114,7 +122,10 @@ public sealed class OutboundPreview(
             return [season.FromOutcome(pass.Executor.ResolutionFailureOutcome(failure, pass.Source.SearchTitle))];
 
         SourceResolution resolution = pass.Resolution!;
+        long started = Stopwatch.GetTimestamp();
         IReadOnlyList<PlanStep> steps = await pass.Executor.Plan(resolution, cancellationToken);
+        if (_logger.IsEnabled(LogLevel.Debug))
+            _logger.LogDebug("({Provider}) Planned {ItemName} in {ElapsedMs} ms", pass.Tracker.Name, pass.Source.Item.Name, LogText.ElapsedMs(started));
         var result = steps.Select(step => step switch {
             PlannedTarget planned => season.FromTarget(planned, pass.Tracker.Capabilities),
             PlannedOutcome outcome => season.FromOutcome(outcome),
