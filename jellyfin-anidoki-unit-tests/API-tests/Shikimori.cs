@@ -9,6 +9,7 @@ using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Shikimori;
+using jellyfin_anidoki_unit_tests.Characterization;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -26,14 +27,23 @@ public class Shikimori {
     private Mock<IHttpContextAccessor> _httpContextAccessor;
     private IHttpClientFactory _httpClientFactory;
 
-    private void Setup(List<Helpers.HttpCall> httpCalls) {
+    private UserConfig _userConfig = null!;
+    private SyncHarness? _harness;
+
+    [TearDown]
+    public void TearDown() => _harness?.Dispose();
+
+    private void Setup(List<Helpers.HttpCall> httpCalls, bool withKeyPairs = true) {
+        // Reading the user saves the configuration, so each test needs a live plugin of its own, not one an earlier
+        // fixture left behind.
+        _harness = new SyncHarness();
         _loggerFactory = new NullLoggerFactory();
         _serverApplicationHost = new Mock<IServerApplicationHost>();
         _httpContextAccessor = new Mock<IHttpContextAccessor>();
         Helpers.MockHttpCalls(httpCalls, ref _httpClientFactory);
         MemoryCache memoryCache = new MemoryCache(new MemoryCacheOptions());
         Mock<IAsyncDelayer> mockDelayer = new Mock<IAsyncDelayer>();
-        _shikimoriApiCalls = new ShikimoriApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost.Object, _httpContextAccessor.Object, memoryCache, mockDelayer.Object, new Dictionary<string, string> { { "User-Agent", "awd" } }, new UserConfig {
+        _shikimoriApiCalls = new ShikimoriApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost.Object, _httpContextAccessor.Object, memoryCache, mockDelayer.Object, new Dictionary<string, string> { { "User-Agent", "awd" } }, _userConfig = new UserConfig {
             UserApiAuth = new[] {
                 new UserApiAuth {
                     AccessToken = "accessToken",
@@ -41,7 +51,7 @@ public class Shikimori {
                     RefreshToken = "refreshToken"
                 }
             },
-            KeyPairs = new List<KeyPairs>()
+            KeyPairs = withKeyPairs ? new List<KeyPairs>() : null
         });
     }
 
@@ -244,5 +254,32 @@ public class Shikimori {
             new() { RequestMethod = HttpMethod.Patch, ResponseCode = responseCode, ResponseContent = body }
         });
         Assert.That(await _shikimoriApiCalls.UpdateAnime("1", ShikimoriUserRate.StatusEnum.watching, 1), Is.False);
+    }
+
+    private static List<Helpers.HttpCall> WhoamiAndUpdate() => new() {
+        new() { RequestMethod = HttpMethod.Get, RequestUrlMatch = url => url.EndsWith("/users/whoami"), ResponseCode = HttpStatusCode.OK, ResponseContent = "{\"id\":7,\"nickname\":\"Fixture\"}" },
+        new() { RequestMethod = HttpMethod.Get, RequestUrlMatch = url => url.EndsWith("/user_rates"), ResponseCode = HttpStatusCode.OK, ResponseContent = "[]" },
+        new() {
+            RequestMethod = HttpMethod.Post, RequestUrlMatch = url => url.EndsWith("/user_rates"), ResponseCode = HttpStatusCode.OK,
+            ResponseContent = "{\"id\":123,\"target_id\":1,\"target_type\":\"Anime\",\"episodes\":1,\"status\":\"watching\"}"
+        }
+    };
+
+    /// <summary>A user with no key pairs yet keeps the user Shikimori returns, and its ID is saved for next time.</summary>
+    [Test]
+    public async Task AUserWithNoKeyPairsYetIsReadAndTheirIdSaved() {
+        Setup(WhoamiAndUpdate(), withKeyPairs: false);
+
+        var user = await _shikimoriApiCalls.GetUserInformation();
+
+        Assert.That(user?.Id, Is.EqualTo(7));
+        Assert.That(_userConfig.KeyPairs, Has.One.Matches<KeyPairs>(pair => pair.Key == "ShikimoriUserId" && pair.Value == "7"));
+    }
+
+    [Test]
+    public async Task AnUpdateForAUserWithNoKeyPairsYetReadsTheirIdFromShikimori() {
+        Setup(WhoamiAndUpdate(), withKeyPairs: false);
+
+        Assert.That(await _shikimoriApiCalls.UpdateAnime("1", ShikimoriUserRate.StatusEnum.watching, 1), Is.True);
     }
 }

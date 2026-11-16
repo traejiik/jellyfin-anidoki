@@ -81,7 +81,7 @@ public class AniList {
 
         var result = await _aniListApiCalls.SearchAnime(String.Empty);
 
-        Assert.IsNotNull(result[0].Id);
+        Assert.IsNotNull(result![0].Id);
     }
 
     [Test]
@@ -150,7 +150,7 @@ public class AniList {
         });
         var result = await _aniListApiCalls.SearchAnime(String.Empty);
 
-        Assert.IsTrue(result.Count == 10);
+        Assert.IsTrue(result!.Count == 10);
         // Pages 2 to 10 each report another page, so the search waits nine times between requests.
         _delayer.Verify(delayer => delayer.Delay(TimeSpan.FromSeconds(1)), Times.Exactly(9));
     }
@@ -173,7 +173,7 @@ public class AniList {
         });
         var result = await _aniListApiCalls.GetAnime(1);
 
-        Assert.IsNotNull(result.Id);
+        Assert.IsNotNull(result!.Id);
     }
 
     [TestCase("")]
@@ -233,5 +233,48 @@ public class AniList {
         Assert.That(result.AcknowledgedStatus, Is.EqualTo(Status.Watching));
         Assert.That(result.AcknowledgedRewatching, Is.False);
         Assert.That(result.AcknowledgedRewatchCount, Is.EqualTo(1));
+    }
+
+    private AniListApiCalls Api(IHttpClientFactory factory) =>
+        new(factory, new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object, new Mock<IHttpContextAccessor>().Object,
+            new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, new UserConfig());
+
+    /// <summary>A later page that fails reads like a failed first page, not as a crash.</summary>
+    [Test]
+    public async Task ASearchWhoseSecondPageFailsReturnsNothing() {
+        string firstPage = JsonSerializer.Serialize(new AniListSearch.AniListSearchMedia {
+            Data = new AniListSearch.AniListSearchData {
+                Page = new AniListSearch.Page { Media = [new AniListSearch.Media { Id = 1 }], PageInfo = new AniListSearch.PageInfo { HasNextPage = true } }
+            }
+        });
+
+        var result = await Api(Helpers.Sequence((HttpStatusCode.OK, firstPage), (HttpStatusCode.TooManyRequests, ""))).SearchAnime("Fixture");
+
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
+    public async Task AListWhoseSecondChunkFailsReturnsNothing() {
+        string firstChunk = JsonSerializer.Serialize(new AniListMediaList.AniListUserMediaList {
+            Data = new AniListMediaList.Data {
+                MediaListCollection = new AniListMediaList.MediaListCollection {
+                    HasNextChunk = true,
+                    MediaList = [new AniListMediaList.EntriesContainer { Entries = [new AniListMediaList.Entries { Progress = 1 }] }]
+                }
+            }
+        });
+
+        var result = await Api(Helpers.Sequence((HttpStatusCode.OK, firstChunk), (HttpStatusCode.TooManyRequests, "")))
+            .GetAnimeList(1, AniListSearch.MediaListStatus.Completed);
+
+        Assert.That(result, Is.Null);
+    }
+
+    /// <summary>A user with no linked AniList account has no viewer to read; that is no user, not a crash.</summary>
+    [Test]
+    public async Task AUserWithNoViewerReadsAsNoUser() {
+        var result = await new AniListTrackerClient(Api(Helpers.Sequence((HttpStatusCode.OK, "{}")))).GetUser();
+
+        Assert.That(result, Is.Null);
     }
 }

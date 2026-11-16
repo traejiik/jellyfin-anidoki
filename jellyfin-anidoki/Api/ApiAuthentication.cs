@@ -18,201 +18,203 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Api {
-    public class ApiAuthentication {
-        private ApiName _provider;
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly ILogger<ApiAuthentication> _logger;
-        private readonly string _authApiUrl;
-        private readonly string _redirectBaseAddress;
-        private readonly ProviderApiAuth _providerApiAuth;
-        private readonly IMemoryCache _memoryCache;
-        private readonly IAsyncDelayer _delayer;
-        private readonly string? _serverId;
+namespace jellyfin_anidoki.Api;
 
-        public ApiAuthentication(ApiName provider, IHttpClientFactory httpClientFactory, IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, ILoggerFactory loggerFactory, IMemoryCache memoryCache, IAsyncDelayer delayer, ProviderApiAuth? overrideProviderApiAuth = null, string? overrideRedirectUrl = null) {
-            _provider = provider;
-            _serverId = serverApplicationHost.SystemId;
+public class ApiAuthentication {
+    private ApiName _provider;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<ApiAuthentication> _logger;
+    private readonly string _authApiUrl;
+    private readonly string _redirectBaseAddress;
+    private readonly ProviderApiAuth _providerApiAuth;
+    private readonly IMemoryCache _memoryCache;
+    private readonly IAsyncDelayer _delayer;
+    private readonly string? _serverId;
 
-            switch (provider) {
-                case ApiName.Mal:
-                    _authApiUrl = "https://myanimelist.net/v1/oauth2";
-                    break;
-                case ApiName.AniList:
-                    _authApiUrl = "https://anilist.co/api/v2/oauth";
-                    break;
-                case ApiName.Kitsu:
-                    _authApiUrl = "https://kitsu.io/api/oauth";
-                    break;
-                case ApiName.Shikimori:
-                    _authApiUrl = ProviderHelpers.GetShikimoriDomain() + "oauth";
-                    break;
-                case ApiName.Simkl:
-                    _authApiUrl = "https://simkl.com/oauth";
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(provider), provider, null);
-            }
+    public ApiAuthentication(ApiName provider, IHttpClientFactory httpClientFactory, IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, ILoggerFactory loggerFactory, IMemoryCache memoryCache, IAsyncDelayer delayer, ProviderApiAuth? overrideProviderApiAuth = null, string? overrideRedirectUrl = null) {
+        _provider = provider;
+        _serverId = serverApplicationHost.SystemId;
 
-            _httpClientFactory = httpClientFactory;
-            _memoryCache = memoryCache;
-            _logger = loggerFactory.CreateLogger<ApiAuthentication>();
-            _delayer = delayer;
-            if (overrideProviderApiAuth != null) {
-                _providerApiAuth = overrideProviderApiAuth;
+        switch (provider) {
+            case ApiName.Mal:
+                _authApiUrl = "https://myanimelist.net/v1/oauth2";
+                break;
+            case ApiName.AniList:
+                _authApiUrl = "https://anilist.co/api/v2/oauth";
+                break;
+            case ApiName.Kitsu:
+                _authApiUrl = "https://kitsu.io/api/oauth";
+                break;
+            case ApiName.Shikimori:
+                _authApiUrl = ProviderHelpers.GetShikimoriDomain() + "oauth";
+                break;
+            case ApiName.Simkl:
+                _authApiUrl = "https://simkl.com/oauth";
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(provider), provider, null);
+        }
+
+        _httpClientFactory = httpClientFactory;
+        _memoryCache = memoryCache;
+        _logger = loggerFactory.CreateLogger<ApiAuthentication>();
+        _delayer = delayer;
+        if (overrideProviderApiAuth != null) {
+            _providerApiAuth = overrideProviderApiAuth;
+        } else {
+            _providerApiAuth = Plugin.Instance?.PluginConfiguration.ProviderApiAuth?.FirstOrDefault(item => item.Name == _provider) ?? throw new NullReferenceException($"No {provider} provider API auth in plugin config");
+        }
+
+        var userCallbackUrl = Plugin.Instance?.PluginConfiguration.callbackUrl;
+        var baseAddress = overrideRedirectUrl switch {
+            "local" when httpContextAccessor.HttpContext != null =>
+                CallbackUrlHelper.GetLocalBaseAddress(serverApplicationHost, httpContextAccessor.HttpContext),
+            null or "local" => userCallbackUrl,
+            _ => overrideRedirectUrl
+        };
+        if (string.IsNullOrWhiteSpace(baseAddress))
+            baseAddress = CallbackUrlHelper.GetLocalBaseAddress(serverApplicationHost, httpContextAccessor.HttpContext);
+        _redirectBaseAddress = baseAddress;
+    }
+
+    public string BuildAuthorizeRequestUrl(Guid userId, bool returnToAdmin = false) {
+        string redirectUrl = Uri.EscapeDataString(CallbackUrlHelper.Build(_redirectBaseAddress));
+        // MAL only supports the plain PKCE method, so the challenge is the verifier; it stays secret by being per link
+        string? codeVerifier = _provider == ApiName.Mal ? GeneratePkce() : null;
+        string state = MemoryCacheHelper.GenerateState(_memoryCache, userId, _provider, codeVerifier, _serverId, returnToAdmin);
+        switch (_provider) {
+            case ApiName.Mal:
+                return $"{_authApiUrl}/authorize?response_type=code&client_id={_providerApiAuth.ClientId}&code_challenge={codeVerifier}&code_challenge_method=plain&redirect_uri={redirectUrl}&state={state}";
+            case ApiName.AniList:
+            case ApiName.Shikimori:
+            case ApiName.Simkl:
+                return $"{_authApiUrl}/authorize?response_type=code&client_id={_providerApiAuth.ClientId}&redirect_uri={redirectUrl}&state={state}";
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    /// <summary>
+    /// Get a new API auth token.
+    /// </summary>
+    /// <param name="httpClientFactory"></param>
+    /// <param name="code">Optional auth code to generate a new token with.</param>
+    /// <param name="refreshToken">Optional refresh token to refresh an existing token with.</param>
+    public async Task<UserApiAuth?> GetToken(Guid userId, string? code = null, string? refreshToken = null, string? codeVerifier = null) {
+        var client = _httpClientFactory.CreateClient(NamedClient.Default);
+
+        HttpContent formUrlEncodedContent;
+
+        if (_provider == ApiName.Kitsu) {
+            if (refreshToken != null) {
+                formUrlEncodedContent = new FormUrlEncodedContent(new[] {
+                    new KeyValuePair<string, string>("grant_type", "refresh_token"),
+                    new KeyValuePair<string, string>("refresh_token", refreshToken)
+                });
             } else {
-                _providerApiAuth = Plugin.Instance?.PluginConfiguration.ProviderApiAuth?.FirstOrDefault(item => item.Name == _provider) ?? throw new NullReferenceException($"No {provider} provider API auth in plugin config");
+                formUrlEncodedContent = new FormUrlEncodedContent(new[] {
+                    new KeyValuePair<string, string?>("grant_type", "password"),
+                    new KeyValuePair<string, string?>("username", _providerApiAuth.ClientId),
+                    new KeyValuePair<string, string?>("password", _providerApiAuth.ClientSecret)
+                });
             }
-
-            var userCallbackUrl = Plugin.Instance?.PluginConfiguration.callbackUrl;
-            var baseAddress = overrideRedirectUrl switch {
-                "local" when httpContextAccessor.HttpContext != null =>
-                    CallbackUrlHelper.GetLocalBaseAddress(serverApplicationHost, httpContextAccessor.HttpContext),
-                null or "local" => userCallbackUrl,
-                _ => overrideRedirectUrl
-            };
-            if (string.IsNullOrWhiteSpace(baseAddress))
-                baseAddress = CallbackUrlHelper.GetLocalBaseAddress(serverApplicationHost, httpContextAccessor.HttpContext);
-            _redirectBaseAddress = baseAddress;
-        }
-
-        public string BuildAuthorizeRequestUrl(Guid userId, bool returnToAdmin = false) {
-            string redirectUrl = Uri.EscapeDataString(CallbackUrlHelper.Build(_redirectBaseAddress));
-            // MAL only supports the plain PKCE method, so the challenge is the verifier; it stays secret by being per link
-            string? codeVerifier = _provider == ApiName.Mal ? GeneratePkce() : null;
-            string state = MemoryCacheHelper.GenerateState(_memoryCache, userId, _provider, codeVerifier, _serverId, returnToAdmin);
-            switch (_provider) {
-                case ApiName.Mal:
-                    return $"{_authApiUrl}/authorize?response_type=code&client_id={_providerApiAuth.ClientId}&code_challenge={codeVerifier}&code_challenge_method=plain&redirect_uri={redirectUrl}&state={state}";
-                case ApiName.AniList:
-                case ApiName.Shikimori:
-                case ApiName.Simkl:
-                    return $"{_authApiUrl}/authorize?response_type=code&client_id={_providerApiAuth.ClientId}&redirect_uri={redirectUrl}&state={state}";
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-
-        /// <summary>
-        /// Get a new API auth token.
-        /// </summary>
-        /// <param name="httpClientFactory"></param>
-        /// <param name="code">Optional auth code to generate a new token with.</param>
-        /// <param name="refreshToken">Optional refresh token to refresh an existing token with.</param>
-        public async Task<UserApiAuth> GetToken(Guid userId, string? code = null, string? refreshToken = null, string? codeVerifier = null) {
-            var client = _httpClientFactory.CreateClient(NamedClient.Default);
-
-            HttpContent formUrlEncodedContent;
-
-            if (_provider == ApiName.Kitsu) {
-                if (refreshToken != null) {
-                    formUrlEncodedContent = new FormUrlEncodedContent(new[] {
-                        new KeyValuePair<string, string>("grant_type", "refresh_token"),
-                        new KeyValuePair<string, string>("refresh_token", refreshToken)
-                    });
-                } else {
-                    formUrlEncodedContent = new FormUrlEncodedContent(new[] {
-                        new KeyValuePair<string, string>("grant_type", "password"),
-                        new KeyValuePair<string, string>("username", _providerApiAuth.ClientId),
-                        new KeyValuePair<string, string>("password", _providerApiAuth.ClientSecret)
-                    });
+        } else {
+            if (refreshToken != null) {
+                formUrlEncodedContent = new FormUrlEncodedContent(new[] {
+                    new KeyValuePair<string, string?>("client_id", _providerApiAuth.ClientId),
+                    new KeyValuePair<string, string?>("client_secret", _providerApiAuth.ClientSecret),
+                    new KeyValuePair<string, string?>("grant_type", "refresh_token"),
+                    new KeyValuePair<string, string?>("refresh_token", refreshToken)
+                });
+            } else {
+                List<KeyValuePair<string, string?>> content = new List<KeyValuePair<string, string?>>() {
+                    new KeyValuePair<string, string?>("client_id", _providerApiAuth.ClientId),
+                    new KeyValuePair<string, string?>("client_secret", _providerApiAuth.ClientSecret),
+                    new KeyValuePair<string, string?>("code", code),
+                    new KeyValuePair<string, string?>("grant_type", "authorization_code"),
+                    new KeyValuePair<string, string?>("redirect_uri", CallbackUrlHelper.Build(_redirectBaseAddress))
+                };
+                if (_provider == ApiName.Mal) {
+                    if (string.IsNullOrEmpty(codeVerifier))
+                        throw new AuthenticationException($"No {_provider} PKCE verifier was issued with this sign-in link");
+                    content.Add(new KeyValuePair<string, string?>("code_verifier", codeVerifier));
                 }
-            } else {
-                if (refreshToken != null) {
-                    formUrlEncodedContent = new FormUrlEncodedContent(new[] {
-                        new KeyValuePair<string, string>("client_id", _providerApiAuth.ClientId),
-                        new KeyValuePair<string, string>("client_secret", _providerApiAuth.ClientSecret),
-                        new KeyValuePair<string, string>("grant_type", "refresh_token"),
-                        new KeyValuePair<string, string>("refresh_token", refreshToken)
-                    });
+
+                if (_provider == ApiName.Simkl) {
+                    formUrlEncodedContent = new StringContent(JsonSerializer.Serialize(content.ToDictionary(item => item.Key, item => item.Value)));
                 } else {
-                    List<KeyValuePair<string, string>> content = new List<KeyValuePair<string, string>>() {
-                        new KeyValuePair<string, string>("client_id", _providerApiAuth.ClientId),
-                        new KeyValuePair<string, string>("client_secret", _providerApiAuth.ClientSecret),
-                        new KeyValuePair<string, string>("code", code),
-                        new KeyValuePair<string, string>("grant_type", "authorization_code"),
-                        new KeyValuePair<string, string>("redirect_uri", CallbackUrlHelper.Build(_redirectBaseAddress))
+                    formUrlEncodedContent = new FormUrlEncodedContent(content.ToArray());
+                }
+            }
+        }
+
+        if (_provider == ApiName.Shikimori) {
+            string? shikimoriAppName = ConfigHelper.GetShikimoriAppName(_logger);
+            if (shikimoriAppName == null)
+                return null;
+            client.DefaultRequestHeaders.Add("User-Agent", shikimoriAppName);
+        }
+
+        await MemoryCacheHelper.CheckRateLimiting(_provider, _logger, _memoryCache, _delayer);
+        var response = await client.PostAsync(new Uri($"{(_provider is not ApiName.Simkl ? _authApiUrl : $"{SimklApiCalls.ApiBaseUrl}/oauth")}/token"), formUrlEncodedContent);
+        MemoryCacheHelper.CheckResponseHeadersForRateLimiting(response, _logger, _provider, _memoryCache);
+
+        if (response.IsSuccessStatusCode) {
+            var content = await response.Content.ReadAsStreamAsync();
+
+            StreamReader streamReader = new StreamReader(content);
+
+            TokenResponse? tokenResponse = JsonSerializer.Deserialize<TokenResponse>(streamReader.ReadToEnd());
+            if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.access_token))
+                throw new AuthenticationException($"{_provider} did not return an access token");
+
+            Plugin plugin = Plugin.Instance!;
+            lock (plugin.PluginConfiguration) {
+                // Before any user saved settings there is no user list; that is the same missing user as below.
+                UserConfig? pluginConfig = plugin.PluginConfiguration.UserConfig?.FirstOrDefault(item => item.UserId == userId);
+
+                if (pluginConfig != null) {
+                    var apiAuth = pluginConfig.UserApiAuth?.FirstOrDefault(item => item.Name == _provider);
+
+                    UserApiAuth newUserApiAuth = new UserApiAuth {
+                        Name = _provider,
+                        ConnectionGeneration = !string.IsNullOrEmpty(refreshToken) && apiAuth?.ConnectionGeneration != Guid.Empty && apiAuth != null ? apiAuth.ConnectionGeneration : Guid.NewGuid(),
+                        AccessToken = tokenResponse.access_token
                     };
-                    if (_provider == ApiName.Mal) {
-                        if (string.IsNullOrEmpty(codeVerifier))
-                            throw new AuthenticationException($"No {_provider} PKCE verifier was issued with this sign-in link");
-                        content.Add(new KeyValuePair<string, string>("code_verifier", codeVerifier));
+
+                    if (_provider is ApiName.Mal or ApiName.Kitsu or ApiName.Shikimori) {
+                        newUserApiAuth.RefreshToken = tokenResponse.refresh_token;
                     }
 
-                    if (_provider == ApiName.Simkl) {
-                        formUrlEncodedContent = new StringContent(JsonSerializer.Serialize(content.ToDictionary(item => item.Key, item => item.Value)));
-                    } else {
-                        formUrlEncodedContent = new FormUrlEncodedContent(content.ToArray());
-                    }
-                }
-            }
-
-            if (_provider == ApiName.Shikimori) {
-                string? shikimoriAppName = ConfigHelper.GetShikimoriAppName(_logger);
-                if (shikimoriAppName == null)
-                    return null;
-                client.DefaultRequestHeaders.Add("User-Agent", shikimoriAppName);
-            }
-
-            await MemoryCacheHelper.CheckRateLimiting(_provider, _logger, _memoryCache, _delayer);
-            var response = await client.PostAsync(new Uri($"{(_provider is not ApiName.Simkl ? _authApiUrl : $"{SimklApiCalls.ApiBaseUrl}/oauth")}/token"), formUrlEncodedContent);
-            MemoryCacheHelper.CheckResponseHeadersForRateLimiting(response, _logger, _provider, _memoryCache);
-
-            if (response.IsSuccessStatusCode) {
-                var content = await response.Content.ReadAsStreamAsync();
-
-                StreamReader streamReader = new StreamReader(content);
-
-                TokenResponse? tokenResponse = JsonSerializer.Deserialize<TokenResponse>(streamReader.ReadToEnd());
-                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.access_token))
-                    throw new AuthenticationException($"{_provider} did not return an access token");
-
-                lock (Plugin.Instance.PluginConfiguration) {
-                    UserConfig? pluginConfig = Plugin.Instance.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == userId);
-
-                    if (pluginConfig != null) {
-                        var apiAuth = pluginConfig.UserApiAuth?.FirstOrDefault(item => item.Name == _provider);
-
-                        UserApiAuth newUserApiAuth = new UserApiAuth {
-                            Name = _provider,
-                            ConnectionGeneration = !string.IsNullOrEmpty(refreshToken) && apiAuth?.ConnectionGeneration != Guid.Empty && apiAuth != null ? apiAuth.ConnectionGeneration : Guid.NewGuid(),
-                            AccessToken = tokenResponse.access_token
-                        };
-
+                    if (apiAuth != null) {
+                        apiAuth.ConnectionGeneration = newUserApiAuth.ConnectionGeneration;
+                        apiAuth.AccessToken = tokenResponse.access_token;
                         if (_provider is ApiName.Mal or ApiName.Kitsu or ApiName.Shikimori) {
-                            newUserApiAuth.RefreshToken = tokenResponse.refresh_token;
+                            apiAuth.RefreshToken = tokenResponse.refresh_token;
                         }
-
-                        if (apiAuth != null) {
-                            apiAuth.ConnectionGeneration = newUserApiAuth.ConnectionGeneration;
-                            apiAuth.AccessToken = tokenResponse.access_token;
-                            if (_provider is ApiName.Mal or ApiName.Kitsu or ApiName.Shikimori) {
-                                apiAuth.RefreshToken = tokenResponse.refresh_token;
-                            }
-                        } else {
-                            pluginConfig.AddUserApiAuth(newUserApiAuth);
-                        }
-
-                        Plugin.Instance.SaveConfiguration();
-                        return newUserApiAuth;
+                    } else {
+                        pluginConfig.AddUserApiAuth(newUserApiAuth);
                     }
 
-                    throw new NullReferenceException("The user you are attempting to authenticate does not exist in the plugins config file");
+                    plugin.SaveConfiguration();
+                    return newUserApiAuth;
                 }
-            }
 
-            throw new AuthenticationException($"Could not retrieve {_provider} token: " + response.StatusCode + " - " + await response.Content.ReadAsStringAsync());
+                throw new NullReferenceException("The user you are attempting to authenticate does not exist in the plugins config file");
+            }
         }
 
-        /// <summary>
-        /// Generate a 128-character PKCE code verifier (RFC 7636) from a cryptographically secure source.
-        /// </summary>
-        public static string GeneratePkce() =>
-            RandomNumberGenerator.GetString("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~", 128);
+        throw new AuthenticationException($"Could not retrieve {_provider} token: " + response.StatusCode + " - " + await response.Content.ReadAsStringAsync());
     }
 
-    public class TokenResponse {
-        public string access_token { get; set; }
-        public string refresh_token { get; set; }
-    }
+    /// <summary>
+    /// Generate a 128-character PKCE code verifier (RFC 7636) from a cryptographically secure source.
+    /// </summary>
+    public static string GeneratePkce() =>
+        RandomNumberGenerator.GetString("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~", 128);
+}
+
+public class TokenResponse {
+    public string? access_token { get; set; }
+    public string? refresh_token { get; set; }
 }

@@ -50,6 +50,18 @@ public class Helpers {
         _httpClientFactory = mockFactory.Object;
     }
 
+    /// <summary>A client factory that answers each request with the next response in order, repeating the last one.</summary>
+    public static IHttpClientFactory Sequence(params (HttpStatusCode Code, string Body)[] responses) {
+        int sent = 0;
+        var handler = new DelegatingHandlerStub((request, _) => {
+            var (code, body) = responses[Math.Min(++sent, responses.Length) - 1];
+            return Task.FromResult(new HttpResponseMessage(code) { RequestMessage = request, Content = new StringContent(body) });
+        });
+        var factory = new Mock<IHttpClientFactory>();
+        factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(new HttpClient(handler));
+        return factory.Object;
+    }
+
     public static void MockHttpCalls(List<HttpCall> calls, ref HttpClient httpClient) {
         var clientHandlerStub = new DelegatingHandlerStub((request, _) => {
             request.SetConfiguration(new HttpConfiguration());

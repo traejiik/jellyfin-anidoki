@@ -483,7 +483,7 @@ public partial class UserConfigurationTests {
             new ProviderApiAuth { ClientId = "fixture-client", ClientSecret = "fixture-secret" });
         var result = await authentication.GetToken(_requester.Id, refreshToken: "fixture-refresh");
         Assert.Multiple(() => {
-            Assert.That(result.AccessToken == "new-fixture-access", Is.True);
+            Assert.That(result!.AccessToken == "new-fixture-access", Is.True);
             Assert.That(refreshParametersPreserved, Is.True);
             Assert.That(_requesterConfig.UserApiAuth!.Single(auth => auth.Name == provider).AccessToken == "new-fixture-access", Is.True);
             Assert.That(_plugin.Configuration.callbackUrl, Is.EqualTo(invalidAddress));

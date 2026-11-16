@@ -61,7 +61,7 @@ public class Mal {
             }
         });
         var result = await _malApiCalls.GetUserInformation();
-        Assert.IsNotNull(result.Id);
+        Assert.IsNotNull(result!.Id);
     }
 
     [Test]

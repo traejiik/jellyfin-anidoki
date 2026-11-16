@@ -25,7 +25,7 @@ public class SimklApiCalls {
     private readonly AuthApiCall _authApiCall;
     public static readonly string ApiBaseUrl = "https://api.simkl.com";
 
-    public SimklApiCalls(IHttpClientFactory httpClientFactory, ILoggerFactory loggerFactory, IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, IMemoryCache memoryCache, IAsyncDelayer delayer, Dictionary<string, string>? requestHeaders, UserConfig? userConfig = null) {
+    public SimklApiCalls(IHttpClientFactory httpClientFactory, ILoggerFactory loggerFactory, IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, IMemoryCache memoryCache, IAsyncDelayer delayer, Dictionary<string, string> requestHeaders, UserConfig? userConfig = null) {
         _requestHeaders = requestHeaders;
         _logger = loggerFactory.CreateLogger<SimklApiCalls>();
         _authApiCall = new AuthApiCall(httpClientFactory, serverApplicationHost, httpContextAccessor, loggerFactory, memoryCache, delayer, userConfig: userConfig);

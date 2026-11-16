@@ -23,7 +23,7 @@ public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITra
     }
 
     public async Task<Anime?> GetAnime(int id, string? alternativeId = null, bool getRelated = false) {
-        KitsuGet.KitsuGetAnime anime = await api.GetAnime(id);
+        KitsuGet.KitsuGetAnime? anime = await api.GetAnime(id);
         if (anime == null)
             return null;
         Anime converted = ClassConversions.ConvertKitsuAnime(anime.KitsuAnimeData);
@@ -37,7 +37,7 @@ public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITra
         var userList = new MyListStatus();
         if (userId == null)
             return userList;
-        KitsuUpdate.KitsuLibraryEntry entry = await api.GetUserAnimeStatus(userId.Value, id);
+        KitsuUpdate.KitsuLibraryEntry? entry = await api.GetUserAnimeStatus(userId.Value, id);
         if (entry is not { Attributes: { } })
             return userList;
         userList = new MyListStatus {
@@ -105,7 +105,7 @@ public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITra
             Status.Plan_to_watch => KitsuUpdate.Status.planned,
             _ => KitsuUpdate.Status.current
         };
-        KitsuUpdate.KitsuLibraryEntryListRoot animeList = await api.GetUserAnimeList(userId.Value, status: kitsuStatus);
+        KitsuUpdate.KitsuLibraryEntryListRoot? animeList = await api.GetUserAnimeList(userId.Value, status: kitsuStatus);
         if (animeList == null)
             return null;
         return ConvertList(animeList, status);
