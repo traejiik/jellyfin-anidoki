@@ -38,7 +38,7 @@ public partial class UserConfigurationTests {
         await tokenSaved.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Multiple(() => {
             Assert.That(returnedBeforeGrant, Is.False);
-            Assert.That(_requesterConfig.UserApiAuth[0].AccessToken == "new-fixture-access", Is.True);
+            Assert.That(_requesterConfig.UserApiAuth![0].AccessToken == "new-fixture-access", Is.True);
             if (redirect)
                 Assert.That((result as RedirectResult)?.Url, Is.EqualTo("http://127.0.0.1:8096/done"));
             else {
@@ -62,7 +62,7 @@ public partial class UserConfigurationTests {
             Assert.That((result as ContentResult)?.Content, Does.Contain("MyAnimeList didn’t accept the sign-in"));
             // the anonymous page may name the OAuth error code, never the provider's response body
             Assert.That((result as ContentResult)?.Content, Does.Not.Contain("fixture-provider-detail").And.Not.Contain("error_description"));
-            Assert.That(_requesterConfig.UserApiAuth[0].AccessToken == "requester-mal-fixture", Is.True);
+            Assert.That(_requesterConfig.UserApiAuth![0].AccessToken == "requester-mal-fixture", Is.True);
             Assert.That(_requesterConfig.UserApiAuth[0].RefreshToken == "requester-refresh-fixture", Is.True);
             Assert.That(MemoryCacheHelper.ConsumeState(_memoryCache, state), Is.Null);
         });

@@ -472,7 +472,7 @@ public class ExecutorTests {
     public async Task DecisionsRecordTheDisplayTitle() {
         var entry = Entry(500, 12, ListStatus(Status.Completed, 12, count: 1));
         entry.Title = " ";
-        entry.AlternativeTitles.Synonyms = ["Synonym Title"];
+        entry.AlternativeTitles!.Synonyms = ["Synonym Title"];
         var (tracker, fake) = Seed(ApiName.AniList, entry);
 
         var collector = await Run(tracker, Played(ApiName.AniList, 5));

@@ -48,6 +48,6 @@ public class CredentialSerializationTests {
         var configuration = JsonSerializer.Deserialize<PluginConfiguration>(
             """{"ProviderApiAuth":[{"Name":0,"ClientId":"id","ClientSecret":"posted-secret"}]}""")!;
 
-        Assert.That(configuration.ProviderApiAuth[0].ClientSecret, Is.Null);
+        Assert.That(configuration.ProviderApiAuth![0].ClientSecret, Is.Null);
     }
 }

@@ -141,7 +141,7 @@ public partial class UserConfigurationTests {
             Assert.That(json.Contains("requester-mal-fixture", StringComparison.Ordinal), Is.False);
             Assert.That(_requesterConfig.UserApiAuth, Is.SameAs(auth));
             Assert.That(_requesterConfig.KeyPairs, Is.SameAs(keyPairs));
-            Assert.That(_requesterConfig.UserApiAuth[0].AccessToken == "requester-mal-fixture", Is.True);
+            Assert.That(_requesterConfig.UserApiAuth![0].AccessToken == "requester-mal-fixture", Is.True);
         });
         var response = JsonSerializer.SerializeToElement(result.Value);
         Assert.That(response.GetProperty("ConnectedProviders").EnumerateArray().Select(value => (ApiName)value.GetInt32()),
@@ -176,13 +176,13 @@ public partial class UserConfigurationTests {
         var dto = JsonSerializer.Deserialize<UserEditableConfig>(
             $"{{\"PlanToWatchOnly\":true,\"RewatchCompleted\":true,\"LibraryToCheck\":[],\"ShowLogNotifications\":{notifications.ToString().ToLowerInvariant()}}}")!;
         var result = (OkObjectResult)_controller.UpdateConfigurationUser(_requester.Id, dto);
-        var savedUser = _plugin.Configuration.UserConfig.Single(config => config.UserId == _requester.Id);
+        var savedUser = _plugin.Configuration.UserConfig!.Single(config => config.UserId == _requester.Id);
         var savedJson = JsonSerializer.SerializeToElement(savedUser);
         Assert.That(savedJson.TryGetProperty("ShowLogNotifications", out var savedPreference), Is.True);
         Assert.Multiple(() => {
             Assert.That(savedPreference.GetBoolean(), Is.EqualTo(notifications));
             Assert.That(JsonSerializer.SerializeToElement(result.Value).GetProperty("ShowLogNotifications").GetBoolean(), Is.EqualTo(notifications));
-            Assert.That(_plugin.Configuration.UserConfig.Single(config => config.UserId == _target.Id), Is.SameAs(_targetConfig));
+            Assert.That(_plugin.Configuration.UserConfig!.Single(config => config.UserId == _target.Id), Is.SameAs(_targetConfig));
         });
     }
 
@@ -193,7 +193,7 @@ public partial class UserConfigurationTests {
     public void IncompleteOAuthAppIsUnavailableToUser(ApiName provider) {
         _plugin.Configuration.ProviderApiAuth = [new ProviderApiAuth { Name = provider, ClientId = "fixture-client", ClientSecret = "" }];
         var parameters = (Parameters)_controller.GetFrontendParametersUser([ParameterInclude.ProviderList]);
-        var available = parameters.providerList.Select(item => (ApiName)((IDictionary<string, object?>)item)["Key"]!);
+        var available = parameters.providerList!.Select(item => (ApiName)((IDictionary<string, object?>)item)["Key"]!);
         Assert.That(available, Is.EqualTo(new[] { ApiName.Kitsu }));
     }
 
@@ -207,7 +207,7 @@ public partial class UserConfigurationTests {
         ]);
 
         var parameters = (Parameters)((OkObjectResult)_controller.FrontendParameters([ParameterInclude.Libraries])).Value!;
-        var types = parameters.libraries.Select(item => (IDictionary<string, object?>)item).ToDictionary(item => (Guid)item["Id"]!, item => item["Type"]);
+        var types = parameters.libraries!.Select(item => (IDictionary<string, object?>)item).ToDictionary(item => (Guid)item["Id"]!, item => item["Type"]);
 
         Assert.That(types, Is.EqualTo(new Dictionary<Guid, object?> { [shows] = "tvshows", [music] = "music", [untyped] = null }));
     }
@@ -216,7 +216,7 @@ public partial class UserConfigurationTests {
     public void ShikimoriWithoutAppNameIsUnavailableToUser() {
         _plugin.Configuration.ProviderApiAuth = [new ProviderApiAuth { Name = ApiName.Shikimori, ClientId = "fixture-client", ClientSecret = "fixture-secret" }];
         var parameters = (Parameters)_controller.GetFrontendParametersUser([ParameterInclude.ProviderList]);
-        Assert.That(parameters.providerList.Select(item => (ApiName)((IDictionary<string, object?>)item)["Key"]!),
+        Assert.That(parameters.providerList!.Select(item => (ApiName)((IDictionary<string, object?>)item)["Key"]!),
             Is.EqualTo(new[] { ApiName.Kitsu }));
     }
 
@@ -239,14 +239,14 @@ public partial class UserConfigurationTests {
             Assert.That(_targetConfig.LibraryToCheck, Is.EqualTo(new[] { _libraryId.ToString() }));
             Assert.That(_targetConfig.UserApiAuth, Is.SameAs(targetAuth));
             Assert.That(_targetConfig.KeyPairs, Is.SameAs(targetKeyPairs));
-            Assert.That(_targetConfig.UserApiAuth[0].AccessToken == "target-mal-fixture", Is.True);
+            Assert.That(_targetConfig.UserApiAuth![0].AccessToken == "target-mal-fixture", Is.True);
             Assert.That(_targetConfig.UserApiAuth[0].RefreshToken == "target-refresh-fixture", Is.True);
-            Assert.That(_targetConfig.KeyPairs.Single(pair => pair.Key == "FutureKey").Value, Is.EqualTo("target"));
+            Assert.That(_targetConfig.KeyPairs!.Single(pair => pair.Key == "FutureKey").Value, Is.EqualTo("target"));
             Assert.That(_requesterConfig.PlanToWatchOnly, Is.True);
             Assert.That(_requesterConfig.RewatchCompleted, Is.True);
             Assert.That(_requesterConfig.LibraryToCheck, Is.Empty);
             Assert.That(_requesterConfig.UserApiAuth, Is.SameAs(requesterAuth));
-            Assert.That(_requesterConfig.UserApiAuth[0].AccessToken == "requester-mal-fixture", Is.True);
+            Assert.That(_requesterConfig.UserApiAuth![0].AccessToken == "requester-mal-fixture", Is.True);
             Assert.That(_plugin.Configuration.UserConfig, Is.EqualTo(new[] { _requesterConfig, _targetConfig }));
         });
     }
@@ -256,7 +256,7 @@ public partial class UserConfigurationTests {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         bool targetAuthenticationUsed = false;
         SetHttp(request => {
-            targetAuthenticationUsed = request.Headers.Authorization?.Parameter == _targetConfig.UserApiAuth[0].AccessToken;
+            targetAuthenticationUsed = request.Headers.Authorization?.Parameter == _targetConfig.UserApiAuth![0].AccessToken;
             return Task.FromResult(Response(request, HttpStatusCode.OK, """
                 {"id":42,"name":"selected profile","location":"","joined_at":"2020-01-01T00:00:00Z","picture":""}
                 """));
@@ -286,8 +286,8 @@ public partial class UserConfigurationTests {
             : _controller.DeauthenticateUser(_target.Id, ApiName.Mal);
         Assert.Multiple(() => {
             Assert.That(result, Is.TypeOf<OkResult>());
-            Assert.That(_targetConfig.UserApiAuth.Select(auth => auth.Name), Is.EqualTo(new[] { ApiName.AniList }));
-            Assert.That(_requesterConfig.UserApiAuth.Select(auth => auth.Name), Is.EqualTo(new[] { ApiName.Mal, ApiName.AniList }));
+            Assert.That(_targetConfig.UserApiAuth!.Select(auth => auth.Name), Is.EqualTo(new[] { ApiName.AniList }));
+            Assert.That(_requesterConfig.UserApiAuth!.Select(auth => auth.Name), Is.EqualTo(new[] { ApiName.Mal, ApiName.AniList }));
         });
     }
 
@@ -395,7 +395,7 @@ public partial class UserConfigurationTests {
         Assert.Multiple(() => {
             Assert.That(returnedBeforeGrant, Is.False);
             Assert.That(result, Is.TypeOf<OkResult>());
-            Assert.That(_requesterConfig.UserApiAuth.Single(auth => auth.Name == ApiName.AniList).AccessToken == "new-fixture-access", Is.True);
+            Assert.That(_requesterConfig.UserApiAuth!.Single(auth => auth.Name == ApiName.AniList).AccessToken == "new-fixture-access", Is.True);
         });
     }
 
@@ -403,13 +403,13 @@ public partial class UserConfigurationTests {
     public async Task FailedPasswordGrantReturnsFailure() {
         SetHttp(request => Task.FromResult(Response(request, HttpStatusCode.Unauthorized,
             """{"error":"invalid_grant"}""")));
-        var previousAuth = _requesterConfig.UserApiAuth.Single(auth => auth.Name == ApiName.AniList).AccessToken;
+        var previousAuth = _requesterConfig.UserApiAuth!.Single(auth => auth.Name == ApiName.AniList).AccessToken;
         var result = await _controller.PasswordGrantAuthentication(ApiName.AniList, _requester.Id.ToString(), "fixture-user", "fixture-password");
         Assert.Multiple(() => {
             Assert.That(result, Is.InstanceOf<ObjectResult>());
             Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(400));
             Assert.That((result as ObjectResult)?.Value as string, Is.EqualTo("AniList didn’t accept those sign-in details."));
-            Assert.That(_requesterConfig.UserApiAuth.Single(auth => auth.Name == ApiName.AniList).AccessToken == previousAuth, Is.True);
+            Assert.That(_requesterConfig.UserApiAuth!.Single(auth => auth.Name == ApiName.AniList).AccessToken == previousAuth, Is.True);
         });
     }
 
@@ -433,7 +433,7 @@ public partial class UserConfigurationTests {
             Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(400));
             Assert.That((result as ObjectResult)?.Value as string, Does.StartWith("Kitsu didn’t accept that email and password").And.Not.Contain("{"));
             Assert.That(profileCalls, Is.Zero);
-            Assert.That(_requesterConfig.UserApiAuth.Single(auth => auth.Name == ApiName.Kitsu).AccessToken == "previous-kitsu-fixture", Is.True);
+            Assert.That(_requesterConfig.UserApiAuth!.Single(auth => auth.Name == ApiName.Kitsu).AccessToken == "previous-kitsu-fixture", Is.True);
         });
     }
 
@@ -469,7 +469,7 @@ public partial class UserConfigurationTests {
         Assert.Multiple(() => {
             Assert.That(result.AccessToken == "new-fixture-access", Is.True);
             Assert.That(refreshParametersPreserved, Is.True);
-            Assert.That(_requesterConfig.UserApiAuth.Single(auth => auth.Name == provider).AccessToken == "new-fixture-access", Is.True);
+            Assert.That(_requesterConfig.UserApiAuth!.Single(auth => auth.Name == provider).AccessToken == "new-fixture-access", Is.True);
             Assert.That(_plugin.Configuration.callbackUrl, Is.EqualTo(invalidAddress));
         });
     }
@@ -489,7 +489,7 @@ public partial class UserConfigurationTests {
         Assert.That(async () => await authentication.GetToken(_requester.Id, refreshToken: "fixture-refresh"),
             Throws.TypeOf<AuthenticationException>());
         Assert.Multiple(() => {
-            Assert.That(_requesterConfig.UserApiAuth[0].AccessToken == "requester-mal-fixture", Is.True);
+            Assert.That(_requesterConfig.UserApiAuth![0].AccessToken == "requester-mal-fixture", Is.True);
             Assert.That(_requesterConfig.UserApiAuth[0].RefreshToken == "requester-refresh-fixture", Is.True);
         });
     }
@@ -514,7 +514,7 @@ public partial class UserConfigurationTests {
             Assert.That(result, Is.TypeOf<OkResult>());
             Assert.That(tokenCalls, Is.EqualTo(1));
             Assert.That(profileCalls, Is.EqualTo(1));
-            Assert.That(_requesterConfig.KeyPairs.SingleOrDefault(pair => pair.Key == "KitsuUserId")?.Value, Is.EqualTo("42"));
+            Assert.That(_requesterConfig.KeyPairs!.SingleOrDefault(pair => pair.Key == "KitsuUserId")?.Value, Is.EqualTo("42"));
             Assert.That(_plugin.Configuration.callbackUrl, Is.EqualTo(invalidAddress));
         });
     }
@@ -570,7 +570,7 @@ public partial class UserConfigurationTests {
                 return TokenResponse(request);
             }
             tokenAvailableDuringLookup = request.Headers.Authorization?.Parameter == "new-fixture-access" &&
-                _requesterConfig.UserApiAuth.Any(auth => auth.Name == ApiName.Kitsu && auth.AccessToken == "new-fixture-access");
+                _requesterConfig.UserApiAuth!.Any(auth => auth.Name == ApiName.Kitsu && auth.AccessToken == "new-fixture-access");
             return KitsuProfileResponse(request);
         });
         var result = await _controller.PasswordGrantAuthentication(ApiName.Kitsu, _requester.Id.ToString(), "fixture-user", "fixture-password");
@@ -579,7 +579,7 @@ public partial class UserConfigurationTests {
             Assert.That(grantParametersPreserved, Is.True);
             Assert.That(tokenAvailableDuringLookup, Is.True);
             Assert.That(_requesterConfig.KeyPairs.Single(pair => pair.Key == "KitsuUserId").Value, Is.EqualTo("42"));
-            Assert.That(_requesterConfig.UserApiAuth.Length, Is.EqualTo(3));
+            Assert.That(_requesterConfig.UserApiAuth!.Length, Is.EqualTo(3));
         });
     }
 
@@ -597,7 +597,7 @@ public partial class UserConfigurationTests {
             }
             profileCalls++;
             tokenAvailableDuringLookup = request.Headers.Authorization?.Parameter == "new-fixture-access" &&
-                _targetConfig.UserApiAuth.Any(auth => auth.Name == ApiName.Kitsu && auth.AccessToken == "new-fixture-access");
+                _targetConfig.UserApiAuth!.Any(auth => auth.Name == ApiName.Kitsu && auth.AccessToken == "new-fixture-access");
             return Task.FromResult(KitsuProfileResponse(request));
         });
         var linking = _controller.PasswordGrantAuthenticationUserBody(KitsuGrant(_target.Id));
@@ -610,9 +610,9 @@ public partial class UserConfigurationTests {
             Assert.That(result, Is.TypeOf<OkResult>());
             Assert.That(profileCalls, Is.EqualTo(1));
             Assert.That(tokenAvailableDuringLookup, Is.True);
-            Assert.That(_targetConfig.KeyPairs.Single(pair => pair.Key == "KitsuUserId").Value, Is.EqualTo("42"));
-            Assert.That(_targetConfig.KeyPairs.Any(pair => pair.Key == "FutureKey"), Is.True);
-            Assert.That(_requesterConfig.UserApiAuth.Any(auth => auth.Name == ApiName.Kitsu), Is.False);
+            Assert.That(_targetConfig.KeyPairs!.Single(pair => pair.Key == "KitsuUserId").Value, Is.EqualTo("42"));
+            Assert.That(_targetConfig.KeyPairs!.Any(pair => pair.Key == "FutureKey"), Is.True);
+            Assert.That(_requesterConfig.UserApiAuth!.Any(auth => auth.Name == ApiName.Kitsu), Is.False);
         });
     }
 

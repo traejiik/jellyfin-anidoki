@@ -45,7 +45,7 @@ public sealed class TrackerProvider(ApiName name, ITrackerClient client, TimePro
             return null;
         return (anime.RelatedAnime ?? [])
             .Where(related => related.Anime != null)
-            .Select(related => new EntryRelation(ToRelationKind(related.RelationType), new EntryRef(name, related.Anime.Id, related.Anime.AlternativeId)))
+            .Select(related => new EntryRelation(ToRelationKind(related.RelationType), new EntryRef(name, related.Anime!.Id, related.Anime.AlternativeId)))
             .ToArray();
     }
 

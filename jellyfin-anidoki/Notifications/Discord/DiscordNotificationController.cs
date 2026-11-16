@@ -41,8 +41,8 @@ public sealed class DiscordNotificationController(AuthenticatedSessionResolver r
             return Ok(new { empty = true, message = "Add an accessible show or movie to preview its notification." });
         var summary = SyncOperationSummary.Capture(item, caller.Identity.UserId, Guid.NewGuid(), SyncNotificationTrigger.Playback, new());
         string? link = null;
-        if (DiscordSettingsService.AddressReady && summary.ShowItemId != Guid.Empty)
-            link = JellyfinShowLink.Build(Plugin.Instance!.PluginConfiguration.callbackUrl, summary.ShowItemId, host.SystemId);
+        if (DiscordSettingsService.ReadyAddress is { } address && summary.ShowItemId != Guid.Empty)
+            link = JellyfinShowLink.Build(address, summary.ShowItemId, host.SystemId);
         var example = summary with {
             Outcomes = [new ProviderWriteOutcome(Configuration.ApiName.AniList, "preview", summary.ShowTitle,
             OutcomeKind.Confirmed, summary.IsMovie ? null : summary.EpisodeEndNumber ?? summary.EpisodeNumber ?? 1,

@@ -90,10 +90,10 @@ public class PluginCredentialTests {
         var plugin = NewPlugin();
 
         Assert.That(plugin.StorageError, Is.Null);
-        var auth = plugin.Configuration.UserConfig[0].UserApiAuth[0];
+        var auth = plugin.Configuration.UserConfig![0].UserApiAuth![0];
         Assert.That(auth.AccessToken, Is.EqualTo("legacy-access"));
         Assert.That(auth.RefreshToken, Is.EqualTo("legacy-refresh"));
-        Assert.That(plugin.Configuration.ProviderApiAuth[0].ClientSecret, Is.EqualTo("legacy-client-secret"));
+        Assert.That(plugin.Configuration.ProviderApiAuth![0].ClientSecret, Is.EqualTo("legacy-client-secret"));
         Assert.That(plugin.Configuration.UserConfig[0].DiscordWebhookUrl, Is.EqualTo("https://discord.com/api/webhooks/1/legacy"));
         Assert.That(Store().ReadAll(), Has.Count.EqualTo(4));
         Assert.That(Store().ReadAll()[Access], Is.EqualTo("legacy-access"));
@@ -106,7 +106,7 @@ public class PluginCredentialTests {
 
         var plugin = NewPlugin();
 
-        Assert.That(plugin.Configuration.UserConfig[0].UserApiAuth[0].AccessToken, Is.EqualTo("stored-access"));
+        Assert.That(plugin.Configuration.UserConfig![0].UserApiAuth![0].AccessToken, Is.EqualTo("stored-access"));
         Assert.That(Store().ReadAll()[Access], Is.EqualTo("stored-access"));
     }
 
@@ -120,8 +120,8 @@ public class PluginCredentialTests {
             UserConfig = [new UserConfig { UserId = _user, UserApiAuth = [new UserApiAuth { Name = ApiName.AniList }] }]
         });
 
-        Assert.That(plugin.Configuration.ProviderApiAuth[0].ClientId, Is.EqualTo("edited"));
-        Assert.That(plugin.Configuration.UserConfig[0].UserApiAuth[0].AccessToken, Is.EqualTo("stored-access"));
+        Assert.That(plugin.Configuration.ProviderApiAuth![0].ClientId, Is.EqualTo("edited"));
+        Assert.That(plugin.Configuration.UserConfig![0].UserApiAuth![0].AccessToken, Is.EqualTo("stored-access"));
         Assert.That(Store().ReadAll()[Access], Is.EqualTo("stored-access"));
     }
 
@@ -143,7 +143,7 @@ public class PluginCredentialTests {
         Store().ReplaceAll(new Dictionary<SecretKey, string> { [Access] = "stored-access" });
         var plugin = NewPlugin();
 
-        plugin.Configuration.UserConfig[0].UserApiAuth = [];
+        plugin.Configuration.UserConfig![0].UserApiAuth = [];
         plugin.SaveConfiguration();
 
         Assert.That(Store().ReadAll(), Does.Not.ContainKey(Access));

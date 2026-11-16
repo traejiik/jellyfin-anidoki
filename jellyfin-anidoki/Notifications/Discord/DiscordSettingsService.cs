@@ -17,8 +17,10 @@ public sealed record DiscordSettingsResponse(
 public sealed class DiscordSettingsService {
     private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, (long Revision, string Status)> _health = new();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, long> _blocked = new();
-    internal static bool AddressReady {
-        get { var address = Plugin.Instance?.PluginConfiguration.callbackUrl; if (string.IsNullOrWhiteSpace(address)) return false; try { CallbackUrlHelper.Build(address); return true; } catch (ArgumentException) { return false; } }
+    internal static bool AddressReady => ReadyAddress != null;
+    /// <summary>The server's public address when it is set and usable for links, otherwise null.</summary>
+    internal static string? ReadyAddress {
+        get { var address = Plugin.Instance?.PluginConfiguration.callbackUrl; if (string.IsNullOrWhiteSpace(address)) return null; try { CallbackUrlHelper.Build(address); return address; } catch (ArgumentException) { return null; } }
     }
     public DiscordSettingsResponse Read(Guid userId) {
         var configuration = Plugin.Instance?.PluginConfiguration;
@@ -69,10 +71,10 @@ public sealed class DiscordSettingsService {
             return null;
         lock (configuration) {
             var user = configuration.UserConfig?.FirstOrDefault(u => u.UserId == userId);
-            if (user == null || user.DiscordNotificationRevision != revision || (!test && (!user.DiscordNotificationsEnabled || _blocked.TryGetValue(userId, out var blocked) && blocked == revision)) || !AddressReady)
+            if (user == null || user.DiscordNotificationRevision != revision || (!test && (!user.DiscordNotificationsEnabled || _blocked.TryGetValue(userId, out var blocked) && blocked == revision)) || ReadyAddress is not { } address)
                 return null;
             var url = DiscordWebhookAddress.Parse(user.DiscordWebhookUrl);
-            return url == null ? null : (url, configuration.callbackUrl);
+            return url == null ? null : (url, address);
         }
     }
     internal void Block(Guid user, long revision) => _blocked[user] = revision;

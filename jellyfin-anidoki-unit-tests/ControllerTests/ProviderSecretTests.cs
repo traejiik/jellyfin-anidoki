@@ -22,7 +22,7 @@ public partial class UserConfigurationTests {
         var result = _controller.SetProviderSecret(new ProviderSecretRequest { Provider = ApiName.AniList, Secret = " new-secret " });
 
         Assert.That(((ProviderSecretState)((OkObjectResult)result).Value!).HasSecret, Is.True);
-        Assert.That(_plugin.Configuration.ProviderApiAuth.Single(auth => auth.Name == ApiName.AniList).ClientSecret, Is.EqualTo("new-secret"));
+        Assert.That(_plugin.Configuration.ProviderApiAuth!.Single(auth => auth.Name == ApiName.AniList).ClientSecret, Is.EqualTo("new-secret"));
     }
 
     [Test]
@@ -30,14 +30,14 @@ public partial class UserConfigurationTests {
         var result = _controller.SetProviderSecret(new ProviderSecretRequest { Provider = ApiName.Mal, Clear = true });
 
         Assert.That(((ProviderSecretState)((OkObjectResult)result).Value!).HasSecret, Is.False);
-        Assert.That(_plugin.Configuration.ProviderApiAuth.Single(auth => auth.Name == ApiName.Mal).ClientSecret, Is.Null);
+        Assert.That(_plugin.Configuration.ProviderApiAuth!.Single(auth => auth.Name == ApiName.Mal).ClientSecret, Is.Null);
     }
 
     [Test]
     public void AProviderSecretRequestNeedsASecretOrClear() {
         Assert.That(_controller.SetProviderSecret(null), Is.InstanceOf<BadRequestObjectResult>());
         Assert.That(_controller.SetProviderSecret(new ProviderSecretRequest { Provider = ApiName.Mal, Secret = "  " }), Is.InstanceOf<BadRequestObjectResult>());
-        Assert.That(_plugin.Configuration.ProviderApiAuth.Single(auth => auth.Name == ApiName.Mal).ClientSecret, Is.EqualTo("fixture-secret"));
+        Assert.That(_plugin.Configuration.ProviderApiAuth!.Single(auth => auth.Name == ApiName.Mal).ClientSecret, Is.EqualTo("fixture-secret"));
     }
 
     [Test]

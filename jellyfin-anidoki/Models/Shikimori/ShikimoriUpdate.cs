@@ -1,4 +1,3 @@
-#nullable disable
 using System;
 using System.Text.Json.Serialization;
 
@@ -7,12 +6,12 @@ namespace jellyfin_anidoki.Models.Shikimori;
 public class ShikimoriUpdate {
     public class UpdateBody {
         [JsonPropertyName("user_rate")]
-        public UserRate UserRate { get; set; }
+        public UserRate? UserRate { get; set; }
     }
 
     public class UserRate {
         [JsonPropertyName("target_id")]
-        public string AnimeId { get; set; }
+        public string? AnimeId { get; set; }
 
         [JsonPropertyName("episodes")]
         public int Episodes { get; set; }
@@ -25,7 +24,7 @@ public class ShikimoriUpdate {
         public ShikimoriUserRate.StatusEnum Status { get; set; }
 
         [JsonPropertyName("user_id")]
-        public string UserId { get; set; }
+        public string? UserId { get; set; }
 
         [JsonPropertyName("target_type")]
         public string TargetType => "Anime";

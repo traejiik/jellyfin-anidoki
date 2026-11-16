@@ -116,7 +116,7 @@ public class Kitsu {
         });
         var result = await _kitsuApiCalls.GetAnime(id);
 
-        Assert.IsNotNull(result.KitsuAnimeData.Id);
+        Assert.IsNotNull(result.KitsuAnimeData!.Id);
     }
 
     [Test]
@@ -173,7 +173,7 @@ public class Kitsu {
         var result = await _kitsuApiCalls.GetUserAnimeList(7, KitsuUpdate.Status.current);
 
         Assert.That(result.Data!.Select(entry => entry.Relationships!.AnimeData!.Anime!.Id), Is.EqualTo(new[] { 500, 501 }));
-        Assert.That(result.Included!.Select(anime => anime.Attributes.CanonicalTitle), Is.EqualTo(new[] { "Title 500", "Title 501" }));
+        Assert.That(result.Included!.Select(anime => anime.Attributes!.CanonicalTitle), Is.EqualTo(new[] { "Title 500", "Title 501" }));
         Assert.That(requested, Has.All.Contains("page[limit]=500"));
     }
 

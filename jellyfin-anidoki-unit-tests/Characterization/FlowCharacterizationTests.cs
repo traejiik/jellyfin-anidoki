@@ -96,7 +96,7 @@ public class FlowCharacterizationTests {
     private async Task SpecialResolvesSideStory() {
         using var harness = NewHarness();
         var special = SyncHarness.Entry(801, "Fixture OVA", 1, null);
-        special.AlternativeTitles.En = "Fixture OVA";
+        special.AlternativeTitles!.En = "Fixture OVA";
         harness.SeedAll(SyncHarness.Entry(800, "Fixture Show", 12, Completed(12), SyncHarness.Related(RelationType.Side_Story, 801)), special);
         var episode = harness.Library.Episode("Fixture Show", 0, 1, episodeName: "Fixture OVA");
         await Record("special-season-0", harness, episode);

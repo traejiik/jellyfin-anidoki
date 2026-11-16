@@ -1,4 +1,3 @@
-#nullable disable
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
@@ -7,18 +6,18 @@ namespace jellyfin_anidoki.Models.Annict;
 public class AnnictSearch {
     public class AnnictSearchData {
         [JsonPropertyName("searchWorks")]
-        public SearchWorks SearchWorks { get; set; }
+        public SearchWorks? SearchWorks { get; set; }
     }
 
     public class AnnictAnime {
         [JsonPropertyName("id")]
-        public string Id { get; set; }
+        public string? Id { get; set; }
 
         [JsonPropertyName("titleEn")]
-        public string TitleEn { get; set; }
+        public string? TitleEn { get; set; }
 
         [JsonPropertyName("malAnimeId")]
-        public string MalAnimeId { get; set; }
+        public string? MalAnimeId { get; set; }
         [JsonConverter(typeof(JsonStringEnumConverter))]
         [JsonPropertyName("viewerStatusState")]
         public AnnictMediaStatus ViewerStatusState { get; set; }
@@ -28,12 +27,12 @@ public class AnnictSearch {
 
     public class AnnictSearchMedia {
         [JsonPropertyName("data")]
-        public AnnictSearchData AnnictSearchData { get; set; }
+        public AnnictSearchData? AnnictSearchData { get; set; }
     }
 
     public class SearchWorks {
         [JsonPropertyName("nodes")]
-        public List<AnnictAnime> Nodes { get; set; }
+        public List<AnnictAnime>? Nodes { get; set; }
     }
 
     public enum AnnictMediaStatus {
