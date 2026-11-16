@@ -267,7 +267,8 @@ namespace jellyfin_anidoki.Api {
             }
 
             if (provider == ApiName.Kitsu) {
-                var userConfig = Plugin.Instance?.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == Guid.Parse(userId));
+                // An admin settings save can replace the configuration with one that has no user list yet.
+                var userConfig = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(item => item.UserId == Guid.Parse(userId));
 
                 if (userConfig != null) {
                     KitsuApiCalls kitsuApiCalls = new KitsuApiCalls(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, userConfig);
@@ -354,12 +355,14 @@ namespace jellyfin_anidoki.Api {
                     }
 
                     var annictApiCall = await annictApiCalls.GetCurrentUser();
-                    if (annictApiCall == null) {
+                    // A reply without a viewer (a GraphQL error has "data": null) is a failed read, not an account without a name.
+                    var annictViewer = annictApiCall?.AnnictSearchData?.Viewer;
+                    if (annictViewer == null) {
                         return StatusCode(500, "Authentication failed");
                     }
 
                     return new OkObjectResult(new MalApiCalls.User {
-                        Name = annictApiCall.AnnictSearchData.Viewer.username
+                        Name = annictViewer.username
                     });
                 case ApiName.Shikimori:
                     string? shikimoriAppName = ConfigHelper.GetShikimoriAppName(_logger);

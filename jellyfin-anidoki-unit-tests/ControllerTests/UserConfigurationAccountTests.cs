@@ -15,6 +15,7 @@ using MediaBrowser.Common.Api;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
+using Moq;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.ControllerTests;
@@ -186,6 +187,41 @@ public partial class UserConfigurationTests {
     public async Task ElevatedLegacyProfileDeniesOrdinaryCrossUserAccess() {
         SetHttp(request => Task.FromResult(Response(request, HttpStatusCode.OK, """{"id":42,"name":"selected"}""")));
         Assert.That(await _controller.GetUser(ApiName.Mal, _target.Id.ToString()), Is.TypeOf<ForbidResult>());
+    }
+
+    // A reply without a viewer is a failed read, the same as no reply; it must never read as a linked account.
+    [TestCase("{}")]
+    [TestCase("""{"data":null}""")]
+    [TestCase("""{"data":{"viewer":null}}""")]
+    public async Task GetUserReportsAnAnnictReplyWithoutAViewerAsAFailedRead(string reply) {
+        _requesterConfig.AddUserApiAuth(new UserApiAuth { Name = ApiName.Annict, AccessToken = "requester-annict-fixture" });
+        SetHttp(request => Task.FromResult(Response(request, HttpStatusCode.OK, reply)));
+        var result = await _controller.GetUser(ApiName.Annict, null, _requester.Id);
+        Assert.Multiple(() => {
+            Assert.That(result, Is.TypeOf<ObjectResult>());
+            Assert.That(((ObjectResult)result).StatusCode, Is.EqualTo(500));
+            Assert.That(((ObjectResult)result).Value, Is.EqualTo("Authentication failed"));
+        });
+    }
+
+    [Test]
+    public async Task GetUserReadsAnAnnictViewerWithoutAUsername() {
+        _requesterConfig.AddUserApiAuth(new UserApiAuth { Name = ApiName.Annict, AccessToken = "requester-annict-fixture" });
+        SetHttp(request => Task.FromResult(Response(request, HttpStatusCode.OK, """{"data":{"viewer":{}}}""")));
+        var result = await _controller.GetUser(ApiName.Annict, null, _requester.Id);
+        Assert.That(result, Is.TypeOf<OkObjectResult>());
+        Assert.That(((MalApiCalls.User)((OkObjectResult)result).Value!).Name, Is.Null);
+    }
+
+    // An admin settings save replaces the whole configuration; one posted from a page loaded before any user
+    // existed has no user list. If it lands between the token save and the Kitsu lookup, the lookup must not throw.
+    [Test]
+    public async Task KitsuPasswordGrantSurvivesAUserListReplacedDuringSignIn() {
+        SetSuccessfulKitsuHttp();
+        _xmlSerializer.Setup(serializer => serializer.SerializeToFile(It.IsAny<object>(), It.IsAny<string>()))
+            .Callback(() => _plugin.Configuration.UserConfig = null);
+        var result = await _controller.PasswordGrantAuthentication(ApiName.Kitsu, _requester.Id.ToString(), "fixture-user", "fixture-password");
+        Assert.That(result, Is.TypeOf<OkResult>());
     }
 
     [TestCase(false)]
