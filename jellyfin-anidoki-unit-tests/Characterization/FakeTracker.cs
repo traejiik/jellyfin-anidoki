@@ -1,4 +1,3 @@
-#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -61,42 +60,42 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
         return anime;
     }
 
-    public Task<List<Anime>> SearchAnime(string query) {
+    public Task<List<Anime>?> SearchAnime(string query) {
         if (ReadFails() || provider == ApiName.Simkl)
-            return Task.FromResult<List<Anime>>(null);
-        return Task.FromResult(SearchResults
+            return Task.FromResult<List<Anime>?>(null);
+        return Task.FromResult<List<Anime>?>(SearchResults
             .Select(result => Copy(_entries.TryGetValue(result.Id, out var stored) ? stored : result, forRead: true))
             .ToList());
     }
 
-    public Task<Anime> GetAnime(int id, string alternativeId = null, bool getRelated = false) {
+    public Task<Anime?> GetAnime(int id, string? alternativeId = null, bool getRelated = false) {
         Reads.Add((id, getRelated));
         if (ReadFails() || provider == ApiName.Simkl || (UsesAlternativeIds && alternativeId == null) || FailingIds.Contains(id) || !_entries.TryGetValue(id, out var anime))
-            return Task.FromResult<Anime>(null);
-        return Task.FromResult(Copy(anime, forRead: true));
+            return Task.FromResult<Anime?>(null);
+        return Task.FromResult<Anime?>(Copy(anime, forRead: true));
     }
 
     // Only Simkl resolves through cross IDs; every fixture keys its entry by the MAL ID.
-    public Task<Anime> GetAnime(ArmClient.OfflineDatabaseResponse ids, string title, bool getRelated = false) {
+    public Task<Anime?> GetAnime(ArmClient.OfflineDatabaseResponse ids, string title, bool getRelated = false) {
         CrossIdReads++;
         if (ReadFails() || provider != ApiName.Simkl || ids?.MyAnimeList is not int id || FailingIds.Contains(id) || !_entries.TryGetValue(id, out var anime))
-            return Task.FromResult<Anime>(null);
-        return Task.FromResult(Copy(anime, forRead: true));
+            return Task.FromResult<Anime?>(null);
+        return Task.FromResult<Anime?>(Copy(anime, forRead: true));
     }
 
-    public Task<UpdateAnimeStatusResponse> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status,
+    public Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status,
         bool? isRewatching = null, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null,
-        string alternativeId = null, ArmClient.OfflineDatabaseResponse ids = null, bool? isShow = null) {
+        string? alternativeId = null, ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null) {
         // The real client sends nothing without the identifiers this provider writes by.
         if ((UsesAlternativeIds && alternativeId == null) || (provider == ApiName.Simkl && (ids == null || isShow == null)))
-            return Task.FromResult<UpdateAnimeStatusResponse>(null);
+            return Task.FromResult<UpdateAnimeStatusResponse?>(null);
         Writes.Add(new RecordedWrite(animeId, numberOfWatchedEpisodes, status, isRewatching, numberOfTimesRewatched,
             startDate != null, endDate != null));
         WriteContexts.Add(new WriteContext(alternativeId, ids?.MyAnimeList, isShow));
         if (FailingWrites.Contains(Writes.Count)) {
             if (WriteFailure is { } failure)
                 TrackerCallScope.Report(failure);
-            return Task.FromResult<UpdateAnimeStatusResponse>(null);
+            return Task.FromResult<UpdateAnimeStatusResponse?>(null);
         }
         int? previousCount = null;
         if (_entries.TryGetValue(animeId, out var stored)) {
@@ -110,7 +109,7 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
         }
         // Echo what was written, as a tracker that stores the values does. The count comes from the server's record,
         // which MAL reports in its write response even though its reads do not.
-        return Task.FromResult(new UpdateAnimeStatusResponse {
+        return Task.FromResult<UpdateAnimeStatusResponse?>(new UpdateAnimeStatusResponse {
             UsesAcknowledgementFields = true,
             AcknowledgedProgress = numberOfWatchedEpisodes,
             AcknowledgedStatus = status,
@@ -128,7 +127,8 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
         NumEpisodes = source.NumEpisodes,
         RelatedAnime = source.RelatedAnime?.Select(related => new RelatedAnime {
             RelationType = related.RelationType,
-            Anime = new Anime { Id = related.Anime.Id, AlternativeId = AlternativeIdFor(related.Anime) }
+            // A relation without its node is copied as one, as a real read would return it.
+            Anime = related.Anime is { } node ? new Anime { Id = node.Id, AlternativeId = AlternativeIdFor(node) } : null
         }).ToList(),
         MyListStatus = forRead && provider == ApiName.Kitsu ? KitsuStatus(source.MyListStatus) : source.MyListStatus == null ? null : new MyListStatus {
             Status = source.MyListStatus.Status,
@@ -143,7 +143,7 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
     /// Kitsu's client returns an empty status (Watching, 0, no count) for an entry not on the list, and
     /// ReconsumeCount ?? 0 for one that is, so a Kitsu read never carries a null status or, on the list, a null count.
     /// </summary>
-    private static MyListStatus KitsuStatus(MyListStatus stored) {
+    private static MyListStatus KitsuStatus(MyListStatus? stored) {
         if (stored == null || (stored.Status == Status.Watching && stored.NumEpisodesWatched == 0 && !stored.IsRewatching && stored.RewatchCount == null))
             return new MyListStatus();
         return new MyListStatus {
@@ -154,7 +154,7 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
         };
     }
 
-    private string AlternativeIdFor(Anime anime) => anime.AlternativeId ?? (UsesAlternativeIds ? $"alt-{anime.Id}" : null);
+    private string? AlternativeIdFor(Anime anime) => anime.AlternativeId ?? (UsesAlternativeIds ? $"alt-{anime.Id}" : null);
 }
 
 internal sealed record RecordedWrite(int EntryId, int Progress, Status Status, bool? Rewatching, int? RewatchCount,
@@ -165,4 +165,4 @@ internal sealed record RecordedWrite(int EntryId, int Progress, Status Status, b
     private static string Format<T>(T? value) where T : struct => value?.ToString() ?? "-";
 }
 
-internal sealed record WriteContext(string AlternativeId, int? MalId, bool? IsShow);
+internal sealed record WriteContext(string? AlternativeId, int? MalId, bool? IsShow);

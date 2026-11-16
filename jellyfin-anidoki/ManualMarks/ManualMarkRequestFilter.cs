@@ -49,7 +49,7 @@ public sealed class ManualMarkRequestFilter(AuthenticatedSessionResolver resolve
         try {
             item = itemId == Guid.Empty ? null : library.GetItemById(itemId);
             var user = identity == null ? null : users.GetUserById(identity.UserId);
-            alreadyPlayed = user != null && item != null && data.GetUserData(user, item).Played;
+            alreadyPlayed = user != null && item != null && data.GetUserData(user, item)?.Played == true;
         } catch (Exception) {
             // A capture failure must not prevent Jellyfin's own action or permit fallback.
             withhold = true;

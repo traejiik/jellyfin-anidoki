@@ -238,10 +238,12 @@ public partial class UserConfigurationTests {
         var targetKeys = _targetConfig.KeyPairs;
         var providerAuth = _plugin.Configuration.ProviderApiAuth;
         Assert.That(await InvokeEndpoint("SetAnnictToken", _target.Id, new AnnictTokenRequest { Token = "target-new-annict-fixture" }), Is.TypeOf<OkResult>());
+        var targetAuth = _targetConfig.UserApiAuth;
+        Assert.That(targetAuth, Is.Not.Null);
         Assert.Multiple(() => {
-            Assert.That(_targetConfig.UserApiAuth!.Count(auth => auth.Name == ApiName.Annict), Is.EqualTo(1));
-            Assert.That(_targetConfig.UserApiAuth!.Single(auth => auth.Name == ApiName.Annict).AccessToken == "target-new-annict-fixture", Is.True);
-            Assert.That(_targetConfig.UserApiAuth.Single(auth => auth.Name == ApiName.Mal).AccessToken == "target-mal-fixture", Is.True);
+            Assert.That(targetAuth!.Count(auth => auth.Name == ApiName.Annict), Is.EqualTo(1));
+            Assert.That(targetAuth!.Single(auth => auth.Name == ApiName.Annict).AccessToken == "target-new-annict-fixture", Is.True);
+            Assert.That(targetAuth!.Single(auth => auth.Name == ApiName.Mal).AccessToken == "target-mal-fixture", Is.True);
             Assert.That(_requesterConfig.UserApiAuth, Is.SameAs(otherAuth));
             Assert.That(_targetConfig.KeyPairs, Is.SameAs(targetKeys));
             Assert.That(_targetConfig.PlanToWatchOnly, Is.False);

@@ -31,7 +31,7 @@ public sealed class ManualMarkService(ManualMarkStore store, IUserManager users,
             var user = users.GetUserById(request.UserId);
             var item = sourceItem = library.GetItemById(request.SourceItemId) as Episode;
             var configuration = Plugin.Instance?.PluginConfiguration;
-            if (user == null || item == null || !item.IsVisible(user, false) || !data.GetUserData(user, item).Played ||
+            if (user == null || item == null || !item.IsVisible(user, false) || data.GetUserData(user, item)?.Played != true ||
                 configuration?.watchedTickboxUpdatesProvider != true || SyncHelper.MediaShouldBeIgnored(item) ||
                 !ManualMarkRequestFilter.IsTracked(request.UserId, item, library, animeList.Index, loggers.CreateLogger<ManualMarkService>())) {
                 Cancel(operationId, operation, "The item, access or tracking settings changed. Trackers were not updated.");

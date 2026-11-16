@@ -141,4 +141,38 @@ public class TriggerTests {
         Assert.That(operation.Source, Is.EqualTo("Fixture Show · episode 5"));
         Assert.That(marks.Read(user, "key", id)!.State, Is.EqualTo(ManualMarkState.Cancelled));
     }
+
+    [Test]
+    public async Task AMarkWithoutUserDataIsCancelledAsNotPlayed() {
+        var marks = new ManualMarkStore(TimeProvider.System);
+        var queue = new ManualMarkQueue();
+        var jellyfinUser = new User("viewer", "authentication", "password-reset") { Id = Guid.NewGuid() };
+        var episode = new Episode { Id = Guid.NewGuid(), Name = "Episode 5", IndexNumber = 5, Tags = [] };
+        var users = new Mock<IUserManager>();
+        users.Setup(manager => manager.GetUserById(jellyfinUser.Id)).Returns(jellyfinUser);
+        var library = new Mock<ILibraryManager>();
+        library.Setup(manager => manager.GetItemById(episode.Id)).Returns(episode);
+        // A loose mock returns no user data, which Jellyfin itself never does: it creates an unplayed row on read.
+        var userData = new Mock<IUserDataManager>();
+        var service = new ManualMarkService(marks, users.Object, library.Object, userData.Object, NullLoggerFactory.Instance,
+            new HttpContextAccessor(), new Mock<IServerApplicationHost>().Object, new Mock<IHttpClientFactory>().Object,
+            IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), null!);
+        using var worker = new ManualMarkWorker(queue, marks, service, _runner, NullLogger<ManualMarkWorker>.Instance);
+        Guid id = Guid.NewGuid();
+        var created = marks.CreateOrGet(new ManualMarkRequest(id, jellyfinUser.Id, "key", episode.Id, "Fixture Show", 5, "Episode 5",
+            DateTimeOffset.UtcNow, "fingerprint"))!;
+        Assert.That(marks.TryQueue(jellyfinUser.Id, "key", id, created.Revision), Is.True);
+
+        await worker.StartAsync(CancellationToken.None);
+        Assert.That(queue.TryWrite(id), Is.True);
+        await WaitUntil(() => _store.Read(id) is { } view && OperationStates.IsFinished(view.State));
+        await worker.StopAsync(CancellationToken.None);
+
+        // Missing user data reads as not played, so nothing was sent and the mark says so.
+        userData.Verify(manager => manager.GetUserData(jellyfinUser, episode), Times.Once);
+        Assert.That(_store.Read(id)!.State, Is.EqualTo(OperationState.Cancelled));
+        var mark = marks.Read(jellyfinUser.Id, "key", id)!;
+        Assert.That(mark.State, Is.EqualTo(ManualMarkState.Cancelled));
+        Assert.That(mark.Reason, Is.EqualTo("The item, access or tracking settings changed. Trackers were not updated."));
+    }
 }
