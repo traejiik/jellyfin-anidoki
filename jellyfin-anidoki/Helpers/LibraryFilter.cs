@@ -61,7 +61,7 @@ public static class LibraryFilter {
         AnimeScope(animeLibraries, libraryManager, item) != LibraryScope.Excluded;
 
     private static LibraryScope AnimeScope(IReadOnlyCollection<AnimeLibrary> animeLibraries, ILibraryManager libraryManager, BaseItem item) =>
-        ScopeIn(animeLibraries, LibrariesOf(libraryManager, item), () => HasAnimeId(item, tmdbId => AnimeListIndex.Shared.AniDbIdForMovie(tmdbId) != null));
+        ScopeIn(animeLibraries, LibrariesOf(libraryManager, item), () => HasAnimeId(item, AnimeListIndex.Shared));
 
     /// <summary>The most permissive mode among the item's libraries. A library with no entry counts as Off.</summary>
     internal static LibraryScope ScopeIn(IReadOnlyCollection<AnimeLibrary> animeLibraries, IEnumerable<Guid> itemLibraries, Func<bool> hasAnimeId) {
@@ -86,20 +86,27 @@ public static class LibraryFilter {
     }
 
     /// <summary>
-    /// Whether the item, or the series and season it belongs to, carries an anime provider ID; or, for a movie,
-    /// whether <paramref name="isAnimeMovie"/> knows its TMDB ID. Series TMDB IDs are a separate numbering and never count.
+    /// Whether the item, or the series and season it belongs to, carries an anime provider ID. A movie's AniDB ID counts
+    /// only when <paramref name="animeList"/> ties it to the movie (<see cref="MovieAniDbCheck.Confirms"/>), because
+    /// Jellyfin's AniDB plugin can give a Western film an anime's ID; a movie with no other anime ID also counts when the
+    /// list maps its TMDB ID. Series TMDB IDs are a separate numbering and never count.
     /// </summary>
-    internal static bool HasAnimeId(BaseItem item, Func<string, bool>? isAnimeMovie = null) {
+    internal static bool HasAnimeId(BaseItem item, AnimeListIndex? animeList = null) {
         BaseItem?[] carriers = item switch {
             Episode episode => [episode.Series, episode.Season],
             Season season => [season.Series, season],
             _ => [item]
         };
+        bool movie = item is Movie;
         if (carriers.Any(carrier => carrier?.ProviderIds?.Any(pair =>
-                AnimeIdKeys.Contains(pair.Key, StringComparer.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(pair.Value)) == true))
+                AnimeIdKeys.Contains(pair.Key, StringComparer.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(pair.Value)
+                && !(movie && pair.Key.Equals("AniDB", StringComparison.OrdinalIgnoreCase))) == true))
             return true;
-        return item is Movie movie && isAnimeMovie != null
-            && AnimeListHelpers.TryGetProviderId(movie.ProviderIds, "Tmdb", out string tmdbId) && isAnimeMovie(tmdbId);
+        if (item is not Movie film || animeList == null)
+            return false;
+        if (MovieAniDbCheck.For(film, animeList) is { } check)
+            return check.Confirms;
+        return AnimeListHelpers.TryGetProviderId(film.ProviderIds, "Tmdb", out string tmdbId) && animeList.AniDbIdForMovie(tmdbId) != null;
     }
 
     /// <summary>The per-user filter used before 1.6.0, unchanged. Removed with LibraryToCheck in 2.0.0.</summary>
