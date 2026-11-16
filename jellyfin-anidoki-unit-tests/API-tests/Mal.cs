@@ -20,11 +20,11 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests.API_tests;
 
 public class Mal {
-    private MalApiCalls _malApiCalls;
-    private ILoggerFactory _loggerFactory;
-    private Mock<IServerApplicationHost> _serverApplicationHost;
-    private Mock<IHttpContextAccessor> _httpContextAccessor;
-    private IHttpClientFactory _httpClientFactory;
+    private MalApiCalls _malApiCalls = null!;
+    private ILoggerFactory _loggerFactory = null!;
+    private Mock<IServerApplicationHost> _serverApplicationHost = null!;
+    private Mock<IHttpContextAccessor> _httpContextAccessor = null!;
+    private IHttpClientFactory _httpClientFactory = null!;
 
     private void Setup(List<Helpers.HttpCall> httpCalls) {
         _loggerFactory = new NullLoggerFactory();

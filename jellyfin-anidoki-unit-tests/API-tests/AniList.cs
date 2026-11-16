@@ -30,11 +30,11 @@ using JsonSerializer = System.Text.Json.JsonSerializer;
 namespace jellyfin_anidoki_unit_tests.API_tests;
 
 public class AniList {
-    private AniListApiCalls _aniListApiCalls;
-    private ILoggerFactory _loggerFactory;
-    private Mock<IServerApplicationHost> _serverApplicationHost;
-    private Mock<IHttpContextAccessor> _httpContextAccessor;
-    private IHttpClientFactory _httpClientFactory;
+    private AniListApiCalls _aniListApiCalls = null!;
+    private ILoggerFactory _loggerFactory = null!;
+    private Mock<IServerApplicationHost> _serverApplicationHost = null!;
+    private Mock<IHttpContextAccessor> _httpContextAccessor = null!;
+    private IHttpClientFactory _httpClientFactory = null!;
     private Mock<IAsyncDelayer> _delayer = null!;
 
     private void Setup(List<Helpers.HttpCall> httpCalls) {
@@ -229,7 +229,8 @@ public class AniList {
         });
         var result = await new AniListTrackerClient(_aniListApiCalls).UpdateAnime(1, 5, Status.Completed,
             isRewatching: true, numberOfTimesRewatched: 2);
-        Assert.That(result.AcknowledgedProgress, Is.EqualTo(4));
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.AcknowledgedProgress, Is.EqualTo(4));
         Assert.That(result.AcknowledgedStatus, Is.EqualTo(Status.Watching));
         Assert.That(result.AcknowledgedRewatching, Is.False);
         Assert.That(result.AcknowledgedRewatchCount, Is.EqualTo(1));

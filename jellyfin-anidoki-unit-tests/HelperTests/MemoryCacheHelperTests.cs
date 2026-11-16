@@ -7,98 +7,98 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki.Tests.Helpers {
-    public class MemoryCacheHelperTests {
-        private IMemoryCache memoryCache;
-        private Mock<ILogger> mockLogger;
+namespace jellyfin_anidoki.Tests.Helpers;
 
-        [SetUp]
-        public void Setup() {
-            memoryCache = new MemoryCache(new MemoryCacheOptions());
-            mockLogger = new Mock<ILogger>();
-        }
+public class MemoryCacheHelperTests {
+    private IMemoryCache memoryCache = null!;
+    private Mock<ILogger> mockLogger = null!;
 
-        [TearDown]
-        public void TearDown() {
-            memoryCache.Dispose();
-        }
+    [SetUp]
+    public void Setup() {
+        memoryCache = new MemoryCache(new MemoryCacheOptions());
+        mockLogger = new Mock<ILogger>();
+    }
 
-        [Test]
-        public void CheckResponseHeadersForRateLimiting_RateLimitReached_SetsTwoMinuteBackoff() {
-            var responseMessage = new HttpResponseMessage();
-            responseMessage.Headers.TryAddWithoutValidation(
-                MemoryCacheHelper.XRateLimitRemainingHeader,
-                "0"
-            );
+    [TearDown]
+    public void TearDown() {
+        memoryCache.Dispose();
+    }
 
-            MemoryCacheHelper.CheckResponseHeadersForRateLimiting(
-                responseMessage,
-                mockLogger.Object,
-                ApiName.AniList,
-                memoryCache
-            );
+    [Test]
+    public void CheckResponseHeadersForRateLimiting_RateLimitReached_SetsTwoMinuteBackoff() {
+        var responseMessage = new HttpResponseMessage();
+        responseMessage.Headers.TryAddWithoutValidation(
+            MemoryCacheHelper.XRateLimitRemainingHeader,
+            "0"
+        );
 
-            mockLogger.Verify(x => x.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((o, t) => o.ToString().Contains("Reached rate limit")),
-                null,
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()
-            ), Times.Once);
-        }
+        MemoryCacheHelper.CheckResponseHeadersForRateLimiting(
+            responseMessage,
+            mockLogger.Object,
+            ApiName.AniList,
+            memoryCache
+        );
 
-        [Test]
-        public void CheckResponseHeadersForRateLimiting_ResetTimeInFuture_SetsDelayBasedOnReset() {
-            var responseMessage = new HttpResponseMessage();
-            var futureTime = DateTimeOffset.UtcNow.AddHours(1);
+        mockLogger.Verify(x => x.Log(
+            LogLevel.Warning,
+            It.IsAny<EventId>(),
+            It.Is<It.IsAnyType>((o, t) => (o.ToString() ?? "").Contains("Reached rate limit")),
+            null,
+            It.IsAny<Func<It.IsAnyType, Exception?, string>>()
+        ), Times.Once);
+    }
 
-            responseMessage.Headers.TryAddWithoutValidation(
-                MemoryCacheHelper.XRateLimitResetHeader,
-                futureTime.ToString("R")
-            );
+    [Test]
+    public void CheckResponseHeadersForRateLimiting_ResetTimeInFuture_SetsDelayBasedOnReset() {
+        var responseMessage = new HttpResponseMessage();
+        var futureTime = DateTimeOffset.UtcNow.AddHours(1);
 
-            MemoryCacheHelper.CheckResponseHeadersForRateLimiting(
-                responseMessage,
-                mockLogger.Object,
-                ApiName.AniList,
-                memoryCache
-            );
+        responseMessage.Headers.TryAddWithoutValidation(
+            MemoryCacheHelper.XRateLimitResetHeader,
+            futureTime.ToString("R")
+        );
 
-            mockLogger.Verify(x => x.Log(
-                LogLevel.Debug,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((o, t) => o.ToString().Contains("Rate limit until")),
-                null,
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()
-            ), Times.Once);
-        }
+        MemoryCacheHelper.CheckResponseHeadersForRateLimiting(
+            responseMessage,
+            mockLogger.Object,
+            ApiName.AniList,
+            memoryCache
+        );
 
-        [Test]
-        public void CheckResponseHeadersForRateLimiting_NoRateLimitHeaders_LogsNothing() {
-            var responseMessage = new HttpResponseMessage();
+        mockLogger.Verify(x => x.Log(
+            LogLevel.Debug,
+            It.IsAny<EventId>(),
+            It.Is<It.IsAnyType>((o, t) => (o.ToString() ?? "").Contains("Rate limit until")),
+            null,
+            It.IsAny<Func<It.IsAnyType, Exception?, string>>()
+        ), Times.Once);
+    }
 
-            MemoryCacheHelper.CheckResponseHeadersForRateLimiting(
-                responseMessage,
-                mockLogger.Object,
-                ApiName.AniList,
-                memoryCache
-            );
+    [Test]
+    public void CheckResponseHeadersForRateLimiting_NoRateLimitHeaders_LogsNothing() {
+        var responseMessage = new HttpResponseMessage();
 
-            mockLogger.Verify(x => x.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((o, t) => o.ToString().Contains("Reached rate limit")),
-                null,
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()
-            ), Times.Never);
+        MemoryCacheHelper.CheckResponseHeadersForRateLimiting(
+            responseMessage,
+            mockLogger.Object,
+            ApiName.AniList,
+            memoryCache
+        );
 
-            mockLogger.Verify(x => x.Log(
-                LogLevel.Debug,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((o, t) => o.ToString().Contains("Rate limit until")),
-                null,
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()
-            ), Times.Never);
-        }
+        mockLogger.Verify(x => x.Log(
+            LogLevel.Warning,
+            It.IsAny<EventId>(),
+            It.Is<It.IsAnyType>((o, t) => (o.ToString() ?? "").Contains("Reached rate limit")),
+            null,
+            It.IsAny<Func<It.IsAnyType, Exception?, string>>()
+        ), Times.Never);
+
+        mockLogger.Verify(x => x.Log(
+            LogLevel.Debug,
+            It.IsAny<EventId>(),
+            It.Is<It.IsAnyType>((o, t) => (o.ToString() ?? "").Contains("Rate limit until")),
+            null,
+            It.IsAny<Func<It.IsAnyType, Exception?, string>>()
+        ), Times.Never);
     }
 }

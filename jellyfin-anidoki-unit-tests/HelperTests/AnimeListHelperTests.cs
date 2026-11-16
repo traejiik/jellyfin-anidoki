@@ -31,8 +31,8 @@ public class AnimeListHelperTests {
             }
         };
         var returned = AnimeListHelpers.ListAllSeasonOfAniDbSeries(aniDbId, animeListXml);
-        Assert.IsTrue(returned != null);
-        Assert.IsTrue(returned.Count() == 2);
+        Assert.That(returned, Is.Not.Null);
+        Assert.IsTrue(returned!.Count() == 2);
     }
 
     [Test]
@@ -56,8 +56,8 @@ public class AnimeListHelperTests {
             }
         };
         var returned = AnimeListHelpers.GetAniDbSeason(aniDbId, animeListXml);
-        Assert.IsTrue(returned != null);
-        Assert.IsTrue(returned.Anidbid == aniDbId.ToString());
+        Assert.That(returned, Is.Not.Null);
+        Assert.IsTrue(returned!.Anidbid == aniDbId.ToString());
     }
 
     /// <summary>An anime list without rows finds nothing, as a missing list does, instead of throwing.</summary>

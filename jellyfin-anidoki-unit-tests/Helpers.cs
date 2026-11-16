@@ -110,6 +110,6 @@ public class Helpers {
         /// <summary>
         /// The response content of the call being made.
         /// </summary>
-        public string ResponseContent { get; set; }
+        public required string ResponseContent { get; set; }
     }
 }

@@ -21,13 +21,13 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests.API_tests;
 
 public class Kitsu {
-    private KitsuApiCalls _kitsuApiCalls;
-    private ILoggerFactory _loggerFactory;
-    private Mock<IServerApplicationHost> _serverApplicationHost;
-    private Mock<IHttpContextAccessor> _httpContextAccessor;
-    private IHttpClientFactory _httpClientFactory;
-    private MemoryCache _memoryCache;
-    private Mock<IAsyncDelayer> _mockDelayer;
+    private KitsuApiCalls _kitsuApiCalls = null!;
+    private ILoggerFactory _loggerFactory = null!;
+    private Mock<IServerApplicationHost> _serverApplicationHost = null!;
+    private Mock<IHttpContextAccessor> _httpContextAccessor = null!;
+    private IHttpClientFactory _httpClientFactory = null!;
+    private MemoryCache _memoryCache = null!;
+    private Mock<IAsyncDelayer> _mockDelayer = null!;
 
     private void Setup(List<Helpers.HttpCall> httpCalls) {
         _loggerFactory = new NullLoggerFactory();
