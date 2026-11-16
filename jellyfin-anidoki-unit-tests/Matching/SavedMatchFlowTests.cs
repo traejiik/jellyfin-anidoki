@@ -15,7 +15,6 @@ using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki_unit_tests.Characterization;
 using jellyfin_anidoki_unit_tests.Operations;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Http;
@@ -178,7 +177,7 @@ public class SavedMatchFlowTests {
             operations.Create(id, _user, OperationKind.SyncToTrackers, "x");
             var context = new OperationContext(id, _user, operations, NullLogger.Instance, default);
             var sync = new SyncProviderFromLocal(new Mock<IUserManager>().Object, _harness.Library.Library.Object, NullLoggerFactory.Instance,
-                new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(), new Mock<IApplicationPaths>().Object,
+                new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(), IdServices.Arm(), IdServices.AnimeList(),
                 new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, _user.ToString(), new FixedWatchState(1, 12)) {
                 ClientOverride = (provider, _) => _harness.Tracker(provider)
             };

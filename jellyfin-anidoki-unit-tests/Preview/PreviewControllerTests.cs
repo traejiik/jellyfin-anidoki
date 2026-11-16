@@ -85,7 +85,7 @@ public class PreviewControllerTests {
     private PreviewController Controller(OperationStore store, PreviewStore rows) =>
         new(_runner, store, rows, new MatchStore(Plugin.Instance!.Database, TimeProvider.System), new FixedWatchState(), _users.Object,
             _library.Object, new Mock<IUserDataManager>().Object, NullLoggerFactory.Instance, new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object,
-            new HttpContextAccessor(), new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()));
+            new HttpContextAccessor(), IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()));
 
     private ActionResult<OperationStarted> Start(string? provider = TrackerChoice.All, SyncAction action = SyncAction.UpdateProvider) =>
         _controller.Start(_user.Id, action, provider);

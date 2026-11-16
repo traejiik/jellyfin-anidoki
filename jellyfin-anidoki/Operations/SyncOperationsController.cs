@@ -6,7 +6,6 @@ using jellyfin_anidoki.Enums;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using MediaBrowser.Common.Api;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
@@ -23,7 +22,7 @@ namespace jellyfin_anidoki.Operations;
 [Authorize(Policy = Policies.RequiresElevation)]
 public sealed class SyncOperationsController(OperationRunner runner, OperationStore store, IUserManager userManager,
     ILibraryManager libraryManager, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory,
-    IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, IApplicationPaths applicationPaths,
+    IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, ArmClient arm, AnimeListSource animeList,
     IUserDataManager userDataManager, IMemoryCache memoryCache, Matching.ISeasonWatchState? watchState = null) : ControllerBase {
     [HttpPost("sync")]
     public ActionResult<OperationStarted> StartSync([FromQuery] string? provider, [FromQuery] Guid userId,
@@ -45,11 +44,11 @@ public sealed class SyncOperationsController(OperationRunner runner, OperationSt
         var delayer = new Delayer();
         OperationRunner.Handle? handle = kind == OperationKind.SyncToTrackers
             ? runner.Enqueue(userId, kind, only?.ToString() ?? "All linked trackers", operation => new SyncProviderFromLocal(userManager, libraryManager, loggerFactory,
-                httpClientFactory, serverApplicationHost, httpContextAccessor, applicationPaths, memoryCache, delayer, userId.ToString(), watchState) {
+                httpClientFactory, serverApplicationHost, httpContextAccessor, arm, animeList, memoryCache, delayer, userId.ToString(), watchState) {
                 OnlyProvider = only
             }.SyncFromLocal(operation))
             : runner.Enqueue(userId, kind, $"{only} ({status})", operation => new Sync(httpClientFactory, loggerFactory, serverApplicationHost,
-                httpContextAccessor, userManager, libraryManager, applicationPaths, userDataManager, memoryCache, delayer, only!.Value, status).SyncFromProvider(userId.ToString(), operation));
+                httpContextAccessor, userManager, libraryManager, arm, animeList, userDataManager, memoryCache, delayer, only!.Value, status).SyncFromProvider(userId.ToString(), operation));
         if (handle == null)
             return StatusCode(StatusCodes.Status503ServiceUnavailable, "AniDoki storage is unavailable, so the sync was not started.");
         return Accepted(new OperationStarted(handle.OperationId));

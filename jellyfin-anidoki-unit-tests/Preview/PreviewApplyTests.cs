@@ -18,7 +18,6 @@ using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki_unit_tests.Characterization;
 using jellyfin_anidoki_unit_tests.Matching;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
@@ -119,7 +118,7 @@ public class PreviewApplyTests {
         OperationContext preview = NewContext(OperationKind.PreviewToTrackers);
         await new OutboundPreview(new Mock<IUserManager>().Object, _harness.Library.Library.Object, NullLoggerFactory.Instance,
             new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(),
-            new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), _delayer.Object, _matches, _rows, watch, _user) {
+            IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), _delayer.Object, _matches, _rows, watch, _user) {
             ClientOverride = (provider, _) => _harness.Tracker(provider),
             OnlyProvider = ApiName.AniList
         }.PreviewEpisodes([episode], preview);

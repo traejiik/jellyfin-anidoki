@@ -34,12 +34,12 @@ public sealed class ShikimoriTrackerClient(ShikimoriApiCalls api) : ITrackerClie
         return anime == null ? null : ClassConversions.ConvertShikimoriAnime(anime);
     }
 
-    public Task<Anime?> GetAnime(AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, string title, bool getRelated = false) =>
+    public Task<Anime?> GetAnime(ArmClient.OfflineDatabaseResponse ids, string title, bool getRelated = false) =>
         Task.FromResult<Anime?>(null);
 
     public async Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status, bool? isRewatching = null,
         int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null, string? alternativeId = null,
-        AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? ids = null, bool? isShow = null) {
+        ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null) {
         if (alternativeId == null)
             return null;
         ShikimoriUserRate.StatusEnum shikimoriStatus = status switch {

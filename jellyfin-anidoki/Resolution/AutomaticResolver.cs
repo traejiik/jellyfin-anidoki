@@ -192,6 +192,6 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
     // A resolved ID counts when it is set and not 0, as the checks this replaced read.
     private static int? Set(int? id) => id is null or 0 ? null : id;
 
-    private static bool HasAny(Helpers.AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids) =>
+    private static bool HasAny(Helpers.ArmClient.OfflineDatabaseResponse ids) =>
         Set(ids.MyAnimeList) != null || Set(ids.Anilist) != null || Set(ids.Kitsu) != null || Set(ids.AniDb) != null;
 }

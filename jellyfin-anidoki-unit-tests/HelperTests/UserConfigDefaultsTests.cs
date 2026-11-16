@@ -52,8 +52,8 @@ public class UserConfigDefaultsTests {
         // Before the fix a missing list matched no library and every episode was ignored.
         var library = new Moq.Mock<MediaBrowser.Controller.Library.ILibraryManager>(Moq.MockBehavior.Strict);
         var config = new UserConfig { LibraryToCheck = missing ? null! : Array.Empty<string>() };
-        bool monitored = jellyfin_anidoki.Helpers.LibraryFilter.Includes(config, library.Object,
-            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, item: null);
+        bool monitored = jellyfin_anidoki.Helpers.LibraryFilter.Includes(config, library.Object, new jellyfin_anidoki.Helpers.AnimeListIndex(() => null),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, item: null!);
         Assert.That(monitored, Is.True);
     }
 

@@ -62,7 +62,7 @@ internal sealed class SyncHarness : IDisposable {
                 RequestMethod = HttpMethod.Get,
                 RequestUrlMatch = url => url.EndsWith("/ids"),
                 ResponseCode = HttpStatusCode.OK,
-                ResponseContent = JsonSerializer.Serialize(new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
+                ResponseContent = JsonSerializer.Serialize(new ArmClient.OfflineDatabaseResponse {
                     Anilist = EntryId,
                     MyAnimeList = EntryId,
                     Kitsu = EntryId,
@@ -121,7 +121,7 @@ internal sealed class SyncHarness : IDisposable {
 
     public SyncPipeline NewUpdater() => new(Library.Library.Object, new NullLoggerFactory(),
         new Mock<IHttpContextAccessor>().Object, new Mock<IServerApplicationHost>().Object, _http,
-        new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object) {
+        IdServices.Arm(_http, Configuration), IdServices.AnimeList(_http, configuration: Configuration), new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object) {
         ClientOverride = (provider, _) => Tracker(provider)
     };
 

@@ -158,22 +158,22 @@ public class LibraryFilterTests {
         var all = new UserConfig { LibraryToCheck = [] };
         var some = new UserConfig { LibraryToCheck = [AnimeFolder.ToString("N")] };
 
-        Assert.That(LibraryFilter.Scope(null, all, library, NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Included));
-        Assert.That(LibraryFilter.Scope([], all, library, NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Included));
+        Assert.That(LibraryFilter.Scope(null, all, library, AnimeList(), NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Included));
+        Assert.That(LibraryFilter.Scope([], all, library, AnimeList(), NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Included));
         // An item outside the user's picked libraries, as ManualMarkTrackingTests checks through the old entry point.
-        Assert.That(LibraryFilter.Scope([], some, library, NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Excluded));
+        Assert.That(LibraryFilter.Scope([], some, library, AnimeList(), NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Excluded));
     }
 
     [Test]
     public void OnceTheAdminChoosesAUsersAllLibrariesNoLongerApplies() {
         var all = new UserConfig { LibraryToCheck = [] };
 
-        Assert.That(LibraryFilter.Scope(Admin, all, Library().Object, NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Excluded));
+        Assert.That(LibraryFilter.Scope(Admin, all, Library().Object, AnimeList(), NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Excluded));
     }
 
     [Test]
     public void TheMatchListAsksTheSameQuestionAsSync() {
         // An item in no library, as Scope says for every user once the admin chooses: left out of the admin list too.
-        Assert.That(LibraryFilter.InAnimeLibraries(Admin, Library().Object, new Episode()), Is.False);
+        Assert.That(LibraryFilter.InAnimeLibraries(Admin, Library().Object, AnimeList(), new Episode()), Is.False);
     }
 }

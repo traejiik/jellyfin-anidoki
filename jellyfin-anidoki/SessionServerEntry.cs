@@ -9,7 +9,6 @@ using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using Jellyfin.Database.Implementations.Entities;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -24,7 +23,8 @@ namespace jellyfin_anidoki {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IServerApplicationHost _serverApplicationHost;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IApplicationPaths _applicationPaths;
+        private readonly ArmClient _arm;
+        private readonly AnimeListSource _animeList;
         private readonly ILoggerFactory _loggerFactory;
         private readonly ISessionManager _sessionManager;
         private readonly ILogger<SessionServerEntry> _logger;
@@ -43,11 +43,12 @@ namespace jellyfin_anidoki {
         public SessionServerEntry(ISessionManager sessionManager, ILoggerFactory loggerFactory,
             IHttpClientFactory httpClientFactory, ILibraryManager libraryManager,
             IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor,
-            IApplicationPaths applicationPaths, IMemoryCache memoryCache, NotificationEventStore notifications, OperationRunner runner, ManualMarkStore manualMarks = null, Notifications.Discord.DiscordNotificationDispatcher discord = null, Matching.ISeasonWatchState watchState = null) {
+            ArmClient arm, AnimeListSource animeList, IMemoryCache memoryCache, NotificationEventStore notifications, OperationRunner runner, ManualMarkStore manualMarks = null, Notifications.Discord.DiscordNotificationDispatcher discord = null, Matching.ISeasonWatchState watchState = null) {
             _httpClientFactory = httpClientFactory;
             _serverApplicationHost = serverApplicationHost;
             _httpContextAccessor = httpContextAccessor;
-            _applicationPaths = applicationPaths;
+            _arm = arm;
+            _animeList = animeList;
             _loggerFactory = loggerFactory;
             _logger = loggerFactory.CreateLogger<SessionServerEntry>();
             _sessionManager = sessionManager;
@@ -98,7 +99,7 @@ namespace jellyfin_anidoki {
 
         private async Task RunPlayback(BaseItem item, Guid userId, PlaybackNotificationContext context, OperationContext operation) {
             var collector = new PlaybackOutcomeCollector(operation.Record);
-            var pipeline = new SyncPipeline(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer) { WatchState = _watchState };
+            var pipeline = new SyncPipeline(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _arm, _animeList, _memoryCache, _delayer) { WatchState = _watchState };
             try {
                 await pipeline.Run(item, userId, true, collector, SyncUpdateSource.Playback, operation.CancellationToken);
             } finally {

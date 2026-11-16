@@ -103,7 +103,7 @@ public class NotificationFlowTests {
     public async Task HostLifecycleSubscribesOnceAndUnsubscribesOnStop() {
         var host = new SessionServerEntry(_sessions.Object, NullLoggerFactory.Instance, new Mock<IHttpClientFactory>().Object,
             new Mock<ILibraryManager>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(),
-            new Mock<IApplicationPaths>().Object, new Mock<IMemoryCache>().Object, _store,
+            IdServices.Arm(), IdServices.AnimeList(), new Mock<IMemoryCache>().Object, _store,
             new OperationRunner(new OperationStore(AniDokiDatabase.ForDataPath(_directory), TimeProvider.System), NullLogger<OperationRunner>.Instance));
         await host.StartAsync(CancellationToken.None);
         await host.StartAsync(CancellationToken.None);

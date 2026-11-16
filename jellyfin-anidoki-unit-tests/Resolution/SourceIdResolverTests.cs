@@ -6,10 +6,10 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki_unit_tests.Characterization;
-using MediaBrowser.Common.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
@@ -24,13 +24,14 @@ namespace jellyfin_anidoki_unit_tests.Resolution;
 public class SourceIdResolverTests {
     private const int AniDbId = 5975;
     private string _directory = null!;
+    private PluginConfiguration _configuration = null!;
     private AnimeListIndex _index = null!;
     private readonly List<Uri> _requests = new();
 
     private sealed class RecordingHandler(List<Uri> requests) : HttpMessageHandler {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) {
             requests.Add(request.RequestUri!);
-            string body = JsonSerializer.Serialize(new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse { Anilist = 21, MyAnimeList = 20, Kitsu = 11, AniDb = AniDbId });
+            string body = JsonSerializer.Serialize(new ArmClient.OfflineDatabaseResponse { Anilist = 21, MyAnimeList = 20, Kitsu = 11, AniDb = AniDbId });
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
         }
     }
@@ -46,6 +47,7 @@ public class SourceIdResolverTests {
               <anime anidbid="313" tvdbid="75534" defaulttvdbseason="0" imdbid="tt0114563" />
             </anime-list>
             """);
+        _configuration = new PluginConfiguration { animeListSaveLocation = _directory };
         _index = new AnimeListIndex(() => file);
         _requests.Clear();
     }
@@ -58,7 +60,8 @@ public class SourceIdResolverTests {
     private async Task<SourceIds> Resolve(Dictionary<string, string> providerIds, bool idsOnly) {
         var http = new Mock<IHttpClientFactory>();
         http.Setup(factory => factory.CreateClient(It.IsAny<string>())).Returns(() => new HttpClient(new RecordingHandler(_requests)));
-        var resolver = new SourceIdResolver(http.Object, new Mock<IApplicationPaths>().Object, NullLoggerFactory.Instance, NullLogger.Instance, _index);
+        var resolver = new SourceIdResolver(IdServices.Arm(http.Object, _configuration), IdServices.AnimeList(http.Object, configuration: _configuration),
+            NullLogger.Instance);
         var movie = new LibraryFixture().Movie("Fixture Movie", providerIds);
         return await resolver.Resolve(SyncSource.From(movie)! with { IdsOnly = idsOnly });
     }

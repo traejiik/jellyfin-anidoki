@@ -222,7 +222,7 @@ public sealed class TrackerProvider(ApiName name, ITrackerClient client, TimePro
         _ => RelationKind.Other
     };
 
-    private static AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ToClientIds(ResolvedIds ids) => new() {
+    private static ArmClient.OfflineDatabaseResponse ToClientIds(ResolvedIds ids) => new() {
         Anilist = ids.AniList,
         MyAnimeList = ids.Mal,
         Kitsu = ids.Kitsu,

@@ -13,9 +13,6 @@ namespace jellyfin_anidoki.Helpers;
 /// </summary>
 /// <param name="path">Where the anime list file is; null or a throw means there is none.</param>
 public sealed class AnimeListIndex(Func<string?> path) {
-    /// <summary>The index of the file the anime list task keeps up to date.</summary>
-    public static AnimeListIndex Shared { get; } = new(() => Plugin.Instance?.AnimeListPath);
-
     /// <summary>The TMDB movie IDs and IMDb IDs the list gives one AniDB entry.</summary>
     private sealed record Links(List<string> TmdbIds, List<string> ImdbIds);
 

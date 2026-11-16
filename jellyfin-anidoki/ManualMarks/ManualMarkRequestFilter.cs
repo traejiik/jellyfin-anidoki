@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 namespace jellyfin_anidoki.ManualMarks;
 
 public sealed class ManualMarkRequestFilter(AuthenticatedSessionResolver resolver, ManualMarkCapabilityRegistry registry,
-    ManualMarkStore store, ILibraryManager library, IUserManager users, IUserDataManager data,
+    ManualMarkStore store, ILibraryManager library, AnimeListIndex animeList, IUserManager users, IUserDataManager data,
     TimeProvider clock, ILogger<ManualMarkRequestFilter> logger, IAuthorizationContext authorization) : IAsyncActionFilter {
     internal static bool IsPlayedAction(string? controller, string method, string verb) =>
         controller == "Jellyfin.Api.Controllers.PlaystateController" &&
@@ -22,9 +22,10 @@ public sealed class ManualMarkRequestFilter(AuthenticatedSessionResolver resolve
          (method is "MarkUnplayedItem" or "MarkUnplayedItemLegacy") && verb == "DELETE");
 
     // Mirrors playback sync: users without settings, or items outside their selected libraries, are never tracked.
-    internal static bool IsTracked(Guid userId, MediaBrowser.Controller.Entities.BaseItem item, ILibraryManager library, ILogger logger) {
+    internal static bool IsTracked(Guid userId, MediaBrowser.Controller.Entities.BaseItem item, ILibraryManager library, AnimeListIndex animeList,
+        ILogger logger) {
         var preferences = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(c => c.UserId == userId);
-        return preferences != null && LibraryFilter.Includes(preferences, library, logger, item);
+        return preferences != null && LibraryFilter.Includes(preferences, library, animeList, logger, item);
     }
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next) {
@@ -67,7 +68,7 @@ public sealed class ManualMarkRequestFilter(AuthenticatedSessionResolver resolve
                     return;
                 if (identity == null || !withhold || !known || Plugin.Instance?.PluginConfiguration.watchedTickboxUpdatesProvider != true ||
                     context.HttpContext.Request.Method != "POST" || item == null || SyncHelper.MediaShouldBeIgnored(item) ||
-                    !IsTracked(identity.UserId, item, library, logger))
+                    !IsTracked(identity.UserId, item, library, animeList, logger))
                     return;
                 var request = new ManualMarkRequest(Guid.NewGuid(), identity.UserId, identity.AuthenticationKey, itemId,
                     item is Episode episode ? episode.Series?.Name ?? episode.SeriesName ?? episode.Name : item.Name,

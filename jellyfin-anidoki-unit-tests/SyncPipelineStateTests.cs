@@ -58,7 +58,7 @@ public class SyncPipelineStateTests {
                 RequestMethod = HttpMethod.Get,
                 RequestUrlMatch = url => url.EndsWith("/ids"),
                 ResponseCode = HttpStatusCode.OK,
-                ResponseContent = JsonSerializer.Serialize(new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
+                ResponseContent = JsonSerializer.Serialize(new ArmClient.OfflineDatabaseResponse {
                     Anilist = ResolvedAniListId,
                     MyAnimeList = ResolvedMalId
                 })
@@ -80,7 +80,7 @@ public class SyncPipelineStateTests {
 
         _pipeline = new SyncPipeline(new Mock<ILibraryManager>().Object, new NullLoggerFactory(),
             new Mock<IHttpContextAccessor>().Object, new Mock<IServerApplicationHost>().Object, httpClientFactory,
-            new Mock<IApplicationPaths>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object);
+            IdServices.Arm(httpClientFactory), IdServices.AnimeList(httpClientFactory), new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object);
     }
 
     [TearDown]

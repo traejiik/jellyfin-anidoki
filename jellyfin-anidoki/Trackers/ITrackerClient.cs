@@ -15,9 +15,9 @@ public interface ITrackerClient {
 
     Task<Anime?> GetAnime(int id, string? alternativeId = null, bool getRelated = false);
 
-    Task<Anime?> GetAnime(AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, string title, bool getRelated = false);
+    Task<Anime?> GetAnime(ArmClient.OfflineDatabaseResponse ids, string title, bool getRelated = false);
 
     Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status,
         bool? isRewatching = null, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null,
-        string? alternativeId = null, AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? ids = null, bool? isShow = null);
+        string? alternativeId = null, ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null);
 }

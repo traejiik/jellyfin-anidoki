@@ -77,7 +77,7 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
     }
 
     // Only Simkl resolves through cross IDs; every fixture keys its entry by the MAL ID.
-    public Task<Anime> GetAnime(AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids, string title, bool getRelated = false) {
+    public Task<Anime> GetAnime(ArmClient.OfflineDatabaseResponse ids, string title, bool getRelated = false) {
         CrossIdReads++;
         if (ReadFails() || provider != ApiName.Simkl || ids?.MyAnimeList is not int id || FailingIds.Contains(id) || !_entries.TryGetValue(id, out var anime))
             return Task.FromResult<Anime>(null);
@@ -86,7 +86,7 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
 
     public Task<UpdateAnimeStatusResponse> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status,
         bool? isRewatching = null, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null,
-        string alternativeId = null, AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse ids = null, bool? isShow = null) {
+        string alternativeId = null, ArmClient.OfflineDatabaseResponse ids = null, bool? isShow = null) {
         // The real client sends nothing without the identifiers this provider writes by.
         if ((UsesAlternativeIds && alternativeId == null) || (provider == ApiName.Simkl && (ids == null || isShow == null)))
             return Task.FromResult<UpdateAnimeStatusResponse>(null);

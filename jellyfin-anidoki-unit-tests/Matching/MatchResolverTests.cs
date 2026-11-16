@@ -31,7 +31,7 @@ internal sealed class FixedWatchState(params int[] watched) : ISeasonWatchState 
 
 [TestFixture, NonParallelizable]
 public class MatchResolverTests {
-    private static readonly SourceIds NoIds = new(new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), null);
+    private static readonly SourceIds NoIds = new(new ArmClient.OfflineDatabaseResponse(), null);
 
     private sealed class FixedResolver(SourceResolution answer) : ISourceResolver {
         public int Calls { get; private set; }

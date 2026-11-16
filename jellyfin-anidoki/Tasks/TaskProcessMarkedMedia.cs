@@ -9,7 +9,6 @@ using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Notifications.Discord;
 using jellyfin_anidoki.Operations;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -32,13 +31,14 @@ public class TaskProcessMarkedMedia {
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IServerApplicationHost _serverApplicationHost;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IApplicationPaths _applicationPaths;
+    private readonly ArmClient _arm;
+    private readonly AnimeListSource _animeList;
     private readonly IAsyncDelayer _delayer;
     private readonly OperationRunner _runner;
     private readonly DiscordNotificationDispatcher _discord;
     private readonly Matching.ISeasonWatchState _watchState;
 
-    public TaskProcessMarkedMedia(ILoggerFactory loggerFactory, ILibraryManager libraryManager, IMemoryCache memoryCache, IHttpContextAccessor httpContextAccessor, IServerApplicationHost serverApplicationHost, IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths, IAsyncDelayer delayer, OperationRunner runner, DiscordNotificationDispatcher discord = null, Matching.ISeasonWatchState watchState = null) {
+    public TaskProcessMarkedMedia(ILoggerFactory loggerFactory, ILibraryManager libraryManager, IMemoryCache memoryCache, IHttpContextAccessor httpContextAccessor, IServerApplicationHost serverApplicationHost, IHttpClientFactory httpClientFactory, ArmClient arm, AnimeListSource animeList, IAsyncDelayer delayer, OperationRunner runner, DiscordNotificationDispatcher discord = null, Matching.ISeasonWatchState watchState = null) {
         _watchState = watchState;
         _loggerFactory = loggerFactory;
         _libraryManager = libraryManager;
@@ -46,7 +46,8 @@ public class TaskProcessMarkedMedia {
         _httpContextAccessor = httpContextAccessor;
         _serverApplicationHost = serverApplicationHost;
         _httpClientFactory = httpClientFactory;
-        _applicationPaths = applicationPaths;
+        _arm = arm;
+        _animeList = animeList;
         _logger = loggerFactory.CreateLogger<TaskProcessMarkedMedia>();
         _delayer = delayer;
         _runner = runner;
@@ -85,7 +86,7 @@ public class TaskProcessMarkedMedia {
     private async Task Run(List<(Guid userId, Guid? seasonId, Video baseItem)> batch) {
         var (userId, _, firstItem) = batch[0];
         var userConfig = Plugin.Instance?.PluginConfiguration.UserConfig.FirstOrDefault(uc => uc.UserId == userId);
-        if (userConfig == null || !LibraryFilter.Includes(userConfig, _libraryManager, _logger, firstItem))
+        if (userConfig == null || !LibraryFilter.Includes(userConfig, _libraryManager, _animeList.Index, _logger, firstItem))
             return;
         var target = batch.Where(item => !SyncHelper.MediaShouldBeIgnored(item.baseItem)).MaxBy(item => item.baseItem.IndexNumber);
         if (target.Equals(default((Guid, Guid?, Video)))) {
@@ -113,7 +114,7 @@ public class TaskProcessMarkedMedia {
 
     private async Task Update(Video item, Guid userId, OperationContext operation) {
         var collector = new PlaybackOutcomeCollector(operation.Record);
-        var pipeline = new SyncPipeline(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _applicationPaths, _memoryCache, _delayer) { WatchState = _watchState };
+        var pipeline = new SyncPipeline(_libraryManager, _loggerFactory, _httpContextAccessor, _serverApplicationHost, _httpClientFactory, _arm, _animeList, _memoryCache, _delayer) { WatchState = _watchState };
         try {
             await pipeline.Run(item, userId, true, collector, SyncUpdateSource.LegacyManual, operation.CancellationToken);
         } finally {

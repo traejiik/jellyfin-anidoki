@@ -5,11 +5,11 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Trackers;
-using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -71,12 +71,12 @@ public interface IAutomaticMatches {
     Task<DerivedSegmentation> Derive(LibrarySource source, ITrackerProvider tracker, CancellationToken cancellationToken);
 }
 
-internal sealed class AutomaticMatches(IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths, ILoggerFactory loggerFactory) : IAutomaticMatches {
+internal sealed class AutomaticMatches(ArmClient arm, AnimeListSource animeList, ILoggerFactory loggerFactory) : IAutomaticMatches {
     private readonly ILogger<AutomaticMatches> _logger = loggerFactory.CreateLogger<AutomaticMatches>();
 
     /// <summary>Resolves the highest episode, so a walk covers every part the season holds, and stops the match there (PR 9, Differences item 11).</summary>
     public async Task<DerivedSegmentation> Derive(LibrarySource source, ITrackerProvider tracker, CancellationToken cancellationToken) {
-        SourceIds ids = await new SourceIdResolver(httpClientFactory, applicationPaths, loggerFactory, _logger).Resolve(source.Last);
+        SourceIds ids = await new SourceIdResolver(arm, animeList, _logger).Resolve(source.Last);
         SourceResolution answer = await new AutomaticResolver(_logger).Resolve(source.Last, ids, tracker, cancellationToken);
         return await new RelationChainSegmenter(tracker, _logger)
             .ToMatch(new MatchScope(tracker.Name, source.Info.SourceKey), source.Last, answer, source.Episodes[^1], cancellationToken);

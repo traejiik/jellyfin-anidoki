@@ -29,7 +29,7 @@ public class DerivedMatchTests {
     /// <summary>What SourceIdResolver gets from the ARM fixture for an item with an AniList ID.</summary>
     private static readonly SourceIds Arm = IdsFor(SyncHarness.EntryId);
 
-    private static readonly SourceIds NoIds = new(new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), null);
+    private static readonly SourceIds NoIds = new(new ArmClient.OfflineDatabaseResponse(), null);
 
     private static readonly Dictionary<string, string> WithAniList = new() { ["AniList"] = SyncHarness.EntryId.ToString() };
 
@@ -173,7 +173,7 @@ public class DerivedMatchTests {
     }
 
     private static SourceIds IdsFor(int id, int? offset = null) {
-        var ids = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
+        var ids = new ArmClient.OfflineDatabaseResponse {
             Anilist = id,
             MyAnimeList = id,
             Kitsu = id,
@@ -254,7 +254,7 @@ public class DerivedMatchTests {
     [Test]
     public async Task ATitlePathOffsetHasNoDerivedMatch() {
         var (tracker, _) = Chain(ApiName.AniList, 12);
-        var offsetOnly = new SourceIds(new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), 3);
+        var offsetOnly = new SourceIds(new ArmClient.OfflineDatabaseResponse(), 3);
 
         var derived = await Derive(tracker, SyncSource.From(new LibraryFixture().Episode("cour 1", 1, 5))!, offsetOnly, 12);
 

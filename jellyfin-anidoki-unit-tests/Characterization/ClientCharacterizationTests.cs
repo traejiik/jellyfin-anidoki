@@ -38,7 +38,7 @@ public class ClientCharacterizationTests {
     private static readonly bool?[] Rewatching = [null, true, false];
     private static readonly DateTime Started = new(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
     private static readonly DateTime Ended = new(2026, 2, 3, 4, 5, 6, DateTimeKind.Utc);
-    private static readonly AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse Ids = new() { Anilist = 11, MyAnimeList = 12, Kitsu = 13, AniDb = 14 };
+    private static readonly ArmClient.OfflineDatabaseResponse Ids = new() { Anilist = 11, MyAnimeList = 12, Kitsu = 13, AniDb = 14 };
 
     private sealed class Recorder : HttpMessageHandler {
         public List<string> Requests { get; } = new();

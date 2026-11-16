@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using jellyfin_anidoki;
 using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.ManualMarks;
 using jellyfin_anidoki.Models;
 using MediaBrowser.Common.Configuration;
@@ -48,21 +49,21 @@ public class ManualMarkTrackingTests {
     [Test]
     public void UserWithoutSettingsIsNotTracked() {
         Configure();
-        Assert.That(ManualMarkRequestFilter.IsTracked(_user, new Episode(), _library.Object, NullLogger.Instance), Is.False);
+        Assert.That(ManualMarkRequestFilter.IsTracked(_user, new Episode(), _library.Object, new AnimeListIndex(() => null), NullLogger.Instance), Is.False);
     }
     [Test]
     public void AnotherUsersSettingsDoNotTrackThisUser() {
         Configure(new UserConfig { UserId = Guid.NewGuid(), LibraryToCheck = [] });
-        Assert.That(ManualMarkRequestFilter.IsTracked(_user, new Episode(), _library.Object, NullLogger.Instance), Is.False);
+        Assert.That(ManualMarkRequestFilter.IsTracked(_user, new Episode(), _library.Object, new AnimeListIndex(() => null), NullLogger.Instance), Is.False);
     }
     [Test]
     public void UserWithoutLibraryFilterIsTrackedEverywhere() {
         Configure(new UserConfig { UserId = _user, LibraryToCheck = [] });
-        Assert.That(ManualMarkRequestFilter.IsTracked(_user, new Episode(), _library.Object, NullLogger.Instance), Is.True);
+        Assert.That(ManualMarkRequestFilter.IsTracked(_user, new Episode(), _library.Object, new AnimeListIndex(() => null), NullLogger.Instance), Is.True);
     }
     [Test]
     public void ItemOutsideSelectedLibrariesIsNotTracked() {
         Configure(new UserConfig { UserId = _user, LibraryToCheck = [_libraryId.ToString()] });
-        Assert.That(ManualMarkRequestFilter.IsTracked(_user, new Episode(), _library.Object, NullLogger.Instance), Is.False);
+        Assert.That(ManualMarkRequestFilter.IsTracked(_user, new Episode(), _library.Object, new AnimeListIndex(() => null), NullLogger.Instance), Is.False);
     }
 }

@@ -21,8 +21,8 @@ using NUnit.Framework;
 namespace jellyfin_anidoki_unit_tests.API_tests;
 
 public class Simkl {
-    private SimklApiCalls _simklApiCalls;
-    private IHttpClientFactory _httpClientFactory;
+    private SimklApiCalls _simklApiCalls = null!;
+    private IHttpClientFactory _httpClientFactory = null!;
 
     public void Setup(List<Helpers.HttpCall> httpCalls) {
         Helpers.MockHttpCalls(httpCalls, ref _httpClientFactory);
@@ -72,7 +72,7 @@ public class Simkl {
         var result = await _simklApiCalls.SearchAnime("monogatari");
 
         Assert.IsNotNull(result);
-        Assert.IsNotEmpty(result);
+        Assert.IsNotEmpty(result!);
     }
 
     [Test]
@@ -116,7 +116,7 @@ public class Simkl {
         var result = await _simklApiCalls.GetUserAnimeList(status);
 
         Assert.IsNotNull(result);
-        Assert.IsNotEmpty(result);
+        Assert.IsNotEmpty(result!);
     }
 
     [Test]
@@ -136,7 +136,7 @@ public class Simkl {
             }
         });
 
-        var result = await _simklApiCalls.GetAnimeByIdLookup(new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
+        var result = await _simklApiCalls.GetAnimeByIdLookup(new ArmClient.OfflineDatabaseResponse {
             MyAnimeList = id
         }, title);
 
@@ -154,7 +154,7 @@ public class Simkl {
             }
         });
 
-        var result = await _simklApiCalls.UpdateAnime(45006, SimklStatus.plantowatch, true, new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse {
+        var result = await _simklApiCalls.UpdateAnime(45006, SimklStatus.plantowatch, true, new ArmClient.OfflineDatabaseResponse {
             AniDb = 6327
         }, 10);
 
@@ -171,7 +171,7 @@ public class Simkl {
             new() { RequestMethod = HttpMethod.Post, ResponseCode = responseCode, ResponseContent = body },
             new() { RequestMethod = HttpMethod.Patch, ResponseCode = responseCode, ResponseContent = body }
         });
-        Assert.That(await _simklApiCalls.UpdateAnime(45006, SimklStatus.watching, true, new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), 1), Is.False);
+        Assert.That(await _simklApiCalls.UpdateAnime(45006, SimklStatus.watching, true, new ArmClient.OfflineDatabaseResponse(), 1), Is.False);
     }
 
     [TestCase(0, "[]", false)]
@@ -182,7 +182,7 @@ public class Simkl {
             new() { RequestMethod = HttpMethod.Post, ResponseCode = HttpStatusCode.OK,
                 ResponseContent = "{\"added\":{\"shows\":0,\"movies\":0,\"episodes\":" + episodes + ",\"statuses\":[{\"request\":{\"ids\":{\"simkl\":45006}},\"response\":{\"status\":\"watching\"}}]},\"not_found\":{\"shows\":" + notFoundShows + ",\"movies\":[],\"episodes\":[]}}" }
         });
-        Assert.That(await _simklApiCalls.UpdateAnime(45006, SimklStatus.watching, true, new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), 1), Is.EqualTo(expected));
+        Assert.That(await _simklApiCalls.UpdateAnime(45006, SimklStatus.watching, true, new ArmClient.OfflineDatabaseResponse(), 1), Is.EqualTo(expected));
     }
 
     [TestCase(45006, true)]
@@ -192,6 +192,6 @@ public class Simkl {
             new() { RequestMethod = HttpMethod.Post, ResponseCode = HttpStatusCode.OK,
                 ResponseContent = "{\"added\":{\"shows\":0,\"movies\":0,\"episodes\":1,\"statuses\":[{\"request\":{\"ids\":{\"simkl\":" + acknowledgedId + "}},\"response\":{\"status\":\"watching\"}}]},\"not_found\":{\"shows\":[],\"movies\":[],\"episodes\":[]}}" }
         });
-        Assert.That(await _simklApiCalls.UpdateAnime(45006, SimklStatus.watching, true, new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse(), 1), Is.EqualTo(expected));
+        Assert.That(await _simklApiCalls.UpdateAnime(45006, SimklStatus.watching, true, new ArmClient.OfflineDatabaseResponse(), 1), Is.EqualTo(expected));
     }
 }
