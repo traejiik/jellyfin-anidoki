@@ -79,7 +79,7 @@ public class ManualSyncTests {
     }
 
     private ActionResult<OperationStarted> Start(SyncAction action = SyncAction.UpdateProvider, string? provider = TrackerChoice.All) =>
-        _controller.StartSync(provider, _user.Id, SyncHelper.Status.Both, action);
+        _controller.StartSync(provider, _user.Id, SyncHelper.StatusFilter.Both, action);
 
     private static Guid IdOf(ActionResult<OperationStarted> result) => ((OperationStarted)((ObjectResult)result.Result!).Value!).OperationId;
 
@@ -142,7 +142,7 @@ public class ManualSyncTests {
 
     [Test]
     public void AnUnknownUserIsRejected() =>
-        Assert.That(_controller.StartSync("AniList", Guid.NewGuid(), SyncHelper.Status.Both, SyncAction.UpdateProvider).Result,
+        Assert.That(_controller.StartSync("AniList", Guid.NewGuid(), SyncHelper.StatusFilter.Both, SyncAction.UpdateProvider).Result,
             Is.InstanceOf<BadRequestObjectResult>());
 
     [TestCase(null)]

@@ -41,7 +41,7 @@ public class Sync {
     private readonly IMemoryCache _memoryCache;
     private readonly IAsyncDelayer _delayer;
     private readonly ApiName _apiName;
-    private readonly SyncHelper.Status _status;
+    private readonly SyncHelper.StatusFilter _status;
     private int _apiTimeOutLength = 2000;
 
     /// <summary>Tests set this to substitute an in-memory tracker list; production leaves it null so the real client is built.</summary>
@@ -58,7 +58,7 @@ public class Sync {
         IMemoryCache memoryCache,
         IAsyncDelayer delayer,
         ApiName apiName,
-        SyncHelper.Status status) {
+        SyncHelper.StatusFilter status) {
         _httpClientFactory = httpClientFactory;
         _loggerFactory = loggerFactory;
         _serverApplicationHost = serverApplicationHost;
@@ -132,11 +132,11 @@ public class Sync {
         }
 
         switch (_status) {
-            case SyncHelper.Status.Completed:
+            case SyncHelper.StatusFilter.Completed:
                 return await source.GetAnimeList(Status.Completed, user?.Id);
-            case SyncHelper.Status.Watching:
+            case SyncHelper.StatusFilter.Watching:
                 return await source.GetAnimeList(Status.Watching, user?.Id);
-            case SyncHelper.Status.Both:
+            case SyncHelper.StatusFilter.Both:
                 List<Anime>? completed = await source.GetAnimeList(Status.Completed, user?.Id);
                 List<Anime>? watching = await source.GetAnimeList(Status.Watching, user?.Id);
                 if (completed != null && watching != null) {

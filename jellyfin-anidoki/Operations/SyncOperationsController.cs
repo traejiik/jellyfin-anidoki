@@ -27,7 +27,7 @@ public sealed class SyncOperationsController(OperationRunner runner, OperationSt
     IUserDataManager userDataManager, IMemoryCache memoryCache, Matching.ISeasonWatchState? watchState = null) : ControllerBase {
     [HttpPost("sync")]
     public ActionResult<OperationStarted> StartSync([FromQuery] string? provider, [FromQuery] Guid userId,
-        [FromQuery] SyncHelper.Status status, [FromQuery] SyncAction syncAction) {
+        [FromQuery] SyncHelper.StatusFilter status, [FromQuery] SyncAction syncAction) {
         if (userId == Guid.Empty || userManager.GetUserById(userId) == null)
             return BadRequest("Select an existing Jellyfin user.");
         OperationKind kind = syncAction == SyncAction.UpdateProvider ? OperationKind.SyncToTrackers : OperationKind.SyncFromTrackers;

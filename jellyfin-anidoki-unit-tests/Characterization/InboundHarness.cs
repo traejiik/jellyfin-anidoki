@@ -164,7 +164,7 @@ internal sealed class InboundHarness : IDisposable {
 
     public void Played(BaseItem item) => DataFor(item).Played = true;
 
-    public Sync NewSync(SyncHelper.Status status = SyncHelper.Status.Both, ApiName provider = ApiName.AniList, ILoggerFactory? loggers = null) {
+    public Sync NewSync(SyncHelper.StatusFilter status = SyncHelper.StatusFilter.Both, ApiName provider = ApiName.AniList, ILoggerFactory? loggers = null) {
         File.WriteAllText(Path.Combine(_directory, "anime-list-full.xml"), $"<anime-list>{string.Concat(_animeList)}</anime-list>");
         return new Sync(_http, loggers ?? NullLoggerFactory.Instance, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(), Users.Object,
             Library.Object, new Mock<IApplicationPaths>().Object, UserData.Object, new MemoryCache(new MemoryCacheOptions()), Delayer.Object,

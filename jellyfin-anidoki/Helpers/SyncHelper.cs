@@ -147,7 +147,9 @@ public class SyncHelper {
         public AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? OfflineDatabaseResponse { get; set; }
     }
 
-    public enum Status {
+    /// <summary>Which tracker list entries a sync reads. Its name must stay unique among the types the plugin's routes
+    /// expose, or Jellyfin cannot build its API docs (the MAL list status is already called Status).</summary>
+    public enum StatusFilter {
         Completed,
         Watching,
         Both

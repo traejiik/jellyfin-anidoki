@@ -17,14 +17,14 @@ public partial class UserConfigurationTests {
     [TestCase("preview-state.js")]
     public void PublicNotificationModulesAreEmbeddedAndUncachedWithoutPluginPages(string asset) {
         _plugin.Configuration.enableUserPages = false;
-        var file = (FileStreamResult)_controller.GetAsset(asset);
+        var file = (FileStreamResult)_pages.GetAsset(asset);
         using var stream = file.FileStream;
         using var reader = new StreamReader(stream);
         var source = reader.ReadToEnd();
         Assert.That(file.ContentType, Does.Contain("javascript"));
         Assert.That(source, Does.Contain("export function"));
         Assert.That(source, Does.Not.Contain("fixture-secret").And.Not.Contain("fixture-client"));
-        Assert.That(_controller.Response.Headers.CacheControl.ToString(), Is.EqualTo("no-store"));
+        Assert.That(_pages.Response.Headers.CacheControl.ToString(), Is.EqualTo("no-store"));
     }
 
     [TestCase("provider-anilist.svg")]
@@ -37,7 +37,7 @@ public partial class UserConfigurationTests {
     [TestCase("anidoki-symbol.svg")]
     public void PublicProviderSvgAssetsAreEmbeddedAndContainOnlyLocalDrawingData(string asset) {
         _plugin.Configuration.enableUserPages = false;
-        var result = _controller.GetAsset(asset);
+        var result = _pages.GetAsset(asset);
         Assert.That(result, Is.TypeOf<FileStreamResult>());
         var file = (FileStreamResult)result;
         using var stream = file.FileStream;
@@ -62,7 +62,7 @@ public partial class UserConfigurationTests {
     [TestCase("noto-sans-latin-ext-400.woff2")]
     [TestCase("noto-sans-latin-ext-700.woff2")]
     public void CallbackPageFontsAreEmbeddedWoff2(string asset) {
-        var file = (FileStreamResult)_controller.GetAsset(asset);
+        var file = (FileStreamResult)_pages.GetAsset(asset);
         using var stream = file.FileStream;
         var signature = new byte[4];
         stream.ReadExactly(signature);
@@ -75,7 +75,7 @@ public partial class UserConfigurationTests {
     [Test]
     public void PublicAnnictLogoIsEmbeddedAsPngWhenUserPagesAreDisabled() {
         _plugin.Configuration.enableUserPages = false;
-        var result = _controller.GetAsset("provider-annict.png");
+        var result = _pages.GetAsset("provider-annict.png");
         Assert.That(result, Is.TypeOf<FileStreamResult>());
         var file = (FileStreamResult)result;
         using var stream = file.FileStream;
@@ -94,6 +94,6 @@ public partial class UserConfigurationTests {
     [TestCase("provider-anilist.svg/../CommonJs.js")]
     [TestCase("jellyfin_anidoki.Configuration.Images.provider-anilist.svg")]
     public void PublicProviderAssetWhitelistRejectsUnknownNamesAndResourcePaths(string asset) {
-        Assert.That(_controller.GetAsset(asset), Is.TypeOf<NotFoundResult>());
+        Assert.That(_pages.GetAsset(asset), Is.TypeOf<NotFoundResult>());
     }
 }
