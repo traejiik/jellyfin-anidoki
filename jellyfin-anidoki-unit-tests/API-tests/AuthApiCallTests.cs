@@ -10,6 +10,7 @@ using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki_unit_tests.Characterization;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -132,5 +133,54 @@ public class AuthApiCallTests {
         TrackerCallScope.Report(TrackerFailureKind.Transient);
         TrackerCallScope.Report(TrackerFailureKind.NotFound);
         Assert.That(calls.Failure, Is.EqualTo(TrackerFailureKind.Transient));
+    }
+
+    /// <summary>A client built without a user has no linked account to call with; that reads as not linked, not a crash.</summary>
+    [Test]
+    public async Task AClientWithNoUserReadsAsNotLinked() {
+        var handler = new SequenceHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var factory = new Mock<IHttpClientFactory>();
+        factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(new HttpClient(handler));
+        var call = new AuthApiCall(factory.Object, new Mock<IServerApplicationHost>().Object, new Mock<IHttpContextAccessor>().Object,
+            new NullLoggerFactory(), new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, null);
+
+        Assert.That(await call.AuthenticatedApiCall(ApiName.AniList, AuthApiCall.CallType.GET, "https://tracker.example/"), Is.Null);
+        Assert.That(handler.Requests, Is.Empty);
+    }
+
+    /// <summary>
+    /// Shikimori gives no token without an app name. A refresh that comes back with none fails the call like any failed
+    /// refresh, instead of retrying with no token.
+    /// </summary>
+    [Test]
+    public async Task ARefreshThatGivesNoTokenFailsTheCall() {
+        using var harness = new SyncHarness();
+        harness.Configuration.shikimoriAppName = null;
+        harness.Configuration.ProviderApiAuth = [new ProviderApiAuth { Name = ApiName.Shikimori, ClientId = "shikimori-client" }];
+        var handler = new SequenceHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+        var factory = new Mock<IHttpClientFactory>();
+        factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(new HttpClient(handler));
+        var call = new AuthApiCall(factory.Object, new Mock<IServerApplicationHost>().Object, new Mock<IHttpContextAccessor>().Object,
+            new NullLoggerFactory(), new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, new UserConfig {
+                UserApiAuth = [new UserApiAuth { Name = ApiName.Shikimori, AccessToken = "expired", RefreshToken = "refresh" }]
+            });
+
+        using var calls = TrackerCallScope.Begin();
+        Assert.That(await call.AuthenticatedApiCall(ApiName.Shikimori, AuthApiCall.CallType.GET, "https://shikimori.example/api"), Is.Null);
+        Assert.That(handler.Requests, Has.Count.EqualTo(1));
+        Assert.That(calls.Failure, Is.EqualTo(TrackerFailureKind.Unauthorized));
+    }
+
+    /// <summary>Before any user saved settings there is no user list; signing in reports the missing user, as it does for an unknown one.</summary>
+    [Test]
+    public void GettingATokenOnANewInstallReportsTheMissingUser() {
+        using var harness = new SyncHarness();
+        harness.Configuration.UserConfig = null;
+        var authentication = new ApiAuthentication(ApiName.Simkl, Helpers.Sequence((HttpStatusCode.OK, """{"access_token":"new-access"}""")),
+            new Mock<IServerApplicationHost>().Object, new Mock<IHttpContextAccessor>().Object, new NullLoggerFactory(),
+            new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, overrideRedirectUrl: "https://jf.example");
+
+        var error = Assert.ThrowsAsync<NullReferenceException>(() => authentication.GetToken(Guid.NewGuid(), code: "code"));
+        Assert.That(error!.Message, Does.Contain("does not exist"));
     }
 }

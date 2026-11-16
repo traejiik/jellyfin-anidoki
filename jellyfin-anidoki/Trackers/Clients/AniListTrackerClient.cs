@@ -56,7 +56,7 @@ public sealed class AniListTrackerClient(AniListApiCalls api) : ITrackerClient, 
     }
 
     public async Task<Anime?> GetAnime(int id, string? alternativeId = null, bool getRelated = false) {
-        AniListSearch.Media anime = await api.GetAnime(id);
+        AniListSearch.Media? anime = await api.GetAnime(id);
         return anime == null ? null : ClassConversions.ConvertAniListAnime(anime);
     }
 
@@ -79,8 +79,8 @@ public sealed class AniListTrackerClient(AniListApiCalls api) : ITrackerClient, 
     }
 
     public async Task<MalApiCalls.User?> GetUser() {
-        AniListViewer.Viewer user = await api.GetCurrentUser();
-        return ClassConversions.ConvertUser(user.Id, user.Name);
+        AniListViewer.Viewer? user = await api.GetCurrentUser();
+        return user == null ? null : ClassConversions.ConvertUser(user.Id, user.Name);
     }
 
     public async Task<List<Anime>?> GetAnimeList(Status status, int? userId = null) {

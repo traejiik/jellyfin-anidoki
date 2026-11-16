@@ -87,7 +87,7 @@ public class ShikimoriApiCalls {
 
     public class User {
         [JsonPropertyName("id")] public int Id { get; set; }
-        [JsonPropertyName("nickname")] public string Name { get; set; }
+        [JsonPropertyName("nickname")] public string? Name { get; set; }
     }
 
     /// <summary>
@@ -105,8 +105,9 @@ public class ShikimoriApiCalls {
             try {
                 User? user = JsonSerializer.Deserialize<User>(streamText);
 
-                if (user != null) {
-                    _userConfig?.KeyPairs.Add(new KeyPairs {
+                if (user != null && _userConfig != null) {
+                    // A user linked before any key pair was saved has no list yet.
+                    (_userConfig.KeyPairs ??= []).Add(new KeyPairs {
                         Key = "ShikimoriUserId",
                         Value = user.Id.ToString()
                     });
@@ -149,8 +150,7 @@ public class ShikimoriApiCalls {
                 break;
             }
 
-            List<ShikimoriAnime> animes;
-            if (!data.TryGetValue("animes", out animes)) {
+            if (!data.TryGetValue("animes", out var animes)) {
                 _logger.LogWarning("({Provider}) The GraphQL response has no animes field", ApiName.Shikimori);
                 break;
             }
@@ -188,8 +188,7 @@ public class ShikimoriApiCalls {
             return null;
         }
 
-        List<ShikimoriAnime> animes;
-        if (!data.TryGetValue("animes", out animes)) {
+        if (!data.TryGetValue("animes", out var animes)) {
             _logger.LogWarning("({Provider}) The GraphQL response has no animes field", ApiName.Shikimori);
             return null;
         }
@@ -237,8 +236,7 @@ public class ShikimoriApiCalls {
                 return null;
             }
 
-            List<ShikimoriAnime> animes;
-            if (!data.TryGetValue("animes", out animes)) {
+            if (!data.TryGetValue("animes", out var animes)) {
                 _logger.LogWarning("({Provider}) The GraphQL response has no animes field", ApiName.Shikimori);
                 return null;
             }
@@ -297,7 +295,7 @@ public class ShikimoriApiCalls {
     }
 
     private async Task<string?> GetUserId() {
-        string? shikimoriUserId = _userConfig?.KeyPairs.FirstOrDefault(keypair => keypair.Key == "ShikimoriUserId")?.Value;
+        string? shikimoriUserId = _userConfig?.KeyPairs?.FirstOrDefault(keypair => keypair.Key == "ShikimoriUserId")?.Value;
         if (shikimoriUserId == null || string.IsNullOrEmpty(shikimoriUserId)) {
             _logger.LogDebug("({Provider}) No stored user ID; reading the linked user", ApiName.Shikimori);
             User? user = await GetUserInformation();
@@ -314,7 +312,7 @@ public class ShikimoriApiCalls {
 
     private class GraphqlRequest {
         [JsonPropertyName("query")]
-        public string Query { get; set; }
+        public required string Query { get; set; }
         [JsonPropertyName("operationName")]
         public string? OperationName { get; set; }
         [JsonPropertyName("variables")]
@@ -330,7 +328,7 @@ public class ShikimoriApiCalls {
 
     public class GraphqlError {
         [JsonPropertyName("message")]
-        public string Message { get; set; }
+        public string? Message { get; set; }
     }
 
     private async Task<T?> GraphqlApiCall<T>(GraphqlRequest request) where T : class {
@@ -354,7 +352,7 @@ public class ShikimoriApiCalls {
             return null;
         }
 
-        GraphqlResponse<T> response;
+        GraphqlResponse<T>? response;
         try {
             StreamReader streamReader = new StreamReader(await apiCall.Content.ReadAsStreamAsync());
             response = JsonSerializer.Deserialize<GraphqlResponse<T>>(await streamReader.ReadToEndAsync());
@@ -363,7 +361,8 @@ public class ShikimoriApiCalls {
             return null;
         }
 
-        if (response.Errors != null && response.Errors.Any()) {
+        // A body of literal null still throws here, as it always has: a failed read, never "not on the list".
+        if (response!.Errors != null && response.Errors.Any()) {
             foreach (GraphqlError error in response.Errors) {
                 _logger.LogWarning("({Provider}) The GraphQL request was rejected: {ErrorMessage}", ApiName.Shikimori, error.Message);
             }

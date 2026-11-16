@@ -149,4 +149,13 @@ public class Annict {
         });
         Assert.That(await _annictApiCalls.UpdateAnime("work", AnnictSearch.AnnictMediaStatus.Watched), Is.False);
     }
+
+    /// <summary>A list read that got no reply (here, no linked account) returns nothing, as the other reads do.</summary>
+    [Test]
+    public async Task AListReadThatGetsNoReplyReturnsNothing() {
+        var api = new AnnictApiCalls(Helpers.Sequence((HttpStatusCode.OK, "{}")), new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object,
+            new Mock<IHttpContextAccessor>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, new UserConfig());
+
+        Assert.That(await api.GetAnimeList(AnnictSearch.AnnictMediaStatus.Watching), Is.Null);
+    }
 }
