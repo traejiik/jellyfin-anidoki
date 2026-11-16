@@ -19,8 +19,8 @@ public class ClassConversions {
             AlternativeTitles = new AlternativeTitles {
                 En = aniListAnime.Title?.English,
                 Ja = aniListAnime.Title?.Native,
-                // Kept as today: a missing romaji or user-preferred title stays a null entry.
-                Synonyms = new List<string> { aniListAnime.Title?.Romaji!, aniListAnime.Title?.UserPreferred! }
+                // A missing romaji or user-preferred title is left out, as the list conversion does.
+                Synonyms = new[] { aniListAnime.Title?.Romaji, aniListAnime.Title?.UserPreferred }.OfType<string>().ToList()
             },
         };
 
@@ -90,8 +90,8 @@ public class ClassConversions {
             AlternativeTitles = new AlternativeTitles {
                 En = attributes.Titles?.EnJp,
                 Ja = attributes.Titles?.Japanese,
-                // Kept as today: a missing slug or canonical title stays a null entry.
-                Synonyms = new List<string> { attributes.Slug!, attributes.CanonicalTitle! }
+                // A missing slug or canonical title is left out.
+                Synonyms = new[] { attributes.Slug, attributes.CanonicalTitle }.OfType<string>().ToList()
             },
         };
 
@@ -264,9 +264,9 @@ public class ClassConversions {
             Title = simklExtendedMedia.Title,
             AlternativeTitles = new AlternativeTitles {
                 En = simklExtendedMedia.EnTitle,
-                // A detailed anime without alternative titles stays a failed read, as the client approved file pins: the user-list
-                // read beside it reads a failure as "not on the list". Kept as today: a title without a name stays a null entry.
-                Synonyms = simklExtendedMedia.AllTitles!.Select(altTitle => altTitle.Name!).ToList()
+                // Alternative titles are optional: an anime without them has no synonyms, and a title without a name is left out.
+                // A detail read that fails or cannot be read never gets here; the client returns no anime for it.
+                Synonyms = (simklExtendedMedia.AllTitles ?? []).Select(altTitle => altTitle.Name).OfType<string>().ToList()
             },
         };
 
