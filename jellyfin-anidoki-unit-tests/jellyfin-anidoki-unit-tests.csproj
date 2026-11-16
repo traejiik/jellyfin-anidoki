@@ -4,6 +4,8 @@
         <TargetFramework>net10.0</TargetFramework>
         <RootNamespace>jellyfin_anidoki_unit_tests</RootNamespace>
         <Nullable>enable</Nullable>
+        <!-- Nullable warnings fail the build; see CONTRIBUTING.md. -->
+        <WarningsAsErrors>nullable</WarningsAsErrors>
 
         <IsPackable>false</IsPackable>
     </PropertyGroup>
