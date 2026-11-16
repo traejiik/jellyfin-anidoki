@@ -1,4 +1,3 @@
-#nullable disable
 using System;
 using System.IO;
 using System.Net.Http;
@@ -9,91 +8,91 @@ using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Net;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki {
-    public class UpdateAnimeList {
-        public readonly string Path;
+namespace jellyfin_anidoki;
 
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly ILogger<TaskUpdateAnimeList> _logger;
+public class UpdateAnimeList {
+    public readonly string Path;
 
-        public UpdateAnimeList(IHttpClientFactory httpClientFactory, ILoggerFactory loggerFactory, IApplicationPaths applicationPaths) {
-            _httpClientFactory = httpClientFactory;
-            Path = PathFor(applicationPaths);
-            _logger = loggerFactory.CreateLogger<TaskUpdateAnimeList>();
-        }
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<TaskUpdateAnimeList> _logger;
 
-        /// <summary>Where the anime list file is kept: the admin's chosen folder, else Jellyfin's cache.</summary>
-        public static string PathFor(IApplicationPaths applicationPaths) {
-            string saveLocation = Plugin.Instance.PluginConfiguration.animeListSaveLocation;
-            return string.IsNullOrEmpty(saveLocation)
-                ? System.IO.Path.Combine(applicationPaths.CachePath, "anidoki", "anime-list-full.xml")
-                : System.IO.Path.Combine(saveLocation, "anime-list-full.xml");
-        }
+    public UpdateAnimeList(IHttpClientFactory httpClientFactory, ILoggerFactory loggerFactory, IApplicationPaths applicationPaths) {
+        _httpClientFactory = httpClientFactory;
+        Path = PathFor(applicationPaths);
+        _logger = loggerFactory.CreateLogger<TaskUpdateAnimeList>();
+    }
 
-        /// <summary>
-        /// Update the anime list file to the latest version.
-        /// </summary>
-        public async Task<bool> Update() {
-            var client = _httpClientFactory.CreateClient(NamedClient.Default);
-            var response = await client.GetAsync("https://api.github.com/repos/Anime-Lists/anime-lists/contents/anime-list-full.xml");
-            if (response.IsSuccessStatusCode) {
-                StreamReader streamReader = new StreamReader(await response.Content.ReadAsStreamAsync());
-                string streamText = await streamReader.ReadToEndAsync();
+    /// <summary>Where the anime list file is kept: the admin's chosen folder, else Jellyfin's cache.</summary>
+    public static string PathFor(IApplicationPaths applicationPaths) {
+        string? saveLocation = Plugin.Instance?.PluginConfiguration.animeListSaveLocation;
+        return string.IsNullOrEmpty(saveLocation)
+            ? System.IO.Path.Combine(applicationPaths.CachePath, "anidoki", "anime-list-full.xml")
+            : System.IO.Path.Combine(saveLocation, "anime-list-full.xml");
+    }
 
-                GitFile formattedResponse = JsonSerializer.Deserialize<GitFile>(streamText);
+    /// <summary>
+    /// Update the anime list file to the latest version.
+    /// </summary>
+    public async Task<bool> Update() {
+        var client = _httpClientFactory.CreateClient(NamedClient.Default);
+        using var response = await client.GetAsync("https://api.github.com/repos/Anime-Lists/anime-lists/contents/anime-list-full.xml");
+        if (response.IsSuccessStatusCode) {
+            using var streamReader = new StreamReader(await response.Content.ReadAsStreamAsync());
+            string streamText = await streamReader.ReadToEndAsync();
 
-                if (formattedResponse == null) {
-                    _logger.LogWarning("Could not update the anime list; the repository's file listing could not be read");
-                    return false;
-                }
+            GitFile? formattedResponse = JsonSerializer.Deserialize<GitFile>(streamText);
 
-                if (await CheckIfFileSizeHasChanged(formattedResponse.Size)) {
-                    await GetLatestAnimeList(client, formattedResponse.DownloadUrl);
-                }
-            } else {
-                _logger.LogWarning("Could not update the anime list; the repository returned {StatusCode}", (int)response.StatusCode);
+            if (formattedResponse == null) {
+                _logger.LogWarning("Could not update the anime list; the repository's file listing could not be read");
+                return false;
             }
 
-            return true;
-        }
-
-        /// <summary>
-        /// Check if the anime list file size has changed.
-        /// </summary>
-        /// <param name="fileSize">File size to compare with.</param>
-        /// <returns></returns>
-        private async Task<bool> CheckIfFileSizeHasChanged(int fileSize) {
-            FileInfo animeListFile = new FileInfo(Path);
-            if (animeListFile.Exists)
-                return animeListFile.Length != fileSize;
-            return true;
-        }
-
-        /// <summary>
-        /// Download the latest version of the anime list.
-        /// </summary>
-        /// <param name="httpClient">HTTP client.</param>
-        /// <param name="downloadUrl">Download URL of the anime list file.</param>
-        private async Task GetLatestAnimeList(HttpClient httpClient, string downloadUrl) {
-            try {
-                Directory.CreateDirectory(Path.EndsWith("anime-list-full.xml") ? Path.Replace("anime-list-full.xml", "") : Path);
-                await using (var response = await httpClient.GetStreamAsync(downloadUrl)) {
-                    await using (var fileStream = new FileStream(Path, FileMode.OpenOrCreate)) {
-                        fileStream.SetLength(0);
-                        await response.CopyToAsync(fileStream);
-                    }
-                }
-            } catch (Exception e) {
-                _logger.LogError(e, "Could not download the anime list");
+            if (await CheckIfFileSizeHasChanged(formattedResponse.Size)) {
+                await GetLatestAnimeList(client, formattedResponse.DownloadUrl);
             }
+        } else {
+            _logger.LogWarning("Could not update the anime list; the repository returned {StatusCode}", (int)response.StatusCode);
         }
 
-        public class GitFile {
-            [JsonPropertyName("name")] public string Name { get; set; }
+        return true;
+    }
 
-            [JsonPropertyName("size")] public int Size { get; set; }
+    /// <summary>
+    /// Check if the anime list file size has changed.
+    /// </summary>
+    /// <param name="fileSize">File size to compare with.</param>
+    /// <returns></returns>
+    private async Task<bool> CheckIfFileSizeHasChanged(int fileSize) {
+        FileInfo animeListFile = new FileInfo(Path);
+        if (animeListFile.Exists)
+            return animeListFile.Length != fileSize;
+        return true;
+    }
 
-            [JsonPropertyName("download_url")] public string DownloadUrl { get; set; }
+    /// <summary>
+    /// Download the latest version of the anime list.
+    /// </summary>
+    /// <param name="httpClient">HTTP client.</param>
+    /// <param name="downloadUrl">Download URL of the anime list file.</param>
+    private async Task GetLatestAnimeList(HttpClient httpClient, string? downloadUrl) {
+        try {
+            Directory.CreateDirectory(Path.EndsWith("anime-list-full.xml") ? Path.Replace("anime-list-full.xml", "") : Path);
+            await using (var response = await httpClient.GetStreamAsync(downloadUrl)) {
+                await using (var fileStream = new FileStream(Path, FileMode.OpenOrCreate)) {
+                    fileStream.SetLength(0);
+                    await response.CopyToAsync(fileStream);
+                }
+            }
+        } catch (Exception e) {
+            _logger.LogError(e, "Could not download the anime list");
         }
+    }
+
+    public class GitFile {
+        [JsonPropertyName("name")] public string? Name { get; set; }
+
+        [JsonPropertyName("size")] public int Size { get; set; }
+
+        [JsonPropertyName("download_url")] public string? DownloadUrl { get; set; }
     }
 }

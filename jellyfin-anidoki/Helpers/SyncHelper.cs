@@ -1,4 +1,3 @@
-#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -58,7 +57,7 @@ public class SyncHelper {
         IApplicationPaths applicationPaths) {
         List<(Season Season, Sync.SyncAnimeMetadata Found)> seasons = new List<(Season Season, Sync.SyncAnimeMetadata Found)>();
 
-        List<AnimeListAnimeOfflineDatabaseCombo> seasonIdsFromJellyfin = await GetSeasonIdsFromJellyfin(providerId,
+        List<AnimeListAnimeOfflineDatabaseCombo>? seasonIdsFromJellyfin = await GetSeasonIdsFromJellyfin(providerId,
             source,
             logger,
             loggerFactory,
@@ -93,26 +92,18 @@ public class SyncHelper {
     /// Get season IDs from Jellyfin library.
     /// </summary>
     /// <param name="providerId">ID of the provider.</param>
-    /// <param name="seasonFilter">Optional list of season numbers to filter by.</param>
     /// <returns>List of season IDs.</returns>
-    public static async Task<List<AnimeListAnimeOfflineDatabaseCombo>> GetSeasonIdsFromJellyfin(int providerId, AnimeOfflineDatabaseHelpers.Source source,
+    public static async Task<List<AnimeListAnimeOfflineDatabaseCombo>?> GetSeasonIdsFromJellyfin(int providerId, AnimeOfflineDatabaseHelpers.Source source,
         ILogger logger,
         ILoggerFactory loggerFactory,
         IHttpClientFactory httpClientFactory,
-        IApplicationPaths applicationPaths,
-        List<int> seasonFilter = null) {
+        IApplicationPaths applicationPaths) {
         var id = await AnimeOfflineDatabaseHelpers.GetProviderIdsFromMetadataProvider(httpClientFactory.CreateClient(NamedClient.Default), logger, providerId, source);
         if (id is { AniDb: { } }) {
-            AnimeListHelpers.AnimeListXml animeListXml = await AnimeListHelpers.GetAnimeListFileContents(logger, loggerFactory, httpClientFactory, applicationPaths);
+            AnimeListHelpers.AnimeListXml? animeListXml = await AnimeListHelpers.GetAnimeListFileContents(logger, loggerFactory, httpClientFactory, applicationPaths);
             var seasons = AnimeListHelpers.ListAllSeasonOfAniDbSeries(id.AniDb.Value, animeListXml);
             List<AnimeListHelpers.AnimeListAnime> seasonsList;
-            if (seasonFilter != null) {
-                IEnumerable<AnimeListHelpers.AnimeListAnime> listAnimeSeasons = seasons.ToList();
-                seasonsList = listAnimeSeasons.Where(season => int.TryParse(season.Defaulttvdbseason, out int parsedSeasonNumber) && seasonFilter.Contains(parsedSeasonNumber)).ToList();
-                if (seasonsList.Count == 0) {
-                    seasonsList = listAnimeSeasons.Where(season => season.Defaulttvdbseason == "a").ToList();
-                }
-            } else if (seasons != null) {
+            if (seasons != null) {
                 seasonsList = seasons.ToList();
             } else {
                 logger.LogDebug("The anime list has no seasons for AniDB ID {AniDbId}", id.AniDb.Value);
@@ -145,15 +136,15 @@ public class SyncHelper {
     /// <summary>
     /// Whether the item, its parent season or its series carries the ignore tag.
     /// </summary>
-    public static bool MediaShouldBeIgnored(BaseItem item) {
+    public static bool MediaShouldBeIgnored(BaseItem? item) {
         if (item == null)
             return false;
         return HasIgnoreTag(item) || HasIgnoreTag(item.GetParent()) || (item is Episode episode && HasIgnoreTag(episode.Series));
     }
 
     public class AnimeListAnimeOfflineDatabaseCombo {
-        public AnimeListHelpers.AnimeListAnime AnimeListAnime { get; set; }
-        public AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse OfflineDatabaseResponse { get; set; }
+        public required AnimeListHelpers.AnimeListAnime AnimeListAnime { get; set; }
+        public AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse? OfflineDatabaseResponse { get; set; }
     }
 
     public enum Status {

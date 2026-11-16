@@ -26,7 +26,8 @@ public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITra
         KitsuGet.KitsuGetAnime? anime = await api.GetAnime(id);
         if (anime == null)
             return null;
-        Anime converted = ClassConversions.ConvertKitsuAnime(anime.KitsuAnimeData);
+        // A reply without its data is malformed and stays a failed read, never "not on the list".
+        Anime converted = ClassConversions.ConvertKitsuAnime(anime.KitsuAnimeData!);
         converted.MyListStatus = await GetConvertedUserList(id);
         return converted;
     }

@@ -1,4 +1,3 @@
-#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -75,14 +74,14 @@ public class MemoryCacheHelper {
     /// <param name="provider">Provider to set the rate limiting for.</param>
     /// <param name="memoryCache">Instance of <see cref="IMemoryCache"/></param>
     public static void CheckResponseHeadersForRateLimiting(HttpResponseMessage responseMessage, ILogger logger, ApiName provider, IMemoryCache memoryCache) {
-        if (responseMessage.Headers.TryGetValues(XRateLimitRemainingHeader, out IEnumerable<string> remainingValues)) {
+        if (responseMessage.Headers.TryGetValues(XRateLimitRemainingHeader, out IEnumerable<string>? remainingValues)) {
             if (int.TryParse(remainingValues.First(), out int parsedRemaining) && parsedRemaining <= 0) {
                 logger.LogWarning("({Provider}) Reached rate limit; waiting 2 minutes before the next request", provider);
                 SetRateLimitingForProvider(provider, memoryCache, TimeSpan.FromMinutes(2));
             }
         }
 
-        if (responseMessage.Headers.TryGetValues(XRateLimitResetHeader, out IEnumerable<string> resetValues)) {
+        if (responseMessage.Headers.TryGetValues(XRateLimitResetHeader, out IEnumerable<string>? resetValues)) {
             if (DateTimeOffset.TryParse(resetValues.First(), out DateTimeOffset resetTime) && resetTime > DateTimeOffset.UtcNow) {
                 TimeSpan delay = resetTime - DateTimeOffset.UtcNow;
                 logger.LogDebug("({Provider}) Rate limit until {ResetTime}; waiting {DelaySeconds} seconds", provider, resetTime, delay.TotalSeconds);

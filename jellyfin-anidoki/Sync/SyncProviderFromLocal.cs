@@ -1,9 +1,6 @@
-#nullable disable
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
@@ -34,12 +31,12 @@ public class SyncProviderFromLocal(
     IMemoryCache memoryCache,
     IAsyncDelayer delayer,
     string userId,
-    ISeasonWatchState watchState = null) {
+    ISeasonWatchState? watchState = null) {
     private readonly Guid _userId = Guid.Parse(userId);
     private readonly ILogger<SyncProviderFromLocal> _logger = loggerFactory.CreateLogger<SyncProviderFromLocal>();
 
     /// <summary>Passed to the updater's <see cref="SyncPipeline.ClientOverride"/>; tests substitute a tracker.</summary>
-    internal Func<ApiName, UserConfig, ITrackerClient> ClientOverride { get; set; }
+    internal Func<ApiName, UserConfig, ITrackerClient>? ClientOverride { get; set; }
 
     /// <summary>The one linked tracker to sync, or null for every linked tracker.</summary>
     internal ApiName? OnlyProvider { get; set; }
