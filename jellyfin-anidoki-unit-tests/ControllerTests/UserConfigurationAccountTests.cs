@@ -30,9 +30,9 @@ public partial class UserConfigurationTests {
         var result = await InvokeEndpoint("PasswordGrantAuthenticationBody", GrantRequest(_target.Id));
         Assert.Multiple(() => {
             Assert.That(result, Is.TypeOf<OkResult>());
-            Assert.That(_targetConfig.UserApiAuth.Any(auth => auth.Name == ApiName.Kitsu && auth.AccessToken == "new-fixture-access"), Is.True);
-            Assert.That(_targetConfig.KeyPairs.Single(pair => pair.Key == "KitsuUserId").Value, Is.EqualTo("42"));
-            Assert.That(_targetConfig.UserApiAuth[0].AccessToken == "target-mal-fixture", Is.True);
+            Assert.That(_targetConfig.UserApiAuth!.Any(auth => auth.Name == ApiName.Kitsu && auth.AccessToken == "new-fixture-access"), Is.True);
+            Assert.That(_targetConfig.KeyPairs!.Single(pair => pair.Key == "KitsuUserId").Value, Is.EqualTo("42"));
+            Assert.That(_targetConfig.UserApiAuth![0].AccessToken == "target-mal-fixture", Is.True);
             Assert.That(_requesterConfig.UserApiAuth, Is.SameAs(otherAuth));
             Assert.That(_plugin.Configuration.ProviderApiAuth, Is.SameAs(appAuth));
         });
@@ -136,9 +136,9 @@ public partial class UserConfigurationTests {
     public async Task SavedOAuthAuthorizationRejectsIncompleteConfiguration(string missingField) {
         ConfigureOAuthProvider(ApiName.Shikimori);
         if (missingField == "client-id")
-            _plugin.Configuration.ProviderApiAuth[0].ClientId = "";
+            _plugin.Configuration.ProviderApiAuth![0].ClientId = "";
         if (missingField == "secret")
-            _plugin.Configuration.ProviderApiAuth[0].ClientSecret = " ";
+            _plugin.Configuration.ProviderApiAuth![0].ClientSecret = " ";
         if (missingField == "app-name")
             _plugin.Configuration.shikimoriAppName = "";
         Assert.That(await InvokeEndpoint("AuthorizeProvider", ApiName.Shikimori, _requester.Id), Is.TypeOf<BadRequestObjectResult>());
@@ -203,8 +203,8 @@ public partial class UserConfigurationTests {
         var providerAuth = _plugin.Configuration.ProviderApiAuth;
         Assert.That(await InvokeEndpoint("SetAnnictToken", _target.Id, new AnnictTokenRequest { Token = "target-new-annict-fixture" }), Is.TypeOf<OkResult>());
         Assert.Multiple(() => {
-            Assert.That(_targetConfig.UserApiAuth.Count(auth => auth.Name == ApiName.Annict), Is.EqualTo(1));
-            Assert.That(_targetConfig.UserApiAuth.Single(auth => auth.Name == ApiName.Annict).AccessToken == "target-new-annict-fixture", Is.True);
+            Assert.That(_targetConfig.UserApiAuth!.Count(auth => auth.Name == ApiName.Annict), Is.EqualTo(1));
+            Assert.That(_targetConfig.UserApiAuth!.Single(auth => auth.Name == ApiName.Annict).AccessToken == "target-new-annict-fixture", Is.True);
             Assert.That(_targetConfig.UserApiAuth.Single(auth => auth.Name == ApiName.Mal).AccessToken == "target-mal-fixture", Is.True);
             Assert.That(_requesterConfig.UserApiAuth, Is.SameAs(otherAuth));
             Assert.That(_targetConfig.KeyPairs, Is.SameAs(targetKeys));

@@ -58,7 +58,7 @@ public class DerivedMatchTests {
 
     private static Anime NamedSpecial() {
         var special = Entry(801, "Fixture OVA", 1, null);
-        special.AlternativeTitles.En = "Fixture OVA";
+        special.AlternativeTitles!.En = "Fixture OVA";
         return special;
     }
 

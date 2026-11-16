@@ -56,7 +56,7 @@ public sealed class ResolutionCheck(
     private List<Video> FindTargets() {
         var targets = new List<Video>();
         var user = users.GetUserById(userId);
-        UserConfig? config = Plugin.Instance?.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == userId);
+        UserConfig? config = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(item => item.UserId == userId);
         if (user == null || config == null)
             return targets;
         foreach (BaseItem item in SyncHelper.GetUsersJellyfinLibrary(userId, users, library)) {
@@ -86,7 +86,7 @@ public sealed class ResolutionCheck(
         played.OrderByDescending(entry => entry.LastPlayed ?? DateTime.MinValue).ThenByDescending(entry => entry.Item.IndexNumber).FirstOrDefault().Item;
 
     internal async Task CheckTargets(IReadOnlyList<Video> targets, OperationContext operation) {
-        UserConfig? config = Plugin.Instance?.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == userId);
+        UserConfig? config = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(item => item.UserId == userId);
         if (config?.UserApiAuth == null) {
             operation.Result = OperationState.NoChange;
             operation.Message = "This user has no linked trackers.";

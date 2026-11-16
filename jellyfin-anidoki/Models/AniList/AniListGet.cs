@@ -1,14 +1,13 @@
-#nullable disable
 using System.Text.Json.Serialization;
 
-namespace jellyfin_anidoki.Models {
-    public class AniListGet {
-        public class AniListGetData {
-            [JsonPropertyName("Media")] public AniListSearch.Media Media { get; set; }
-        }
+namespace jellyfin_anidoki.Models;
 
-        public class AniListGetMedia {
-            [JsonPropertyName("data")] public AniListGetData Data { get; set; }
-        }
+public class AniListGet {
+    public class AniListGetData {
+        [JsonPropertyName("Media")] public AniListSearch.Media? Media { get; set; }
+    }
+
+    public class AniListGetMedia {
+        [JsonPropertyName("data")] public AniListGetData? Data { get; set; }
     }
 }

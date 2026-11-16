@@ -1,87 +1,85 @@
-#nullable disable
 using jellyfin_anidoki.Models;
 using MediaBrowser.Model.Plugins;
 
-namespace jellyfin_anidoki.Configuration {
+namespace jellyfin_anidoki.Configuration;
+/// <summary>
+/// Plugin configuration.
+/// </summary>
+public class PluginConfiguration : BasePluginConfiguration {
+
     /// <summary>
-    /// Plugin configuration.
+    /// Custom user configuration details.
     /// </summary>
-    public class PluginConfiguration : BasePluginConfiguration {
+    public UserConfig[]? UserConfig { get; set; }
 
-        /// <summary>
-        /// Custom user configuration details.
-        /// </summary>
-        public UserConfig[] UserConfig { get; set; }
+    /// <summary>
+    /// Authentication details of the anime API providers.
+    /// </summary>
+    public ProviderApiAuth[]? ProviderApiAuth { get; set; }
 
-        /// <summary>
-        /// Authentication details of the anime API providers.
-        /// </summary>
-        public ProviderApiAuth[] ProviderApiAuth { get; set; }
+    /// <summary>
+    /// Which libraries hold anime. Empty until an admin chooses; until then each user's LibraryToCheck applies.
+    /// </summary>
+    public AnimeLibrary[] AnimeLibraries { get; set; } = [];
 
-        /// <summary>
-        /// Which libraries hold anime. Empty until an admin chooses; until then each user's LibraryToCheck applies.
-        /// </summary>
-        public AnimeLibrary[] AnimeLibraries { get; set; } = [];
+    /// <summary>
+    /// Overriden callback URL set if the user is using Jellyfin over the internet. Generally should not be set if the user is on LAN.
+    /// </summary>
+    public string? callbackUrl { get; set; }
 
-        /// <summary>
-        /// Overriden callback URL set if the user is using Jellyfin over the internet. Generally should not be set if the user is on LAN.
-        /// </summary>
-        public string callbackUrl { get; set; }
+    /// <summary>
+    /// The URL to redirect the user to on successful authentication.
+    /// </summary>
+    public string? callbackRedirectUrl { get; set; }
 
-        /// <summary>
-        /// The URL to redirect the user to on successful authentication.
-        /// </summary>
-        public string callbackRedirectUrl { get; set; }
+    /// <summary>
+    /// Save location of the anime list.
+    /// </summary>
+    public string? animeListSaveLocation { get; set; }
 
-        /// <summary>
-        /// Save location of the anime list.
-        /// </summary>
-        public string animeListSaveLocation { get; set; }
+    /// <summary>
+    /// Whether or not marking an episode/movie as watched sends an update to the provider API.
+    /// </summary>
+    public bool watchedTickboxUpdatesProvider { get; set; }
 
-        /// <summary>
-        /// Whether or not marking an episode/movie as watched sends an update to the provider API.
-        /// </summary>
-        public bool watchedTickboxUpdatesProvider { get; set; }
+    /// <summary>
+    /// Shikimori app name, which is required on all Shikimori API calls
+    /// </summary>
+    public string? shikimoriAppName { get; set; }
 
-        /// <summary>
-        /// Shikimori app name, which is required on all Shikimori API calls
-        /// </summary>
-        public string shikimoriAppName { get; set; }
+    /// <summary>
+    /// True to update all simkl series episodes to current point.
+    /// </summary>
+    public bool simklUpdateAll { get; set; }
 
-        /// <summary>
-        /// True to update all simkl series episodes to current point.
-        /// </summary>
-        public bool simklUpdateAll { get; set; }
+    /// <summary>
+    /// True (the default from 1.5.0) to let saved matches decide what syncs write. Off, they are only compared and
+    /// noted, and saved matches stay. A configuration saved without the field reads as on; an explicit false is kept.
+    /// </summary>
+    public bool applySavedMatches { get; set; } = true;
 
-        /// <summary>
-        /// True (the default from 1.5.0) to let saved matches decide what syncs write. Off, they are only compared and
-        /// noted, and saved matches stay. A configuration saved without the field reads as on; an explicit false is kept.
-        /// </summary>
-        public bool applySavedMatches { get; set; } = true;
+    /// <summary>
+    /// True to update NSFW anime.
+    /// </summary>
+    public bool updateNsfw { get; set; }
 
-        /// <summary>
-        /// True to update NSFW anime.
-        /// </summary>
-        public bool updateNsfw { get; set; }
+    /// <summary>
+    /// How long the memory cache holds onto users authentication details in minutes.
+    /// </summary>
+    public long authenticationLinkExpireTimeMinutes { get; set; }
 
-        /// <summary>
-        /// How long the memory cache holds onto users authentication details in minutes.
-        /// </summary>
-        public long authenticationLinkExpireTimeMinutes { get; set; }
+    /// <summary>
+    /// Custom ARM server base URL.
+    /// </summary>
+    public string? armServerBaseUrl { get; set; }
 
-        /// <summary>
-        /// Custom ARM server base URL.
-        /// </summary>
-        public string armServerBaseUrl { get; set; }
+    /// <summary>
+    /// True to enable user authentication pages.
+    /// </summary>
+    public bool enableUserPages { get; set; }
 
-        /// <summary>
-        /// True to enable user authentication pages.
-        /// </summary>
-        public bool enableUserPages { get; set; }
-
-        /// <summary>
-        /// The custom domain for the Shikimori provider.
-        /// </summary>
-        public string shikimoriDomain { get; set; }
-    }
+    /// <summary>
+    /// The custom domain for the Shikimori provider.
+    /// </summary>
+    public string? shikimoriDomain { get; set; }
 }

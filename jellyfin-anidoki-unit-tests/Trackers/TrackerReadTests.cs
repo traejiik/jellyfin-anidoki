@@ -81,8 +81,8 @@ public class TrackerReadTests {
     public async Task SearchReturnsCandidatesWithTheirTitles(ApiName provider) {
         var (adapter, tracker) = Adapter(provider);
         var entry = SyncHarness.Entry(500, "Fixture Show", 12, null);
-        entry.AlternativeTitles.En = "Fixture Show English";
-        entry.AlternativeTitles.Synonyms.Add("Fixture");
+        entry.AlternativeTitles!.En = "Fixture Show English";
+        entry.AlternativeTitles!.Synonyms!.Add("Fixture");
         tracker.Add(entry);
         tracker.SearchResults.Add(entry);
 

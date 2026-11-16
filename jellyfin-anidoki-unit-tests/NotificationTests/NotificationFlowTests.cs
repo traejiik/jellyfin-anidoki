@@ -90,7 +90,7 @@ public class NotificationFlowTests {
         var tail = (await _controller.Read()).Value!.Cursor;
         var collector = await ObservePartial();
         PlaybackNotificationPublisher.Publish(collector, Context(), _user, _store, NullLogger.Instance);
-        _plugin.Configuration.UserConfig[0].ShowLogNotifications = false;
+        _plugin.Configuration.UserConfig![0].ShowLogNotifications = false;
         var disabled = (await _controller.Read(tail)).Value!;
         Assert.That(disabled.Enabled, Is.False);
         Assert.That(disabled.Events, Is.Empty);

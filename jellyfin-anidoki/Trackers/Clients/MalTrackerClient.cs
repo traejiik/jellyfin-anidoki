@@ -29,6 +29,6 @@ public sealed class MalTrackerClient(MalApiCalls api) : ITrackerClient, ITracker
 
     public async Task<List<Anime>?> GetAnimeList(Status status, int? userId = null) {
         var list = await api.GetUserAnimeList(status);
-        return list?.Select(entry => entry.Anime).ToList();
+        return list?.Select(entry => entry.Anime).OfType<Anime>().ToList();
     }
 }

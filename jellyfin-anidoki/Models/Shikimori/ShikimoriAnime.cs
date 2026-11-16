@@ -1,24 +1,23 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
-using jellyfin_anidoki.Models.Shikimori;
 
 namespace jellyfin_anidoki.Models.Shikimori;
 
 public class ShikimoriAnime {
     [JsonPropertyName("id")]
-    public string Id { get; set; }
+    public string? Id { get; set; }
 
     [JsonPropertyName("malId")]
     public string? MalId { get; set; }
 
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string? Name { get; set; }
 
     [JsonPropertyName("episodes")]
     public int Episodes { get; set; }
 
     [JsonPropertyName("synonyms")]
-    public List<string> Synonyms { get; set; }
+    public List<string>? Synonyms { get; set; }
 
     [JsonPropertyName("russian")]
     public string? Russian { get; set; }

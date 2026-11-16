@@ -23,7 +23,7 @@ public sealed class SimklTrackerClient(SimklApiCalls api) : ITrackerClient {
         var userList = await api.GetUserAnimeList();
         return detailed == null
             ? null
-            : ClassConversions.ConvertSimklAnime(detailed, userList?.FirstOrDefault(entry => entry.Show.Ids.Simkl == detailed.Ids.Simkl));
+            : ClassConversions.ConvertSimklAnime(detailed, userList?.FirstOrDefault(entry => entry.Show?.Ids?.Simkl == detailed.Ids?.Simkl));
     }
 
     public async Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status, bool? isRewatching = null,

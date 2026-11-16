@@ -1,0 +1,168 @@
+# Full, saved
+<?xml version="1.0" encoding="utf-8"?>
+<PluginConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <UserConfig>
+    <UserConfig>
+      <PlanToWatchOnly>false</PlanToWatchOnly>
+      <RewatchCompleted>false</RewatchCompleted>
+      <ShowLogNotifications>false</ShowLogNotifications>
+      <LibraryToCheck>
+        <string>library-a</string>
+        <string>library-b</string>
+      </LibraryToCheck>
+      <UserId>11111111-1111-1111-1111-111111111111</UserId>
+      <DiscordNotificationsEnabled>true</DiscordNotificationsEnabled>
+      <DiscordNotificationRevision>3</DiscordNotificationRevision>
+      <UserApiAuth>
+        <UserApiAuth>
+          <Name>AniList</Name>
+          <ConnectionGeneration>22222222-2222-2222-2222-222222222222</ConnectionGeneration>
+        </UserApiAuth>
+        <UserApiAuth>
+          <Name>Kitsu</Name>
+          <ConnectionGeneration>00000000-0000-0000-0000-000000000000</ConnectionGeneration>
+        </UserApiAuth>
+      </UserApiAuth>
+      <KeyPairs>
+        <KeyPairs>
+          <Key>KitsuUserId</Key>
+          <Value>42</Value>
+        </KeyPairs>
+        <KeyPairs />
+      </KeyPairs>
+    </UserConfig>
+    <UserConfig>
+      <PlanToWatchOnly>true</PlanToWatchOnly>
+      <RewatchCompleted>true</RewatchCompleted>
+      <ShowLogNotifications>true</ShowLogNotifications>
+      <LibraryToCheck />
+      <UserId>33333333-3333-3333-3333-333333333333</UserId>
+      <DiscordNotificationsEnabled>false</DiscordNotificationsEnabled>
+      <DiscordNotificationRevision>0</DiscordNotificationRevision>
+    </UserConfig>
+  </UserConfig>
+  <ProviderApiAuth>
+    <ProviderApiAuth>
+      <Name>Mal</Name>
+      <ClientId>mal-client</ClientId>
+    </ProviderApiAuth>
+    <ProviderApiAuth>
+      <Name>Simkl</Name>
+    </ProviderApiAuth>
+  </ProviderApiAuth>
+  <AnimeLibraries>
+    <AnimeLibrary>
+      <LibraryId>44444444-4444-4444-4444-444444444444</LibraryId>
+      <Mode>Mixed</Mode>
+    </AnimeLibrary>
+  </AnimeLibraries>
+  <callbackUrl>https://jf.example/jellyfin</callbackUrl>
+  <callbackRedirectUrl>https://jf.example/web</callbackRedirectUrl>
+  <animeListSaveLocation>/config/anidoki</animeListSaveLocation>
+  <watchedTickboxUpdatesProvider>true</watchedTickboxUpdatesProvider>
+  <shikimoriAppName>anidoki-app</shikimoriAppName>
+  <simklUpdateAll>true</simklUpdateAll>
+  <applySavedMatches>false</applySavedMatches>
+  <updateNsfw>true</updateNsfw>
+  <authenticationLinkExpireTimeMinutes>15</authenticationLinkExpireTimeMinutes>
+  <armServerBaseUrl>https://arm.example</armServerBaseUrl>
+  <enableUserPages>true</enableUserPages>
+  <shikimoriDomain>shikimori.example</shikimoriDomain>
+</PluginConfiguration>
+
+# Full, read back and saved again
+<?xml version="1.0" encoding="utf-8"?>
+<PluginConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <UserConfig>
+    <UserConfig>
+      <PlanToWatchOnly>false</PlanToWatchOnly>
+      <RewatchCompleted>false</RewatchCompleted>
+      <ShowLogNotifications>false</ShowLogNotifications>
+      <LibraryToCheck>
+        <string>library-a</string>
+        <string>library-b</string>
+      </LibraryToCheck>
+      <UserId>11111111-1111-1111-1111-111111111111</UserId>
+      <DiscordNotificationsEnabled>true</DiscordNotificationsEnabled>
+      <DiscordNotificationRevision>3</DiscordNotificationRevision>
+      <UserApiAuth>
+        <UserApiAuth>
+          <Name>AniList</Name>
+          <ConnectionGeneration>22222222-2222-2222-2222-222222222222</ConnectionGeneration>
+        </UserApiAuth>
+        <UserApiAuth>
+          <Name>Kitsu</Name>
+          <ConnectionGeneration>00000000-0000-0000-0000-000000000000</ConnectionGeneration>
+        </UserApiAuth>
+      </UserApiAuth>
+      <KeyPairs>
+        <KeyPairs>
+          <Key>KitsuUserId</Key>
+          <Value>42</Value>
+        </KeyPairs>
+        <KeyPairs />
+      </KeyPairs>
+    </UserConfig>
+    <UserConfig>
+      <PlanToWatchOnly>true</PlanToWatchOnly>
+      <RewatchCompleted>true</RewatchCompleted>
+      <ShowLogNotifications>true</ShowLogNotifications>
+      <LibraryToCheck />
+      <UserId>33333333-3333-3333-3333-333333333333</UserId>
+      <DiscordNotificationsEnabled>false</DiscordNotificationsEnabled>
+      <DiscordNotificationRevision>0</DiscordNotificationRevision>
+      <KeyPairs />
+    </UserConfig>
+  </UserConfig>
+  <ProviderApiAuth>
+    <ProviderApiAuth>
+      <Name>Mal</Name>
+      <ClientId>mal-client</ClientId>
+    </ProviderApiAuth>
+    <ProviderApiAuth>
+      <Name>Simkl</Name>
+    </ProviderApiAuth>
+  </ProviderApiAuth>
+  <AnimeLibraries>
+    <AnimeLibrary>
+      <LibraryId>44444444-4444-4444-4444-444444444444</LibraryId>
+      <Mode>Mixed</Mode>
+    </AnimeLibrary>
+  </AnimeLibraries>
+  <callbackUrl>https://jf.example/jellyfin</callbackUrl>
+  <callbackRedirectUrl>https://jf.example/web</callbackRedirectUrl>
+  <animeListSaveLocation>/config/anidoki</animeListSaveLocation>
+  <watchedTickboxUpdatesProvider>true</watchedTickboxUpdatesProvider>
+  <shikimoriAppName>anidoki-app</shikimoriAppName>
+  <simklUpdateAll>true</simklUpdateAll>
+  <applySavedMatches>false</applySavedMatches>
+  <updateNsfw>true</updateNsfw>
+  <authenticationLinkExpireTimeMinutes>15</authenticationLinkExpireTimeMinutes>
+  <armServerBaseUrl>https://arm.example</armServerBaseUrl>
+  <enableUserPages>true</enableUserPages>
+  <shikimoriDomain>shikimori.example</shikimoriDomain>
+</PluginConfiguration>
+
+# Empty, saved
+<?xml version="1.0" encoding="utf-8"?>
+<PluginConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <AnimeLibraries />
+  <watchedTickboxUpdatesProvider>false</watchedTickboxUpdatesProvider>
+  <simklUpdateAll>false</simklUpdateAll>
+  <applySavedMatches>true</applySavedMatches>
+  <updateNsfw>false</updateNsfw>
+  <authenticationLinkExpireTimeMinutes>0</authenticationLinkExpireTimeMinutes>
+  <enableUserPages>false</enableUserPages>
+</PluginConfiguration>
+
+# Empty, read back and saved again
+<?xml version="1.0" encoding="utf-8"?>
+<PluginConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <AnimeLibraries />
+  <watchedTickboxUpdatesProvider>false</watchedTickboxUpdatesProvider>
+  <simklUpdateAll>false</simklUpdateAll>
+  <applySavedMatches>true</applySavedMatches>
+  <updateNsfw>false</updateNsfw>
+  <authenticationLinkExpireTimeMinutes>0</authenticationLinkExpireTimeMinutes>
+  <enableUserPages>false</enableUserPages>
+</PluginConfiguration>

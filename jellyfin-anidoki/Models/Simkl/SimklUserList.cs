@@ -1,11 +1,10 @@
-#nullable disable
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace jellyfin_anidoki.Models.Simkl;
 
 public class SimklUserList {
-    [JsonPropertyName("anime")] public List<SimklUserEntry> Entry { get; set; }
+    [JsonPropertyName("anime")] public List<SimklUserEntry>? Entry { get; set; }
 }
 
 public class SimklUserEntry {
@@ -18,6 +17,6 @@ public class SimklUserEntry {
     [JsonPropertyName("total_episodes_count")]
     public int TotalEpisodesCount { get; set; }
 
-    [JsonPropertyName("show")] public Show Show { get; set; }
-    [JsonPropertyName("anime_type")] public string AnimeType { get; set; }
+    [JsonPropertyName("show")] public Show? Show { get; set; }
+    [JsonPropertyName("anime_type")] public string? AnimeType { get; set; }
 }

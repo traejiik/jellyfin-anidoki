@@ -136,7 +136,7 @@ public class AutomaticResolverTests {
     [Test]
     public async Task SpecialsSkipTheIdPath() {
         var special = Entry(801, "Fixture OVA", 1);
-        special.AlternativeTitles.En = "Fixture OVA";
+        special.AlternativeTitles!.En = "Fixture OVA";
         Searching(ApiName.AniList, [Entry(800, Show, 12, SyncHarness.Related(RelationType.Side_Story, 801))], special, Entry(500, Show, 12));
 
         var resolution = await Resolve(ApiName.AniList, Episode(0, 1, episodeName: "Fixture OVA"), AllIds());
@@ -256,7 +256,7 @@ public class AutomaticResolverTests {
     [Test]
     public async Task TitleSearchMatchesOriginalTitle() {
         var candidate = Entry(600, "Shou", 12);
-        candidate.AlternativeTitles.Ja = "ショー";
+        candidate.AlternativeTitles!.Ja = "ショー";
         Searching(ApiName.Mal, [candidate]);
         var episode = _library.Episode("Show", 1, 3);
         episode.Series.OriginalTitle = "ショー";
@@ -296,7 +296,7 @@ public class AutomaticResolverTests {
 
     private Anime SeedSpecial(string? english) {
         var special = Entry(801, "Fixture OVA", 1);
-        special.AlternativeTitles.En = english!;
+        special.AlternativeTitles!.En = english!;
         Searching(ApiName.Mal, [Entry(800, Show, 12, SyncHarness.Related(RelationType.Side_Story, 801))], special);
         return special;
     }

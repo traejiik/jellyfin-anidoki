@@ -244,7 +244,7 @@ public class InboundApplyTests {
         _harness.Entry(1001, "Alpha", Status.Completed, 4, "2026-01-02");
         _harness.Entry(1002, "Beta", Status.Completed, 2, "2026-01-03");
         IReadOnlyList<PreviewRow> rows = await Preview();
-        Plugin.Instance!.PluginConfiguration.UserConfig.Single().UserApiAuth = [];
+        Plugin.Instance!.PluginConfiguration.UserConfig!.Single().UserApiAuth = [];
         // Reading the list now would record provider-stopped instead.
         _harness.Tracker.NoAnswer = true;
 

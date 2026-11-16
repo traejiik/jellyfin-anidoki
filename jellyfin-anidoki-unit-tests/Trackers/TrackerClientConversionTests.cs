@@ -47,10 +47,10 @@ public class TrackerClientConversionTests {
         for (int i = 0; i < animeList.Count; i++) {
             Assert.AreEqual(mediaList[i].Id, animeList[i].Id);
             Assert.AreEqual(mediaList[i].Episodes, animeList[i].NumEpisodes);
-            Assert.AreEqual(mediaList[i].Title.English, animeList[i].Title);
-            Assert.AreEqual(mediaList[i].Title.English, animeList[i].AlternativeTitles.En);
-            Assert.AreEqual(mediaList[i].Title.Native, animeList[i].AlternativeTitles.Ja);
-            Assert.AreEqual(new List<string> { mediaList[i].Title.Romaji, mediaList[i].Title.UserPreferred, "Synonym1", "Synonym2" }, animeList[i].AlternativeTitles.Synonyms);
+            Assert.AreEqual(mediaList[i].Title!.English, animeList[i].Title);
+            Assert.AreEqual(mediaList[i].Title!.English, animeList[i].AlternativeTitles!.En);
+            Assert.AreEqual(mediaList[i].Title!.Native, animeList[i].AlternativeTitles!.Ja);
+            Assert.AreEqual(new List<string> { mediaList[i].Title!.Romaji!, mediaList[i].Title!.UserPreferred!, "Synonym1", "Synonym2" }, animeList[i].AlternativeTitles!.Synonyms);
         }
     }
 
@@ -66,11 +66,11 @@ public class TrackerClientConversionTests {
         // Assert that the anime list contains the expected anime objects
         for (int i = 0; i < animeList.Count; i++) {
             Assert.AreEqual(mediaList[i].Id, animeList[i].Id);
-            Assert.AreEqual(mediaList[i].Attributes.EpisodeCount, animeList[i].NumEpisodes);
-            Assert.AreEqual(mediaList[i].Attributes.Titles.English, animeList[i].Title);
-            Assert.AreEqual(mediaList[i].Attributes.Titles.English, animeList[i].AlternativeTitles.En);
-            Assert.AreEqual(mediaList[i].Attributes.Titles.Japanese, animeList[i].AlternativeTitles.Ja);
-            Assert.AreEqual(new List<string> { mediaList[i].Attributes.Slug, mediaList[i].Attributes.CanonicalTitle, "Synonym1", "Synonym2" }, animeList[i].AlternativeTitles.Synonyms);
+            Assert.AreEqual(mediaList[i].Attributes!.EpisodeCount, animeList[i].NumEpisodes);
+            Assert.AreEqual(mediaList[i].Attributes!.Titles!.English, animeList[i].Title);
+            Assert.AreEqual(mediaList[i].Attributes!.Titles!.English, animeList[i].AlternativeTitles!.En);
+            Assert.AreEqual(mediaList[i].Attributes!.Titles!.Japanese, animeList[i].AlternativeTitles!.Ja);
+            Assert.AreEqual(new List<string> { mediaList[i].Attributes!.Slug!, mediaList[i].Attributes!.CanonicalTitle!, "Synonym1", "Synonym2" }, animeList[i].AlternativeTitles!.Synonyms);
         }
     }
 
@@ -106,15 +106,15 @@ public class TrackerClientConversionTests {
             Assert.AreEqual(mediaList[i].MalId, animeList[i].Id.ToString());
             Assert.AreEqual(mediaList[i].Episodes, animeList[i].NumEpisodes);
             Assert.AreEqual(mediaList[i].Name, animeList[i].Title);
-            Assert.AreEqual(mediaList[i].Synonyms.Append(mediaList[i].Russian).ToList(), animeList[i].AlternativeTitles.Synonyms);
-            Assert.AreEqual(mediaList[i].English, animeList[i].AlternativeTitles.En);
-            Assert.AreEqual(mediaList[i].Japanese, animeList[i].AlternativeTitles.Ja);
+            Assert.AreEqual(mediaList[i].Synonyms!.Append(mediaList[i].Russian).ToList(), animeList[i].AlternativeTitles!.Synonyms);
+            Assert.AreEqual(mediaList[i].English, animeList[i].AlternativeTitles!.En);
+            Assert.AreEqual(mediaList[i].Japanese, animeList[i].AlternativeTitles!.Ja);
             Assert.IsNotNull(mediaList[i].UserRate);
-            Assert.AreEqual(mediaList[i].UserRate.Episodes, animeList[i].MyListStatus.NumEpisodesWatched);
-            Assert.AreEqual(mediaList[i].UserRate.Status == ShikimoriUserRate.StatusEnum.rewatching, animeList[i].MyListStatus.IsRewatching);
-            Assert.AreEqual(mediaList[i].UserRate.Rewatches, animeList[i].MyListStatus.RewatchCount);
+            Assert.AreEqual(mediaList[i].UserRate!.Episodes, animeList[i].MyListStatus!.NumEpisodesWatched);
+            Assert.AreEqual(mediaList[i].UserRate!.Status == ShikimoriUserRate.StatusEnum.rewatching, animeList[i].MyListStatus!.IsRewatching);
+            Assert.AreEqual(mediaList[i].UserRate!.Rewatches, animeList[i].MyListStatus!.RewatchCount);
             Assert.IsNotNull(mediaList[i].Related);
-            Assert.AreEqual(mediaList[i].Related.Count, animeList[i].RelatedAnime.Count);
+            Assert.AreEqual(mediaList[i].Related!.Count, animeList[i].RelatedAnime!.Count);
         }
     }
 
@@ -130,10 +130,10 @@ public class TrackerClientConversionTests {
         // Assert that the anime list contains the expected anime objects
         foreach (var anime in animeList) {
             var matchingAnime = mediaList.Single(item => item.Id == anime.Id);
-            Assert.AreEqual(matchingAnime.RelatedAnime.Count, anime.RelatedAnime.Count);
+            Assert.AreEqual(matchingAnime.RelatedAnime!.Count, anime.RelatedAnime!.Count);
             Assert.IsNotEmpty(anime.RelatedAnime);
             foreach (RelatedAnime relatedAnime in anime.RelatedAnime) {
-                var matchingRelated = matchingAnime.RelatedAnime.Single(item => item.Id == relatedAnime.Anime.Id);
+                var matchingRelated = matchingAnime.RelatedAnime!.Single(item => item.Id == relatedAnime.Anime!.Id);
                 switch (matchingRelated.RelationType) {
                     case KitsuMediaRelationship.RelationType.sequel:
                         Assert.AreEqual(RelationType.Sequel, relatedAnime.RelationType, $"Kitsu relation {matchingRelated.RelationType}");
@@ -156,12 +156,12 @@ public class TrackerClientConversionTests {
                         break;
                 }
 
-                Assert.AreEqual(matchingRelated.Id, relatedAnime.Anime.Id);
-                Assert.AreEqual(matchingRelated.Attributes.EpisodeCount, relatedAnime.Anime.NumEpisodes);
-                Assert.AreEqual(matchingRelated.Attributes.Titles.English, relatedAnime.Anime.Title);
-                Assert.AreEqual(matchingRelated.Attributes.Titles.English, relatedAnime.Anime.AlternativeTitles.En);
+                Assert.AreEqual(matchingRelated.Id, relatedAnime.Anime!.Id);
+                Assert.AreEqual(matchingRelated.Attributes!.EpisodeCount, relatedAnime.Anime!.NumEpisodes);
+                Assert.AreEqual(matchingRelated.Attributes!.Titles!.English, relatedAnime.Anime!.Title);
+                Assert.AreEqual(matchingRelated.Attributes!.Titles!.English, relatedAnime.Anime!.AlternativeTitles!.En);
                 Assert.AreEqual(matchingRelated.Attributes.Titles.Japanese, relatedAnime.Anime.AlternativeTitles.Ja);
-                Assert.AreEqual(new List<string> { matchingRelated.Attributes.Slug, matchingRelated.Attributes.CanonicalTitle, "Synonym1", "Synonym2" }, relatedAnime.Anime.AlternativeTitles.Synonyms);
+                Assert.AreEqual(new List<string> { matchingRelated.Attributes!.Slug!, matchingRelated.Attributes!.CanonicalTitle!, "Synonym1", "Synonym2" }, relatedAnime.Anime!.AlternativeTitles!.Synonyms);
             }
         }
     }
@@ -378,8 +378,21 @@ public class TrackerClientConversionTests {
 
         List<Anime> converted = AniListTrackerClient.ConvertList(entries, status);
 
-        Assert.That(converted.Select(anime => (anime.Id, anime.Title, anime.MyListStatus.Status, anime.MyListStatus.NumEpisodesWatched)),
+        Assert.That(converted.Select(anime => (anime.Id, anime.Title, anime.MyListStatus!.Status, anime.MyListStatus!.NumEpisodesWatched)),
             Is.EqualTo(new[] { (227, "FLCL", status, 6), (154587, "Sousou no Frieren", status, 14) }));
+    }
+
+    [Test]
+    public void AniListResultsMissingTitlesOrAPageAddressAreReadNotThrown() {
+        var search = JsonSerializer.Deserialize<List<AniListSearch.Media>>("""[{ "id": 1, "title": null, "synonyms": null }]""")!;
+        var list = JsonSerializer.Deserialize<List<AniListMediaList.Entries>>("""[{ "media": null, "progress": 2 }, { "media": { "id": 2 }, "progress": 3 }]""");
+
+        List<Anime> searched = AniListTrackerClient.ConvertSearchResults(search, true);
+        List<Anime> listed = AniListTrackerClient.ConvertList(list, Status.Watching);
+
+        Assert.That(searched.Select(anime => (anime.Id, anime.Title, anime.AlternativeTitles?.Synonyms?.Count)),
+            Is.EqualTo(new[] { (1, (string?)null, (int?)0) }));
+        Assert.That(listed, Is.Empty);
     }
 
     [Test]
@@ -404,7 +417,7 @@ public class TrackerClientConversionTests {
 
         List<Anime> converted = KitsuTrackerClient.ConvertList(root!, Status.Completed);
 
-        Assert.That(converted.Select(anime => (anime.Id, anime.Title, anime.MyListStatus.Status, anime.MyListStatus.NumEpisodesWatched)),
+        Assert.That(converted.Select(anime => (anime.Id, anime.Title, anime.MyListStatus!.Status, anime.MyListStatus!.NumEpisodesWatched)),
             Is.EqualTo(new[] {
                 (500, "Frieren: Beyond Journey's End", Status.Completed, 28), (501, "Dungeon Meshi", Status.Completed, 12),
                 (502, (string)null!, Status.Completed, 3)
