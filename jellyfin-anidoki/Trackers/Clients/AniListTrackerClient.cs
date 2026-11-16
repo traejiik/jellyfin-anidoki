@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Api.Anilist;
@@ -22,14 +23,13 @@ public sealed class AniListTrackerClient(AniListApiCalls api) : ITrackerClient, 
         foreach (AniListSearch.Media media in animeList) {
             if (!updateNsfw && media.IsAdult)
                 continue; // Skip NSFW anime if the user doesn't want to update them
-            var synonyms = new List<string> { media.Title.Romaji, media.Title.UserPreferred };
-            synonyms.AddRange(media.Synonyms);
+            var synonyms = new[] { media.Title?.Romaji, media.Title?.UserPreferred }.Concat(media.Synonyms ?? []).OfType<string>().ToList();
             var anime = new Anime {
                 Id = media.Id,
-                Title = media.Title.English,
+                Title = media.Title?.English,
                 AlternativeTitles = new AlternativeTitles {
-                    En = media.Title.English,
-                    Ja = media.Title.Native,
+                    En = media.Title?.English,
+                    Ja = media.Title?.Native,
                     Synonyms = synonyms
                 },
                 NumEpisodes = media.Episodes ?? 0,
@@ -104,7 +104,9 @@ public sealed class AniListTrackerClient(AniListApiCalls api) : ITrackerClient, 
         if (animeList == null)
             return converted;
         foreach (var media in animeList) {
-            int lastIndex = media.Media.SiteUrl.LastIndexOf("/", StringComparison.CurrentCulture);
+            if (media.Media?.SiteUrl is not { } siteUrl)
+                continue;
+            int lastIndex = siteUrl.LastIndexOf("/", StringComparison.CurrentCulture);
             if (lastIndex == -1)
                 continue;
             var finishDate = new DateTime();

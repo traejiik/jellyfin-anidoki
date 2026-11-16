@@ -71,14 +71,16 @@ public class ResolutionCheckTests {
         Guid id = Guid.NewGuid();
         _operations.Create(id, _user, OperationKind.ResolutionCheck, "x");
         var context = new OperationContext(id, _user, _operations, NullLogger.Instance, _cancellation.Token);
-        var check = new ResolutionCheck(new Mock<IUserManager>().Object, _harness.Library.Library.Object, new Mock<IUserDataManager>().Object, NullLoggerFactory.Instance,
+        await NewCheck(watch).CheckTargets(targets, context);
+        return (context, _rows.Read(id));
+    }
+
+    private ResolutionCheck NewCheck(ISeasonWatchState watch) =>
+        new(new Mock<IUserManager>().Object, _harness.Library.Library.Object, new Mock<IUserDataManager>().Object, NullLoggerFactory.Instance,
             new Mock<IHttpClientFactory>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(), new Mock<IApplicationPaths>().Object,
             new MemoryCache(new MemoryCacheOptions()), _delayer.Object, _matches, _rows, watch, _user) {
             ClientOverride = (provider, _) => _harness.Tracker(provider)
         };
-        await check.CheckTargets(targets, context);
-        return (context, _rows.Read(id));
-    }
 
     private void SaveFor(Episode episode, params MatchRange[] ranges) {
         SyncSource source = SyncSource.From(episode)!;
@@ -226,6 +228,20 @@ public class ResolutionCheckTests {
         var (context, rows) = await Check(new FixedWatchState(1), _harness.Library.Episode("Fixture Show", 1, 1));
 
         Assert.That(rows, Is.Empty);
+        Assert.That(context.Result, Is.EqualTo(OperationState.NoChange));
+    }
+
+    [Test]
+    public async Task ANewInstallWithNoUserSettingsFindsNothingToCheck() {
+        // No user has saved AniDoki settings yet, so the plugin has no user list at all.
+        _harness.Configuration.UserConfig = null;
+        Guid id = Guid.NewGuid();
+        _operations.Create(id, _user, OperationKind.ResolutionCheck, "x");
+        var context = new OperationContext(id, _user, _operations, NullLogger.Instance, _cancellation.Token);
+
+        await NewCheck(new FixedWatchState(1)).Run(context);
+
+        Assert.That(_rows.Read(id), Is.Empty);
         Assert.That(context.Result, Is.EqualTo(OperationState.NoChange));
     }
 

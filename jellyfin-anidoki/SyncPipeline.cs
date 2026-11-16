@@ -109,7 +109,7 @@ public class SyncPipeline {
         _apiIds = new AnimeOfflineDatabaseHelpers.OfflineDatabaseResponse();
 
         var video = e as Video;
-        UserConfig? userConfig = Plugin.Instance?.PluginConfiguration.UserConfig.FirstOrDefault(item => item.UserId == userId);
+        UserConfig? userConfig = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(item => item.UserId == userId);
         if (userConfig == null) {
             _logger.LogDebug("User {UserId} has no AniDoki settings; nothing to sync", userId);
             return;

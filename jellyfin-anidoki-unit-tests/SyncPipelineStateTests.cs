@@ -126,6 +126,17 @@ public class SyncPipelineStateTests {
         Assert.That(_pipeline.ResolvedIds.AniDb, Is.Null);
     }
 
+    [Test]
+    public void ANewInstallWithNoUserSettingsSyncsNothing() {
+        // No user has saved AniDoki settings yet, so the plugin has no user list at all.
+        _plugin.Configuration.UserConfig = null;
+
+        Assert.DoesNotThrowAsync(() => _pipeline.Run(
+            MovieWithIds("First", new Dictionary<string, string> { ["AniList"] = ResolvedAniListId.ToString() }),
+            _user, true, null, SyncUpdateSource.Playback));
+        Assert.That(_pipeline.ResolvedIds.Anilist, Is.Null);
+    }
+
     /// <summary>
     /// A provider that is missing its server-side configuration must be skipped on its own, not end the loop for
     /// every provider configured after it.

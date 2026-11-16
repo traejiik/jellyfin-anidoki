@@ -47,11 +47,11 @@ public class ConfigHelper {
         if (Plugin.Instance == null)
             return (false, "Plugin instance null.");
         lock (Plugin.Instance.PluginConfiguration) {
-            UserConfig? userConfig = Plugin.Instance.PluginConfiguration.UserConfig.FirstOrDefault(userConfig => userConfig.UserId == userId);
+            UserConfig? userConfig = Plugin.Instance.PluginConfiguration.UserConfig?.FirstOrDefault(userConfig => userConfig.UserId == userId);
 
             if (userConfig == null)
                 return (false, "User configuration not found.");
-            userConfig.UserApiAuth = userConfig.UserApiAuth.Where(userApiAuth => userApiAuth.Name != provider).ToArray();
+            userConfig.UserApiAuth = (userConfig.UserApiAuth ?? []).Where(userApiAuth => userApiAuth.Name != provider).ToArray();
             Plugin.Instance.SaveConfiguration();
             return (true, null);
         }

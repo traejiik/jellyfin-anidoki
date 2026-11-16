@@ -383,6 +383,19 @@ public class TrackerClientConversionTests {
     }
 
     [Test]
+    public void AniListResultsMissingTitlesOrAPageAddressAreReadNotThrown() {
+        var search = JsonSerializer.Deserialize<List<AniListSearch.Media>>("""[{ "id": 1, "title": null, "synonyms": null }]""")!;
+        var list = JsonSerializer.Deserialize<List<AniListMediaList.Entries>>("""[{ "media": null, "progress": 2 }, { "media": { "id": 2 }, "progress": 3 }]""");
+
+        List<Anime> searched = AniListTrackerClient.ConvertSearchResults(search, true);
+        List<Anime> listed = AniListTrackerClient.ConvertList(list, Status.Watching);
+
+        Assert.That(searched.Select(anime => (anime.Id, anime.Title, anime.AlternativeTitles?.Synonyms?.Count)),
+            Is.EqualTo(new[] { (1, (string?)null, (int?)0) }));
+        Assert.That(listed, Is.Empty);
+    }
+
+    [Test]
     public void KitsuListEntriesTakeTheirTitleFromTheIncludedAnime() {
         const string json = """
             {

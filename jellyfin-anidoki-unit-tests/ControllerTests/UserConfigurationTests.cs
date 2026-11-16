@@ -291,6 +291,22 @@ public partial class UserConfigurationTests {
         });
     }
 
+    [Test]
+    public void DeauthenticatingOnANewInstallWithNoUserSettingsReportsNoUser() {
+        // No user has saved AniDoki settings yet, so the plugin has no user list at all.
+        _plugin.Configuration.UserConfig = null;
+
+        Assert.That(ConfigHelper.DeauthenticateUser(_target.Id, ApiName.Mal), Is.EqualTo((false, "User configuration not found.")));
+    }
+
+    [Test]
+    public void DeauthenticatingAUserWithNoLinkedTrackerLeavesNone() {
+        _targetConfig.UserApiAuth = null;
+
+        Assert.That(ConfigHelper.DeauthenticateUser(_target.Id, ApiName.Mal), Is.EqualTo((true, (string?)null)));
+        Assert.That(_targetConfig.UserApiAuth, Is.Empty);
+    }
+
     [TestCase("get")]
     [TestCase("put")]
     [TestCase("profile")]
