@@ -50,7 +50,10 @@ public partial class UserConfigurationTests {
     private Mock<IXmlSerializer> _xmlSerializer = null!;
     private MemoryCache _memoryCache = null!;
     private HttpClient? _httpClient;
-    private AniDokiController _controller = null!;
+    private AuthController _auth = null!;
+    private ProviderSecretsController _secrets = null!;
+    private SettingsController _settings = null!;
+    private PagesController _pages = null!;
     private Guid _libraryId;
 
     [SetUp]
@@ -100,10 +103,19 @@ public partial class UserConfigurationTests {
             ]))
         };
         context.Connection.LocalIpAddress = IPAddress.Loopback;
-        _controller = new AniDokiController(_httpClientFactory.Object, NullLoggerFactory.Instance,
-            _serverHost.Object, new HttpContextAccessor { HttpContext = context },
-            _libraryManager.Object, _userManager.Object, _paths.Object,
-            new Mock<IUserDataManager>().Object, _memoryCache) {
+        var accessor = new HttpContextAccessor { HttpContext = context };
+        _auth = new AuthController(_httpClientFactory.Object, NullLoggerFactory.Instance,
+            _serverHost.Object, accessor, _userManager.Object, _memoryCache) {
+            ControllerContext = new ControllerContext { HttpContext = context }
+        };
+        _secrets = new ProviderSecretsController {
+            ControllerContext = new ControllerContext { HttpContext = context }
+        };
+        _settings = new SettingsController(_httpClientFactory.Object, NullLoggerFactory.Instance,
+            _serverHost.Object, accessor, _libraryManager.Object, _userManager.Object, _memoryCache) {
+            ControllerContext = new ControllerContext { HttpContext = context }
+        };
+        _pages = new PagesController(NullLoggerFactory.Instance) {
             ControllerContext = new ControllerContext { HttpContext = context }
         };
     }
@@ -120,7 +132,7 @@ public partial class UserConfigurationTests {
     public void AdministratorConfigurationGetReturnsSelectedUser() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         _targetConfig.PlanToWatchOnly = false;
-        var result = (OkObjectResult)_controller.GetConfigurationUser(_target.Id);
+        var result = (OkObjectResult)_settings.GetConfigurationUser(_target.Id);
         Assert.That(JsonSerializer.SerializeToElement(result.Value).GetProperty("PlanToWatchOnly").GetBoolean(), Is.False);
     }
 
@@ -130,8 +142,8 @@ public partial class UserConfigurationTests {
         var auth = _requesterConfig.UserApiAuth;
         var keyPairs = _requesterConfig.KeyPairs;
         var result = (OkObjectResult)(update
-            ? _controller.UpdateConfigurationUser(_requester.Id, new UserEditableConfig { LibraryToCheck = [] })
-            : _controller.GetConfigurationUser(_requester.Id));
+            ? _settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig { LibraryToCheck = [] })
+            : _settings.GetConfigurationUser(_requester.Id));
         string json = JsonSerializer.Serialize(result.Value);
         Assert.Multiple(() => {
             Assert.That(result.Value!.GetType().Name, Is.EqualTo("UserConfigurationResponse"));
@@ -152,7 +164,7 @@ public partial class UserConfigurationTests {
     [TestCase(true)]
     public void NewUserGetReturnsEffectiveDefaultsWithoutCreatingStoredRecords(bool nullConfiguration) {
         _plugin.Configuration.UserConfig = nullConfiguration ? null! : [_targetConfig];
-        var result = (OkObjectResult)_controller.GetConfigurationUser(_requester.Id);
+        var result = (OkObjectResult)_settings.GetConfigurationUser(_requester.Id);
         var json = JsonSerializer.SerializeToElement(result.Value);
         Assert.That(json.TryGetProperty("PlanToWatchOnly", out var planToWatchOnly), Is.True);
         Assert.Multiple(() => {
@@ -175,7 +187,7 @@ public partial class UserConfigurationTests {
             _plugin.Configuration.UserConfig = [_targetConfig];
         var dto = JsonSerializer.Deserialize<UserEditableConfig>(
             $"{{\"PlanToWatchOnly\":true,\"RewatchCompleted\":true,\"LibraryToCheck\":[],\"ShowLogNotifications\":{notifications.ToString().ToLowerInvariant()}}}")!;
-        var result = (OkObjectResult)_controller.UpdateConfigurationUser(_requester.Id, dto);
+        var result = (OkObjectResult)_settings.UpdateConfigurationUser(_requester.Id, dto);
         var savedUser = _plugin.Configuration.UserConfig!.Single(config => config.UserId == _requester.Id);
         var savedJson = JsonSerializer.SerializeToElement(savedUser);
         Assert.That(savedJson.TryGetProperty("ShowLogNotifications", out var savedPreference), Is.True);
@@ -192,7 +204,7 @@ public partial class UserConfigurationTests {
     [TestCase(ApiName.Simkl)]
     public void IncompleteOAuthAppIsUnavailableToUser(ApiName provider) {
         _plugin.Configuration.ProviderApiAuth = [new ProviderApiAuth { Name = provider, ClientId = "fixture-client", ClientSecret = "" }];
-        var parameters = (Parameters)_controller.GetFrontendParametersUser([ParameterInclude.ProviderList]);
+        var parameters = (Parameters)_settings.GetFrontendParametersUser([ParameterInclude.ProviderList]);
         var available = parameters.providerList!.Select(item => (ApiName)((IDictionary<string, object?>)item)["Key"]!);
         Assert.That(available, Is.EqualTo(new[] { ApiName.Kitsu }));
     }
@@ -206,7 +218,7 @@ public partial class UserConfigurationTests {
             new VirtualFolderInfo { ItemId = untyped.ToString("N"), Name = "Everything" }
         ]);
 
-        var parameters = (Parameters)((OkObjectResult)_controller.FrontendParameters([ParameterInclude.Libraries])).Value!;
+        var parameters = (Parameters)((OkObjectResult)_settings.FrontendParameters([ParameterInclude.Libraries])).Value!;
         var types = parameters.libraries!.Select(item => (IDictionary<string, object?>)item).ToDictionary(item => (Guid)item["Id"]!, item => item["Type"]);
 
         Assert.That(types, Is.EqualTo(new Dictionary<Guid, object?> { [shows] = "tvshows", [music] = "music", [untyped] = null }));
@@ -215,7 +227,7 @@ public partial class UserConfigurationTests {
     [Test]
     public void ShikimoriWithoutAppNameIsUnavailableToUser() {
         _plugin.Configuration.ProviderApiAuth = [new ProviderApiAuth { Name = ApiName.Shikimori, ClientId = "fixture-client", ClientSecret = "fixture-secret" }];
-        var parameters = (Parameters)_controller.GetFrontendParametersUser([ParameterInclude.ProviderList]);
+        var parameters = (Parameters)_settings.GetFrontendParametersUser([ParameterInclude.ProviderList]);
         Assert.That(parameters.providerList!.Select(item => (ApiName)((IDictionary<string, object?>)item)["Key"]!),
             Is.EqualTo(new[] { ApiName.Kitsu }));
     }
@@ -226,7 +238,7 @@ public partial class UserConfigurationTests {
         var requesterAuth = _requesterConfig.UserApiAuth;
         var targetAuth = _targetConfig.UserApiAuth;
         var targetKeyPairs = _targetConfig.KeyPairs;
-        var result = _controller.UpdateConfigurationUser(_target.Id, new UserEditableConfig {
+        var result = _settings.UpdateConfigurationUser(_target.Id, new UserEditableConfig {
             PlanToWatchOnly = false,
             RewatchCompleted = false,
             LibraryToCheck = [_libraryId.ToString()]
@@ -261,7 +273,7 @@ public partial class UserConfigurationTests {
                 {"id":42,"name":"selected profile","location":"","joined_at":"2020-01-01T00:00:00Z","picture":""}
                 """));
         });
-        var result = await _controller.GetUserUser(ApiName.Mal, _target.Id);
+        var result = await _settings.GetUserUser(ApiName.Mal, _target.Id);
         Assert.Multiple(() => {
             Assert.That(result, Is.TypeOf<OkObjectResult>());
             Assert.That(targetAuthenticationUsed, Is.True);
@@ -271,7 +283,7 @@ public partial class UserConfigurationTests {
     [Test]
     public void AdministratorAuthorizationUrlStoresSelectedUserInState() {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
-        var result = (OkObjectResult)_controller.BuildAuthorizeRequestUrlUser(ApiName.Mal, _target.Id);
+        var result = (OkObjectResult)_auth.BuildAuthorizeRequestUrlUser(ApiName.Mal, _target.Id);
         var url = new Uri((string)result.Value!);
         var state = QueryHelpers.ParseQuery(url.Query)["state"].ToString();
         Assert.That(MemoryCacheHelper.ConsumeState(_memoryCache, state)?.UserId, Is.EqualTo(_target.Id));
@@ -282,8 +294,8 @@ public partial class UserConfigurationTests {
     public void AdministratorDeauthenticationRemovesOnlySelectedProvider(bool elevatedRoute) {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         var result = elevatedRoute
-            ? _controller.Deauthenticate(_target.Id, ApiName.Mal)
-            : _controller.DeauthenticateUser(_target.Id, ApiName.Mal);
+            ? _auth.Deauthenticate(_target.Id, ApiName.Mal)
+            : _auth.DeauthenticateUser(_target.Id, ApiName.Mal);
         Assert.Multiple(() => {
             Assert.That(result, Is.TypeOf<OkResult>());
             Assert.That(_targetConfig.UserApiAuth!.Select(auth => auth.Name), Is.EqualTo(new[] { ApiName.AniList }));
@@ -330,7 +342,7 @@ public partial class UserConfigurationTests {
 
     [Test]
     public void NullLibrariesAreSavedAsEmptyArray() {
-        var result = _controller.UpdateConfigurationUser(_requester.Id, new UserEditableConfig {
+        var result = _settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig {
             LibraryToCheck = null!
         });
         Assert.Multiple(() => {
@@ -344,7 +356,7 @@ public partial class UserConfigurationTests {
     [TestCase("00000000-0000-0000-0000-000000000000")]
     [TestCase(null)]
     public void InvalidLibraryIdsRejectSaveWithoutChangingPreferences(string? invalidId) {
-        var result = _controller.UpdateConfigurationUser(_requester.Id, new UserEditableConfig {
+        var result = _settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig {
             PlanToWatchOnly = false,
             RewatchCompleted = false,
             LibraryToCheck = [_libraryId.ToString(), invalidId!]
@@ -362,7 +374,7 @@ public partial class UserConfigurationTests {
         SetPermission(_requester, PermissionKind.IsAdministrator, true);
         SetPermission(_target, PermissionKind.EnableAllFolders, false);
         _target.Preferences.Clear();
-        var result = _controller.UpdateConfigurationUser(_target.Id, new UserEditableConfig {
+        var result = _settings.UpdateConfigurationUser(_target.Id, new UserEditableConfig {
             PlanToWatchOnly = false,
             RewatchCompleted = false,
             LibraryToCheck = [_libraryId.ToString()]
@@ -376,7 +388,7 @@ public partial class UserConfigurationTests {
 
     [Test]
     public void EmptyLibrariesRemainEmptyArray() {
-        Assert.That(_controller.UpdateConfigurationUser(_requester.Id,
+        Assert.That(_settings.UpdateConfigurationUser(_requester.Id,
             new UserEditableConfig { LibraryToCheck = [] }), Is.TypeOf<OkObjectResult>());
         Assert.That(_requesterConfig.LibraryToCheck, Is.Empty);
     }
@@ -384,7 +396,7 @@ public partial class UserConfigurationTests {
     [Test]
     public void NewUserConfigurationIsCreatedWithoutReplacingOtherUsers() {
         _plugin.Configuration.UserConfig = [_targetConfig];
-        Assert.That(_controller.UpdateConfigurationUser(_requester.Id,
+        Assert.That(_settings.UpdateConfigurationUser(_requester.Id,
             new UserEditableConfig { PlanToWatchOnly = true, RewatchCompleted = false, LibraryToCheck = [] }),
             Is.TypeOf<OkObjectResult>());
         Assert.Multiple(() => {
@@ -402,7 +414,7 @@ public partial class UserConfigurationTests {
             grantStarted.SetResult();
             return grantResponse.Task;
         });
-        var linking = _controller.PasswordGrantAuthentication(ApiName.AniList, _requester.Id.ToString(), "fixture-user", "fixture-password");
+        var linking = _auth.PasswordGrantAuthentication(ApiName.AniList, _requester.Id.ToString(), "fixture-user", "fixture-password");
         await grantStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         bool returnedBeforeGrant = linking.IsCompleted;
         grantResponse.SetResult(Response(null, HttpStatusCode.OK,
@@ -420,7 +432,7 @@ public partial class UserConfigurationTests {
         SetHttp(request => Task.FromResult(Response(request, HttpStatusCode.Unauthorized,
             """{"error":"invalid_grant"}""")));
         var previousAuth = _requesterConfig.UserApiAuth!.Single(auth => auth.Name == ApiName.AniList).AccessToken;
-        var result = await _controller.PasswordGrantAuthentication(ApiName.AniList, _requester.Id.ToString(), "fixture-user", "fixture-password");
+        var result = await _auth.PasswordGrantAuthentication(ApiName.AniList, _requester.Id.ToString(), "fixture-user", "fixture-password");
         Assert.Multiple(() => {
             Assert.That(result, Is.InstanceOf<ObjectResult>());
             Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(400));
@@ -443,7 +455,7 @@ public partial class UserConfigurationTests {
             profileCalls++;
             return Task.FromResult(KitsuProfileResponse(request));
         });
-        var result = await _controller.PasswordGrantAuthentication(ApiName.Kitsu,
+        var result = await _auth.PasswordGrantAuthentication(ApiName.Kitsu,
             _requester.Id.ToString(), "fixture-user", "fixture-password");
         Assert.Multiple(() => {
             Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(400));
@@ -455,7 +467,7 @@ public partial class UserConfigurationTests {
 
     [Test]
     public async Task PasswordGrantWithoutRequiredProviderConfigReturnsFailure() {
-        var result = await _controller.PasswordGrantAuthentication(ApiName.Shikimori,
+        var result = await _auth.PasswordGrantAuthentication(ApiName.Shikimori,
             _requester.Id.ToString(), "fixture-user", "fixture-password");
         Assert.Multiple(() => {
             Assert.That(result, Is.TypeOf<ObjectResult>());
@@ -478,7 +490,7 @@ public partial class UserConfigurationTests {
         });
         var authentication = new ApiAuthentication(provider, _httpClientFactory.Object,
             new Mock<IServerApplicationHost>().Object,
-            new HttpContextAccessor { HttpContext = _controller.HttpContext }, NullLoggerFactory.Instance,
+            new HttpContextAccessor { HttpContext = _auth.HttpContext }, NullLoggerFactory.Instance,
             _memoryCache, new Mock<IAsyncDelayer>().Object,
             new ProviderApiAuth { ClientId = "fixture-client", ClientSecret = "fixture-secret" });
         var result = await authentication.GetToken(_requester.Id, refreshToken: "fixture-refresh");
@@ -499,7 +511,7 @@ public partial class UserConfigurationTests {
     public void SuccessfulHttpResponseWithoutAccessTokenFailsBeforeOverwritingAuthentication(string body) {
         SetHttp(request => Task.FromResult(Response(request, HttpStatusCode.OK, body)));
         var authentication = new ApiAuthentication(ApiName.Mal, _httpClientFactory.Object,
-            _serverHost.Object, new HttpContextAccessor { HttpContext = _controller.HttpContext },
+            _serverHost.Object, new HttpContextAccessor { HttpContext = _auth.HttpContext },
             NullLoggerFactory.Instance, _memoryCache, new Mock<IAsyncDelayer>().Object,
             new ProviderApiAuth { ClientId = "fixture-client", ClientSecret = "fixture-secret" });
         Assert.That(async () => await authentication.GetToken(_requester.Id, refreshToken: "fixture-refresh"),
@@ -524,7 +536,7 @@ public partial class UserConfigurationTests {
             profileCalls++;
             return Task.FromResult(KitsuProfileResponse(request));
         });
-        var result = await _controller.PasswordGrantAuthentication(ApiName.Kitsu,
+        var result = await _auth.PasswordGrantAuthentication(ApiName.Kitsu,
             _requester.Id.ToString(), "fixture-user", "fixture-password");
         Assert.Multiple(() => {
             Assert.That(result, Is.TypeOf<OkResult>());
@@ -546,7 +558,7 @@ public partial class UserConfigurationTests {
         Assert.That(async () => {
             var authentication = new ApiAuthentication(ApiName.Mal, _httpClientFactory.Object,
                 new Mock<IServerApplicationHost>().Object,
-                new HttpContextAccessor { HttpContext = _controller.HttpContext }, NullLoggerFactory.Instance,
+                new HttpContextAccessor { HttpContext = _auth.HttpContext }, NullLoggerFactory.Instance,
                 _memoryCache, new Mock<IAsyncDelayer>().Object,
                 new ProviderApiAuth { ClientId = "fixture-client", ClientSecret = "fixture-secret" });
             await authentication.GetToken(_requester.Id, code: "fixture-code", codeVerifier: "fixture-verifier");
@@ -566,11 +578,11 @@ public partial class UserConfigurationTests {
         });
         var authentication = new ApiAuthentication(ApiName.Mal, _httpClientFactory.Object,
             new Mock<IServerApplicationHost>().Object,
-            new HttpContextAccessor { HttpContext = _controller.HttpContext }, NullLoggerFactory.Instance,
+            new HttpContextAccessor { HttpContext = _auth.HttpContext }, NullLoggerFactory.Instance,
             _memoryCache, new Mock<IAsyncDelayer>().Object,
             new ProviderApiAuth { ClientId = "fixture-client", ClientSecret = "fixture-secret" });
         await authentication.GetToken(_requester.Id, code: "fixture-code", codeVerifier: "fixture-verifier");
-        var preview = System.Text.Json.JsonSerializer.SerializeToElement(((OkObjectResult)_controller.CallbackPreview(baseAddress)).Value);
+        var preview = System.Text.Json.JsonSerializer.SerializeToElement(((OkObjectResult)_auth.CallbackPreview(baseAddress)).Value);
         Assert.That(postedCallback, Is.EqualTo(preview.GetProperty("callbackUrl").GetString()));
     }
 
@@ -589,7 +601,7 @@ public partial class UserConfigurationTests {
                 _requesterConfig.UserApiAuth!.Any(auth => auth.Name == ApiName.Kitsu && auth.AccessToken == "new-fixture-access");
             return KitsuProfileResponse(request);
         });
-        var result = await _controller.PasswordGrantAuthentication(ApiName.Kitsu, _requester.Id.ToString(), "fixture-user", "fixture-password");
+        var result = await _auth.PasswordGrantAuthentication(ApiName.Kitsu, _requester.Id.ToString(), "fixture-user", "fixture-password");
         Assert.Multiple(() => {
             Assert.That(result, Is.TypeOf<OkResult>());
             Assert.That(grantParametersPreserved, Is.True);
@@ -616,7 +628,7 @@ public partial class UserConfigurationTests {
                 _targetConfig.UserApiAuth!.Any(auth => auth.Name == ApiName.Kitsu && auth.AccessToken == "new-fixture-access");
             return Task.FromResult(KitsuProfileResponse(request));
         });
-        var linking = _controller.PasswordGrantAuthenticationUserBody(KitsuGrant(_target.Id));
+        var linking = _auth.PasswordGrantAuthenticationUserBody(KitsuGrant(_target.Id));
         await grantStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         bool returnedBeforeGrant = linking.IsCompleted;
         grantResponse.SetResult(TokenResponse(null));
@@ -633,12 +645,12 @@ public partial class UserConfigurationTests {
     }
 
     private async Task<IActionResult> InvokeUserOperation(string operation, Guid user) => operation switch {
-        "get" => _controller.GetConfigurationUser(user),
-        "put" => _controller.UpdateConfigurationUser(user, new UserEditableConfig { LibraryToCheck = [] }),
-        "profile" => await _controller.GetUserUser(ApiName.Mal, user),
-        "authorize" => _controller.BuildAuthorizeRequestUrlUser(ApiName.Mal, user),
-        "grant" => await _controller.PasswordGrantAuthenticationUserBody(KitsuGrant(user)),
-        "deauthenticate" => _controller.DeauthenticateUser(user, ApiName.Mal),
+        "get" => _settings.GetConfigurationUser(user),
+        "put" => _settings.UpdateConfigurationUser(user, new UserEditableConfig { LibraryToCheck = [] }),
+        "profile" => await _settings.GetUserUser(ApiName.Mal, user),
+        "authorize" => _auth.BuildAuthorizeRequestUrlUser(ApiName.Mal, user),
+        "grant" => await _auth.PasswordGrantAuthenticationUserBody(KitsuGrant(user)),
+        "deauthenticate" => _auth.DeauthenticateUser(user, ApiName.Mal),
         _ => throw new ArgumentOutOfRangeException(nameof(operation))
     };
 

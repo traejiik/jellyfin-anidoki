@@ -30,7 +30,7 @@ public partial class UserConfigurationTests {
             return grantResponse.Task;
         });
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal, "fixture-verifier");
-        var callback = _controller.AuthCallback("fixture-code", state);
+        var callback = _auth.AuthCallback("fixture-code", state);
         await grantStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         bool returnedBeforeGrant = callback.IsCompleted;
         grantResponse.SetResult(TokenResponse(null));
@@ -56,7 +56,7 @@ public partial class UserConfigurationTests {
         _plugin.Configuration.callbackRedirectUrl = "https://host/done";
         SetHttp(request => Task.FromResult(Response(request, responseCode, responseBody)));
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal, "fixture-verifier");
-        var result = await _controller.AuthCallback("fixture-code", state);
+        var result = await _auth.AuthCallback("fixture-code", state);
         Assert.Multiple(() => {
             Assert.That((result as ContentResult)?.StatusCode, Is.EqualTo(500));
             Assert.That((result as ContentResult)?.Content, Does.Contain("MyAnimeList didn’t accept the sign-in"));
@@ -92,7 +92,7 @@ public partial class UserConfigurationTests {
             return TokenResponse(request);
         });
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal, "issued-verifier");
-        await _controller.AuthCallback("fixture-code", state);
+        await _auth.AuthCallback("fixture-code", state);
         Assert.That(sentVerifier, Is.EqualTo("issued-verifier"));
     }
 
@@ -101,7 +101,7 @@ public partial class UserConfigurationTests {
         bool contacted = false;
         SetHttp(request => { contacted = true; return Task.FromResult(TokenResponse(request)); });
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal);
-        var result = await _controller.AuthCallback("fixture-code", state);
+        var result = await _auth.AuthCallback("fixture-code", state);
         Assert.Multiple(() => {
             Assert.That((result as ContentResult)?.StatusCode, Is.EqualTo(500));
             Assert.That(contacted, Is.False);
@@ -114,7 +114,7 @@ public partial class UserConfigurationTests {
         _plugin.Configuration.shikimoriAppName = "";
         SetSuccessfulKitsuHttp();
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Shikimori);
-        var result = await _controller.AuthCallback("fixture-code", state);
+        var result = await _auth.AuthCallback("fixture-code", state);
         Assert.That((result as ContentResult)?.StatusCode, Is.EqualTo(500));
     }
 }

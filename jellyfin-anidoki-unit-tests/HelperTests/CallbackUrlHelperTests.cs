@@ -32,7 +32,7 @@ public class CallbackUrlHelperTests {
     private Mock<IHttpClientFactory> _httpClientFactory = null!;
     private DefaultHttpContext _context = null!;
     private MemoryCache _cache = null!;
-    private AniDokiController _controller = null!;
+    private AuthController _controller = null!;
 
     [SetUp]
     public void SetUp() {
@@ -56,10 +56,9 @@ public class CallbackUrlHelperTests {
         _context = new DefaultHttpContext();
         _context.Connection.LocalIpAddress = IPAddress.Loopback;
         _cache = new MemoryCache(new MemoryCacheOptions());
-        _controller = new AniDokiController(_httpClientFactory.Object, NullLoggerFactory.Instance,
+        _controller = new AuthController(_httpClientFactory.Object, NullLoggerFactory.Instance,
             _serverHost.Object, new HttpContextAccessor { HttpContext = _context },
-            new Mock<ILibraryManager>().Object, new Mock<IUserManager>().Object,
-            _paths.Object, new Mock<IUserDataManager>().Object, _cache) {
+            new Mock<IUserManager>().Object, _cache) {
             ControllerContext = new ControllerContext { HttpContext = _context }
         };
     }

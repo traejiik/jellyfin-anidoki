@@ -143,7 +143,7 @@ public partial class UserConfigurationTests {
         if (missingField == "app-name")
             _plugin.Configuration.shikimoriAppName = "";
         Assert.That(await InvokeEndpoint("AuthorizeProvider", ApiName.Shikimori, _requester.Id), Is.TypeOf<BadRequestObjectResult>());
-        Assert.That(_controller.BuildAuthorizeRequestUrlUser(ApiName.Shikimori, _requester.Id), Is.TypeOf<BadRequestObjectResult>());
+        Assert.That(_auth.BuildAuthorizeRequestUrlUser(ApiName.Shikimori, _requester.Id), Is.TypeOf<BadRequestObjectResult>());
     }
 
     [Test]
@@ -177,7 +177,7 @@ public partial class UserConfigurationTests {
             targetAuthUsed = request.Headers.Authorization?.Parameter == "target-mal-fixture";
             return Task.FromResult(Response(request, HttpStatusCode.OK, """{"id":42,"name":"selected"}"""));
         });
-        var method = typeof(AniDokiController).GetMethod("GetUser")!;
+        var method = typeof(SettingsController).GetMethod("GetUser")!;
         Assert.That(method.GetParameters().Any(parameter => parameter.Name == "user"), Is.True, "Elevated profile must accept user= alias");
         Assert.That(await InvokeEndpoint("GetUser", ApiName.Mal, null, _target.Id), Is.TypeOf<OkObjectResult>());
         Assert.That(targetAuthUsed, Is.True);
@@ -186,7 +186,7 @@ public partial class UserConfigurationTests {
     [Test]
     public async Task ElevatedLegacyProfileDeniesOrdinaryCrossUserAccess() {
         SetHttp(request => Task.FromResult(Response(request, HttpStatusCode.OK, """{"id":42,"name":"selected"}""")));
-        Assert.That(await _controller.GetUser(ApiName.Mal, _target.Id.ToString()), Is.TypeOf<ForbidResult>());
+        Assert.That(await _settings.GetUser(ApiName.Mal, _target.Id.ToString()), Is.TypeOf<ForbidResult>());
     }
 
     // A reply without a viewer is a failed read, the same as no reply; it must never read as a linked account.
@@ -196,7 +196,7 @@ public partial class UserConfigurationTests {
     public async Task GetUserReportsAnAnnictReplyWithoutAViewerAsAFailedRead(string reply) {
         _requesterConfig.AddUserApiAuth(new UserApiAuth { Name = ApiName.Annict, AccessToken = "requester-annict-fixture" });
         SetHttp(request => Task.FromResult(Response(request, HttpStatusCode.OK, reply)));
-        var result = await _controller.GetUser(ApiName.Annict, null, _requester.Id);
+        var result = await _settings.GetUser(ApiName.Annict, null, _requester.Id);
         Assert.Multiple(() => {
             Assert.That(result, Is.TypeOf<ObjectResult>());
             Assert.That(((ObjectResult)result).StatusCode, Is.EqualTo(500));
@@ -208,7 +208,7 @@ public partial class UserConfigurationTests {
     public async Task GetUserReadsAnAnnictViewerWithoutAUsername() {
         _requesterConfig.AddUserApiAuth(new UserApiAuth { Name = ApiName.Annict, AccessToken = "requester-annict-fixture" });
         SetHttp(request => Task.FromResult(Response(request, HttpStatusCode.OK, """{"data":{"viewer":{}}}""")));
-        var result = await _controller.GetUser(ApiName.Annict, null, _requester.Id);
+        var result = await _settings.GetUser(ApiName.Annict, null, _requester.Id);
         Assert.That(result, Is.TypeOf<OkObjectResult>());
         Assert.That(((MalApiCalls.User)((OkObjectResult)result).Value!).Name, Is.Null);
     }
@@ -220,7 +220,7 @@ public partial class UserConfigurationTests {
         SetSuccessfulKitsuHttp();
         _xmlSerializer.Setup(serializer => serializer.SerializeToFile(It.IsAny<object>(), It.IsAny<string>()))
             .Callback(() => _plugin.Configuration.UserConfig = null);
-        var result = await _controller.PasswordGrantAuthentication(ApiName.Kitsu, _requester.Id.ToString(), "fixture-user", "fixture-password");
+        var result = await _auth.PasswordGrantAuthentication(ApiName.Kitsu, _requester.Id.ToString(), "fixture-user", "fixture-password");
         Assert.That(result, Is.TypeOf<OkResult>());
     }
 
@@ -284,7 +284,7 @@ public partial class UserConfigurationTests {
             Assert.That(result.ContentType, Is.EqualTo(contentType));
             Assert.That(reader.ReadToEnd(), Is.Not.Empty);
         });
-        Assert.That(typeof(AniDokiController).GetMethod("GetAsset")!.GetCustomAttribute<AllowAnonymousAttribute>(), Is.Not.Null);
+        Assert.That(typeof(PagesController).GetMethod("GetAsset")!.GetCustomAttribute<AllowAnonymousAttribute>(), Is.Not.Null);
     }
 
     [TestCase("Anidoki.css")]
@@ -299,7 +299,7 @@ public partial class UserConfigurationTests {
     [TestCase("PasswordGrantAuthenticationUserBody", "user/passwordGrant", false)]
     [TestCase("SetAnnictToken", "annictToken", true)]
     public void AccountSecretsBindFromPostBody(string action, string route, bool elevated) {
-        var method = typeof(AniDokiController).GetMethod(action)!;
+        var method = typeof(AuthController).GetMethod(action)!;
         Assert.That(method, Is.Not.Null);
         Assert.Multiple(() => {
             Assert.That(method!.GetCustomAttribute<HttpPostAttribute>()?.Template, Is.EqualTo(route));
@@ -325,17 +325,17 @@ public partial class UserConfigurationTests {
         request.Method == HttpMethod.Post ? TokenResponse(request) : KitsuProfileResponse(request)));
 
     private async Task<IActionResult> InvokeEndpoint(string action, params object?[] arguments) => action switch {
-        nameof(AniDokiController.PasswordGrantAuthenticationBody) =>
-            await _controller.PasswordGrantAuthenticationBody((PasswordGrantRequest?)arguments[0]),
-        nameof(AniDokiController.PasswordGrantAuthenticationUserBody) =>
-            await _controller.PasswordGrantAuthenticationUserBody((PasswordGrantRequest?)arguments[0]),
-        nameof(AniDokiController.AuthorizeProvider) =>
-            _controller.AuthorizeProvider((ApiName)arguments[0]!, (Guid)arguments[1]!),
-        nameof(AniDokiController.GetUser) =>
-            await _controller.GetUser((ApiName)arguments[0]!, (string?)arguments[1], (Guid?)arguments[2]),
-        nameof(AniDokiController.SetAnnictToken) =>
-            _controller.SetAnnictToken((Guid)arguments[0]!, (AnnictTokenRequest?)arguments[1]),
-        nameof(AniDokiController.GetAsset) => _controller.GetAsset((string)arguments[0]!),
+        nameof(AuthController.PasswordGrantAuthenticationBody) =>
+            await _auth.PasswordGrantAuthenticationBody((PasswordGrantRequest?)arguments[0]),
+        nameof(AuthController.PasswordGrantAuthenticationUserBody) =>
+            await _auth.PasswordGrantAuthenticationUserBody((PasswordGrantRequest?)arguments[0]),
+        nameof(AuthController.AuthorizeProvider) =>
+            _auth.AuthorizeProvider((ApiName)arguments[0]!, (Guid)arguments[1]!),
+        nameof(SettingsController.GetUser) =>
+            await _settings.GetUser((ApiName)arguments[0]!, (string?)arguments[1], (Guid?)arguments[2]),
+        nameof(AuthController.SetAnnictToken) =>
+            _auth.SetAnnictToken((Guid)arguments[0]!, (AnnictTokenRequest?)arguments[1]),
+        nameof(PagesController.GetAsset) => _pages.GetAsset((string)arguments[0]!),
         _ => throw new ArgumentException("Unknown test action", nameof(action))
     };
 }

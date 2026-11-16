@@ -24,7 +24,7 @@ public partial class UserConfigurationTests {
         bool contacted = false;
         SetHttp(request => { contacted = true; return Task.FromResult(TokenResponse(request)); });
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.Mal, "fixture-verifier");
-        var result = (ContentResult)await _controller.AuthCallback(null, state, "access_denied");
+        var result = (ContentResult)await _auth.AuthCallback(null, state, "access_denied");
         Assert.Multiple(() => {
             Assert.That(result.StatusCode, Is.EqualTo(400));
             Assert.That(result.ContentType, Does.StartWith("text/html"));
@@ -37,7 +37,7 @@ public partial class UserConfigurationTests {
     [Test]
     public async Task ProviderErrorWithoutCodeIsNotTreatedAsDeclined() {
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.AniList);
-        var result = (ContentResult)await _controller.AuthCallback(null, state, "server_error");
+        var result = (ContentResult)await _auth.AuthCallback(null, state, "server_error");
         Assert.Multiple(() => {
             Assert.That(result.StatusCode, Is.EqualTo(500));
             Assert.That(result.Content, Does.Contain("AniList didn’t accept the sign-in").And.Contain("error: server_error"));
@@ -49,7 +49,7 @@ public partial class UserConfigurationTests {
         _serverHost.SetupGet(host => host.SystemId).Returns(ThisServer);
         _plugin.Configuration.callbackUrl = "https://jellyfin.example.test/base";
         string state = CallbackState.Create(OtherServer, ApiName.AniList);
-        var result = (ContentResult)await _controller.AuthCallback("fixture-code", state);
+        var result = (ContentResult)await _auth.AuthCallback("fixture-code", state);
         Assert.Multiple(() => {
             Assert.That(result.StatusCode, Is.EqualTo(400));
             Assert.That(result.Content, Does.Contain("This sign-in started on another server").And.Contain("AniList app’s redirect URL"));
@@ -64,7 +64,7 @@ public partial class UserConfigurationTests {
         _serverHost.SetupGet(host => host.SystemId).Returns(ThisServer);
         _plugin.Configuration.authenticationLinkExpireTimeMinutes = 120;
         string state = marked ? CallbackState.Create(ThisServer, ApiName.Simkl) : Guid.NewGuid().ToString("N");
-        var result = (ContentResult)await _controller.AuthCallback("fixture-code", state);
+        var result = (ContentResult)await _auth.AuthCallback("fixture-code", state);
         Assert.Multiple(() => {
             Assert.That(result.StatusCode, Is.EqualTo(400));
             Assert.That(result.Content, Does.Contain("This sign-in link has expired").And.Contain("older than 2 hours"));
@@ -75,18 +75,18 @@ public partial class UserConfigurationTests {
 
     [Test]
     public void AddressCheckIsAnUncachedPage() {
-        var result = _controller.ApiUrlTest();
+        var result = _auth.ApiUrlTest();
         Assert.Multiple(() => {
             Assert.That(result.StatusCode, Is.EqualTo(200));
             Assert.That(result.ContentType, Does.StartWith("text/html"));
             Assert.That(result.Content, Does.Contain("This is the correct address").And.Match("assets/v/[0-9a-f]{32}/jellyfin\\.svg"));
-            Assert.That(_controller.Response.Headers.CacheControl.ToString(), Is.EqualTo("no-store"));
+            Assert.That(_auth.Response.Headers.CacheControl.ToString(), Is.EqualTo("no-store"));
         });
     }
 
     [Test]
     public async Task MissingStateShowsExpiredPage() {
-        var result = (ContentResult)await _controller.AuthCallback("fixture-code", null);
+        var result = (ContentResult)await _auth.AuthCallback("fixture-code", null);
         Assert.That(result.Content, Does.Contain("This sign-in link has expired"));
     }
 
@@ -95,8 +95,8 @@ public partial class UserConfigurationTests {
     public async Task UnsavedLinkExpiryKeepsTheLinkUsableAndShowsTheDefault(long configured) {
         _plugin.Configuration.authenticationLinkExpireTimeMinutes = configured;
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.AniList);
-        var declined = (ContentResult)await _controller.AuthCallback(null, state, "access_denied");
-        var expired = (ContentResult)await _controller.AuthCallback("fixture-code", state);
+        var declined = (ContentResult)await _auth.AuthCallback(null, state, "access_denied");
+        var expired = (ContentResult)await _auth.AuthCallback("fixture-code", state);
         Assert.Multiple(() => {
             Assert.That(declined.Content, Does.Contain("AniList didn’t link your account"), "the link was still stored when the callback arrived");
             Assert.That(expired.Content, Does.Contain("older than 24 hours"));
@@ -108,14 +108,14 @@ public partial class UserConfigurationTests {
     public async Task CallbackLeadsBackToThePageTheSignInStartedOn(bool fromAdmin, string expectedHref) {
         _plugin.Configuration.enableUserPages = true;
         string state = MemoryCacheHelper.GenerateState(_memoryCache, _requester.Id, ApiName.AniList, returnToAdmin: fromAdmin);
-        var result = (ContentResult)await _controller.AuthCallback(null, state, "access_denied");
+        var result = (ContentResult)await _auth.AuthCallback(null, state, "access_denied");
         Assert.That(result.Content, Does.Contain($"href=\"../web/index.html{expectedHref}\""));
     }
 
     [Test]
     public void AdminSignInLinksReturnToTheAdminPage() {
         ConfigureOAuthProvider(ApiName.AniList);
-        var result = (OkObjectResult)_controller.AuthorizeProvider(ApiName.AniList, _requester.Id);
+        var result = (OkObjectResult)_auth.AuthorizeProvider(ApiName.AniList, _requester.Id);
         string state = QueryHelpers.ParseQuery(new Uri((string)result.Value!).Query)["state"].ToString();
         Assert.That(MemoryCacheHelper.ConsumeState(_memoryCache, state)?.ReturnToAdmin, Is.True);
     }

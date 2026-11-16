@@ -56,4 +56,21 @@ public class ConfigHelper {
             return (true, null);
         }
     }
+
+    /// <summary>Whether the admin turned on the user pages; their routes answer 404 while it is off.</summary>
+    internal static bool UserPagesEnabled() {
+        return Plugin.Instance?.PluginConfiguration.enableUserPages == true;
+    }
+
+    /// <summary>The saved app settings of an OAuth tracker, or null when the tracker does not sign in with OAuth or its settings are incomplete.</summary>
+    internal static ProviderApiAuth? GetConfiguredOAuthProvider(ApiName provider) {
+        if (provider is not (ApiName.Mal or ApiName.AniList or ApiName.Shikimori or ApiName.Simkl))
+            return null;
+        var configuration = Plugin.Instance?.PluginConfiguration;
+        var auth = configuration?.ProviderApiAuth?.FirstOrDefault(auth => auth.Name == provider);
+        if (string.IsNullOrWhiteSpace(auth?.ClientId) || string.IsNullOrWhiteSpace(auth.ClientSecret) ||
+            (provider == ApiName.Shikimori && string.IsNullOrWhiteSpace(configuration?.shikimoriAppName)))
+            return null;
+        return auth;
+    }
 }
