@@ -411,6 +411,9 @@
 .anidoki .doki-dialog-body > .doki-pager { margin-top: auto; }
 .anidoki .doki-dialog-body > .doki-empty { flex: 1 1 auto; margin: 0; padding: 24px 0; color: var(--doki-muted); }
 .anidoki .doki-dialog::backdrop { background: rgb(0 0 0 / .6); }
+/* While a popup is open the page behind it stays put, as under Jellyfin's own dialogs (its .noScroll on body). Without
+   this, wheeling over a popup's header, tabs, footer or backdrop, or over a body with nothing to scroll, scrolls the page. */
+body:has(.anidoki :is(.doki-dialog, .doki-confirm):modal) { overflow: hidden; }
 .anidoki .doki-dialog-header { display: flex; align-items: start; justify-content: space-between; gap: 16px; padding: 20px 24px 16px; border-bottom: 1px solid var(--doki-edge); }
 .anidoki .doki-dialog-heading { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .anidoki .doki-dialog-heading :is(h2, h3) { margin: 0; font-size: 1.25rem; overflow-wrap: anywhere; }
@@ -428,7 +431,7 @@
 .anidoki .doki-breadcrumbs button:hover { color: var(--doki-text); text-decoration: underline; }
 .anidoki .doki-breadcrumbs button:focus-visible { outline: 2px solid var(--doki-accent); outline-offset: 2px; border-radius: var(--tjk-radius-xs); }
 .anidoki .doki-breadcrumbs [aria-current="page"] { color: var(--doki-text); }
-.anidoki .doki-dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+.anidoki .doki-dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
 .anidoki .doki-dialog-body > * { margin: 0; }
 .anidoki .doki-dialog-body > .doki-provider-tabs { margin: 0; }
 .anidoki .doki-dialog-preview { padding-top: 20px; border-top: 1px solid var(--doki-edge); }
