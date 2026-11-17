@@ -26,6 +26,7 @@ namespace jellyfin_anidoki.Api.Annict;
 public class AnnictApiCalls {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILoggerFactory _loggerFactory;
+    private readonly ILogger<AnnictApiCalls> _logger;
     private readonly IServerApplicationHost _serverApplicationHost;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IMemoryCache _memoryCache;
@@ -37,6 +38,7 @@ public class AnnictApiCalls {
     public AnnictApiCalls(IHttpClientFactory httpClientFactory, ILoggerFactory loggerFactory, IServerApplicationHost serverApplicationHost, IHttpContextAccessor httpContextAccessor, IMemoryCache memoryCache, IAsyncDelayer delayer, UserConfig? userConfig = null) {
         _httpClientFactory = httpClientFactory;
         _loggerFactory = loggerFactory;
+        _logger = loggerFactory.CreateLogger<AnnictApiCalls>();
         _serverApplicationHost = serverApplicationHost;
         _httpContextAccessor = httpContextAccessor;
         _userConfig = userConfig;
@@ -125,7 +127,7 @@ public class AnnictApiCalls {
                     },
                     pageInfo {
                       hasNextPage,
-                      startCursor
+                      endCursor
                     }
                 }
             }
@@ -148,7 +150,8 @@ public class AnnictApiCalls {
         if (result != null) {
             AnnictMediaList.AnnictUserMediaListLibraryEntries entries = result.AnnictSearchData!.Viewer!.AnnictUserMediaListLibraryEntries!;
             while (entries.PageInfo!.HasNextPage) {
-                variables["after"] = entries.PageInfo.StartCursor!;
+                string? cursor = entries.PageInfo.EndCursor;
+                variables["after"] = cursor ?? string.Empty;
                 var paginatedResponse = await GraphQlHelper.AuthenticatedRequest(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig, query, ApiName.Annict, variables);
                 // A page that failed fails the whole list, as a failed first page does.
                 if (paginatedResponse == null)
@@ -156,6 +159,12 @@ public class AnnictApiCalls {
                 StreamReader streamReader = new StreamReader(await paginatedResponse.Content.ReadAsStreamAsync());
                 var paginatedResult = JsonSerializer.Deserialize<AnnictMediaList.AnnictUserMediaList>(await streamReader.ReadToEndAsync());
                 AnnictMediaList.AnnictUserMediaListLibraryEntries next = paginatedResult!.AnnictSearchData!.Viewer!.AnnictUserMediaListLibraryEntries!;
+                // A page that says there is more without moving on would be asked for forever.
+                if (next.PageInfo!.HasNextPage && next.PageInfo.EndCursor == cursor) {
+                    _logger.LogWarning("({Provider}) Could not read the next page of the list; the page cursor did not move", ApiName.Annict);
+                    return null;
+                }
+
                 entries.Nodes = entries.Nodes!.Concat(next.Nodes!).ToList();
                 entries.PageInfo = next.PageInfo;
                 if (!next.PageInfo!.HasNextPage) {

@@ -150,6 +150,50 @@ public class Annict {
         Assert.That(await _annictApiCalls.UpdateAnime("work", AnnictSearch.AnnictMediaStatus.Watched), Is.False);
     }
 
+    private static string ListPage(string node, bool hasNextPage, string endCursor) =>
+        JsonSerializer.Serialize(new {
+            data = new {
+                viewer = new {
+                    libraryEntries = new {
+                        nodes = new[] { new { id = node } },
+                        pageInfo = new { hasNextPage, startCursor = $"start-{node}", endCursor }
+                    }
+                }
+            }
+        });
+
+    private AnnictApiCalls ListClient(List<Helpers.SentRequest> sent, params (HttpStatusCode, string)[] responses) =>
+        new(Helpers.RecordedSequence(sent, responses), new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object,
+            new Mock<IHttpContextAccessor>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, new UserConfig {
+                UserApiAuth = [new UserApiAuth { AccessToken = "accessToken", Name = ApiName.Annict, RefreshToken = "refreshToken" }]
+            });
+
+    /// <summary>The next page starts after the last entry of this one, so a list longer than a page is read once, not page 1 again.</summary>
+    [Test]
+    public async Task GetAnimeListFollowsTheEndCursor() {
+        var sent = new List<Helpers.SentRequest>();
+        var api = ListClient(sent, (HttpStatusCode.OK, ListPage("a", true, "end-a")), (HttpStatusCode.OK, ListPage("b", false, "end-b")));
+
+        var result = await api.GetAnimeList(AnnictSearch.AnnictMediaStatus.Watching);
+
+        Assert.That(sent, Has.Count.EqualTo(2));
+        using var second = System.Text.Json.JsonDocument.Parse(sent[1].Body!);
+        Assert.That(second.RootElement.GetProperty("variables").GetProperty("after").GetString(), Is.EqualTo("end-a"));
+        Assert.That(result?.ConvertAll(node => node.Id), Is.EqualTo(new[] { "a", "b" }));
+    }
+
+    /// <summary>A server that keeps saying there is more without moving the cursor fails the list instead of asking forever.</summary>
+    [Test]
+    public async Task GetAnimeListStopsWhenTheCursorDoesNotMove() {
+        var sent = new List<Helpers.SentRequest>();
+        var api = ListClient(sent, (HttpStatusCode.OK, ListPage("a", true, "end-a")), (HttpStatusCode.OK, ListPage("a", true, "end-a")), (HttpStatusCode.OK, "{}"));
+
+        var result = await api.GetAnimeList(AnnictSearch.AnnictMediaStatus.Watching);
+
+        Assert.That(result, Is.Null);
+        Assert.That(sent, Has.Count.EqualTo(2));
+    }
+
     /// <summary>A list read that got no reply (here, no linked account) returns nothing, as the other reads do.</summary>
     [Test]
     public async Task AListReadThatGetsNoReplyReturnsNothing() {
