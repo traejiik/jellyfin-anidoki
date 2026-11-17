@@ -43,6 +43,33 @@ public class PluginIntegrationTests {
             xml.Object, NullLogger<Plugin>.Instance);
     }
 
+    /// <summary>"Off" never took effect before, so everyone was getting every episode; the first start with the fix keeps that.</summary>
+    [Test]
+    public void LoadingAnOlderConfigurationTurnsSimklUpdateAllOnOnce() {
+        var xml = new Mock<IXmlSerializer>();
+        xml.Setup(s => s.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>()))
+            .Returns(new PluginConfiguration { simklUpdateAll = false, simklUpdateAllHonoured = false });
+
+        var plugin = new Plugin(_paths.Object, CreateServerConfiguration(), xml.Object, NullLogger<Plugin>.Instance);
+
+        Assert.That(plugin.PluginConfiguration.simklUpdateAll, Is.True);
+        Assert.That(plugin.PluginConfiguration.simklUpdateAllHonoured, Is.True);
+        xml.Verify(s => s.SerializeToFile(plugin.PluginConfiguration, It.IsAny<string>()), Times.Once);
+    }
+
+    /// <summary>Once the switch works, an admin who turns it off keeps it off across restarts.</summary>
+    [Test]
+    public void SimklUpdateAllTurnedOffAfterTheFixStaysOff() {
+        var xml = new Mock<IXmlSerializer>();
+        xml.Setup(s => s.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>()))
+            .Returns(new PluginConfiguration { simklUpdateAll = false, simklUpdateAllHonoured = true });
+
+        var plugin = new Plugin(_paths.Object, CreateServerConfiguration(), xml.Object, NullLogger<Plugin>.Instance);
+
+        Assert.That(plugin.PluginConfiguration.simklUpdateAll, Is.False);
+        xml.Verify(s => s.SerializeToFile(It.IsAny<object>(), It.IsAny<string>()), Times.Never);
+    }
+
     [Test]
     public void UninstallRemovesOnlyOwnedPageRegistration() {
         var plugin = CreatePlugin();

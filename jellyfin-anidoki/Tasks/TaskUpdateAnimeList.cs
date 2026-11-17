@@ -28,9 +28,9 @@ public class TaskUpdateAnimeList : IScheduledTask {
         return new[] { trigger };
     }
 
+    /// <summary>Throws when the update failed, so Jellyfin shows the run as Failed rather than Completed.</summary>
     public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken) {
-        await Task.Run(async () => {
-            await _animeList.Update();
-        }, cancellationToken);
+        if (!await _animeList.Update())
+            throw new InvalidOperationException("Could not update the anime list; see the AniDoki log");
     }
 }

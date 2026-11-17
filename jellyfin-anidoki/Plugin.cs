@@ -33,6 +33,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages {
         Database = AniDokiDatabase.ForDataPath(applicationPaths.DataPath);
         _secrets = new SecretStore(Database);
         LoadCredentials();
+        HonourSimklUpdateAll();
         try {
             if (PluginConfiguration.enableUserPages)
                 CheckPluginPages(applicationPaths, serverConfigurationManager);
@@ -102,6 +103,20 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages {
             StorageError = $"Credentials could not be loaded: {error.Message}";
             _logger.LogError("AniDoki storage is unavailable; tracker syncs are paused and settings cannot be saved: {StorageError}", StorageError);
         }
+    }
+
+    /// <summary>
+    /// Until 1.7.2 the Simkl "update all episodes" switch was ignored and every write sent every episode. Turn it on once,
+    /// so nobody's Simkl history changes with the fix; an admin who turns it off afterwards keeps it off.
+    /// </summary>
+    private void HonourSimklUpdateAll() {
+        // Saves are refused while storage is unavailable; the next start tries again.
+        if (StorageError != null || PluginConfiguration.simklUpdateAllHonoured)
+            return;
+        PluginConfiguration.simklUpdateAll = true;
+        PluginConfiguration.simklUpdateAllHonoured = true;
+        SaveConfiguration();
+        _logger.LogInformation("Turned on the Simkl setting to update every episode, which was already in effect");
     }
 
     public override void SaveConfiguration() => SaveConfiguration(Configuration);

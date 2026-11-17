@@ -62,6 +62,24 @@ public class Helpers {
         return factory.Object;
     }
 
+    /// <summary>A request as it was sent: its URI, headers and body, read before the client disposes it.</summary>
+    public sealed record SentRequest(HttpMethod Method, Uri? Uri, IReadOnlyDictionary<string, string> Headers, string? Body);
+
+    /// <summary>Like <see cref="Sequence"/>, and also records every request in <paramref name="sent"/>.</summary>
+    public static IHttpClientFactory RecordedSequence(List<SentRequest> sent, params (HttpStatusCode Code, string Body)[] responses) {
+        var handler = new DelegatingHandlerStub(async (request, _) => {
+            string? body = request.Content == null ? null : await request.Content.ReadAsStringAsync();
+            var headers = request.Headers.ToDictionary(header => header.Key, header => string.Join(",", header.Value));
+            sent.Add(new SentRequest(request.Method, request.RequestUri, headers, body));
+            var (code, text) = responses[Math.Min(sent.Count, responses.Length) - 1];
+            return new HttpResponseMessage(code) { RequestMessage = request, Content = new StringContent(text) };
+        });
+        // A new client per call, as Jellyfin's factory gives: headers set on one call's client must not reach the next.
+        var factory = new Mock<IHttpClientFactory>();
+        factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(() => new HttpClient(handler, disposeHandler: false));
+        return factory.Object;
+    }
+
     public static void MockHttpCalls(List<HttpCall> calls, ref HttpClient httpClient) {
         var clientHandlerStub = new DelegatingHandlerStub((request, _) => {
             request.SetConfiguration(new HttpConfiguration());

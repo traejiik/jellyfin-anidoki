@@ -29,7 +29,7 @@ public class AnnictMediaList {
     public class PageInfo {
         [JsonPropertyName("hasNextPage")]
         public bool HasNextPage { get; set; }
-        [JsonPropertyName("startCursor")]
-        public string? StartCursor { get; set; }
+        [JsonPropertyName("endCursor")]
+        public string? EndCursor { get; set; }
     }
 }

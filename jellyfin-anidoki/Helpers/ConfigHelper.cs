@@ -27,15 +27,7 @@ public class ConfigHelper {
         return simklClientId;
     }
 
-    public static bool GetSimklUpdateAll() {
-        bool? simklUpdateAll = Plugin.Instance?.PluginConfiguration.simklUpdateAll;
-
-        if (simklUpdateAll == null) {
-            return false;
-        }
-
-        return true;
-    }
+    public static bool GetSimklUpdateAll() => Plugin.Instance?.PluginConfiguration.simklUpdateAll ?? false;
 
     /// <summary>
     /// Deauthenticate a user.

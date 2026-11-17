@@ -62,6 +62,7 @@
   <watchedTickboxUpdatesProvider>true</watchedTickboxUpdatesProvider>
   <shikimoriAppName>anidoki-app</shikimoriAppName>
   <simklUpdateAll>true</simklUpdateAll>
+  <simklUpdateAllHonoured>false</simklUpdateAllHonoured>
   <applySavedMatches>false</applySavedMatches>
   <updateNsfw>true</updateNsfw>
   <authenticationLinkExpireTimeMinutes>15</authenticationLinkExpireTimeMinutes>
@@ -135,6 +136,7 @@
   <watchedTickboxUpdatesProvider>true</watchedTickboxUpdatesProvider>
   <shikimoriAppName>anidoki-app</shikimoriAppName>
   <simklUpdateAll>true</simklUpdateAll>
+  <simklUpdateAllHonoured>false</simklUpdateAllHonoured>
   <applySavedMatches>false</applySavedMatches>
   <updateNsfw>true</updateNsfw>
   <authenticationLinkExpireTimeMinutes>15</authenticationLinkExpireTimeMinutes>
@@ -148,7 +150,8 @@
 <PluginConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <AnimeLibraries />
   <watchedTickboxUpdatesProvider>false</watchedTickboxUpdatesProvider>
-  <simklUpdateAll>false</simklUpdateAll>
+  <simklUpdateAll>true</simklUpdateAll>
+  <simklUpdateAllHonoured>false</simklUpdateAllHonoured>
   <applySavedMatches>true</applySavedMatches>
   <updateNsfw>false</updateNsfw>
   <authenticationLinkExpireTimeMinutes>0</authenticationLinkExpireTimeMinutes>
@@ -160,7 +163,8 @@
 <PluginConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <AnimeLibraries />
   <watchedTickboxUpdatesProvider>false</watchedTickboxUpdatesProvider>
-  <simklUpdateAll>false</simklUpdateAll>
+  <simklUpdateAll>true</simklUpdateAll>
+  <simklUpdateAllHonoured>false</simklUpdateAllHonoured>
   <applySavedMatches>true</applySavedMatches>
   <updateNsfw>false</updateNsfw>
   <authenticationLinkExpireTimeMinutes>0</authenticationLinkExpireTimeMinutes>

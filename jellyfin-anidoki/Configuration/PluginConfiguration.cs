@@ -50,7 +50,12 @@ public class PluginConfiguration : BasePluginConfiguration {
     /// <summary>
     /// True to update all simkl series episodes to current point.
     /// </summary>
-    public bool simklUpdateAll { get; set; }
+    public bool simklUpdateAll { get; set; } = true;
+    /// <summary>
+    /// Set once <see cref="simklUpdateAll"/> has been switched on after the release where it started working. Before it,
+    /// "off" was ignored, so every user got every episode; turning it on once keeps that, and "off" now holds.
+    /// </summary>
+    public bool simklUpdateAllHonoured { get; set; }
 
     /// <summary>
     /// True (the default from 1.5.0) to let saved matches decide what syncs write. Off, they are only compared and

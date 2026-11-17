@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -11,6 +12,7 @@ using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Simkl;
+using jellyfin_anidoki_unit_tests.Characterization;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -73,6 +75,23 @@ public class Simkl {
 
         Assert.IsNotNull(result);
         Assert.IsNotEmpty(result!);
+    }
+
+    /// <summary>Simkl needs its API key on every request, so a search longer than one page sends it on the later pages too.</summary>
+    [Test]
+    public async Task SearchSendsTheApiKeyOnEveryPage() {
+        var sent = new List<Helpers.SentRequest>();
+        string FullPage() => JsonSerializer.Serialize(new List<SimklMedia>(new SimklMedia[50]).ConvertAll(_ => new SimklMedia { Title = "Fixture" }));
+        var api = new SimklApiCalls(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, FullPage()), (HttpStatusCode.OK, "[{\"title\":\"Last\"}]")),
+            new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object, new Mock<IHttpContextAccessor>().Object,
+            new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, new Dictionary<string, string> { { "simkl-api-key", "client" } },
+            new UserConfig { UserApiAuth = [new UserApiAuth { Name = ApiName.Simkl, AccessToken = String.Empty }] });
+
+        var result = await api.SearchAnime("monogatari");
+
+        Assert.That(result, Has.Count.EqualTo(51));
+        Assert.That(sent, Has.Count.EqualTo(2));
+        Assert.That(sent, Has.All.Matches<Helpers.SentRequest>(request => request.Headers.ContainsKey("simkl-api-key")));
     }
 
     [Test]
@@ -159,6 +178,26 @@ public class Simkl {
         }, 10);
 
         Assert.IsTrue(result);
+    }
+
+    /// <summary>The admin's "update all episodes" switch decides whether a write sends every episode up to the watched one, or only that one.</summary>
+    [TestCase(false, new[] { 3 })]
+    [TestCase(true, new[] { 1, 2, 3 })]
+    public async Task AWriteSendsEpisodesByTheUpdateAllSwitch(bool updateAll, int[] expected) {
+        using var harness = new SyncHarness();
+        harness.Configuration.simklUpdateAll = updateAll;
+        var sent = new List<Helpers.SentRequest>();
+        var api = new SimklApiCalls(Helpers.RecordedSequence(sent, (HttpStatusCode.OK,
+                "{\"added\":{\"shows\":0,\"movies\":0,\"episodes\":1,\"statuses\":[{\"request\":{\"ids\":{\"simkl\":45006}},\"response\":{\"status\":\"watching\"}}]},\"not_found\":{\"shows\":[],\"movies\":[],\"episodes\":[]}}")),
+            new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object, new Mock<IHttpContextAccessor>().Object,
+            new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, new Dictionary<string, string> { { "simkl-api-key", "client" } },
+            new UserConfig { UserApiAuth = [new UserApiAuth { Name = ApiName.Simkl, AccessToken = String.Empty }] });
+
+        Assert.That(await api.UpdateAnime(45006, SimklStatus.watching, true, new ArmClient.OfflineDatabaseResponse(), 3), Is.True);
+
+        using var body = JsonDocument.Parse(sent[0].Body!);
+        var episodes = body.RootElement.GetProperty("shows")[0].GetProperty("episodes").EnumerateArray().Select(episode => episode.GetProperty("number").GetInt32());
+        Assert.That(episodes, Is.EqualTo(expected));
     }
 
     [TestCase("")]

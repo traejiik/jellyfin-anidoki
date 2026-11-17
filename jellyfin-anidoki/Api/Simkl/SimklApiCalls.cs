@@ -92,7 +92,7 @@ public class SimklApiCalls {
                 }
             }
 
-            HttpResponseMessage? pageApiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Simkl, AuthApiCall.CallType.GET, url.Build());
+            HttpResponseMessage? pageApiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Simkl, AuthApiCall.CallType.GET, url.Build(), requestHeaders: _requestHeaders);
             if (pageApiCall == null)
                 break;
             List<SimklMedia>? nextPageResult;
