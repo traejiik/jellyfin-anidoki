@@ -107,12 +107,18 @@ public class ShikimoriApiCalls {
 
                 if (user != null && _userConfig != null) {
                     // A user linked before any key pair was saved has no list yet.
-                    (_userConfig.KeyPairs ??= []).Add(new KeyPairs {
-                        Key = "ShikimoriUserId",
-                        Value = user.Id.ToString()
-                    });
-
-                    Plugin.Instance?.SaveConfiguration();
+                    List<KeyPairs> keyPairs = _userConfig.KeyPairs ??= [];
+                    string id = user.Id.ToString();
+                    // One pair, the current account's: a relinked account must not keep reading the old ID.
+                    List<KeyPairs> saved = keyPairs.FindAll(pair => pair.Key == "ShikimoriUserId");
+                    if (saved.Count != 1 || saved[0].Value != id) {
+                        keyPairs.RemoveAll(pair => pair.Key == "ShikimoriUserId");
+                        keyPairs.Add(new KeyPairs {
+                            Key = "ShikimoriUserId",
+                            Value = id
+                        });
+                        Plugin.Instance?.SaveConfiguration();
+                    }
                 }
 
                 return user;

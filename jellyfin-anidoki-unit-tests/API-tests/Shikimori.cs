@@ -276,6 +276,34 @@ public class Shikimori {
         Assert.That(_userConfig.KeyPairs, Has.One.Matches<KeyPairs>(pair => pair.Key == "ShikimoriUserId" && pair.Value == "7"));
     }
 
+    /// <summary>Reading the user again keeps one ID pair, not one more per read.</summary>
+    [Test]
+    public async Task ReadingTheUserTwiceKeepsOneIdPair() {
+        Setup(WhoamiAndUpdate());
+
+        await _shikimoriApiCalls.GetUserInformation();
+        await _shikimoriApiCalls.GetUserInformation();
+
+        Assert.That(_userConfig.KeyPairs, Has.Exactly(1).Matches<KeyPairs>(pair => pair.Key == "ShikimoriUserId"));
+    }
+
+    /// <summary>After linking another account, the saved ID is the new account's, and older copies are gone.</summary>
+    [Test]
+    public async Task ReadingTheUserReplacesAStaleId() {
+        Setup(WhoamiAndUpdate());
+        _userConfig.KeyPairs!.AddRange([
+            new KeyPairs { Key = "ShikimoriUserId", Value = "3" },
+            new KeyPairs { Key = "ShikimoriUserId", Value = "3" },
+            new KeyPairs { Key = "Other", Value = "kept" }
+        ]);
+
+        await _shikimoriApiCalls.GetUserInformation();
+
+        Assert.That(_userConfig.KeyPairs, Has.Exactly(1).Matches<KeyPairs>(pair => pair.Key == "ShikimoriUserId"));
+        Assert.That(_userConfig.KeyPairs, Has.One.Matches<KeyPairs>(pair => pair.Key == "ShikimoriUserId" && pair.Value == "7"));
+        Assert.That(_userConfig.KeyPairs, Has.One.Matches<KeyPairs>(pair => pair.Key == "Other" && pair.Value == "kept"));
+    }
+
     [Test]
     public async Task AnUpdateForAUserWithNoKeyPairsYetReadsTheirIdFromShikimori() {
         Setup(WhoamiAndUpdate(), withKeyPairs: false);
