@@ -2,6 +2,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -102,7 +104,7 @@ public sealed class AnimeListSource {
                 return false;
             }
 
-            if (FileSizeHasChanged(path, formattedResponse.Size)) {
+            if (FileHasChanged(path, formattedResponse.Size, formattedResponse.Sha)) {
                 return await GetLatestAnimeList(client, path, formattedResponse.DownloadUrl);
             }
         } else {
@@ -114,15 +116,30 @@ public sealed class AnimeListSource {
     }
 
     /// <summary>
-    /// Check if the anime list file size has changed.
+    /// Whether the repository's anime list differs from the local file: by length, then by git blob hash, so an edit that
+    /// keeps the length is not missed. A listing without a hash is compared by length alone.
     /// </summary>
     /// <param name="path">The anime list file.</param>
-    /// <param name="fileSize">File size to compare with.</param>
-    private static bool FileSizeHasChanged(string path, int fileSize) {
+    /// <param name="fileSize">The repository file's size.</param>
+    /// <param name="sha">The repository file's git blob SHA-1, if the listing gave one.</param>
+    private static bool FileHasChanged(string path, int fileSize, string? sha) {
         FileInfo animeListFile = new FileInfo(path);
-        if (animeListFile.Exists)
-            return animeListFile.Length != fileSize;
-        return true;
+        if (!animeListFile.Exists || animeListFile.Length != fileSize)
+            return true;
+        return !string.IsNullOrEmpty(sha) && !string.Equals(GitBlobSha1(animeListFile), sha, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The git blob SHA-1 of a file: SHA-1 over "blob {length}\0" followed by the file's bytes.</summary>
+    private static string GitBlobSha1(FileInfo file) {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+        hash.AppendData(Encoding.ASCII.GetBytes($"blob {file.Length}\0"));
+        byte[] buffer = new byte[81920];
+        using (var stream = file.OpenRead()) {
+            int read;
+            while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+                hash.AppendData(buffer, 0, read);
+        }
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
     }
 
     /// <summary>
@@ -152,6 +169,8 @@ public sealed class AnimeListSource {
         [JsonPropertyName("name")] public string? Name { get; set; }
 
         [JsonPropertyName("size")] public int Size { get; set; }
+
+        [JsonPropertyName("sha")] public string? Sha { get; set; }
 
         [JsonPropertyName("download_url")] public string? DownloadUrl { get; set; }
     }

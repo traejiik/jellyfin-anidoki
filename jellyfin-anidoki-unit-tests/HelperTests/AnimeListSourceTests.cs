@@ -76,6 +76,49 @@ public class AnimeListSourceTests {
         Assert.That(await System.IO.File.ReadAllTextAsync(File), Is.EqualTo(List));
     }
 
+    /// <summary>The git blob hash GitHub reports for a file with this content.</summary>
+    private static string BlobSha(string content) {
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        byte[] header = System.Text.Encoding.ASCII.GetBytes($"blob {bytes.Length}\0");
+        return Convert.ToHexStringLower(System.Security.Cryptography.SHA1.HashData([.. header, .. bytes]));
+    }
+
+    private static string ListingOf(int size, string? sha) =>
+        $"{{\"name\":\"anime-list-full.xml\",\"size\":{size},{(sha == null ? "" : $"\"sha\":\"{sha}\",")}\"download_url\":\"https://example.test/anime-list-full.xml\"}}";
+
+    /// <summary>An upstream edit that keeps the file's length (one digit for another) is still downloaded.</summary>
+    [Test]
+    public async Task AnUpdateDownloadsASameSizeListWithADifferentHash() {
+        await System.IO.File.WriteAllTextAsync(File, "abc");
+
+        bool updated = await Source((HttpStatusCode.OK, ListingOf(3, BlobSha("abd"))), (HttpStatusCode.OK, "abd")).Update();
+
+        Assert.That(updated, Is.True);
+        Assert.That(await System.IO.File.ReadAllTextAsync(File), Is.EqualTo("abd"));
+    }
+
+    [Test]
+    public async Task AnUpdateSkipsAListWithTheSameHash() {
+        await System.IO.File.WriteAllTextAsync(File, "abc");
+
+        bool updated = await Source((HttpStatusCode.OK, ListingOf(3, BlobSha("abc"))), (HttpStatusCode.OK, "unexpected")).Update();
+
+        Assert.That(updated, Is.True);
+        Assert.That(_requests, Has.Count.EqualTo(1));
+        Assert.That(await System.IO.File.ReadAllTextAsync(File), Is.EqualTo("abc"));
+    }
+
+    /// <summary>A listing without a hash falls back to comparing the length, as before.</summary>
+    [Test]
+    public async Task AnUpdateWithoutAHashComparesTheLength() {
+        await System.IO.File.WriteAllTextAsync(File, "abc");
+
+        bool updated = await Source((HttpStatusCode.OK, ListingOf(3, null)), (HttpStatusCode.OK, "unexpected")).Update();
+
+        Assert.That(updated, Is.True);
+        Assert.That(_requests, Has.Count.EqualTo(1));
+    }
+
     [Test]
     public async Task AMissingListThatCannotBeDownloadedIsNotReportedAsDownloaded() {
         var list = await Source((HttpStatusCode.InternalServerError, "")).Read();
