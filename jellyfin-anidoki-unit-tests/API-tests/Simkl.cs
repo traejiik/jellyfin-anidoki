@@ -75,6 +75,23 @@ public class Simkl {
         Assert.IsNotEmpty(result!);
     }
 
+    /// <summary>Simkl needs its API key on every request, so a search longer than one page sends it on the later pages too.</summary>
+    [Test]
+    public async Task SearchSendsTheApiKeyOnEveryPage() {
+        var sent = new List<Helpers.SentRequest>();
+        string FullPage() => JsonSerializer.Serialize(new List<SimklMedia>(new SimklMedia[50]).ConvertAll(_ => new SimklMedia { Title = "Fixture" }));
+        var api = new SimklApiCalls(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, FullPage()), (HttpStatusCode.OK, "[{\"title\":\"Last\"}]")),
+            new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object, new Mock<IHttpContextAccessor>().Object,
+            new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, new Dictionary<string, string> { { "simkl-api-key", "client" } },
+            new UserConfig { UserApiAuth = [new UserApiAuth { Name = ApiName.Simkl, AccessToken = String.Empty }] });
+
+        var result = await api.SearchAnime("monogatari");
+
+        Assert.That(result, Has.Count.EqualTo(51));
+        Assert.That(sent, Has.Count.EqualTo(2));
+        Assert.That(sent, Has.All.Matches<Helpers.SentRequest>(request => request.Headers.ContainsKey("simkl-api-key")));
+    }
+
     [Test]
     public async Task TestGetAnime() {
         int animeId = 1;

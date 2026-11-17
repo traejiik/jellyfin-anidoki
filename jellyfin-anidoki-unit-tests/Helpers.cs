@@ -74,8 +74,9 @@ public class Helpers {
             var (code, text) = responses[Math.Min(sent.Count, responses.Length) - 1];
             return new HttpResponseMessage(code) { RequestMessage = request, Content = new StringContent(text) };
         });
+        // A new client per call, as Jellyfin's factory gives: headers set on one call's client must not reach the next.
         var factory = new Mock<IHttpClientFactory>();
-        factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(new HttpClient(handler));
+        factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(() => new HttpClient(handler, disposeHandler: false));
         return factory.Object;
     }
 
