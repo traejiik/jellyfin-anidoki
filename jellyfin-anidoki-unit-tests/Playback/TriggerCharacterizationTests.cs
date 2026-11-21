@@ -96,7 +96,8 @@ public class TriggerCharacterizationTests {
     // The only lines that change when the entry points are rebuilt.
     private IHostedService PlaybackHost(OperationRunner runner) => new PlaybackListener(_sessions.Object, _loggerFactory,
         new Mock<IHttpClientFactory>().Object, _harness.Library.Library.Object, new Mock<IServerApplicationHost>().Object,
-        _http, IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), _notifications, runner, _ledger, _marks);
+        _http, IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), _notifications, runner, _ledger,
+        WatchTrackerTests.Tracker(_clock, _userData), _marks);
 
     private IHostedService ToggleHost() => new UserDataServerEntry(_userData.Object, _harness.Library.Library.Object, _loggerFactory,
         _http, new Mock<IServerApplicationHost>().Object, new Mock<IHttpClientFactory>().Object, new MemoryCache(new MemoryCacheOptions()),
@@ -375,6 +376,94 @@ public class TriggerCharacterizationTests {
         Toggle(user, _harness.Library.Movie("Control Movie"), true);
 
         Assert.That((await Finished(user, 1)).Single().Source, Is.EqualTo("Control Movie"));
+    }
+
+    // ---- Watch evaluation (D2–D4) ----
+
+    private const long Second = TimeSpan.TicksPerSecond;
+
+    /// <summary>A 24-minute episode, so the measured rule applies (the fixture's own episodes have no runtime).</summary>
+    private BaseItem TimedEpisode() {
+        var episode = _harness.Library.Episode("Fixture Show", 1, 5);
+        episode.RunTimeTicks = 1440 * Second;
+        return episode;
+    }
+
+    private void Report(string playSessionId, BaseItem item, long seconds, bool start, params User[] users) {
+        var report = new PlaybackProgressEventArgs { Users = [.. users], Item = item, PlaybackPositionTicks = seconds * Second, PlaySessionId = playSessionId };
+        if (start)
+            _sessions.Raise(s => s.PlaybackStart += null, report);
+        else
+            _sessions.Raise(s => s.PlaybackProgress += null, report);
+    }
+
+    /// <summary>Starts at <paramref name="from"/> and reports every 10 s of the clock up to <paramref name="to"/>.</summary>
+    private void Play(string playSessionId, BaseItem item, long from, long to, User user) {
+        Report(playSessionId, item, from, true, user);
+        for (long position = from + 10; position <= to; position += 10) {
+            _clock.Now = _clock.Now.AddSeconds(10);
+            Report(playSessionId, item, position, false, user);
+        }
+    }
+
+    private void StopAt(string playSessionId, BaseItem item, long seconds, User user) =>
+        _sessions.Raise(s => s.PlaybackStopped += null, new PlaybackStopEventArgs {
+            Users = [user],
+            Item = item,
+            PlayedToCompletion = true,
+            PlaySessionId = playSessionId,
+            PlaybackPositionTicks = seconds * Second
+        });
+
+    [Test]
+    public async Task AMeasuredPlayToTheEndRunsOnePlaybackOperation() {
+        var user = NewUser();
+        Configure(user.Id);
+        var episode = TimedEpisode();
+        await StartPlayback();
+
+        Play("watched", episode, 0, 1400, user);
+        StopAt("watched", episode, 1400, user);
+
+        Assert.That((await Finished(user.Id, 1)).Single().Kind, Is.EqualTo(OperationKind.Playback));
+    }
+
+    [Test]
+    public async Task ASeekToTheCreditsStartsNothing() {
+        var user = NewUser();
+        Configure(user.Id);
+        _loggerFactory = _logs;
+        var episode = TimedEpisode();
+        await StartPlayback();
+
+        Play("skipped", episode, 0, 140, user);
+        _clock.Now = _clock.Now.AddSeconds(1);
+        Report("skipped", episode, 1380, false, user);
+        StopAt("skipped", episode, 1400, user);
+        await _runner.Drain();
+
+        Assert.That(_store.ReadForUser(user.Id), Is.Empty);
+        Assert.That(_logs.At(LogLevel.Information), Has.Some.Contains("Did not count Episode 5 as watched"));
+    }
+
+    [Test]
+    public async Task AReplayCountsOnlyWhenItWasPlayedThrough() {
+        var user = NewUser();
+        Configure(user.Id);
+        var episode = TimedEpisode();
+        await StartPlayback();
+
+        Play("first", episode, 0, 1400, user);
+        StopAt("first", episode, 1400, user);
+        await Finished(user.Id, 1);
+        Play("short replay", episode, 0, 60, user);
+        StopAt("short replay", episode, 1400, user);
+        Play("full replay", episode, 0, 1400, user);
+        StopAt("full replay", episode, 1400, user);
+
+        Assert.That(await Finished(user.Id, 2), Has.Length.EqualTo(2));
+        await Task.Delay(200);
+        Assert.That(_store.ReadForUser(user.Id), Has.Count.EqualTo(2));
     }
 
     // ---- Completion ledger (D5) ----
