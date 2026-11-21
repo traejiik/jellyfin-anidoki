@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
+using jellyfin_anidoki.Playback;
 using jellyfin_anidoki.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -20,6 +21,10 @@ internal static class OperationTestSupport {
         var store = new OperationStore(new AniDokiDatabase(Path.Combine(directory, "anidoki.db")), clock ?? TimeProvider.System);
         return (store, new OperationRunner(store, NullLogger<OperationRunner>.Instance));
     }
+
+    /// <summary>The completion ledger on the same database file as <see cref="Create"/>.</summary>
+    public static CompletionLedger Ledger(string directory, TimeProvider? clock = null) =>
+        new(new AniDokiDatabase(Path.Combine(directory, "anidoki.db")), clock ?? TimeProvider.System);
 
     public static ProviderWriteOutcome Outcome(OutcomeKind kind, bool meaningful = false) =>
         new(ApiName.AniList, "500", "Fixture Show", kind, null, null, false, "progress", meaningful);
