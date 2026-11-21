@@ -11,7 +11,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.AspNet.WebApi.Core" Version="5.3.0" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
         <!-- Tests run outside Jellyfin, so they need SQLite's runtime and native library themselves. -->
         <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
