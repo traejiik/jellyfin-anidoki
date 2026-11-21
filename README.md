@@ -42,6 +42,18 @@ Administrators run a sync by hand from the **Manual sync** tab, in either direct
 
 Each ticked row is checked again just before it is written, and one that changed since the preview is skipped rather than written. While the changes are applied, each row shows its result, and **Stop** finishes the row being written and leaves the rest. A preview can be applied once, within a day, and only while it is the newest; otherwise **Refresh preview** makes a new one. **Run sync without preview** applies the current rules straight away, as before. A progress bar below the form follows the latest run; you can leave the page and come back to it.
 
+### What counts as watched
+
+When you stop playing an episode or movie, AniDōki updates your trackers only if Jellyfin marked it played **and** you actually played it to Jellyfin's resume percentage (90% by default, set by the administrator under **Playback → Resume**).
+
+- Skipping up to 3 minutes or 10% of the runtime, whichever is longer, still counts, so skipping an opening or ending is fine.
+- Seeking to the credits does not count, even though Jellyfin marks the episode played.
+- Resuming from where you left off counts the part you watched before.
+- Watching an episode again counts as a rewatch only when you play it through.
+- Items shorter than Jellyfin's minimum resume duration (5 minutes by default), and items with no known length, follow Jellyfin's own played mark.
+
+Playback at up to 2× speed counts in full. A stop that did not count is written to the log as "Did not count … as watched".
+
 ### Playback update notifications
 
 After playback stops, AniDōki can show an informational toast for confirmed tracker changes in the web session that played the item. Turn **Show tracker update toasts** on or off in your tracking settings. It is enabled by default.

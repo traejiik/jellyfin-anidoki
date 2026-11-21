@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Threading;
@@ -24,8 +25,9 @@ using Microsoft.Extensions.Logging;
 namespace jellyfin_anidoki.Playback;
 
 /// <summary>
-/// Listens to Jellyfin's playback events. A stop that Jellyfin reports as played to completion starts one Playback
-/// operation per user, once per play session (see <see cref="CompletionLedger"/>). Start and progress reports are only logged for now; the watch evaluator reads them later.
+/// Listens to Jellyfin's playback events. Start and progress reports feed each user's watch (<see cref="WatchTracker"/>).
+/// A stop that Jellyfin reports as played to completion, and whose watch reached Jellyfin's resume percentage
+/// (<see cref="WatchEvaluator"/>), starts one Playback operation per user, once per play session (see <see cref="CompletionLedger"/>).
 /// </summary>
 public sealed class PlaybackListener(
     ISessionManager sessionManager,
@@ -40,6 +42,7 @@ public sealed class PlaybackListener(
     NotificationEventStore notifications,
     OperationRunner runner,
     CompletionLedger ledger,
+    WatchTracker watches,
     ManualMarkStore? manualMarks = null,
     DiscordNotificationDispatcher? discord = null,
     ISeasonWatchState? watchState = null) : IHostedService {
@@ -70,20 +73,38 @@ public sealed class PlaybackListener(
     private void PlaybackStarted(object? sender, PlaybackProgressEventArgs e) {
         if (e.Item != null && _logger.IsEnabled(LogLevel.Debug))
             _logger.LogDebug("Playback started for {ItemName} at {PositionSeconds} s", e.Item.Name, Seconds(e.PlaybackPositionTicks));
+        Observe(e, false);
     }
 
     private void PlaybackProgressed(object? sender, PlaybackProgressEventArgs e) {
         if (e.Item != null && _logger.IsEnabled(LogLevel.Debug))
             _logger.LogDebug("Playback of {ItemName} is at {PositionSeconds} s, paused {IsPaused}", e.Item.Name, Seconds(e.PlaybackPositionTicks), e.IsPaused);
+        Observe(e, true);
+    }
+
+    /// <summary>Feeds a start or progress report to each user's watch. A failure here never reaches Jellyfin.</summary>
+    private void Observe(PlaybackProgressEventArgs e, bool isProgress) {
+        try {
+            if (e.Item is not BaseItem item || WatchCycle(e) is not string cycle)
+                return;
+            foreach (User user in e.Users)
+                watches.Observe(user, item, cycle, e.PlaybackPositionTicks, e.IsPaused, isProgress);
+        } catch (Exception exception) {
+            _logger.LogDebug(exception, "Could not measure the playback report for {ItemName}", e.Item?.Name);
+        }
     }
 
     private void PlaybackStopped(object? sender, PlaybackStopEventArgs e) {
         try {
-            // Unfinished playback never syncs (SyncPipeline requires completion), so it starts no operation.
-            if (!e.PlayedToCompletion)
-                return;
             BaseItem? item = e.Item;
             if (item == null)
+                return;
+            // Every stop ends its watches, finished or not.
+            var verdicts = new List<(User User, WatchVerdict Verdict)>(e.Users.Count);
+            foreach (User user in e.Users)
+                verdicts.Add((user, Judge(user, item, e)));
+            // Unfinished playback never syncs (SyncPipeline requires completion), so it starts no operation.
+            if (!e.PlayedToCompletion)
                 return;
             if (SyncHelper.MediaShouldBeIgnored(item)) {
                 _logger.LogDebug("Ignoring {ItemName}; it carries the ignore tag", item.Name);
@@ -93,7 +114,9 @@ public sealed class PlaybackListener(
             long stopped = Stopwatch.GetTimestamp();
             // Without a play session no two reports can be told apart, so each counts on its own.
             string cycle = string.IsNullOrEmpty(e.PlaySessionId) ? Guid.NewGuid().ToString("N") : e.PlaySessionId;
-            foreach (User user in e.Users) {
+            foreach (var (user, verdict) in verdicts) {
+                if (!Counts(item, verdict))
+                    continue;
                 Guid userId = user.Id;
                 Guid operationId = Guid.NewGuid();
                 if (!Admit(userId, item, cycle, operationId))
@@ -107,6 +130,32 @@ public sealed class PlaybackListener(
             _logger.LogError(exception, "Could not start the playback update");
         }
     }
+
+    /// <summary>The watch's verdict. If measuring fails, Jellyfin's own completion decides, as it did before measuring.</summary>
+    private WatchVerdict Judge(User user, BaseItem item, PlaybackStopEventArgs e) {
+        try {
+            return watches.Stop(user, item, WatchCycle(e), e.PlaybackPositionTicks, e.PlayedToCompletion);
+        } catch (Exception exception) {
+            _logger.LogDebug(exception, "Could not measure the playback of {ItemName}; Jellyfin's completion decides", item.Name);
+            return new WatchVerdict(e.PlayedToCompletion, WatchRule.JellyfinNoPosition, 0, 0, 0);
+        }
+    }
+
+    /// <summary>Logs a stop that does not count, and how a counted stop was measured when it could not be measured fully.</summary>
+    private bool Counts(BaseItem item, WatchVerdict verdict) {
+        if (!verdict.Counts) {
+            _logger.LogInformation("Did not count {ItemName} as watched; playback reached {CreditedSeconds} s of the {RequiredSeconds} s needed",
+                item.Name, Seconds(verdict.CreditedTicks), Seconds(verdict.RequiredTicks));
+            return false;
+        }
+        if (verdict.Rule is WatchRule.StopPosition or WatchRule.JellyfinNoPosition)
+            _logger.LogDebug("Measured {ItemName} from the stop position; the client sent {Count} progress reports", item.Name, verdict.ProgressReports);
+        return true;
+    }
+
+    /// <summary>The play session that keys a watch, or the device session when the client sent none.</summary>
+    private static string? WatchCycle(PlaybackProgressEventArgs e) =>
+        !string.IsNullOrEmpty(e.PlaySessionId) ? e.PlaySessionId : e.Session?.Id is { Length: > 0 } session ? session : null;
 
     /// <summary>Asks the ledger; false drops a duplicate stop. Storage errors let the stop through, and enqueuing then reports them.</summary>
     private bool Admit(Guid userId, BaseItem item, string cycle, Guid operationId) {
