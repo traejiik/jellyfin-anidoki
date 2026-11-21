@@ -46,40 +46,6 @@ public class TriggerTests {
         Directory.Delete(_directory, true);
     }
 
-    private SessionServerEntry Sessions(SyncHarness harness) => new(new Mock<ISessionManager>().Object, NullLoggerFactory.Instance,
-        new Mock<IHttpClientFactory>().Object, harness.Library.Library.Object, new Mock<IServerApplicationHost>().Object,
-        new HttpContextAccessor(), IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()),
-        new NotificationEventStore(), _runner);
-
-    [Test]
-    public async Task FinishedPlaybackRunsAsAnOperation() {
-        using var harness = new SyncHarness();
-        var user = new User("viewer", "authentication", "password-reset") { Id = Guid.NewGuid() };
-        harness.ConfigureUser(user.Id, false, false);
-        // No provider IDs and no linked trackers, so the sync completes without any network call.
-        var episode = harness.Library.Episode("Fixture Show", 1, 5);
-
-        Sessions(harness).PlaybackStopped(null, new PlaybackStopEventArgs { Users = [user], Item = episode, PlayedToCompletion = true });
-        await _runner.Drain();
-
-        var operation = _store.ReadForUser(user.Id).Single();
-        Assert.That(operation.Kind, Is.EqualTo(OperationKind.Playback));
-        Assert.That(operation.Source, Is.EqualTo("Fixture Show · episode 5"));
-        Assert.That(operation.State, Is.EqualTo(OperationState.NoChange));
-    }
-
-    [Test]
-    public async Task UnfinishedPlaybackStartsNothing() {
-        using var harness = new SyncHarness();
-        var user = new User("viewer", "authentication", "password-reset") { Id = Guid.NewGuid() };
-        var episode = harness.Library.Episode("Fixture Show", 1, 5);
-
-        Sessions(harness).PlaybackStopped(null, new PlaybackStopEventArgs { Users = [user], Item = episode, PlayedToCompletion = false });
-        await _runner.Drain();
-
-        Assert.That(_store.ReadForUser(user.Id), Is.Empty);
-    }
-
     [Test]
     public async Task AConfirmedMarkRunsAsAnOperationWithItsOwnId() {
         var marks = new ManualMarkStore(TimeProvider.System);

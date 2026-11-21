@@ -10,6 +10,7 @@ using jellyfin_anidoki.ManualMarks;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
+using jellyfin_anidoki.Playback;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki_unit_tests.Characterization;
 using jellyfin_anidoki_unit_tests.LoggingTests;
@@ -85,7 +86,7 @@ public class TriggerCharacterizationTests {
     }
 
     // The only lines that change when the entry points are rebuilt.
-    private IHostedService PlaybackHost(OperationRunner runner) => new SessionServerEntry(_sessions.Object, _loggerFactory,
+    private IHostedService PlaybackHost(OperationRunner runner) => new PlaybackListener(_sessions.Object, _loggerFactory,
         new Mock<IHttpClientFactory>().Object, _harness.Library.Library.Object, new Mock<IServerApplicationHost>().Object,
         _http, IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), _notifications, runner, _marks);
 
