@@ -5,7 +5,6 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web.Http;
 using Moq;
 
 namespace jellyfin_anidoki_unit_tests;
@@ -26,7 +25,6 @@ public class Helpers {
     public static void MockHttpCalls(List<HttpCall> calls, ref IHttpClientFactory _httpClientFactory) {
         var mockFactory = new Mock<IHttpClientFactory>();
         var clientHandlerStub = new DelegatingHandlerStub((request, _) => {
-            request.SetConfiguration(new HttpConfiguration());
             foreach (HttpCall httpCall in calls.OrderByDescending(call => call.RequestMethod != null).ThenByDescending(call => call.RequestUrlMatch != null)) {
                 if (httpCall.RequestMethod != null && request.Method != httpCall.RequestMethod) {
                     continue;
@@ -82,7 +80,6 @@ public class Helpers {
 
     public static void MockHttpCalls(List<HttpCall> calls, ref HttpClient httpClient) {
         var clientHandlerStub = new DelegatingHandlerStub((request, _) => {
-            request.SetConfiguration(new HttpConfiguration());
             foreach (HttpCall httpCall in calls.OrderByDescending(call => call.RequestMethod != null).ThenByDescending(call => call.RequestUrlMatch != null)) {
                 if (httpCall.RequestMethod != null && request.Method != httpCall.RequestMethod) {
                     continue;

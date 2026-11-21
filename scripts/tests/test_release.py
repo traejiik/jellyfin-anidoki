@@ -194,7 +194,7 @@ class TagDrivenReleaseTests(unittest.TestCase):
 
     def test_prepare_uses_tag_and_keeps_published_history_unchanged(self):
         result = release.prepare_release(self.root, 'v0.1.1')
-        self.assertEqual(result[0]['versions'], [{'version': '0.1.1.0', 'targetAbi': '12.2.0.0'}])
+        self.assertEqual(result[0]['versions'], [{'version': '0.1.1.0', 'targetAbi': '12.4.0.0'}])
         self.assertEqual((self.root / 'manifest.json').read_text(), self.original)
         project = release.ET.parse(self.root / 'jellyfin-anidoki/jellyfin-anidoki.csproj')
         for field in ('Version', 'AssemblyVersion', 'FileVersion'):
@@ -209,14 +209,14 @@ class TagDrivenReleaseTests(unittest.TestCase):
         manifest[0]['versions'] = []
         (self.root / 'manifest.json').write_text(json.dumps(manifest))
         result = release.prepare_release(self.root, 'v1.2.3.4')
-        self.assertEqual(result[0]['versions'][0], {'version': '1.2.3.4', 'targetAbi': '12.2.0.0'})
+        self.assertEqual(result[0]['versions'][0], {'version': '1.2.3.4', 'targetAbi': '12.4.0.0'})
 
     def test_feed_version_and_abi_do_not_control_current_build(self):
         manifest = json.loads(self.original)
         manifest[0]['versions'][0].update(version='9.0.0.0', targetAbi='11.0.0.0')
         (self.root / 'manifest.json').write_text(json.dumps(manifest))
         release.validate_repository(self.root)
-        self.assertEqual(release.prepare_release(self.root, 'v0.2.0')[0]['versions'][0]['targetAbi'], '12.2.0.0')
+        self.assertEqual(release.prepare_release(self.root, 'v0.2.0')[0]['versions'][0]['targetAbi'], '12.4.0.0')
 
     def test_invalid_tag_does_not_modify_build_files(self):
         project = self.root / 'jellyfin-anidoki/jellyfin-anidoki.csproj'
