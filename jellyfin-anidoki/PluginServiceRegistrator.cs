@@ -34,6 +34,8 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
         serviceCollection.AddHostedService(provider => provider.GetRequiredService<Operations.OperationRunner>());
         serviceCollection.AddSingleton(provider => new Playback.CompletionLedger(
             Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath), provider.GetRequiredService<TimeProvider>()));
+        // After the runner, which marks the operations the last restart cut off as interrupted.
+        serviceCollection.AddHostedService<Playback.CompletionRequeue>();
         serviceCollection.AddSingleton(provider => new Matching.MatchStore(
             Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath), provider.GetRequiredService<TimeProvider>()));
         serviceCollection.AddHostedService<Matching.MatchSweepService>();

@@ -43,6 +43,9 @@ internal sealed class SyncHarness : IDisposable {
 
     public PluginConfiguration Configuration => _plugin.Configuration;
 
+    /// <summary>The mocked HTTP clients <see cref="NewUpdater"/> uses, for services that build their own pipeline.</summary>
+    public IHttpClientFactory Http => _http;
+
     public SyncHarness(string? dataPath = null) {
         _directory = Path.Combine(Path.GetTempPath(), "anidoki-characterization-" + Guid.NewGuid());
         Directory.CreateDirectory(_directory);
