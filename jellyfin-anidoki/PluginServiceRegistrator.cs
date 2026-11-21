@@ -59,7 +59,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
         serviceCollection.AddScoped<Notifications.AuthenticatedSessionResolver>();
         serviceCollection.AddSingleton<Notifications.NotificationEventStore>();
         serviceCollection.AddHostedService<Notifications.NotificationDeliveryService>();
-        serviceCollection.AddHostedService<SessionServerEntry>();
+        serviceCollection.AddHostedService<Playback.PlaybackListener>();
         serviceCollection.AddHostedService<UserDataServerEntry>();
     }
 }

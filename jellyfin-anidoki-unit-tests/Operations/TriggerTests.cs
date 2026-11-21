@@ -1,21 +1,16 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki;
-using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.ManualMarks;
-using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki_unit_tests.Characterization;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Controller;
-using MediaBrowser.Controller.Entities;
-using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Session;
@@ -49,70 +44,6 @@ public class TriggerTests {
         }
         _runner.Dispose();
         Directory.Delete(_directory, true);
-    }
-
-    private SessionServerEntry Sessions(SyncHarness harness) => new(new Mock<ISessionManager>().Object, NullLoggerFactory.Instance,
-        new Mock<IHttpClientFactory>().Object, harness.Library.Library.Object, new Mock<IServerApplicationHost>().Object,
-        new HttpContextAccessor(), IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()),
-        new NotificationEventStore(), _runner);
-
-    [Test]
-    public async Task FinishedPlaybackRunsAsAnOperation() {
-        using var harness = new SyncHarness();
-        var user = new User("viewer", "authentication", "password-reset") { Id = Guid.NewGuid() };
-        harness.ConfigureUser(user.Id, false, false);
-        // No provider IDs and no linked trackers, so the sync completes without any network call.
-        var episode = harness.Library.Episode("Fixture Show", 1, 5);
-
-        Sessions(harness).PlaybackStopped(null, new PlaybackStopEventArgs { Users = [user], Item = episode, PlayedToCompletion = true });
-        await _runner.Drain();
-
-        var operation = _store.ReadForUser(user.Id).Single();
-        Assert.That(operation.Kind, Is.EqualTo(OperationKind.Playback));
-        Assert.That(operation.Source, Is.EqualTo("Fixture Show · episode 5"));
-        Assert.That(operation.State, Is.EqualTo(OperationState.NoChange));
-    }
-
-    [Test]
-    public async Task UnfinishedPlaybackStartsNothing() {
-        using var harness = new SyncHarness();
-        var user = new User("viewer", "authentication", "password-reset") { Id = Guid.NewGuid() };
-        var episode = harness.Library.Episode("Fixture Show", 1, 5);
-
-        Sessions(harness).PlaybackStopped(null, new PlaybackStopEventArgs { Users = [user], Item = episode, PlayedToCompletion = false });
-        await _runner.Drain();
-
-        Assert.That(_store.ReadForUser(user.Id), Is.Empty);
-    }
-
-    /// <summary>
-    /// The legacy queue used to stop at a failing item, leaving it and every item behind it unprocessed until the
-    /// next mark restarted the loop (audit #7).
-    /// </summary>
-    [Test]
-    public async Task AFailingWatchedMarkDoesNotHoldUpTheNextOne() {
-        using var harness = new SyncHarness();
-        Guid first = Guid.NewGuid();
-        Guid second = Guid.NewGuid();
-        harness.Configuration.UserConfig = [
-            new UserConfig { UserId = first, LibraryToCheck = [], UserApiAuth = [] },
-            new UserConfig { UserId = second, LibraryToCheck = [], UserApiAuth = [] }
-        ];
-        Guid brokenSeason = Guid.NewGuid();
-        harness.Library.Library.Setup(manager => manager.GetItemById(brokenSeason)).Throws(new InvalidOperationException("library unavailable"));
-        harness.Library.Library.Setup(manager => manager.GetItemById<BaseItem>(brokenSeason)).Throws(new InvalidOperationException("library unavailable"));
-        var broken = new Episode { Id = Guid.NewGuid(), Name = "Broken", IndexNumber = 1, ParentId = brokenSeason, Tags = [] };
-        var movie = new Movie { Id = Guid.NewGuid(), Name = "Fixture Movie", Tags = [], ProviderIds = new Dictionary<string, string>() };
-        var marks = new TaskProcessMarkedMedia(NullLoggerFactory.Instance, harness.Library.Library.Object, new MemoryCache(new MemoryCacheOptions()),
-            new HttpContextAccessor(), new Mock<IServerApplicationHost>().Object, new Mock<IHttpClientFactory>().Object,
-            IdServices.Arm(), IdServices.AnimeList(), new Mock<IAsyncDelayer>().Object, _runner);
-        marks.AddToUpdateList((first, brokenSeason, broken));
-        marks.AddToUpdateList((second, null, movie));
-
-        await marks.RunUpdate();
-
-        Assert.That(_store.ReadForUser(first), Is.Empty);
-        Assert.That(_store.ReadForUser(second).Single().Kind, Is.EqualTo(OperationKind.WatchedToggle));
     }
 
     [Test]

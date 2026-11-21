@@ -11,6 +11,7 @@ using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Notifications;
+using jellyfin_anidoki.Playback;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
@@ -101,7 +102,7 @@ public class NotificationFlowTests {
     }
     [Test]
     public async Task HostLifecycleSubscribesOnceAndUnsubscribesOnStop() {
-        var host = new SessionServerEntry(_sessions.Object, NullLoggerFactory.Instance, new Mock<IHttpClientFactory>().Object,
+        var host = new PlaybackListener(_sessions.Object, NullLoggerFactory.Instance, new Mock<IHttpClientFactory>().Object,
             new Mock<ILibraryManager>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(),
             IdServices.Arm(), IdServices.AnimeList(), new Mock<IMemoryCache>().Object, _store,
             new OperationRunner(new OperationStore(AniDokiDatabase.ForDataPath(_directory), TimeProvider.System), NullLogger<OperationRunner>.Instance));
@@ -109,7 +110,11 @@ public class NotificationFlowTests {
         await host.StartAsync(CancellationToken.None);
         await host.StopAsync(CancellationToken.None);
         await host.StopAsync(CancellationToken.None);
+        _sessions.VerifyAdd(s => s.PlaybackStart += It.IsAny<EventHandler<PlaybackProgressEventArgs>>(), Times.Once);
+        _sessions.VerifyAdd(s => s.PlaybackProgress += It.IsAny<EventHandler<PlaybackProgressEventArgs>>(), Times.Once);
         _sessions.VerifyAdd(s => s.PlaybackStopped += It.IsAny<EventHandler<PlaybackStopEventArgs>>(), Times.Once);
+        _sessions.VerifyRemove(s => s.PlaybackStart -= It.IsAny<EventHandler<PlaybackProgressEventArgs>>(), Times.Once);
+        _sessions.VerifyRemove(s => s.PlaybackProgress -= It.IsAny<EventHandler<PlaybackProgressEventArgs>>(), Times.Once);
         _sessions.VerifyRemove(s => s.PlaybackStopped -= It.IsAny<EventHandler<PlaybackStopEventArgs>>(), Times.Once);
     }
 }
