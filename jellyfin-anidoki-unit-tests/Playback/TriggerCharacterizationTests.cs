@@ -14,6 +14,7 @@ using jellyfin_anidoki.Playback;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki_unit_tests.Characterization;
 using jellyfin_anidoki_unit_tests.LoggingTests;
+using jellyfin_anidoki_unit_tests.Operations;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
@@ -54,6 +55,9 @@ public class TriggerCharacterizationTests {
     // Null by default: the pipeline's Debug diagnostics read Series.Children, which the mocked library cannot build.
     private ILoggerFactory _loggerFactory = NullLoggerFactory.Instance;
     private IHostedService? _host;
+    private IHostedService? _second;
+    private MutableTime _clock = null!;
+    private CompletionLedger _ledger = null!;
 
     [SetUp]
     public void SetUp() {
@@ -69,12 +73,16 @@ public class TriggerCharacterizationTests {
         _capabilities = new ManualMarkCapabilityRegistry(AniDokiDatabase.ForDataPath(_directory), Path.Combine(_directory, "manual-capabilities.json"));
         _notifications = new NotificationEventStore();
         _harness.Configuration.watchedTickboxUpdatesProvider = true;
+        _clock = new MutableTime(DateTimeOffset.UtcNow);
+        _ledger = Ledger(_directory, _clock);
     }
 
     [TearDown]
     public async Task TearDown() {
         if (_host != null)
             await _host.StopAsync(CancellationToken.None);
+        if (_second != null)
+            await _second.StopAsync(CancellationToken.None);
         // Bounded, so a test that reintroduces a hang fails instead of hanging the whole run.
         try {
             await _runner.Drain().WaitAsync(TimeSpan.FromSeconds(10));
@@ -88,11 +96,11 @@ public class TriggerCharacterizationTests {
     // The only lines that change when the entry points are rebuilt.
     private IHostedService PlaybackHost(OperationRunner runner) => new PlaybackListener(_sessions.Object, _loggerFactory,
         new Mock<IHttpClientFactory>().Object, _harness.Library.Library.Object, new Mock<IServerApplicationHost>().Object,
-        _http, IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), _notifications, runner, _marks);
+        _http, IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), _notifications, runner, _ledger, _marks);
 
     private IHostedService ToggleHost() => new UserDataServerEntry(_userData.Object, _harness.Library.Library.Object, _loggerFactory,
         _http, new Mock<IServerApplicationHost>().Object, new Mock<IHttpClientFactory>().Object, new MemoryCache(new MemoryCacheOptions()),
-        IdServices.Arm(), IdServices.AnimeList(), _marks, _capabilities, null!, _runner, null!);
+        IdServices.Arm(), IdServices.AnimeList(), _marks, _capabilities, null!, _runner, _ledger, null!);
 
     private async Task StartPlayback(OperationRunner? runner = null) {
         _host = PlaybackHost(runner ?? _runner);
@@ -111,6 +119,10 @@ public class TriggerCharacterizationTests {
 
     private void Stop(BaseItem item, bool completed, params User[] users) =>
         _sessions.Raise(s => s.PlaybackStopped += null, new PlaybackStopEventArgs { Users = [.. users], Item = item, PlayedToCompletion = completed });
+
+    private void StopSession(string playSessionId, BaseItem item, params User[] users) =>
+        _sessions.Raise(s => s.PlaybackStopped += null,
+            new PlaybackStopEventArgs { Users = [.. users], Item = item, PlayedToCompletion = true, PlaySessionId = playSessionId });
 
     private void Toggle(Guid user, BaseItem item, bool played, UserDataSaveReason reason = UserDataSaveReason.TogglePlayed) =>
         _userData.Raise(m => m.UserDataSaved += null, new UserDataSaveEventArgs {
@@ -363,5 +375,85 @@ public class TriggerCharacterizationTests {
         Toggle(user, _harness.Library.Movie("Control Movie"), true);
 
         Assert.That((await Finished(user, 1)).Single().Source, Is.EqualTo("Control Movie"));
+    }
+
+    // ---- Completion ledger (D5) ----
+
+    [Test]
+    public async Task TwoStopsForOnePlaySessionRunOneOperation() {
+        var user = NewUser();
+        Configure(user.Id);
+        _loggerFactory = _logs;
+        var episode = _harness.Library.Episode("Fixture Show", 1, 5);
+        await StartPlayback();
+
+        StopSession("session-1", episode, user);
+        await Task.Delay(3);
+        StopSession("session-1", episode, user);
+
+        Assert.That((await Finished(user.Id, 1)).Single().Kind, Is.EqualTo(OperationKind.Playback));
+        await Task.Delay(200);
+        Assert.That(_store.ReadForUser(user.Id), Has.Count.EqualTo(1));
+        Assert.That(_logs.At(LogLevel.Debug), Has.Some.Contains("Dropped a duplicate stop for Episode 5"));
+    }
+
+    [Test]
+    public async Task TwoUsersOnOnePlaySessionEachGetOneOperation() {
+        var first = NewUser("first");
+        var second = NewUser("second");
+        Configure(first.Id, second.Id);
+        var episode = _harness.Library.Episode("Fixture Show", 1, 5);
+        await StartPlayback();
+
+        StopSession("shared", episode, first, second);
+        StopSession("shared", episode, first, second);
+
+        Assert.That(await Finished(first.Id, 1), Has.Length.EqualTo(1));
+        Assert.That(await Finished(second.Id, 1), Has.Length.EqualTo(1));
+        await Task.Delay(200);
+        Assert.That(_store.ReadForUser(first.Id), Has.Count.EqualTo(1));
+        Assert.That(_store.ReadForUser(second.Id), Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task AToggleWithinSixHoursOfAPlaybackIsDroppedAndOneAfterRuns() {
+        var user = NewUser();
+        Configure(user.Id);
+        var episode = _harness.Library.Episode("Fixture Show", 1, 5);
+        await StartPlayback();
+        _second = ToggleHost();
+        await _second.StartAsync(CancellationToken.None);
+
+        StopSession("session-1", episode, user);
+        await Finished(user.Id, 1);
+        _clock.Now += TimeSpan.FromMinutes(10);
+        Toggle(user.Id, episode, true);
+        await Task.Delay(1500);
+        await _runner.Drain();
+        Assert.That(_store.ReadForUser(user.Id).Select(view => view.Kind), Is.EqualTo(new[] { OperationKind.Playback }));
+
+        _clock.Now += TimeSpan.FromHours(7);
+        Toggle(user.Id, episode, true);
+
+        var operations = await Finished(user.Id, 2);
+        Assert.That(operations.Select(view => view.Kind), Is.EquivalentTo(new[] { OperationKind.Playback, OperationKind.WatchedToggle }));
+    }
+
+    [Test]
+    public async Task UnmarkingReopensTheWindowForTheNextToggle() {
+        var user = NewUser();
+        Configure(user.Id);
+        var episode = _harness.Library.Episode("Fixture Show", 1, 5);
+        await StartPlayback();
+        _second = ToggleHost();
+        await _second.StartAsync(CancellationToken.None);
+
+        StopSession("session-1", episode, user);
+        await Finished(user.Id, 1);
+        Toggle(user.Id, episode, false);
+        Toggle(user.Id, episode, true);
+
+        var operations = await Finished(user.Id, 2);
+        Assert.That(operations.Select(view => view.Kind), Is.EquivalentTo(new[] { OperationKind.Playback, OperationKind.WatchedToggle }));
     }
 }

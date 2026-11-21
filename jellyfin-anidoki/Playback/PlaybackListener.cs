@@ -16,6 +16,7 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Session;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -24,7 +25,7 @@ namespace jellyfin_anidoki.Playback;
 
 /// <summary>
 /// Listens to Jellyfin's playback events. A stop that Jellyfin reports as played to completion starts one Playback
-/// operation per user. Start and progress reports are only logged for now; the watch evaluator reads them later.
+/// operation per user, once per play session (see <see cref="CompletionLedger"/>). Start and progress reports are only logged for now; the watch evaluator reads them later.
 /// </summary>
 public sealed class PlaybackListener(
     ISessionManager sessionManager,
@@ -38,6 +39,7 @@ public sealed class PlaybackListener(
     IMemoryCache memoryCache,
     NotificationEventStore notifications,
     OperationRunner runner,
+    CompletionLedger ledger,
     ManualMarkStore? manualMarks = null,
     DiscordNotificationDispatcher? discord = null,
     ISeasonWatchState? watchState = null) : IHostedService {
@@ -89,15 +91,33 @@ public sealed class PlaybackListener(
             }
             var context = PlaybackNotificationContext.Capture(item, e.Session);
             long stopped = Stopwatch.GetTimestamp();
+            // Without a play session no two reports can be told apart, so each counts on its own.
+            string cycle = string.IsNullOrEmpty(e.PlaySessionId) ? Guid.NewGuid().ToString("N") : e.PlaySessionId;
             foreach (User user in e.Users) {
                 Guid userId = user.Id;
+                Guid operationId = Guid.NewGuid();
+                if (!Admit(userId, item, cycle, operationId))
+                    continue;
                 var handle = runner.Enqueue(userId, OperationKind.Playback, OperationSources.Describe(item),
-                    operation => RunPlayback(item, userId, context, stopped, operation));
+                    operation => RunPlayback(item, userId, context, stopped, operation), operationId);
                 if (handle == null)
                     _logger.LogWarning("Playback update for {ItemName} was not started because AniDoki storage is unavailable", item.Name);
             }
         } catch (Exception exception) {
             _logger.LogError(exception, "Could not start the playback update");
+        }
+    }
+
+    /// <summary>Asks the ledger; false drops a duplicate stop. Storage errors let the stop through, and enqueuing then reports them.</summary>
+    private bool Admit(Guid userId, BaseItem item, string cycle, Guid operationId) {
+        try {
+            if (ledger.TryRecord(userId, item.Id, cycle, CompletionTrigger.Stop, operationId))
+                return true;
+            _logger.LogDebug("Dropped a duplicate stop for {ItemName}, because this watch is already recorded", item.Name);
+            return false;
+        } catch (Exception error) when (error is InvalidOperationException or SqliteException) {
+            _logger.LogDebug("Could not check the completion ledger for {ItemName}: {ErrorMessage}", item.Name, error.Message);
+            return true;
         }
     }
 
