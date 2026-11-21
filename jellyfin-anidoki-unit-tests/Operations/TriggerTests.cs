@@ -8,6 +8,7 @@ using jellyfin_anidoki;
 using jellyfin_anidoki.ManualMarks;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
+using jellyfin_anidoki.Playback;
 using jellyfin_anidoki_unit_tests.Characterization;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Controller;
@@ -53,7 +54,7 @@ public class TriggerTests {
         var service = new ManualMarkService(marks, new Mock<IUserManager>().Object, new Mock<ILibraryManager>().Object,
             new Mock<IUserDataManager>().Object, NullLoggerFactory.Instance, new HttpContextAccessor(), new Mock<IServerApplicationHost>().Object,
             new Mock<IHttpClientFactory>().Object, IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), null!);
-        using var worker = new ManualMarkWorker(queue, marks, service, _runner, NullLogger<ManualMarkWorker>.Instance);
+        using var worker = new ManualMarkWorker(queue, marks, service, _runner, Ledger(_directory), NullLogger<ManualMarkWorker>.Instance);
         Guid user = Guid.NewGuid();
         Guid id = Guid.NewGuid();
         var created = marks.CreateOrGet(new ManualMarkRequest(id, user, "key", Guid.NewGuid(), "Fixture Show", 5, "Episode 5",
@@ -88,7 +89,7 @@ public class TriggerTests {
         var service = new ManualMarkService(marks, users.Object, library.Object, userData.Object, NullLoggerFactory.Instance,
             new HttpContextAccessor(), new Mock<IServerApplicationHost>().Object, new Mock<IHttpClientFactory>().Object,
             IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), null!);
-        using var worker = new ManualMarkWorker(queue, marks, service, _runner, NullLogger<ManualMarkWorker>.Instance);
+        using var worker = new ManualMarkWorker(queue, marks, service, _runner, Ledger(_directory), NullLogger<ManualMarkWorker>.Instance);
         Guid id = Guid.NewGuid();
         var created = marks.CreateOrGet(new ManualMarkRequest(id, jellyfinUser.Id, "key", episode.Id, "Fixture Show", 5, "Episode 5",
             DateTimeOffset.UtcNow, "fingerprint"))!;
@@ -105,5 +106,30 @@ public class TriggerTests {
         var mark = marks.Read(jellyfinUser.Id, "key", id)!;
         Assert.That(mark.State, Is.EqualTo(ManualMarkState.Cancelled));
         Assert.That(mark.Reason, Is.EqualTo("The item, access or tracking settings changed. Trackers were not updated."));
+    }
+
+    [Test]
+    public async Task AMarkConfirmedWithinSixHoursOfAPlaybackIsSupersededWithoutAnOperation() {
+        var marks = new ManualMarkStore(TimeProvider.System);
+        var queue = new ManualMarkQueue();
+        var service = new ManualMarkService(marks, new Mock<IUserManager>().Object, new Mock<ILibraryManager>().Object,
+            new Mock<IUserDataManager>().Object, NullLoggerFactory.Instance, new HttpContextAccessor(), new Mock<IServerApplicationHost>().Object,
+            new Mock<IHttpClientFactory>().Object, IdServices.Arm(), IdServices.AnimeList(), new MemoryCache(new MemoryCacheOptions()), null!);
+        var ledger = Ledger(_directory);
+        using var worker = new ManualMarkWorker(queue, marks, service, _runner, ledger, NullLogger<ManualMarkWorker>.Instance);
+        Guid user = Guid.NewGuid();
+        Guid item = Guid.NewGuid();
+        Assert.That(ledger.TryRecord(user, item, "session-1", CompletionTrigger.Stop, Guid.NewGuid()), Is.True);
+        Guid id = Guid.NewGuid();
+        var created = marks.CreateOrGet(new ManualMarkRequest(id, user, "key", item, "Fixture Show", 5, "Episode 5",
+            DateTimeOffset.UtcNow, "fingerprint"))!;
+        Assert.That(marks.TryQueue(user, "key", id, created.Revision), Is.True);
+
+        await worker.StartAsync(CancellationToken.None);
+        Assert.That(queue.TryWrite(id), Is.True);
+        await WaitUntil(() => marks.Read(user, "key", id)!.State == ManualMarkState.Superseded);
+        await worker.StopAsync(CancellationToken.None);
+
+        Assert.That(_store.Read(id), Is.Null);
     }
 }

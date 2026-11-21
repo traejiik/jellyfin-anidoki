@@ -131,6 +131,12 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
             operations.Parameters.AddWithValue("$cutoff", cutoff);
             removed = operations.ExecuteNonQuery();
         }
+        using (var completions = connection.CreateCommand()) {
+            completions.Transaction = transaction;
+            completions.CommandText = "DELETE FROM watch_completions WHERE completed_utc < $cutoff";
+            completions.Parameters.AddWithValue("$cutoff", cutoff);
+            completions.ExecuteNonQuery();
+        }
         transaction.Commit();
         return removed;
     }

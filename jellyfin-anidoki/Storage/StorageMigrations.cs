@@ -162,6 +162,21 @@ internal static class StorageMigrations {
             """),
         (7, """
             ALTER TABLE operation_actions ADD COLUMN preview_seq INTEGER;
+            """),
+        (8, """
+            CREATE TABLE watch_completions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                item_id TEXT NOT NULL,
+                cycle_key TEXT NOT NULL,
+                trigger TEXT NOT NULL,
+                completed_utc TEXT NOT NULL,
+                measured_pct INTEGER,
+                operation_id TEXT,
+                requeued INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE UNIQUE INDEX watch_completions_cycle ON watch_completions (user_id, item_id, cycle_key);
+            CREATE INDEX watch_completions_recent ON watch_completions (user_id, item_id, completed_utc);
             """)
     ];
 

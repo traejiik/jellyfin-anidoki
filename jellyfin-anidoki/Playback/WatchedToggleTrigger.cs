@@ -13,6 +13,7 @@ using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
@@ -36,6 +37,7 @@ public sealed class WatchedToggleTrigger(
     AnimeListSource animeList,
     IAsyncDelayer delayer,
     OperationRunner runner,
+    CompletionLedger ledger,
     DiscordNotificationDispatcher? discord = null,
     ISeasonWatchState? watchState = null) {
     /// <summary>How long a mark waits for others from the same mass update before its batch runs.</summary>
@@ -89,13 +91,32 @@ public sealed class WatchedToggleTrigger(
         }
 
         Video item = kept.MaxBy(mark => mark.Item.IndexNumber).Item;
-        var handle = runner.Enqueue(userId, OperationKind.WatchedToggle, OperationSources.Describe(item), operation => Update(item, userId, operation));
+        Guid operationId = Guid.NewGuid();
+        if (!Admit(userId, item, operationId))
+            return;
+        var handle = runner.Enqueue(userId, OperationKind.WatchedToggle, OperationSources.Describe(item), operation => Update(item, userId, operation), operationId);
         if (handle == null) {
             _logger.LogWarning("Watched-mark update for {ItemName} was not started because AniDoki storage is unavailable", item.Name);
             return;
         }
         // One batch at a time, so a mass update reaches the trackers in order.
         await handle.Completion;
+    }
+
+    /// <summary>
+    /// Asks the ledger; false drops a mark made within <see cref="CompletionLedger.DedupeWindow"/> of a completion of the
+    /// same item. Storage errors let the mark through, and enqueuing then reports them.
+    /// </summary>
+    private bool Admit(Guid userId, Video item, Guid operationId) {
+        try {
+            if (ledger.TryRecord(userId, item.Id, Guid.NewGuid().ToString("N"), CompletionTrigger.Toggle, operationId, CompletionLedger.DedupeWindow))
+                return true;
+            _logger.LogDebug("Dropped the watched mark for {ItemName}, because a recent watch already updated trackers", item.Name);
+            return false;
+        } catch (Exception error) when (error is InvalidOperationException or SqliteException) {
+            _logger.LogDebug("Could not check the completion ledger for {ItemName}: {ErrorMessage}", item.Name, error.Message);
+            return true;
+        }
     }
 
     private async Task Update(Video item, Guid userId, OperationContext operation) {

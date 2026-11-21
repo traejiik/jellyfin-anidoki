@@ -105,7 +105,8 @@ public class NotificationFlowTests {
         var host = new PlaybackListener(_sessions.Object, NullLoggerFactory.Instance, new Mock<IHttpClientFactory>().Object,
             new Mock<ILibraryManager>().Object, new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(),
             IdServices.Arm(), IdServices.AnimeList(), new Mock<IMemoryCache>().Object, _store,
-            new OperationRunner(new OperationStore(AniDokiDatabase.ForDataPath(_directory), TimeProvider.System), NullLogger<OperationRunner>.Instance));
+            new OperationRunner(new OperationStore(AniDokiDatabase.ForDataPath(_directory), TimeProvider.System), NullLogger<OperationRunner>.Instance),
+            new CompletionLedger(AniDokiDatabase.ForDataPath(_directory), TimeProvider.System));
         await host.StartAsync(CancellationToken.None);
         await host.StartAsync(CancellationToken.None);
         await host.StopAsync(CancellationToken.None);

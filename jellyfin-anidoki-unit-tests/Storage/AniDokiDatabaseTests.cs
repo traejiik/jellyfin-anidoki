@@ -226,6 +226,46 @@ public class AniDokiDatabaseTests {
     }
 
     [Test]
+    public void VersionSevenDatabaseKeepsItsOperationsAndGainsTheCompletionLedger() {
+        string path = Path.Combine(_directory, "anidoki.db");
+        CreateAtVersion(path, 7);
+        using (var connection = Connect(path)) {
+            Execute(connection, """
+                INSERT INTO operations (id, user_id, kind, state, source, created_utc)
+                VALUES ('op', 'user', 'Playback', 'Succeeded', 'x', '2026-11-21T00:00:00.0000000+00:00')
+                """);
+        }
+
+        var database = new AniDokiDatabase(path);
+
+        Assert.That(database.IsAvailable, Is.True, database.Failure);
+        Assert.That(SchemaVersion(database), Is.EqualTo(StorageMigrations.Latest));
+        using var open = database.Open();
+        using (var command = open.CreateCommand()) {
+            command.CommandText = "SELECT COUNT(*) FROM operations";
+            Assert.That((long)command.ExecuteScalar()!, Is.EqualTo(1));
+        }
+        using (var command = open.CreateCommand()) {
+            command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN ('watch_completions_cycle', 'watch_completions_recent')";
+            Assert.That((long)command.ExecuteScalar()!, Is.EqualTo(2));
+        }
+        using (var command = open.CreateCommand()) {
+            command.CommandText = "SELECT min_reader FROM schema_compat";
+            Assert.That((long)command.ExecuteScalar()!, Is.EqualTo(4));
+        }
+    }
+
+    [Test]
+    public void OneWatchCycleHoldsOneCompletion() {
+        var database = new AniDokiDatabase(Path.Combine(_directory, "anidoki.db"));
+        using var connection = database.Open();
+        Execute(connection, "INSERT INTO watch_completions (id, user_id, item_id, cycle_key, trigger, completed_utc) VALUES ('a', 'u', 'i', 's', 'Stop', 'now')");
+
+        Assert.Throws<SqliteException>(() => Execute(connection,
+            "INSERT INTO watch_completions (id, user_id, item_id, cycle_key, trigger, completed_utc) VALUES ('b', 'u', 'i', 's', 'Stop', 'now')"));
+    }
+
+    [Test]
     public void ForeignKeysAreEnforced() {
         var database = new AniDokiDatabase(Path.Combine(_directory, "anidoki.db"));
 
