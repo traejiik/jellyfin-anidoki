@@ -81,11 +81,11 @@ The following services are currently supported:
 
 The following are needed for the plugin to run:
 
-- [Jellyfin 12.2](https://github.com/jellyfin/jellyfin/releases/tag/v12.2) or newer, last tested on 12.4.0.
+- [Jellyfin 12.4](https://github.com/jellyfin/jellyfin/releases/tag/v12.4) or newer, last tested on 12.4.0. Servers on Jellyfin 12.2 keep being offered AniDōki 1.x.
 - [File Transformation plugin](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) for toast notifications.
 - [Plugin Pages plugin](https://github.com/IAmParadox27/jellyfin-plugin-pages) 3.0.x for the personal settings page, including tracker matches. Only 3.0.1 is tested.
 
-AniDōki is designed for stock Jellyfin 12.2 and works with any theme: its pages keep the same layout and take only their colours and font from the active theme. Themes and [KefinTweaks](https://github.com/ranaldsgift/KefinTweaks/releases) (5.0 and later) are optional, and AniDōki does not require either.
+AniDōki is designed for stock Jellyfin 12.4 and works with any theme: its pages keep the same layout and take only their colours and font from the active theme. Themes and [KefinTweaks](https://github.com/ranaldsgift/KefinTweaks/releases) (5.0 and later) are optional, and AniDōki does not require either.
 
 ### Automatic (recommended)
 

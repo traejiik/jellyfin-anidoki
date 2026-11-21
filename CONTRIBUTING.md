@@ -4,7 +4,7 @@ Thanks for helping out. This guide covers how the repository is laid out, how to
 
 ## Project layout
 
-AniDōki targets .NET 10 and Jellyfin 12.2. The solution is `jellyfin-anidoki.sln`.
+AniDōki targets .NET 10 and Jellyfin 12.4. The solution is `jellyfin-anidoki.sln`.
 
 - `jellyfin-anidoki/`: the plugin. It contains tracker integrations (`Api/`), provider models, helpers, synchronization and scheduled tasks.
 - `jellyfin-anidoki/Configuration/`: settings plus the embedded HTML, JavaScript and CSS for the plugin pages. When you add a resource, register it as an `EmbeddedResource` in `jellyfin-anidoki.csproj`.
