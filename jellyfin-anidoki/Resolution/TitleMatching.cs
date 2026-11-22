@@ -19,19 +19,21 @@ public static class TitleMatching {
     /// native title for effectively every entry, so this matches even when the romanisations disagree (e.g. AniDB
     /// "Otome Kaijuu Caramelise" vs AniList "Otome Kaijuu Caraméliser").
     /// </remarks>
-    public static bool Matches(EntryTitles titles, IEnumerable<string?> candidates) {
-        foreach (var candidate in candidates) {
-            if (string.IsNullOrWhiteSpace(candidate))
-                continue;
-            if ((titles.Main != null && CompareStrings(titles.Main, candidate)) ||
-                (titles.English != null && CompareStrings(titles.English, candidate)) ||
-                (titles.Japanese != null && CompareStrings(titles.Japanese, candidate)) ||
-                titles.Synonyms.Any(synonym => CompareStrings(synonym, candidate)))
-                return true;
-        }
+    public static bool Matches(EntryTitles titles, IEnumerable<string?> candidates) =>
+        MatchesByName(titles, candidates) || Present(candidates).Any(candidate => titles.Synonyms.Any(synonym => CompareStrings(synonym, candidate)));
 
-        return false;
-    }
+    /// <summary>
+    /// True when the entry's own main, English or Japanese title matches, not only a synonym. A tie-in or commercial
+    /// often lists the work it advertises as a synonym.
+    /// </summary>
+    public static bool MatchesByName(EntryTitles titles, IEnumerable<string?> candidates) =>
+        Present(candidates).Any(candidate =>
+            (titles.Main != null && CompareStrings(titles.Main, candidate)) ||
+            (titles.English != null && CompareStrings(titles.English, candidate)) ||
+            (titles.Japanese != null && CompareStrings(titles.Japanese, candidate)));
+
+    private static IEnumerable<string> Present(IEnumerable<string?> candidates) =>
+        candidates.Where(candidate => !string.IsNullOrWhiteSpace(candidate)).Select(candidate => candidate!);
 
     /// <summary>True if the strings are equal, ignoring symbols and case.</summary>
     public static bool CompareStrings(string first, string second) =>

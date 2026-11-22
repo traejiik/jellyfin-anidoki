@@ -212,6 +212,36 @@ public class AutomaticResolverTests {
         Assert.That(((Resolved)resolution).Note, Is.EqualTo("ambiguous (2 candidates)"));
     }
 
+    private static Anime AlsoCalled(int id, string title, int episodes, string synonym) {
+        var entry = Entry(id, title, episodes);
+        entry.AlternativeTitles = new AlternativeTitles { Synonyms = [synonym] };
+        return entry;
+    }
+
+    /// <summary>
+    /// AniList lists a Suntory commercial, whose synonyms include "Your Name.", before the film itself. An entry whose
+    /// own title matches beats one that matches only by a synonym, and is not noted as ambiguous.
+    /// </summary>
+    [Test]
+    public async Task AnEntryNamedByItsTitleBeatsOneMatchedOnlyBySynonym() {
+        Searching(ApiName.Mal, [AlsoCalled(600, "Suntory Tie-in", 3, Show), Entry(601, Show, 12)]);
+
+        var resolution = await Resolve(ApiName.Mal, Episode(1, 3), Ids());
+
+        AssertPlayed(resolution, 601, 3, ResolvedBy.TitleSearch);
+        Assert.That(((Resolved)resolution).Note, Is.Null);
+    }
+
+    [Test]
+    public async Task SynonymOnlyMatchesStillResolveToTheFirstAndAreNoted() {
+        Searching(ApiName.Mal, [AlsoCalled(600, "Tie-in A", 3, Show), AlsoCalled(601, "Tie-in B", 3, Show)]);
+
+        var resolution = await Resolve(ApiName.Mal, Episode(1, 3), Ids());
+
+        AssertPlayed(resolution, 600, 3, ResolvedBy.TitleSearch);
+        Assert.That(((Resolved)resolution).Note, Is.EqualTo("ambiguous (2 candidates)"));
+    }
+
     [Test]
     public async Task OneTitleMatchHasNoNote() {
         Searching(ApiName.Mal, [Entry(600, "Other", 12), Entry(601, Show, 12)]);
