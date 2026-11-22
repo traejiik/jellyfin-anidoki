@@ -78,7 +78,9 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
     }
 
     public async Task StopAsync(CancellationToken cancellationToken) {
-        _retention?.Dispose();
+        // DisposeAsync waits for a retention pass already running, so nothing writes to the database after stopping.
+        if (_retention != null)
+            await _retention.DisposeAsync();
         _stopping.Cancel();
         try {
             await Drain().WaitAsync(cancellationToken);
