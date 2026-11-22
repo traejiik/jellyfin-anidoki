@@ -21,6 +21,9 @@ public sealed class SimklTrackerClient(SimklApiCalls api) : ITrackerClient {
             return null;
         var detailed = await api.GetAnime(lookup.Ids.Simkl);
         var userList = await api.GetUserAnimeList();
+        // A list that could not be read must not look like a title that is not on it (D8): the adapter fails the read.
+        if (userList == null)
+            TrackerCallScope.Report(TrackerFailureKind.Transient);
         return detailed == null
             ? null
             : ClassConversions.ConvertSimklAnime(detailed, userList?.FirstOrDefault(entry => entry.Show?.Ids?.Simkl == detailed.Ids?.Simkl));

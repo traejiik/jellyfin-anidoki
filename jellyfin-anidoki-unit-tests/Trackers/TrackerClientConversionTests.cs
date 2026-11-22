@@ -534,4 +534,46 @@ public class TrackerClientConversionTests {
 
         Assert.That(anime, Is.Null);
     }
+
+    private static SimklTrackerClient SimklWithList(HttpStatusCode status, string listBody) {
+        IHttpClientFactory http = null!;
+        Helpers.MockHttpCalls(new List<Helpers.HttpCall> {
+            new() { RequestUrlMatch = url => url.EndsWith("/search/id"), ResponseCode = HttpStatusCode.OK, ResponseContent = "[{\"title\":\"Show\",\"ids\":{\"simkl\":9}}]" },
+            new() { RequestUrlMatch = url => url.Contains("/anime/9"), ResponseCode = HttpStatusCode.OK, ResponseContent = "{\"title\":\"Show\",\"ids\":{\"simkl\":9},\"total_episodes\":12}" },
+            new() { RequestUrlMatch = url => url.Contains("/sync/all-items"), ResponseCode = status, ResponseContent = listBody }
+        }, ref http);
+        var user = new UserConfig { UserApiAuth = [new UserApiAuth { Name = ApiName.Simkl, AccessToken = "access", RefreshToken = "refresh" }] };
+        return new SimklTrackerClient(new jellyfin_anidoki.Api.Simkl.SimklApiCalls(http, new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object,
+            new Mock<IHttpContextAccessor>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object,
+            new Dictionary<string, string> { { "simkl-api-key", "client" } }, user));
+    }
+
+    /// <summary>
+    /// D8's prerequisite: a Simkl list reply that cannot be read is a failed read, never "not on the list", or adding
+    /// unlisted anime would add a title the user already has.
+    /// </summary>
+    [Test]
+    public async Task AnUnreadableSimklListIsAFailedReadNotAnEmptyList() {
+        var client = SimklWithList(HttpStatusCode.OK, "not json");
+        using var calls = TrackerCallScope.Begin();
+
+        await client.GetAnime(new ArmClient.OfflineDatabaseResponse { Anilist = 11 }, "Show");
+
+        Assert.That(calls.Failure, Is.EqualTo(TrackerFailureKind.Transient));
+    }
+
+    /// <summary>An empty list, however Simkl sends it, is a list without the title, not a failure.</summary>
+    [TestCase("{\"anime\":[]}")]
+    [TestCase("{}")]
+    [TestCase("null")]
+    public async Task AnEmptySimklListIsReadAsNotOnTheList(string body) {
+        var client = SimklWithList(HttpStatusCode.OK, body);
+        using var calls = TrackerCallScope.Begin();
+
+        Anime? anime = await client.GetAnime(new ArmClient.OfflineDatabaseResponse { Anilist = 11 }, "Show");
+
+        Assert.That(calls.Failure, Is.Null);
+        Assert.That(anime, Is.Not.Null);
+        Assert.That(anime!.MyListStatus, Is.Null);
+    }
 }
