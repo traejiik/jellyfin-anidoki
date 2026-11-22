@@ -35,7 +35,8 @@ const iconPaths = {
     pencil: ['M16 3a2.1 2.1 0 0 1 3 3L7 18l-4 1 1-4Z', 'm14 5 3 3'], check: ['M20 6 9 17l-5-5'],
     'eye-off': ['M3 3l18 18', 'M10.6 5.1A11 11 0 0 1 12 5c6.5 0 10 7 10 7s-1.1 2.2-3.3 4.1', 'M6.2 6.2C3.4 8.3 2 12 2 12s3.5 7 10 7a11 11 0 0 0 5.8-1.8', 'M10 10a3 3 0 0 0 4 4'],
     eye: ['M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z', 'M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0'],
-    'chevron-left': ['m15 6-6 6 6 6'], 'chevron-right': ['m9 6 6 6-6 6']
+    'chevron-left': ['m15 6-6 6 6 6'], 'chevron-right': ['m9 6 6 6-6 6'],
+    triangle: ['M12 3.75 21 19.5H3Z', 'M12 9.75v4.5', 'M12 17.25h.01']
 };
 export function icon(name) {
     const namespace = 'http://www.w3.org/2000/svg';
@@ -72,6 +73,11 @@ export function refreshFeedback(node, refreshed) {
 }
 export function status(node, text, tone = '') {
     node.textContent = text; node.dataset.tone = tone;
+}
+// A status line that leads with an icon, such as an account's attention line. The words carry the meaning; the icon is hidden from screen readers.
+export function statusWithIcon(node, text, tone, iconName) {
+    const svg = icon(iconName); svg.setAttribute('width', '14'); svg.setAttribute('height', '14');
+    node.replaceChildren(svg, text); node.dataset.tone = tone;
 }
 // navigator.clipboard only exists on HTTPS or localhost; Jellyfin is often reached over http on a LAN address.
 export async function copyInput(input) {
@@ -231,16 +237,27 @@ export function bindDraftWarning(view, isDirty, signal) {
     window.addEventListener('beforeunload', warning, { signal });
 }
 
-export function renderAccounts(container, { linked, visible, admin = false, userName, action }, signal) {
+// summaries: provider key → { lastUpdate, attention }, both optional text. A linked row shows lastUpdate as its second line and
+// attention in its status line until a Test result replaces it.
+export function renderAccounts(container, { linked, visible, admin = false, userName, action, summaries = {} }, signal) {
     container.replaceChildren();
     for (const provider of providers.filter(item => visible.includes(item.key) || linked.includes(item.key))) {
         const connected = linked.includes(provider.key);
         const row = element('div', 'doki-account-row');
-        const title = element('div', 'doki-row-name'); title.append(element('strong', '', provider.name));
-        title.append(element('div', 'doki-help', connected ? 'Linked' : provider.key === 'Kitsu' ? 'Direct sign-in' : provider.key === 'Annict' ? 'Personal token' : 'Not linked'));
+        const summary = connected ? summaries[provider.key] ?? {} : {};
+        const title = element('div', 'doki-row-name');
+        if (connected) {
+            const heading = element('div', 'doki-row-title'); heading.append(element('strong', '', provider.name), element('span', 'doki-help', 'Linked'));
+            title.append(heading);
+            if (summary.lastUpdate) title.append(element('div', 'doki-help', summary.lastUpdate));
+        } else {
+            title.append(element('strong', '', provider.name), element('div', 'doki-help', provider.key === 'Kitsu' ? 'Direct sign-in' : provider.key === 'Annict' ? 'Personal token' : 'Not linked'));
+        }
         row.append(providerIcon(provider), title);
         const feedback = element('p', 'doki-status'); feedback.setAttribute('role', 'status');
+        if (summary.attention) statusWithIcon(feedback, summary.attention, 'attention', 'triangle');
         const detail = element('div', 'doki-account-detail'); detail.hidden = true;
+        detail.id = `doki-${admin ? 'admin' : 'user'}-${provider.key}-detail`;
         const buttons = [];
         const run = async (kind, credentials = {}) => {
             buttons.forEach(button => button.disabled = true); status(feedback, 'Working…');
@@ -260,10 +277,32 @@ export function renderAccounts(container, { linked, visible, admin = false, user
         };
         if (connected) {
             row.append(button('Test', () => run('test')));
-            row.append(button('Disconnect', () => {
-                detail.replaceChildren(element('p', 'doki-help', `Disconnect ${provider.name} for ${userName}? This takes effect immediately.`));
-                detail.append(button('Confirm disconnect', () => run('disconnect')), button('Keep linked', () => detail.hidden = true)); detail.hidden = false;
-            }));
+            let disconnect = null;
+            const closeConfirm = () => {
+                detail.hidden = true; detail.replaceChildren(); detail.className = 'doki-account-detail';
+                detail.removeAttribute('role'); detail.removeAttribute('aria-label');
+                disconnect.setAttribute('aria-expanded', 'false'); disconnect.focus();
+            };
+            disconnect = button('Disconnect', () => {
+                if (disconnect.getAttribute('aria-expanded') === 'true') { closeConfirm(); return; }
+                const whose = admin ? ` for ${userName}` : '';
+                detail.className = 'doki-account-detail doki-confirm-inline';
+                detail.setAttribute('role', 'group'); detail.setAttribute('aria-label', `Confirm disconnecting ${provider.name}${whose}`);
+                const text = element('p', 'doki-help doki-confirm-text');
+                text.append(element('strong', '', `Disconnect ${provider.name}${whose}?`),
+                    ` AniDōki stops updating it straight away; ${admin ? `${userName} must sign in again to relink` : 'your list is not changed'}.`);
+                const actions = element('div', 'doki-actions');
+                const keep = button('Keep linked', closeConfirm);
+                const confirm = button(`Disconnect ${provider.name}`, () => run('disconnect')); confirm.classList.add('doki-button-danger');
+                actions.append(keep, confirm);
+                detail.replaceChildren(text, actions); detail.hidden = false;
+                disconnect.setAttribute('aria-expanded', 'true'); keep.focus();
+            });
+            disconnect.setAttribute('aria-controls', detail.id); disconnect.setAttribute('aria-expanded', 'false');
+            detail.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && disconnect.getAttribute('aria-expanded') === 'true') { event.preventDefault(); closeConfirm(); }
+            }, { signal });
+            row.append(disconnect);
         } else if (provider.key === 'Annict' && !admin) {
             row.append(element('span', 'doki-help', 'Ask your administrator to link a personal token.'));
         } else if (provider.key === 'Kitsu' || provider.key === 'Annict') {
