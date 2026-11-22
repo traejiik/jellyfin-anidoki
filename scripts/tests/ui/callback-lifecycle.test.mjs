@@ -61,7 +61,7 @@ const BrowserAddress = 'https://browser.example.test';
 const LocalAddress = 'http://192.0.2.10:8096';
 
 async function setupAdmin(t, users = [], localLookup = async () => Response.json({ baseAddress: LocalAddress }), { configuration = {}, libraries = [] } = {}) {
-    const ids = ['TemplateConfigForm', 'configurationSummary', 'providerCards', 'userRows', 'userPanel', 'userHistory', 'userHistoryHelp',
+    const ids = ['TemplateConfigForm', 'configurationSummary', 'providerCards', 'userRows', 'userPanel', 'historyUser', 'adminHistory', 'defaultThreshold',
         'saveStatus', 'refreshAccounts', 'useCurrent', 'useCurrentValue', 'useCurrentInUse', 'useLocal', 'useLocalValue', 'useLocalInUse', 'copyCallback', 'generalCallbackUrlInput',
         'addressCheck', 'addressStatus', 'testAnimeListSaveLocation', 'folderStatus', 'discardChanges',
         'apiUrl', 'saveChanges', 'navigationTabs', 'accountsRefreshStatus', 'accountsStatus',
@@ -288,8 +288,8 @@ test('adding unlisted anime sits under Plan to watch only and hides while it is 
     planToWatch.children[0].checked = true; planToWatch.children[0].emit('change');
     assert.equal(unlisted.hidden, false);
     assert.equal(unlisted.children[0].checked, true, 'its value is kept while hidden');
-    // The panel's History loads on its own; let it settle before the page goes away.
-    await waitFor(() => page.nodes.userHistory.children.length > 0);
+    // The page's History loads on its own; let it settle before the page goes away.
+    await waitFor(() => page.nodes.adminHistory.children.length > 0);
 });
 
 test('closing and reopening the user editor retains drafts and restores focus', async t => {

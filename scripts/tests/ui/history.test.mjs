@@ -54,13 +54,9 @@ test('while loading, three quiet rows hold the table, and screen readers hear it
     assert.equal(container.byClass('doki-update-table').find(node => node.tag === 'thead').textContent, 'EpisodeTriggerWhenResult', 'the header stays');
 });
 
-test('loaded rows show the episode, trigger, time and result lines; Show 10 more appends the next page', async t => {
+test('loaded rows show the episode, trigger, time and result lines', async t => {
     setup(t);
-    const calls = [];
-    const container = render(async (offset, limit) => {
-        calls.push([offset, limit]);
-        return offset === 0 ? { entries: [entry(12), entry(11)], more: true } : { entries: [entry(10)], more: false };
-    });
+    const container = render(async () => ({ entries: [entry(12), entry(11)], more: false }));
     await settle();
     assert.equal(rows(container).length, 2);
     assert.equal(container.byClass('doki-update-table').getAttribute('aria-busy'), null);
@@ -70,20 +66,49 @@ test('loaded rows show the episode, trigger, time and result lines; Show 10 more
     assert.equal(first.byClass('doki-update-trigger').textContent, 'Playback');
     assert.equal(first.byClass('doki-update-meta').textContent, 'Just now · Playback');
     assert.deepEqual(first.findAll(node => node.className === 'doki-update-line').map(line => [line.textContent, line.dataset.tone]), [['AniList updated', 'success']]);
-    const more = container.button('Show 10 more');
-    assert.equal(more.hidden, false);
-    more.click(); await settle();
-    assert.deepEqual(calls, [[0, 10], [2, 10]]);
-    assert.equal(rows(container).length, 3);
-    assert.equal(more.hidden, true, 'no more to show');
+    assert.equal(container.byClass('doki-pager').hidden, true, 'one page needs no pager');
 });
 
-test('the admin’s panel starts with three rows', async t => {
+test('pages of 10: Next replaces the rows with the next page, Previous goes back', async t => {
     setup(t);
     const calls = [];
-    render(async (offset, limit) => { calls.push([offset, limit]); return { entries: [], more: false }; }, { own: false, first: 3 });
+    const container = render(async (offset, limit) => {
+        calls.push([offset, limit]);
+        return offset === 0 ? { entries: Array.from({ length: 10 }, (_, i) => entry(20 - i)), more: true } : { entries: [entry(10)], more: false };
+    });
     await settle();
-    assert.deepEqual(calls, [[0, 3]]);
+    const pager = container.byClass('doki-pager');
+    assert.equal(pager.hidden, false);
+    assert.equal(container.button('Previous').disabled, true);
+    assert.equal(container.byClass('doki-pager-range').textContent, 'Showing 1–10');
+    container.button('Next').click(); await settle();
+    assert.deepEqual(calls, [[0, 10], [10, 10]]);
+    assert.equal(rows(container).length, 1, 'the page replaces the rows');
+    assert.equal(container.byClass('doki-pager-range').textContent, 'Showing 11–11');
+    assert.equal(container.button('Next').disabled, true, 'nothing after this page');
+    assert.equal(container.byClass('doki-sr-only').textContent, 'Showing 11–11', 'screen readers hear the new page');
+    container.button('Previous').click(); await settle();
+    assert.deepEqual(calls.at(-1), [0, 10]);
+    assert.equal(rows(container).length, 10);
+});
+
+test('the admin’s table adds a User column and names the user in the stacked line', async t => {
+    setup(t);
+    const container = render(async () => ({ entries: [{ ...entry(4), userId: 'u1' }], more: false }), { own: false, userName: id => id === 'u1' ? 'pr12-viewer' : '' });
+    await settle();
+    assert.equal(container.byClass('doki-update-table').find(node => node.tag === 'thead').textContent, 'EpisodeUserTriggerWhenResult');
+    const first = rows(container)[0];
+    assert.equal(first.byClass('doki-update-user').textContent, 'pr12-viewer');
+    assert.equal(first.byClass('doki-update-meta').textContent, 'Just now · pr12-viewer · Playback');
+});
+
+test('the admin’s empty table speaks about users, across all five columns', async t => {
+    setup(t);
+    const container = render(async () => ({ entries: [], more: false }), { own: false, userName: () => '' });
+    await settle();
+    const message = container.byClass('doki-update-message');
+    assert.equal(message.colSpan, 5);
+    assert.match(message.textContent, /after a user watches an episode/);
 });
 
 test('an update that changed nothing reads No change needed', async t => {
@@ -100,7 +125,7 @@ test('nothing in the last 30 days says so in one spanning row', async t => {
     const message = container.byClass('doki-update-message');
     assert.equal(message.colSpan, 4);
     assert.equal(message.textContent, 'No updates in the last 30 days. They appear here after you watch an episode or mark one watched.');
-    assert.equal(container.button('Show 10 more').hidden, true);
+    assert.equal(container.byClass('doki-pager').hidden, true);
 });
 
 test('a failed load offers Try again, which loads again', async t => {

@@ -112,6 +112,9 @@
 .anidoki .doki-stack { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
 .anidoki .doki-panel { padding: 28px; background: var(--doki-surface); border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-lg); min-width: 0; scroll-margin-top: 100px; }
 .anidoki .doki-panel > .doki-help { margin-bottom: 22px; }
+/* A titled panel whose content follows the title block (History): the same gap as under a panel's description. */
+.anidoki .doki-panel > .doki-panel-title:not(:last-child) { margin-bottom: 22px; }
+.anidoki .doki-accounts-panel > .doki-panel-title:not(:last-child) { margin-bottom: 0; }
 .anidoki .doki-accounts-panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 22px; }
 .anidoki .doki-panel-title { grid-column: 1; min-width: 0; }
 .anidoki .doki-panel-actions { grid-column: 2; grid-row: 1; display: flex; align-items: center; justify-content: end; gap: 10px; align-self: start; }
@@ -215,6 +218,9 @@
 .anidoki .doki-user-panel-header h3 { font-size: 1.25rem; font-weight: 700; overflow-wrap: anywhere; min-width: 0; }
 .anidoki .doki-user-panel-header > button { flex: 0 0 auto; }
 .anidoki .doki-user-section h4 { margin: 0 0 16px; font-size: 1rem; font-weight: 700; }
+/* A description belongs to its heading: close under it, then the usual gap before what it describes. */
+.anidoki .doki-user-section h4:has(+ .doki-help) { margin-bottom: 0; }
+.anidoki .doki-user-section h4 + .doki-help { margin-bottom: 16px; }
 .anidoki .doki-user-section + .doki-user-section { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--doki-edge); }
 .anidoki .doki-user-section .doki-account-row:first-child { padding-top: 0; }
 .anidoki .doki-user-section .doki-account-row:last-child { border-bottom: 0; padding-bottom: 0; }
@@ -256,18 +262,16 @@
 .anidoki legend { font-weight: 600; margin-bottom: 8px; }
 @media (max-width: 50rem) {
     .anidoki .doki-layout { display: flex; flex-direction: column; gap: 20px; }
-    .anidoki .doki-rail { order: 0; position: static; width: 100%; min-width: 0; }
+    /* The section pills stay in reach while scrolling, over the page background, below Jellyfin's fixed header. */
+    .anidoki .doki-rail { order: 0; position: sticky; top: 48px; z-index: 3; width: 100%; min-width: 0; background: var(--doki-page); padding-block: 8px; }
+    /* A section reached from a pill lands below the header and the pills (about 144px), not under them. */
+    .anidoki .doki-stack > .doki-panel { scroll-margin-top: 156px; }
     .anidoki .doki-section-nav { flex-direction: row; gap: .5rem; overflow-x: auto; max-width: 100%; padding-block: .25rem .5rem; }
     .anidoki .doki-section-nav > a { flex: 0 0 auto; padding: 8px 14px; background: var(--doki-pill); border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-pill); }
     .anidoki .doki-section-nav a[aria-current="location"] { border-color: var(--doki-selection); }
     .anidoki .doki-stack { width: 100%; }
 }
-/* Phone: the section pills stay in reach while scrolling, over the page background, below Jellyfin's fixed 48px header
-   (stock's 56px header covers only the top padding). */
 @media (max-width: 600px) {
-    .anidoki .doki-rail { position: sticky; top: 48px; z-index: 3; background: var(--doki-page); padding-block: 8px; }
-    /* A section reached from a pill lands below the header and the pills (about 144px), not under them. */
-    .anidoki .doki-stack > .doki-panel { scroll-margin-top: 156px; }
     /* The completion percentage row wraps, and its select takes the full width. */
     .anidoki .doki-threshold-row { flex-wrap: wrap; }
     .anidoki .doki-threshold-row .doki-setting-select { flex: 1 1 100%; width: 100%; min-width: 0; }
@@ -446,7 +450,7 @@
 .anidoki .doki-setting-text .doki-status { margin: 0; }
 /* The completion percentage select (5.5): wide enough for "90% (Jellyfin default)". */
 .anidoki .doki-setting-select { flex: none; width: auto; min-width: 13rem; }
-.anidoki .doki-threshold-row { margin-top: 12px; }
+.anidoki .doki-threshold-row { margin-top: 12px; margin-bottom: 10px; }
 /* Mixed with the text colour so the theme's warning stays readable on light and dark panels. */
 .anidoki .doki-setting-alert { color: color-mix(in srgb, var(--tjk-warning) 70%, var(--doki-text)); font-size: .875rem; font-weight: 600; }
 .anidoki .doki-dialog { width: min(56rem, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 0; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-lg); background: var(--doki-solid-surface); color: var(--doki-text); font: inherit; }
@@ -769,8 +773,8 @@ body:has(.anidoki :is(.doki-dialog, .doki-confirm):modal) { overflow: hidden; }
 .anidoki .doki-update-table thead { background: var(--doki-ground); }
 .anidoki .doki-update-table th { padding: 12px 16px; font-size: .75rem; font-weight: 700; color: var(--doki-muted); text-align: start; }
 .anidoki .doki-update-table td { padding: 12px 16px; border-top: 1px solid var(--doki-edge); vertical-align: top; }
-.anidoki .doki-update-table th.doki-update-trigger, .anidoki .doki-update-table th.doki-update-when { width: 8rem; padding-inline: 10px; }
-.anidoki .doki-update-table td.doki-update-trigger, .anidoki .doki-update-table td.doki-update-when { padding-inline: 10px; color: var(--doki-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.anidoki .doki-update-table th.doki-update-trigger, .anidoki .doki-update-table th.doki-update-when, .anidoki .doki-update-table th.doki-update-user { width: 8rem; padding-inline: 10px; }
+.anidoki .doki-update-table td.doki-update-trigger, .anidoki .doki-update-table td.doki-update-when, .anidoki .doki-update-table td.doki-update-user { padding-inline: 10px; color: var(--doki-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .anidoki .doki-update-name { display: flex; align-items: baseline; gap: 2px 8px; min-width: 0; }
 .anidoki .doki-update-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .anidoki .doki-update-number { flex: none; white-space: nowrap; }
@@ -785,9 +789,10 @@ body:has(.anidoki :is(.doki-dialog, .doki-confirm):modal) { overflow: hidden; }
 .anidoki .doki-update-message[data-tone="error"] { color: var(--tjk-error); }
 .anidoki .doki-update-message[data-tone="attention"] { color: var(--tjk-warning); }
 .anidoki .doki-update-message > .doki-button { margin-top: 12px; }
-.anidoki .doki-update-more[hidden] { display: none; }
-.anidoki #doki-history .doki-actions:has(> .doki-update-more[hidden]), .anidoki #userHistory .doki-actions:has(> .doki-update-more[hidden]) { display: none; }
-.anidoki #historyTable > .doki-actions, .anidoki #userHistory > .doki-actions { margin-top: 12px; }
+/* Pages of 10: "Showing 11–20" on the left, Previous and Next on the right. */
+.anidoki .doki-pager { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.anidoki .doki-pager[hidden] { display: none; }
+.anidoki .doki-pager-range { order: -1; margin-inline-end: auto; color: var(--doki-muted); font-size: .875rem; }
 
 /* Users table (5.7): Last update, and one attention line per tracker under Linked to. */
 .anidoki .doki-user-table th.doki-last-update-head { width: 10rem; }
@@ -806,10 +811,22 @@ body:has(.anidoki :is(.doki-dialog, .doki-confirm):modal) { overflow: hidden; }
     .anidoki .doki-update-table tr { display: block; padding: 12px 14px; }
     .anidoki .doki-update-table tbody tr + tr { border-top: 1px solid var(--doki-edge); }
     .anidoki .doki-update-table td { display: block; padding: 0; border: 0; }
-    .anidoki .doki-update-table td.doki-update-trigger, .anidoki .doki-update-table td.doki-update-when { display: none; }
+    .anidoki .doki-update-table td.doki-update-trigger, .anidoki .doki-update-table td.doki-update-when, .anidoki .doki-update-table td.doki-update-user { display: none; }
     .anidoki .doki-update-meta { display: block; margin-bottom: 2px; color: var(--doki-muted); font-size: .75rem; }
     .anidoki .doki-update-table td.doki-update-result { margin-top: 4px; }
     .anidoki .doki-update-table td.doki-update-message { padding: 4px 0; }
+}
+/* The admin's table has a User column too, so it stacks sooner. */
+@container doki-history (max-width: 48rem) {
+    .anidoki .doki-update-table-users, .anidoki .doki-update-table-users tbody { display: block; }
+    .anidoki .doki-update-table-users thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .anidoki .doki-update-table-users tr { display: block; padding: 12px 14px; }
+    .anidoki .doki-update-table-users tbody tr + tr { border-top: 1px solid var(--doki-edge); }
+    .anidoki .doki-update-table-users td { display: block; padding: 0; border: 0; }
+    .anidoki .doki-update-table-users td.doki-update-trigger, .anidoki .doki-update-table-users td.doki-update-when, .anidoki .doki-update-table-users td.doki-update-user { display: none; }
+    .anidoki .doki-update-table-users .doki-update-meta { display: block; margin-bottom: 2px; color: var(--doki-muted); font-size: .75rem; }
+    .anidoki .doki-update-table-users td.doki-update-result { margin-top: 4px; }
+    .anidoki .doki-update-table-users td.doki-update-message { padding: 4px 0; }
 }
 /* The Users table stacks when the table itself is narrow, since the dashboard's menu and the page rail leave four columns
    too little room long before the viewport is phone-sized. Last update becomes a third line, left out with nothing linked.
@@ -829,3 +846,7 @@ body:has(.anidoki :is(.doki-dialog, .doki-confirm):modal) { overflow: hidden; }
     .anidoki .doki-users-table td:last-child { grid-column: 2; grid-row: 1 / 4; align-self: center; }
     .anidoki .doki-users-table td[colspan] { grid-column: 1 / -1; grid-row: auto; }
 }
+
+/* The admin's History: the user filter sits between the description and the table. */
+.anidoki .doki-history-filter { flex-direction: row; align-items: center; gap: 12px; margin-bottom: 16px; }
+.anidoki .doki-history-filter > .doki-input { width: auto; min-width: 12rem; }

@@ -60,10 +60,11 @@ public sealed class HistoryController(HistoryReader history, AccountAttention at
         return userManager.GetUser(User, view.UserId) == null ? Forbid() : Ok(view);
     }
 
+    /// <summary>The admin's History: every user's updates, or one user's.</summary>
     [Authorize(Policy = Policies.RequiresElevation)]
-    [HttpGet("users/{userId:guid}/history")]
-    public ActionResult<HistoryPage> ReadHistory(Guid userId, [FromQuery] int offset = 0, [FromQuery] int limit = DefaultPageSize) =>
-        userManager.GetUserById(userId) == null ? NotFound() : Storage(() => history.Read(userId, offset, limit));
+    [HttpGet("users/history")]
+    public ActionResult<HistoryPage> ReadHistory([FromQuery] Guid? user = null, [FromQuery] int offset = 0, [FromQuery] int limit = DefaultPageSize) =>
+        user is { } only && userManager.GetUserById(only) == null ? NotFound() : Storage(() => history.Read(user, offset, limit));
 
     [Authorize(Policy = Policies.RequiresElevation)]
     [HttpGet("users/activity")]

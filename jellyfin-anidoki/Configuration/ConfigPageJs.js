@@ -67,6 +67,7 @@ export default function (view) {
         else common.status(find('[data-page-status]'), '');
         render(signal);
         loadActivity(signal);
+        renderHistory(signal);
         root.addEventListener('input', event => {
             const field = event.target.dataset.field;
             if (field) {
@@ -184,12 +185,23 @@ export default function (view) {
             if (input.type === 'checkbox') input.checked = value ?? false;
             else input.value = input.dataset.field === 'authenticationLinkExpireTimeMinutes' ? value || 1440 : value ?? '';
         });
-        renderProviders(signal); renderAnimeLibraries(signal); renderUsers(signal); if (selectedUser) renderUser(signal);
+        renderProviders(signal); renderAnimeLibraries(signal); renderDefaultThreshold(signal); renderUsers(signal); if (selectedUser) renderUser(signal);
         updateDirty(); schedulePreview(signal);
+    }
+    // The admin's default completion percentage; a change shows straight away as "(default)" in the open user's choices.
+    function renderDefaultThreshold(signal) {
+        const maxResumePct = parameters?.maxResumePct ?? 90;
+        find('#defaultThreshold').replaceChildren(common.thresholdSetting({ server: true, value: draft.DefaultTrackerThresholdPercent ?? null, maxResumePct,
+            choices: state.thresholdChoices(maxResumePct), signal,
+            onChange: percent => { draft.DefaultTrackerThresholdPercent = percent; updateDirty(); if (selectedUser) renderUser(signal); } }));
     }
     function renderProviders(signal) {
         const container = find('#providerCards'); container.replaceChildren();
-        for (const provider of common.providers) {
+        const savedTone = provider => {
+            const stored = baseline.ProviderApiAuth.find(item => item.Name === provider.key);
+            return state.providerStatus(provider.key, { clientId: stored?.ClientId, hasSecret: Boolean(secretState[provider.key]), appName: baseline.shikimoriAppName }).tone;
+        };
+        for (const provider of state.orderByReadiness(common.providers, savedTone)) {
             const record = draft.ProviderApiAuth.find(item => item.Name === provider.key);
             const savedRecord = baseline.ProviderApiAuth.find(item => item.Name === provider.key);
             const row = common.element('details', 'doki-provider');
@@ -405,20 +417,28 @@ export default function (view) {
         common.renderAccounts(find('#userAccounts'), { linked: connected(user.Id), visible: common.providers.map(item => item.key), admin: true, userName: user.Name, summaries,
             action: (kind, provider, credentials) => accountAction(user.Id, kind, provider, credentials, signal) }, signal);
     }
-    let historyFor, historyLifetime;
-    function renderHistory(user, signal) {
-        if (historyFor === user.Id) return;
-        historyLifetime?.abort(); historyLifetime = new AbortController(); historyFor = user.Id;
-        const scoped = AbortSignal.any([signal, historyLifetime.signal]);
-        signal.addEventListener('abort', () => { historyFor = undefined; }, { once: true });
-        find('#userHistoryHelp').textContent = `${user.Name}’s last updates from playback, watched marks and retries.`;
-        import(common.assetUrl('history.js')).then(table => {
-            if (!scoped.aborted) table.default(find('#userHistory'), { own: false, first: 3,
-                load: (offset, limit) => common.json(`AniDoki/users/${user.Id}/history?offset=${offset}&limit=${limit}`, { signal: scoped }) }, common, scoped);
-        }).catch(async error => {
-            if (scoped.aborted) return;
-            const line = common.element('p', 'doki-status'); common.status(line, await common.errorMessage(error), 'error'); find('#userHistory').replaceChildren(line);
-        });
+    // The History section: every user's updates, or one user's from the filter. Loaded once with the page.
+    function renderHistory(signal) {
+        const filter = find('#historyUser');
+        // Jellyfin's user IDs come without dashes, the history's with them.
+        const key = id => String(id ?? '').replaceAll('-', '').toLowerCase();
+        const names = new Map(users.map(user => [key(user.Id), user.Name]));
+        const option = (label, value) => { const node = common.element('option', '', label); node.value = value; return node; };
+        filter.replaceChildren(option('All users', ''), ...[...users].sort((a, b) => a.Name.localeCompare(b.Name)).map(user => option(user.Name, user.Id)));
+        let lifetime;
+        const show = () => {
+            lifetime?.abort(); lifetime = new AbortController();
+            const scoped = AbortSignal.any([signal, lifetime.signal]), user = filter.value;
+            import(common.assetUrl('history.js')).then(table => {
+                if (!scoped.aborted) table.default(find('#adminHistory'), { own: false, userName: id => names.get(key(id)) ?? 'Removed user',
+                    load: (offset, limit) => common.json(`AniDoki/users/history?${user ? `user=${user}&` : ''}offset=${offset}&limit=${limit}`, { signal: scoped }) }, common, scoped);
+            }).catch(async error => {
+                if (scoped.aborted) return;
+                const line = common.element('p', 'doki-status'); common.status(line, await common.errorMessage(error), 'error'); find('#adminHistory').replaceChildren(line);
+            });
+        };
+        filter.addEventListener('change', show, { signal });
+        show();
     }
     function renderUser(signal) {
         const user = users.find(item => item.Id === selectedUser); if (!user) return;
@@ -426,9 +446,9 @@ export default function (view) {
         find('#userPanel').hidden = false; find('#selectedUserName').textContent = user.Name;
         find('#userRows').querySelectorAll('button').forEach(button => button.setAttribute('aria-expanded', String(button.dataset.userId === selectedUser)));
         renderAccountRows(user, signal);
-        renderHistory(user, signal);
         const maxResumePct = parameters?.maxResumePct ?? 90;
         find('#userPreferences').replaceChildren(common.thresholdSetting({ value: prefs.TrackerThresholdPercent, maxResumePct, userName: user.Name, signal,
+            serverDefault: draft.DefaultTrackerThresholdPercent ?? null,
             choices: state.thresholdChoices(maxResumePct), fallsBack: state.thresholdFallsBack(prefs.TrackerThresholdPercent, maxResumePct),
             onChange: percent => { prefs.TrackerThresholdPercent = percent; updateDirty(); } }));
         const nested = {};

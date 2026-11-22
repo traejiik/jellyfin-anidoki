@@ -275,7 +275,7 @@ public sealed class SettingsController : ControllerBase {
             var userConfig = config.UserConfig
                 .FirstOrDefault(x => x.UserId == jellyfinUser.Id);
 
-            if (!TrackerThreshold.IsValid(dto.TrackerThresholdPercent, MaxResumePct))
+            if (!TrackerThreshold.IsValidForUser(dto.TrackerThresholdPercent, MaxResumePct))
                 return BadRequest($"Choose a completion percentage from {TrackerThreshold.Minimum}% to {MaxResumePct}%, in steps of {TrackerThreshold.Step}.");
 
             if (userConfig == null) {
@@ -315,7 +315,10 @@ public sealed class SettingsController : ControllerBase {
     }
 
     private Parameters GetFrontendParameters(ParameterInclude[]? includes, bool onlyConfiguredProviders, bool onlyLibrariesUserHasAccessTo) {
-        Parameters toReturn = new Parameters { maxResumePct = MaxResumePct };
+        Parameters toReturn = new Parameters {
+            maxResumePct = MaxResumePct,
+            defaultThresholdPercent = TrackerThreshold.Effective(Plugin.Instance?.PluginConfiguration.DefaultTrackerThresholdPercent, MaxResumePct)
+        };
 
         if (includes == null || includes.Contains(ParameterInclude.ProviderList)) {
             toReturn.providerList = new List<ExpandoObject>();

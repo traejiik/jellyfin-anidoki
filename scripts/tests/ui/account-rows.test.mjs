@@ -241,27 +241,55 @@ test('a token that could not be saved is not tested', async t => {
     assert.equal(row.byClass('doki-status').textContent, 'Could not save');
 });
 
-test('the completion percentage select offers Jellyfin’s default on exit and percentages during playback', t => {
+test('the completion percentage select offers player exit and percentages, and marks the admin’s default', t => {
     setup(t);
     const changes = [];
     const row = common.thresholdSetting({ value: 75, maxResumePct: 90, choices: [60, 65, 70, 75, 80, 85, 90], onChange: value => changes.push(value), signal: new AbortController().signal });
     const select = row.find(node => node.tag === 'select');
     const [exit, during] = select.children;
     assert.equal(exit.label, 'When the player exits');
-    assert.deepEqual(exit.children.map(option => [option.value, option.textContent]), [['', '90% (Jellyfin default)']]);
+    assert.deepEqual(exit.children.map(option => [option.value, option.textContent]), [['0', '90% (default)']], 'no admin default: player exit is the default');
     assert.equal(during.label, 'During playback');
     assert.deepEqual(during.children.map(option => option.textContent), ['60%', '65%', '70%', '75%', '80%', '85%', '90%']);
     assert.equal(select.value, '75');
     assert.match(row.textContent, /Jellyfin’s own watched mark doesn’t change/);
-    select.value = ''; select.dispatchEvent(new Event('change'));
+    select.value = '0'; select.dispatchEvent(new Event('change'));
     select.value = '60'; select.dispatchEvent(new Event('change'));
-    assert.deepEqual(changes, [null, 60]);
+    assert.deepEqual(changes, [null, 60], 'picking the default follows it');
+});
+
+test('with an admin default of 70%, that option reads (default), following it shows it, and player exit is a choice of its own', t => {
+    setup(t);
+    const changes = [];
+    const row = common.thresholdSetting({ value: null, serverDefault: 70, maxResumePct: 85, choices: [60, 65, 70, 75, 80, 85], onChange: value => changes.push(value), signal: new AbortController().signal });
+    const select = row.find(node => node.tag === 'select');
+    const [exit, during] = select.children;
+    assert.deepEqual(exit.children.map(option => option.textContent), ['85%']);
+    assert.deepEqual(during.children.map(option => option.textContent), ['60%', '65%', '70% (default)', '75%', '80%', '85%']);
+    assert.equal(select.value, '70', 'following the default shows it');
+    select.value = '0'; select.dispatchEvent(new Event('change'));
+    select.value = '70'; select.dispatchEvent(new Event('change'));
+    assert.deepEqual(changes, [0, null]);
+});
+
+test('the admin’s default row names Jellyfin’s default and saves player exit as no percentage', t => {
+    setup(t);
+    const changes = [];
+    const row = common.thresholdSetting({ server: true, value: null, maxResumePct: 85, choices: [60, 65, 70, 75, 80, 85], onChange: value => changes.push(value), signal: new AbortController().signal });
+    const select = row.find(node => node.tag === 'select');
+    assert.match(row.textContent, /^Default completion percentage/);
+    assert.deepEqual(select.children[0].children.map(option => option.textContent), ['85% (Jellyfin default)']);
+    assert.ok(!select.children[1].children.some(option => option.textContent.includes('default')));
+    assert.equal(select.value, '0');
+    select.value = '65'; select.dispatchEvent(new Event('change'));
+    select.value = '0'; select.dispatchEvent(new Event('change'));
+    assert.deepEqual(changes, [65, null]);
 });
 
 test('a choice above the server’s percentage shows the default and says why; the admin’s wording names the user', t => {
     setup(t);
     const row = common.thresholdSetting({ value: 85, maxResumePct: 80, choices: [60, 65, 70, 75, 80], fallsBack: true, userName: 'test', onChange() {}, signal: new AbortController().signal });
-    assert.equal(row.find(node => node.tag === 'select').value, '');
+    assert.equal(row.find(node => node.tag === 'select').value, '0', 'the default (player exit here) applies');
     assert.match(row.textContent, /How much of an episode test watches before their trackers are updated/);
     assert.match(row.textContent, /test chose 85%, which is above this server’s 80%, so the default applies\./);
 });

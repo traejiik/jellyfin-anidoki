@@ -101,8 +101,11 @@ public sealed class PlaybackListener(
         }
     }
 
-    private static int? ChosenThreshold(Guid userId) =>
-        Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(config => config.UserId == userId)?.TrackerThresholdPercent;
+    private int? ChosenThreshold(Guid userId) {
+        var configuration = Plugin.Instance?.PluginConfiguration;
+        int? chosen = configuration?.UserConfig?.FirstOrDefault(config => config.UserId == userId)?.TrackerThresholdPercent;
+        return TrackerThreshold.ForUser(chosen, configuration?.DefaultTrackerThresholdPercent, watches.MaxResumePct);
+    }
 
     /// <summary>The watch passed the user's completion percentage: the trackers are updated now, while it plays.</summary>
     private void Crossed(PlaybackProgressEventArgs e, BaseItem item, Guid userId, string cycle) {

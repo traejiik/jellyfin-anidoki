@@ -70,6 +70,12 @@ public class PluginConfiguration : BasePluginConfiguration {
     public bool applySavedMatches { get; set; } = true;
 
     /// <summary>
+    /// The completion percentage for users who have not chosen their own: 60 to the server's <c>MaxResumePct</c> in steps
+    /// of 5, or null (the default) to update the trackers when the player exits, at Jellyfin's own percentage.
+    /// </summary>
+    public int? DefaultTrackerThresholdPercent { get; set; }
+
+    /// <summary>
     /// True (the default) to write AniDoki's Debug lines to its own log file as well as Information and above.
     /// Jellyfin's log keeps its own level either way.
     /// </summary>

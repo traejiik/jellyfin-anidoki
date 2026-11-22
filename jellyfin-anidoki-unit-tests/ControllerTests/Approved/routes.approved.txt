@@ -69,5 +69,5 @@ GET AniDoki/user/parameters | auth=authenticated | action=GetFrontendParametersU
 POST AniDoki/user/passwordGrant | auth=authenticated | action=PasswordGrantAuthenticationUserBody | params=request[Body]:PasswordGrantRequest | api=yes | order=- | precedence=1.11
 GET AniDoki/user/user | auth=authenticated | action=GetUserUser | params=apiName:ApiName, user:Guid | api=yes | order=- | precedence=1.11
 GET AniDoki/users/activity | auth=policy:RequiresElevation | action=ReadActivity | params= | api=yes | order=- | precedence=1.11
-GET AniDoki/users/{userId:guid}/history | auth=policy:RequiresElevation | action=ReadHistory | params=userId:Guid, offset[Query]:Int32, limit[Query]:Int32 | api=yes | order=- | precedence=1.121
+GET AniDoki/users/history | auth=policy:RequiresElevation | action=ReadHistory | params=user[Query]:Guid?, offset[Query]:Int32, limit[Query]:Int32 | api=yes | order=- | precedence=1.11
 GET AniDoki/{viewName} | auth=authenticated | action=GetView | params=viewName[Path]:String | api=yes | order=- | precedence=1.3

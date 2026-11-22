@@ -95,5 +95,9 @@ export const historyMessages = {
     failed: { own: 'Could not load your history. Check your connection to Jellyfin, then try again.', other: 'Could not load this history. Check your connection to Jellyfin, then try again.' },
     storage: 'History is unavailable because AniDōki could not open its storage. Trackers are not being updated either. Your administrator can see why on the AniDōki settings page.',
     adminStorage: 'History is unavailable because AniDōki could not open its storage. Trackers are not being updated either. The AniDōki settings page says why.',
-    empty: 'No updates in the last 30 days. They appear here after you watch an episode or mark one watched.'
+    empty: 'No updates in the last 30 days. They appear here after you watch an episode or mark one watched.',
+    emptyOther: 'No updates in the last 30 days. They appear here after a user watches an episode or marks one watched.'
 };
+
+/** The pager's words for the rows shown: "Showing 11–20". */
+export const pageRange = (offset, count) => count ? `Showing ${offset + 1}–${offset + count}` : '';
