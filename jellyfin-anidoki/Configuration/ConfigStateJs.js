@@ -133,3 +133,15 @@ export function animeLibraryChoices(libraries) {
         .filter(library => !library.Type || library.Type in libraryKinds)
         .map(library => ({ ...library, kind: libraryKinds[library.Type] ?? 'Mixed content' }));
 }
+
+// A Provider apps row's readiness pill: its words and the tone that colours it. The page decides whether the row has
+// unsaved edits and whether a secret is stored; this only names the state.
+export function providerStatus(key, { clientId = '', hasSecret = false, appName = '', unsaved = false } = {}) {
+    const [text, tone] = key === 'Kitsu' ? ['Per-user sign-in', 'neutral']
+        : key === 'Annict' ? ['Personal token under Users', 'neutral']
+        : !clientId ? ['Missing client ID', 'missing']
+        : !hasSecret ? ['Missing secret', 'warning']
+        : key === 'Shikimori' && !appName?.trim() ? ['Missing app name', 'warning']
+        : ['Configured', 'success'];
+    return { text, tone, unsaved };
+}

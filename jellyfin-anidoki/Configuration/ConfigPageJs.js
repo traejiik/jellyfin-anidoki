@@ -195,8 +195,11 @@ export default function (view) {
             const refreshBadge = () => {
                 const unsaved = ['ClientId', 'ClientSecret', 'ClearClientSecret'].some(field => record[field] !== savedRecord?.[field]) || provider.key === 'Shikimori' && ['shikimoriAppName', 'shikimoriDomain'].some(field => draft[field] !== baseline[field]);
                 const hasSecret = Boolean(record.ClientSecret) || (secretState[provider.key] && !record.ClearClientSecret);
-                const readiness = provider.key === 'Kitsu' ? 'Per-user sign-in' : provider.key === 'Annict' ? 'Personal token under Users' : !record.ClientId ? 'Missing client ID' : !hasSecret ? 'Missing secret' : provider.key === 'Shikimori' && !draft.shikimoriAppName?.trim() ? 'Missing app name' : 'Configured';
-                badge.textContent = unsaved ? `${readiness} · Unsaved` : readiness;
+                const readiness = state.providerStatus(provider.key, { clientId: record.ClientId, hasSecret, appName: draft.shikimoriAppName, unsaved });
+                badge.dataset.tone = readiness.tone;
+                badge.replaceChildren(readiness.text);
+                // The space keeps the spoken text "Missing secret · Unsaved"; the flex gap does the visual spacing.
+                if (readiness.unsaved) badge.append(' ', common.element('span', 'doki-badge-unsaved', '· Unsaved'));
             };
             refreshBadge();
             summary.append(common.providerIcon(provider), common.element('span', 'doki-provider-title', provider.name), badge); row.append(summary);

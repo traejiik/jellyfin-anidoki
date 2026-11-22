@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { animeLibraryChoices, animeLibraryMode, createDraft, changedValues, describeAnimeLibraries, mergeChanges, mergePreferences, userPreferences, withAnimeLibraryMode, secretChanges, withoutSecrets } from '../../../jellyfin-anidoki/Configuration/ConfigStateJs.js';
+import { animeLibraryChoices, animeLibraryMode, createDraft, changedValues, describeAnimeLibraries, mergeChanges, mergePreferences, providerStatus, userPreferences, withAnimeLibraryMode, secretChanges, withoutSecrets } from '../../../jellyfin-anidoki/Configuration/ConfigStateJs.js';
 
 const saved = () => ({ callbackUrl: '', updateNsfw: true, ProviderApiAuth: [
     { Name: 'AniList', ClientId: 'one', ClientSecret: 'keep' },
@@ -170,4 +170,24 @@ test('only libraries that can hold shows or movies are listed, with a readable t
     ]);
     assert.deepEqual(listed.map(library => [library.Name, library.kind]),
         [['Anime', 'Shows'], ['Films', 'Movies'], ['Everything', 'Mixed content'], ['Untyped', 'Mixed content']]);
+});
+
+const ready = { clientId: 'id', hasSecret: true, appName: 'AniDoki' };
+for (const [name, key, values, text, tone] of [
+    ['a complete app', 'AniList', ready, 'Configured', 'success'],
+    ['a complete Shikimori app', 'Shikimori', ready, 'Configured', 'success'],
+    ['an app without a client ID', 'Simkl', { ...ready, clientId: '' }, 'Missing client ID', 'missing'],
+    ['an app without a secret', 'Mal', { ...ready, hasSecret: false }, 'Missing secret', 'warning'],
+    ['Shikimori without an app name', 'Shikimori', { ...ready, appName: '  ' }, 'Missing app name', 'warning'],
+    ['an app name on a tracker that needs none', 'AniList', { ...ready, appName: '' }, 'Configured', 'success'],
+    ['Kitsu, whatever is filled in', 'Kitsu', {}, 'Per-user sign-in', 'neutral'],
+    ['Annict, whatever is filled in', 'Annict', {}, 'Personal token under Users', 'neutral']
+]) {
+    test(`provider status: ${name} reads ${text} (${tone})`, () => {
+        assert.deepEqual(providerStatus(key, values), { text, tone, unsaved: false });
+    });
+}
+
+test('provider status carries the unsaved flag without changing the words or tone', () => {
+    assert.deepEqual(providerStatus('Mal', { clientId: 'id', unsaved: true }), { text: 'Missing secret', tone: 'warning', unsaved: true });
 });
