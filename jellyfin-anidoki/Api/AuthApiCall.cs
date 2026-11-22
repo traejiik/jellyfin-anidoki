@@ -115,7 +115,7 @@ public class AuthApiCall {
             if (responseMessage.IsSuccessStatusCode) {
                 return responseMessage;
             } else {
-                switch (responseMessage.StatusCode) {
+                switch (await EffectiveStatus(provider, responseMessage)) {
                     case HttpStatusCode.Unauthorized:
                         lastFailure = TrackerFailureKind.Unauthorized;
                         // token has probably expired; try refreshing it
@@ -161,6 +161,17 @@ public class AuthApiCall {
         _logger.LogWarning("({Provider}) Gave up after {Count} attempts ({FailureKind}); if this repeats, link the account again", provider, attempts, lastFailure);
         TrackerCallScope.Report(lastFailure);
         return null;
+    }
+
+    /// <summary>
+    /// AniList answers a revoked or invalid token with 400 "Invalid token" rather than 401, so that answer is read as
+    /// Unauthorized: the sign-in is lost, not the request rejected.
+    /// </summary>
+    private static async Task<HttpStatusCode> EffectiveStatus(ApiName provider, HttpResponseMessage response) {
+        if (provider != ApiName.AniList || response.StatusCode != HttpStatusCode.BadRequest)
+            return response.StatusCode;
+        string body = await response.Content.ReadAsStringAsync();
+        return body.Contains("Invalid token", StringComparison.OrdinalIgnoreCase) ? HttpStatusCode.Unauthorized : response.StatusCode;
     }
 
     public enum CallType {
