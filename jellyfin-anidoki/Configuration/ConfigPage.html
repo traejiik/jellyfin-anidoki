@@ -51,11 +51,12 @@
                             <div class="doki-panel-actions"><button class="doki-button" type="button" id="refreshAccounts">Refresh linked accounts</button><span class="doki-refresh-status" id="accountsRefreshStatus" role="status" hidden></span></div>
                             <div class="doki-panel-body">
                                 <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="enableUserPages" id="enableUserPages"><span><strong>Let users manage their tracking settings</strong><span class="doki-help doki-help-full">Requires Plugin Pages and a server restart after changing this option.</span></span></label>
-                                <div class="doki-table-shell"><table class="doki-user-table" role="table"><thead><tr><th scope="col">Jellyfin user</th><th scope="col">Linked to</th><th scope="col"><span class="doki-sr-only">Actions</span></th></tr></thead><tbody id="userRows"></tbody></table></div>
+                                <div class="doki-table-shell doki-users-shell"><table class="doki-user-table doki-users-table" role="table"><thead><tr><th scope="col">Jellyfin user</th><th scope="col">Linked to</th><th scope="col" class="doki-last-update-head">Last update</th><th scope="col"><span class="doki-sr-only">Actions</span></th></tr></thead><tbody id="userRows"></tbody></table></div>
                                 <section class="doki-user-panel" id="userPanel" aria-labelledby="selectedUserName" hidden>
                                     <header class="doki-user-panel-header"><h3 id="selectedUserName" tabindex="-1"></h3><button class="doki-button" id="closeUserPanel" type="button" aria-label="Close user settings">Close</button></header>
                                     <section class="doki-user-section"><h4>Linked accounts</h4><div id="userAccounts"></div></section>
-                                    <section class="doki-user-section"><h4>When you watch</h4><div id="userPreferences"></div></section>                                </section>
+                                    <section class="doki-user-section"><h4>When you watch</h4><div id="userPreferences"></div></section>
+                                    <section class="doki-user-section" aria-labelledby="userHistoryTitle"><h4 id="userHistoryTitle">History</h4><p class="doki-help doki-help-full" id="userHistoryHelp"></p><div id="userHistory"></div></section>                                </section>
                             </div>
                             <p class="doki-status doki-panel-feedback" id="accountsStatus" role="status"></p>
                         </section>

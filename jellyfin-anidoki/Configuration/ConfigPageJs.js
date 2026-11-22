@@ -3,7 +3,7 @@ const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidoki
 
 export default function (view) {
     let lifetime, saved, baseline, draft, users, parameters, selectedUser, busy = false, secretState = {}, storage;
-    let common, state, previewGeneration = 0, previewTimer, copiedTimer, localAddress = '';
+    let common, state, history, activity, previewGeneration = 0, previewTimer, copiedTimer, localAddress = '';
     const root = view.querySelector('.anidoki');
     const find = selector => view.querySelector(selector);
     const connected = userId => (saved.UserConfig?.find(user => user.UserId === userId)?.UserApiAuth ?? []).map(auth => auth.Name);
@@ -34,9 +34,10 @@ export default function (view) {
     });
 
     async function start(signal) {
-        [common, state] = await Promise.all([
+        [common, state, history] = await Promise.all([
             import(assetUrl('common.js')),
-            import(assetUrl('config-state.js'))
+            import(assetUrl('config-state.js')),
+            import(assetUrl('history-state.js'))
         ]);
         if (signal.aborted) return;
         common.ensureStyles(); common.prepareStickyShell(root, signal); common.setTabs(common.TabGeneral, common.getTabs, view);
@@ -65,6 +66,7 @@ export default function (view) {
         if (storage && !storage.available) common.status(find('[data-page-status]'), `Settings and tracker syncs are paused: ${storage.message}`, 'error');
         else common.status(find('[data-page-status]'), '');
         render(signal);
+        loadActivity(signal);
         root.addEventListener('input', event => {
             const field = event.target.dataset.field;
             if (field) {
@@ -86,7 +88,7 @@ export default function (view) {
             try {
                 await guard(async () => {
                     saved = await ApiClient.getPluginConfiguration(common.pluginId);
-                    if (!signal.aborted) { renderUsers(signal); if (selectedUser) renderUser(signal); common.refreshFeedback(find('#accountsRefreshStatus'), true); }
+                    if (!signal.aborted) { renderUsers(signal); if (selectedUser) renderUser(signal); common.refreshFeedback(find('#accountsRefreshStatus'), true); loadActivity(signal); }
                 });
             } catch (error) {
                 const message = await common.errorMessage(error);
@@ -329,26 +331,74 @@ export default function (view) {
         hint.addEventListener('keydown', event => { if (event.key === 'Escape' && !tip.hidden) { show(false); button.focus(); } }, { signal });
         root.addEventListener('click', event => { if (!tip.hidden && !hint.contains(event.target)) show(false); }, { signal });
     }
+    // Each user's last update and attention, from AniDoki/users/activity. Until it loads, or if it fails, the cells stay empty.
+    async function loadActivity(signal) {
+        try {
+            const list = await common.json('AniDoki/users/activity', { signal });
+            if (signal.aborted) return;
+            activity = Object.fromEntries(list.map(item => [item.userId, item]));
+            renderUsers(signal); if (selectedUser) renderAccountRows(users.find(item => item.Id === selectedUser), signal);
+        } catch { /* The table and rows work without it. */ }
+    }
+    const trackerActivity = (userId, provider) => activity?.[userId]?.trackers?.find(item => item.provider === provider);
     function renderUsers(signal) {
         find('#userRows').replaceChildren();
         find('#configurationSummary').replaceChildren(common.linkedUsersBadge(users, saved.UserConfig));
-        if (!users.length) { const row = common.element('tr'); const cell = common.element('td', 'doki-help', 'No Jellyfin users found.'); cell.colSpan = 3; row.append(cell); find('#userRows').append(row); }
+        if (!users.length) { const row = common.element('tr'); const cell = common.element('td', 'doki-help', 'No Jellyfin users found.'); cell.colSpan = 4; row.append(cell); find('#userRows').append(row); }
         for (const user of users) {
             const row = common.element('tr'); const title = common.element('td'); title.append(common.element('strong', '', user.Name));
-            const linked = common.element('td', 'doki-muted', connected(user.Id).map(common.providerName).join(', ') || 'No linked accounts');
+            const providers = connected(user.Id);
+            const linked = common.element('td', 'doki-muted');
+            linked.append(common.element('span', 'doki-linked-list', providers.map(common.providerName).join(', ') || 'No linked accounts'));
+            for (const provider of providers) {
+                const text = history.attentionText(provider, trackerActivity(user.Id, provider)?.attention, { surface: 'table' });
+                if (!text) continue;
+                const line = common.element('span', 'doki-status doki-table-attention'); common.statusWithIcon(line, text, 'attention', 'triangle'); linked.append(line);
+            }
+            const last = common.element('td', 'doki-last-update');
+            if (!providers.length) last.classList.add('doki-last-update-none');
+            if (activity) last.append(common.element('span', 'doki-last-update-label', 'Last update '), common.element('span', '', history.lastUpdateCell(activity[user.Id]?.lastUpdateUtc, providers.length > 0)));
             const actions = common.element('td');
             const button = common.element('button', 'doki-button doki-icon-button'); button.append(common.icon('pencil')); button.type = 'button'; button.dataset.userId = user.Id; button.title = `Edit ${user.Name} tracking settings`; button.setAttribute('aria-label', `Manage ${user.Name}`); button.setAttribute('aria-controls', 'userPanel'); button.setAttribute('aria-expanded', String(selectedUser === user.Id));
             button.addEventListener('click', () => { selectedUser = user.Id; renderUser(signal); find('#userPanel').scrollIntoView({ block: 'start' }); find('#selectedUserName').focus({ preventScroll: true }); }, { signal });
-            actions.append(button); row.append(title, linked, actions); find('#userRows').append(row);
+            actions.append(button); row.append(title, linked, last, actions); find('#userRows').append(row);
         }
+    }
+    function renderAccountRows(user, signal) {
+        if (!user) return;
+        const summaries = activity ? Object.fromEntries(connected(user.Id).map(provider => {
+            const tracker = trackerActivity(user.Id, provider), attention = tracker?.attention;
+            return [provider, {
+                lastUpdate: history.lastUpdateLine(tracker?.lastUpdateUtc),
+                attention: history.attentionText(provider, attention, { surface: 'admin', userName: user.Name }),
+                replaceToken: provider === 'Annict' && attention?.kind === 'SignInRejected'
+            }];
+        })) : {};
+        common.renderAccounts(find('#userAccounts'), { linked: connected(user.Id), visible: common.providers.map(item => item.key), admin: true, userName: user.Name, summaries,
+            action: (kind, provider, credentials) => accountAction(user.Id, kind, provider, credentials, signal) }, signal);
+    }
+    let historyFor, historyLifetime;
+    function renderHistory(user, signal) {
+        if (historyFor === user.Id) return;
+        historyLifetime?.abort(); historyLifetime = new AbortController(); historyFor = user.Id;
+        const scoped = AbortSignal.any([signal, historyLifetime.signal]);
+        signal.addEventListener('abort', () => { historyFor = undefined; }, { once: true });
+        find('#userHistoryHelp').textContent = `${user.Name}’s last updates from playback, watched marks and retries.`;
+        import(common.assetUrl('history.js')).then(table => {
+            if (!scoped.aborted) table.default(find('#userHistory'), { own: false, first: 3,
+                load: (offset, limit) => common.json(`AniDoki/users/${user.Id}/history?offset=${offset}&limit=${limit}`, { signal: scoped }) }, common, scoped);
+        }).catch(async error => {
+            if (scoped.aborted) return;
+            const line = common.element('p', 'doki-status'); common.status(line, await common.errorMessage(error), 'error'); find('#userHistory').replaceChildren(line);
+        });
     }
     function renderUser(signal) {
         const user = users.find(item => item.Id === selectedUser); if (!user) return;
         const prefs = draft.UserConfig.find(item => item.UserId === selectedUser);
         find('#userPanel').hidden = false; find('#selectedUserName').textContent = user.Name;
         find('#userRows').querySelectorAll('button').forEach(button => button.setAttribute('aria-expanded', String(button.dataset.userId === selectedUser)));
-        common.renderAccounts(find('#userAccounts'), { linked: connected(user.Id), visible: common.providers.map(item => item.key), admin: true, userName: user.Name,
-            action: (kind, provider, credentials) => accountAction(user.Id, kind, provider, credentials, signal) }, signal);
+        renderAccountRows(user, signal);
+        renderHistory(user, signal);
         find('#userPreferences').replaceChildren();
         for (const [field, title, help] of [['PlanToWatchOnly', 'Only update anime on Plan to watch', 'Limit changes to titles already on the user’s plan-to-watch list.'], ['RewatchCompleted', 'Rewatch completed anime', 'Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.'], ['ShowLogNotifications', 'Show tracker update toasts', 'Show confirmed updates after playback stops in the originating Jellyfin web session. Requires compatible File Transformation and a web refresh.']]) {
             const label = common.element('label', 'doki-check'); const input = common.element('input', 'doki-switch'); input.type = 'checkbox'; input.setAttribute('role', 'switch'); input.checked = prefs[field];
@@ -374,7 +424,7 @@ export default function (view) {
             }
             saved = await ApiClient.getPluginConfiguration(common.pluginId);
             const message = kind === 'disconnect' ? `${common.providerName(provider)} disconnected.` : 'Account linked. Preference drafts are still unsaved.';
-            if (!signal.aborted) { renderUsers(signal); renderUser(signal); common.status(find('#accountsStatus'), message, 'success'); }
+            if (!signal.aborted) { renderUsers(signal); renderUser(signal); common.status(find('#accountsStatus'), message, 'success'); loadActivity(signal); }
             return { message };
         });
     }

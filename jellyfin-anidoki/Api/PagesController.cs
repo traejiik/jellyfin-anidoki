@@ -36,6 +36,8 @@ public sealed class PagesController : ControllerBase {
             "anidoki-symbol.svg" => "Images.anidoki-symbol.svg",
             "common.js" => "CommonJs.js",
             "config-state.js" => "ConfigStateJs.js",
+            "history.js" => "HistoryJs.js",
+            "history-state.js" => "HistoryStateJs.js",
             "user-settings.js" => "ConfigPageUserJs.js",
             "match-editor.js" => "MatchEditorJs.js",
             "match-editor-state.js" => "MatchEditorStateJs.js",
