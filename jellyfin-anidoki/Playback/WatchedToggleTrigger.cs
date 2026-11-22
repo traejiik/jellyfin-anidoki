@@ -94,7 +94,8 @@ public sealed class WatchedToggleTrigger(
         Guid operationId = Guid.NewGuid();
         if (!Admit(userId, item, operationId))
             return;
-        var handle = runner.Enqueue(userId, OperationKind.WatchedToggle, OperationSources.Describe(item), operation => Update(item, userId, operation), operationId);
+        var handle = runner.Enqueue(userId, OperationKind.WatchedToggle, OperationSources.Describe(item), operation => Update(item, userId, operation), operationId,
+            retry: new RetrySubject(item.Id, OperationKind.WatchedToggle));
         if (handle == null) {
             _logger.LogWarning("Watched-mark update for {ItemName} was not started because AniDoki storage is unavailable", item.Name);
             return;

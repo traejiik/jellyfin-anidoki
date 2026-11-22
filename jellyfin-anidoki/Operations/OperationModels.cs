@@ -9,7 +9,7 @@ using MediaBrowser.Controller.Entities.TV;
 namespace jellyfin_anidoki.Operations;
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum OperationKind { Playback, WatchedToggle, ConfirmedManual, SyncToTrackers, SyncFromTrackers, ResolutionCheck, PreviewToTrackers, PreviewFromTrackers }
+public enum OperationKind { Playback, WatchedToggle, ConfirmedManual, SyncToTrackers, SyncFromTrackers, ResolutionCheck, PreviewToTrackers, PreviewFromTrackers, Retry }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum OperationState { Queued, Running, Succeeded, Partial, NoChange, Skipped, Unresolved, Unconfirmed, Failed, Cancelled, Interrupted }
@@ -50,7 +50,8 @@ public sealed record OperationView(
     [property: JsonPropertyName("done")] int Done,
     [property: JsonPropertyName("total")] int? Total,
     [property: JsonPropertyName("counts")] IReadOnlyDictionary<string, int> Counts,
-    [property: JsonPropertyName("previewOf")] Guid? PreviewOf = null);
+    [property: JsonPropertyName("previewOf")] Guid? PreviewOf = null,
+    [property: JsonPropertyName("retryAttempt")] int? RetryAttempt = null);
 
 public sealed record OperationStarted([property: JsonPropertyName("operationId")] Guid OperationId);
 

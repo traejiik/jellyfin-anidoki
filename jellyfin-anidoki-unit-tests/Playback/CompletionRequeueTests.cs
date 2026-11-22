@@ -58,10 +58,13 @@ public class CompletionRequeueTests {
         Directory.Delete(_directory, true);
     }
 
-    private CompletionRequeue Requeue() => new(_ledger, _runner, NullLoggerFactory.Instance, _harness.Http, _harness.Library.Library.Object,
-        new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(), IdServices.Arm(_harness.Http, _harness.Configuration),
-        IdServices.AnimeList(_harness.Http, configuration: _harness.Configuration), new MemoryCache(new MemoryCacheOptions())) {
-        ClientOverride = (provider, _) => _harness.Tracker(provider)
+    private CompletionRequeue Requeue() => new(_ledger, _runner, Replay(_harness), _harness.Library.Library.Object, NullLoggerFactory.Instance);
+
+    /// <summary>The replay the requeue and the retry worker share, against the harness's fake trackers.</summary>
+    internal static TriggerReplay Replay(SyncHarness harness) => new(NullLoggerFactory.Instance, harness.Http, harness.Library.Library.Object,
+        new Mock<IServerApplicationHost>().Object, new HttpContextAccessor(), IdServices.Arm(harness.Http, harness.Configuration),
+        IdServices.AnimeList(harness.Http, configuration: harness.Configuration), new MemoryCache(new MemoryCacheOptions())) {
+        ClientOverride = (provider, _) => harness.Tracker(provider)
     };
 
     /// <summary>Leaves a recorded completion whose Playback operation was running when Jellyfin stopped, then starts again.</summary>

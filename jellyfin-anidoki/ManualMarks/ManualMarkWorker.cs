@@ -23,7 +23,8 @@ public sealed class ManualMarkWorker(ManualMarkQueue queue, ManualMarkStore stor
                 continue;
             }
             string source = request.SourceEpisode is { } episode ? $"{request.SourceTitle} · episode {episode}" : request.SourceTitle;
-            if (runner.Enqueue(request.UserId, OperationKind.ConfirmedManual, source, operation => service.Execute(operationId, operation), operationId) == null) {
+            if (runner.Enqueue(request.UserId, OperationKind.ConfirmedManual, source, operation => service.Execute(operationId, operation), operationId,
+                    retry: new RetrySubject(request.SourceItemId, OperationKind.ConfirmedManual)) == null) {
                 store.Complete(operationId, ManualMarkState.Failed, [], "AniDoki storage is unavailable, so trackers were not updated.");
                 logger.LogWarning("Manual mark {OperationId} was not sent because AniDoki storage is unavailable", operationId);
             }

@@ -177,6 +177,24 @@ internal static class StorageMigrations {
             );
             CREATE UNIQUE INDEX watch_completions_cycle ON watch_completions (user_id, item_id, cycle_key);
             CREATE INDEX watch_completions_recent ON watch_completions (user_id, item_id, completed_utc);
+            """),
+        (9, """
+            CREATE TABLE retries (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                source_item TEXT NOT NULL,
+                series_key TEXT NOT NULL,
+                trigger TEXT NOT NULL,
+                attempt INTEGER NOT NULL,
+                due_utc TEXT NOT NULL,
+                last_operation_id TEXT NOT NULL,
+                last_step TEXT NOT NULL
+            );
+            CREATE UNIQUE INDEX retries_series ON retries (user_id, provider, series_key);
+            CREATE INDEX retries_due ON retries (due_utc);
+            ALTER TABLE operations ADD COLUMN retry_attempt INTEGER;
+            CREATE INDEX operation_actions_meaningful ON operation_actions (provider, meaningful);
             """)
     ];
 

@@ -29,13 +29,23 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
         serviceCollection.AddSingleton(provider => provider.GetRequiredService<Helpers.AnimeListSource>().Index);
         serviceCollection.AddSingleton(provider => new Operations.OperationStore(
             Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath), provider.GetRequiredService<TimeProvider>()));
+        // D6: the season key and the rate-limit window come from Jellyfin's library and the trackers' shared limiter.
+        serviceCollection.AddSingleton(provider => {
+            var library = provider.GetRequiredService<MediaBrowser.Controller.Library.ILibraryManager>();
+            var cache = provider.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+            return new Operations.RetryQueue(Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath),
+                provider.GetRequiredService<TimeProvider>(), item => Playback.RetryWorker.SeriesKey(library, item),
+                tracker => Helpers.MemoryCacheHelper.RateLimitedUntil(tracker, cache));
+        });
         serviceCollection.AddSingleton<Operations.OperationRunner>();
         // Registered before the triggers so leftovers from the previous run are marked before new work is queued.
         serviceCollection.AddHostedService(provider => provider.GetRequiredService<Operations.OperationRunner>());
         serviceCollection.AddSingleton(provider => new Playback.CompletionLedger(
             Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath), provider.GetRequiredService<TimeProvider>()));
         // After the runner, which marks the operations the last restart cut off as interrupted.
+        serviceCollection.AddSingleton<Playback.TriggerReplay>();
         serviceCollection.AddHostedService<Playback.CompletionRequeue>();
+        serviceCollection.AddHostedService<Playback.RetryWorker>();
         serviceCollection.AddSingleton(provider => new Matching.MatchStore(
             Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath), provider.GetRequiredService<TimeProvider>()));
         serviceCollection.AddHostedService<Matching.MatchSweepService>();

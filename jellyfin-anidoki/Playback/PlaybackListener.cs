@@ -122,7 +122,7 @@ public sealed class PlaybackListener(
                 if (!Admit(userId, item, cycle, operationId))
                     continue;
                 var handle = runner.Enqueue(userId, OperationKind.Playback, OperationSources.Describe(item),
-                    operation => RunPlayback(item, userId, context, stopped, operation), operationId);
+                    operation => RunPlayback(item, userId, context, stopped, operation), operationId, retry: new RetrySubject(item.Id, OperationKind.Playback));
                 if (handle == null)
                     _logger.LogWarning("Playback update for {ItemName} was not started because AniDoki storage is unavailable", item.Name);
             }
