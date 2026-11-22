@@ -27,6 +27,7 @@
       ],
       "PlanToWatchOnly": false,
       "RewatchCompleted": false,
+      "AddUnlistedAnime": false,
       "ShowLogNotifications": false,
       "LibraryToCheck": [
         "library-a",
@@ -42,6 +43,7 @@
       "KeyPairs": null,
       "PlanToWatchOnly": true,
       "RewatchCompleted": true,
+      "AddUnlistedAnime": false,
       "ShowLogNotifications": true,
       "LibraryToCheck": [],
       "TrackerThresholdPercent": null
@@ -107,6 +109,7 @@
       ],
       "PlanToWatchOnly": false,
       "RewatchCompleted": false,
+      "AddUnlistedAnime": false,
       "ShowLogNotifications": false,
       "LibraryToCheck": [
         "library-a",
@@ -122,6 +125,7 @@
       "KeyPairs": null,
       "PlanToWatchOnly": true,
       "RewatchCompleted": true,
+      "AddUnlistedAnime": false,
       "ShowLogNotifications": true,
       "LibraryToCheck": [],
       "TrackerThresholdPercent": null

@@ -99,7 +99,7 @@ public sealed class PreviewApply(
             Refuse(operation, row, Stale, "not-configured", _logger);
             return;
         }
-        var executor = new Executor(tracker, new PlanRules(user!.PlanToWatchOnly, user.RewatchCompleted), PlanPolicy.ManualSync,
+        var executor = new Executor(tracker, new PlanRules(user!.PlanToWatchOnly, user.RewatchCompleted, user.AddUnlistedAnime), PlanPolicy.ManualSync,
             new PlaybackOutcomeCollector((outcome, detail) => operation.Record(outcome, Tagged(detail, row))), TimeProvider.System, _logger,
             new ActionSource(row.SourceItem, row.SourceEpisode ?? SyncSource.MovieProgress));
         // D8: a row being written is finished even if the apply is cancelled meanwhile, so the write is not cut off.

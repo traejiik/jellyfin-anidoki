@@ -18,6 +18,7 @@ public class PlannerTests {
     private static readonly PlanRules Off = new(false, false);
     private static readonly PlanRules RewatchOn = new(false, true);
     private static readonly PlanRules PtwOn = new(true, false);
+    private static readonly PlanRules PtwAddUnlisted = new(true, false, AddUnlisted: true);
 
     private static ListState List(TrackerStatus status, int progress, bool rewatching = false, int? count = null) =>
         new(status, progress, rewatching, count);
@@ -294,6 +295,45 @@ public class PlannerTests {
     public void P11OnHoldAndDroppedGoBackToWatching(TrackerStatus status) =>
         Assert.That(Plan(ApiName.AniList, List(status, 3), 5, 12),
             Is.EqualTo(Expected(ApiName.AniList, List(status, 3), 12, new EntryChange(5, TrackerStatus.Watching))));
+
+    // D8: AddUnlistedAnime, a sub-option of PlanToWatchOnly.
+
+    [TestCase(5, 12, TrackerStatus.Watching)]
+    [TestCase(12, 12, TrackerStatus.Completed)]
+    public void D8NotOnListWithAddUnlistedIsAdded(int episode, int total, TrackerStatus status) {
+        var decision = Plan(ApiName.AniList, null, episode, total, PtwAddUnlisted);
+        Assert.That(decision, Is.EqualTo(Plan(ApiName.AniList, null, episode, total, Off)), "the same add as with Plan to watch only off");
+        Assert.That(((Write)decision).Change.Status, Is.EqualTo(status));
+    }
+
+    [TestCase(TrackerStatus.OnHold)]
+    [TestCase(TrackerStatus.Dropped)]
+    public void D8ATitleOnAnotherListIsStillSkipped(TrackerStatus status) =>
+        Assert.That(Plan(ApiName.AniList, List(status, 3), 5, 12, PtwAddUnlisted), Is.EqualTo(new Skip("plan-to-watch-only")));
+
+    [Test]
+    public void D8PlanToWatchAndCompletedAreUnchanged() {
+        Assert.That(Plan(ApiName.AniList, List(TrackerStatus.PlanToWatch, 0), 5, 12, PtwAddUnlisted), Is.EqualTo(Plan(ApiName.AniList, List(TrackerStatus.PlanToWatch, 0), 5, 12, PtwOn)));
+        Assert.That(Plan(ApiName.AniList, List(TrackerStatus.Completed, 12, count: 1), 5, 12, PtwAddUnlisted), Is.EqualTo(Plan(ApiName.AniList, List(TrackerStatus.Completed, 12, count: 1), 5, 12, PtwOn)));
+    }
+
+    [Test]
+    public void D8MattersOnlyWithPlanToWatchOnly() =>
+        Assert.That(Plan(ApiName.AniList, null, 5, 12, new PlanRules(false, false, AddUnlisted: true)), Is.EqualTo(Plan(ApiName.AniList, null, 5, 12, Off)));
+
+    [Test]
+    public void D8AConfirmedManualMarkNeverAdds() =>
+        Assert.That(Plan(ApiName.AniList, null, 5, 12, PtwAddUnlisted, PlanPolicy.ConfirmedManual), Is.EqualTo(new Skip("plan-to-watch-only")));
+
+    [Test]
+    public void D8AStatusOnlyTrackerAddsAsWatching() =>
+        Assert.That(Plan(ApiName.Annict, null, 5, 12, PtwAddUnlisted),
+            Is.EqualTo(Expected(ApiName.Annict, null, 12, new EntryChange(5, TrackerStatus.Watching), "status")));
+
+    [TestCase(TrackerStatus.Watching)]
+    [TestCase(TrackerStatus.Completed)]
+    public void D8AStatusOnlyTitleOnAnotherListIsStillSkipped(TrackerStatus status) =>
+        Assert.That(Plan(ApiName.Annict, List(status, 0), 5, 12, PtwAddUnlisted), Is.EqualTo(new Skip("plan-to-watch-only")));
 
     // S1–S5: status-only providers.
 

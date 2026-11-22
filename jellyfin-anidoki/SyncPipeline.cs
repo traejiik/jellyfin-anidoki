@@ -140,7 +140,7 @@ public class SyncPipeline {
             if (_logger.IsEnabled(LogLevel.Debug))
                 _logger.LogDebug("Looked up tracker IDs for {ItemName} in {ElapsedMs} ms", e.Name, LogText.ElapsedMs(idsStarted));
             _apiIds = sourceIds.Ids;
-            var rules = new PlanRules(userConfig.PlanToWatchOnly, userConfig.RewatchCompleted);
+            var rules = new PlanRules(userConfig.PlanToWatchOnly, userConfig.RewatchCompleted, userConfig.AddUnlistedAnime);
             ISourceResolver resolver = new MatchResolver(_resolver, new MatchStore(Plugin.Instance!.Database, _clock), userId,
                 Plugin.Instance.PluginConfiguration.applySavedMatches, WatchState,
                 source == SyncUpdateSource.ManualSync ? MatchProgressScope.WholeSeason : MatchProgressScope.PlayedEpisode, _logger);

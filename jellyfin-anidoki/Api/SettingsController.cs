@@ -282,6 +282,7 @@ public sealed class SettingsController : ControllerBase {
                     UserId = jellyfinUser.Id,
                     PlanToWatchOnly = dto.PlanToWatchOnly,
                     RewatchCompleted = dto.RewatchCompleted,
+                    AddUnlistedAnime = dto.AddUnlistedAnime,
                     ShowLogNotifications = dto.ShowLogNotifications,
                     LibraryToCheck = libraries,
                     TrackerThresholdPercent = dto.TrackerThresholdPercent
@@ -293,6 +294,7 @@ public sealed class SettingsController : ControllerBase {
             } else {
                 userConfig.PlanToWatchOnly = dto.PlanToWatchOnly;
                 userConfig.RewatchCompleted = dto.RewatchCompleted;
+                userConfig.AddUnlistedAnime = dto.AddUnlistedAnime;
                 userConfig.ShowLogNotifications = dto.ShowLogNotifications;
                 userConfig.LibraryToCheck = libraries;
                 userConfig.TrackerThresholdPercent = dto.TrackerThresholdPercent;

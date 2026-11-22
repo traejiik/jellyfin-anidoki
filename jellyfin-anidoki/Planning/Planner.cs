@@ -46,7 +46,7 @@ public static class Planner {
                 return Rewatch(input, state);
             if (list != null && list.Progress >= episode)
                 return new NoChange("already-watched");
-            return new Skip("plan-to-watch-only");
+            return AddsUnlisted(input, list) ? Advance(input, state) : new Skip("plan-to-watch-only");
         }
 
         if (completed)
@@ -55,6 +55,13 @@ public static class Planner {
             return new NoChange("already-watched");
         return Advance(input, state);
     }
+
+    /// <summary>
+    /// D8: with Plan to watch only on, a title not on the list at all is still added when the user asked for it. A title on
+    /// any other list stays alone, and a confirmed manual mark never adds.
+    /// </summary>
+    private static bool AddsUnlisted(PlanInput input, ListState? list) =>
+        list == null && input.Rules.AddUnlisted && input.Policy != PlanPolicy.ConfirmedManual;
 
     /// <summary>A completed entry played again: P3–P5, with today's branch for an entry behind the episode.</summary>
     private static PlanDecision Rewatch(PlanInput input, EntryState state) {
@@ -109,7 +116,7 @@ public static class Planner {
         if (input.Policy == PlanPolicy.ConfirmedManual && (completed || list is { Rewatching: true }))
             return new NoChange("manual-forward-only");
         if (input.Rules.PlanToWatchOnly)
-            return list is { Status: TrackerStatus.PlanToWatch } ? StatusUpdate(input, state) : new Skip("plan-to-watch-only");
+            return list is { Status: TrackerStatus.PlanToWatch } || AddsUnlisted(input, list) ? StatusUpdate(input, state) : new Skip("plan-to-watch-only");
         // rewatch-disabled where rewatch-unsupported would be accurate (spec quirk)
         if (completed)
             return new Skip("rewatch-disabled");
