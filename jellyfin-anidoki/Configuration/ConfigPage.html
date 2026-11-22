@@ -62,10 +62,10 @@
                             </div>
                             <p class="doki-status doki-panel-feedback" id="accountsStatus" role="status"></p>
                         </section>
-                        <section class="doki-panel" id="doki-history" aria-labelledby="adminHistoryTitle">
-                            <div class="doki-panel-title"><h2 id="adminHistoryTitle">History</h2><p class="doki-help doki-help-full">Every user’s updates from playback, watched marks and retries in the last 30 days. Manual syncs are not listed.</p></div>
-                            <div class="doki-field doki-history-filter"><label for="historyUser">User</label><select class="doki-input" id="historyUser"><option value="">All users</option></select></div>
-                            <div id="adminHistory"></div>
+                        <section class="doki-panel doki-accounts-panel" id="doki-history" aria-labelledby="adminHistoryTitle">
+                            <div class="doki-panel-title"><h2 id="adminHistoryTitle">History</h2><p class="doki-help">Every user’s updates from playback, watched marks and retries in the last 30 days. Manual syncs are not listed.</p></div>
+                            <div class="doki-panel-actions doki-history-filter"><label class="doki-sr-only" for="historyUser">Show history for</label><select class="doki-input" id="historyUser"><option value="">All users</option></select></div>
+                            <div class="doki-panel-body"><div id="adminHistory"></div></div>
                         </section>
                         <section class="doki-panel" id="doki-advanced"><h2>Advanced</h2><p class="doki-help">Optional redirects, matching service, export location, authentication expiry, saved matches, and the AniDōki log.</p>
                             <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="applySavedMatches" id="applySavedMatches"><span><strong>Use saved matches</strong><span class="doki-help doki-help-full">Seasons with a saved match or a personal correction sync to it; every other season is matched automatically. Turn this off to match every season automatically. Saved matches are kept either way.</span></span></label>

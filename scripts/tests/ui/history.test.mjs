@@ -27,6 +27,7 @@ class Node extends EventTarget {
     findAll(predicate) { return [...this.all()].filter(predicate); }
     byClass(name) { return this.find(node => node.className.split(' ').includes(name)); }
     button(label) { return this.find(node => node.tag === 'button' && node.textContent === label); }
+    byLabel(label) { return this.find(node => node.getAttribute?.('aria-label') === label); }
 }
 
 function setup(t) {
@@ -74,20 +75,20 @@ test('pages of 10: Next replaces the rows with the next page, Previous goes back
     const calls = [];
     const container = render(async (offset, limit) => {
         calls.push([offset, limit]);
-        return offset === 0 ? { entries: Array.from({ length: 10 }, (_, i) => entry(20 - i)), more: true } : { entries: [entry(10)], more: false };
+        return offset === 0 ? { entries: Array.from({ length: 10 }, (_, i) => entry(20 - i)), more: true, total: 11 } : { entries: [entry(10)], more: false, total: 11 };
     });
     await settle();
     const pager = container.byClass('doki-pager');
     assert.equal(pager.hidden, false);
-    assert.equal(container.button('Previous').disabled, true);
-    assert.equal(container.byClass('doki-pager-range').textContent, 'Showing 1–10');
-    container.button('Next').click(); await settle();
+    assert.equal(container.byLabel('Previous page').disabled, true);
+    assert.equal(container.byClass('doki-pager-range').textContent, '1–10 of 11');
+    container.byLabel('Next page').click(); await settle();
     assert.deepEqual(calls, [[0, 10], [10, 10]]);
     assert.equal(rows(container).length, 1, 'the page replaces the rows');
-    assert.equal(container.byClass('doki-pager-range').textContent, 'Showing 11–11');
-    assert.equal(container.button('Next').disabled, true, 'nothing after this page');
-    assert.equal(container.byClass('doki-sr-only').textContent, 'Showing 11–11', 'screen readers hear the new page');
-    container.button('Previous').click(); await settle();
+    assert.equal(container.byClass('doki-pager-range').textContent, '11–11 of 11');
+    assert.equal(container.byLabel('Next page').disabled, true, 'nothing after this page');
+    assert.equal(container.byClass('doki-sr-only').textContent, '11–11 of 11', 'screen readers hear the new page');
+    container.byLabel('Previous page').click(); await settle();
     assert.deepEqual(calls.at(-1), [0, 10]);
     assert.equal(rows(container).length, 10);
 });

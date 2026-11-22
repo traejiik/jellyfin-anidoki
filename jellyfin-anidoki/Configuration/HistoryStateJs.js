@@ -99,5 +99,5 @@ export const historyMessages = {
     emptyOther: 'No updates in the last 30 days. They appear here after a user watches an episode or marks one watched.'
 };
 
-/** The pager's words for the rows shown: "Showing 11–20". */
-export const pageRange = (offset, count) => count ? `Showing ${offset + 1}–${offset + count}` : '';
+/** The pager's words for the rows shown: "11–20 of 42". */
+export const pageRange = (offset, count, total) => count ? `${offset + 1}–${offset + count}${Number.isInteger(total) ? ` of ${total}` : ''}` : '';

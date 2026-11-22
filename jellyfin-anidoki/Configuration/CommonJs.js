@@ -208,9 +208,11 @@ export function bindNavigation(root, signal) {
     const links = [...root.querySelectorAll('.doki-section-nav a')];
     const revealPill = link => {
         const nav = link.parentElement;
+        // The pill clears the 40px edge fade, unless it is the first or last.
         const edge = nav.getBoundingClientRect(), item = link.getBoundingClientRect();
-        if (item.left < edge.left) nav.scrollLeft += item.left - edge.left;
-        else if (item.right > edge.right) nav.scrollLeft += item.right - edge.right;
+        const start = link === links[0] ? 0 : 40, end = link === links.at(-1) ? 0 : 40;
+        if (item.left < edge.left + start) nav.scrollLeft += item.left - edge.left - start;
+        else if (item.right > edge.right - end) nav.scrollLeft += item.right - edge.right + end;
     };
     const activate = link => {
         links.forEach(item => item.removeAttribute('aria-current'));
@@ -226,12 +228,33 @@ export function bindNavigation(root, signal) {
         link.addEventListener('focus', () => revealPill(link), { signal });
     });
     if (links.length) activate(links[0]);
+    // The pill row's edge fades and the stuck band (CSS) follow its scroll position and the page's.
+    const nav = links[0]?.parentElement, rail = root.querySelector('.doki-rail');
+    const edges = () => {
+        if (!nav) return;
+        const more = [];
+        if (nav.scrollLeft > 1) more.push('start');
+        if (nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 1) more.push('end');
+        if (more.length) nav.dataset.more = more.join(' '); else delete nav.dataset.more;
+        if (rail && globalThis.getComputedStyle) {
+            const style = getComputedStyle(rail);
+            const stuck = style.position === 'sticky' && rail.getBoundingClientRect().top <= parseFloat(style.top) + 1 && nav.scrollWidth > 0 && style.order === '0';
+            if (stuck) rail.dataset.stuck = ''; else delete rail.dataset.stuck;
+        }
+    };
+    let frame = 0;
+    const nextFrame = globalThis.requestAnimationFrame ?? (callback => queueMicrotask(callback));
+    const later = () => { if (!frame) frame = nextFrame(() => { frame = 0; edges(); }); };
+    nav?.addEventListener('scroll', later, { signal, passive: true });
+    globalThis.addEventListener?.('scroll', later, { signal, passive: true, capture: true });
+    globalThis.addEventListener?.('resize', later, { signal, passive: true });
+    later();
     const observer = new IntersectionObserver(entries => {
         const entry = entries.filter(item => item.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
         if (entry) { const link = links.find(item => item.dataset.section === `#${entry.target.id}`); if (link) activate(link); }
         // Where the rail is a row of pills (up to 50rem), the header and the sticky pills cover about 144px, where a section
         // reached from a pill lands just below.
-    }, { rootMargin: `-${globalThis.matchMedia?.('(max-width: 50rem)').matches ? 160 : 90}px 0px -55% 0px` });
+    }, { rootMargin: `-${globalThis.matchMedia?.('(max-width: 50rem)').matches ? 172 : 90}px 0px -55% 0px` });
     links.forEach(link => { const section = root.querySelector(link.dataset.section); if (section) observer.observe(section); });
     signal.addEventListener('abort', () => observer.disconnect(), { once: true });
 }
@@ -396,7 +419,7 @@ export function renderAccounts(container, { linked, visible, admin = false, user
                     ` AniDōki stops updating it straight away; ${admin ? `${userName} must sign in again to relink` : 'your list is not changed'}.`);
                 const actions = element('div', 'doki-actions');
                 const keep = button('Keep linked', closeConfirm);
-                const confirm = button(`Disconnect ${provider.name}`, () => run('disconnect')); confirm.classList.add('doki-button-danger');
+                const confirm = button(`Disconnect ${provider.name}`, () => run('disconnect')); confirm.classList.add('doki-button-primary');
                 actions.append(keep, confirm);
                 detail.replaceChildren(text, actions); detail.hidden = false;
                 disconnect.setAttribute('aria-expanded', 'true'); keep.focus();

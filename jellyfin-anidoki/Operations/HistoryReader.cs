@@ -30,9 +30,11 @@ public sealed record HistoryEntry(
     [property: JsonPropertyName("episode")] int? Episode,
     [property: JsonPropertyName("results")] IReadOnlyList<HistoryResult> Results);
 
+/// <param name="Total">How many entries all the pages hold, up to the cap.</param>
 public sealed record HistoryPage(
     [property: JsonPropertyName("entries")] IReadOnlyList<HistoryEntry> Entries,
-    [property: JsonPropertyName("more")] bool More);
+    [property: JsonPropertyName("more")] bool More,
+    [property: JsonPropertyName("total")] int Total);
 
 public sealed record AttentionView(
     [property: JsonPropertyName("kind")] string Kind,
@@ -103,7 +105,7 @@ public sealed class HistoryReader(AniDokiDatabase database, TimeProvider clock) 
             .Take(max)
             .ToList();
         var page = entries.Skip(offset).Take(limit).Select(chain => Entry(chain.Root, chain.Retries, pending)).ToList();
-        return new HistoryPage(page, offset + limit < entries.Count);
+        return new HistoryPage(page, offset + limit < entries.Count, entries.Count);
     }
 
     /// <summary>Each user's last update and attention per tracker; one user's, or everyone's when <paramref name="userId"/> is null.</summary>

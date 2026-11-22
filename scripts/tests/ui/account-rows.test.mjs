@@ -89,7 +89,7 @@ test('Disconnect opens the confirmation on the user page and moves focus to Keep
     assert.equal(detail.byClass('doki-confirm-text').textContent, 'Disconnect AniList? AniDōki stops updating it straight away; your list is not changed.');
     assert.equal(disconnect.getAttribute('aria-expanded'), 'true');
     assert.equal(focused, detail.button('Keep linked'));
-    assert.ok(detail.button('Disconnect AniList').classList.contains('doki-button-danger'));
+    assert.ok(detail.button('Disconnect AniList').classList.contains('doki-button-primary'), 'the same look as Continue to AniList');
 });
 
 test('the admin wording names the user', t => {

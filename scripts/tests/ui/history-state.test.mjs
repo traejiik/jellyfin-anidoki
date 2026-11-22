@@ -80,7 +80,8 @@ test('a history row names the episode, trigger and time, and says No change need
 });
 
 test('the pager names the rows shown', () => {
-    assert.equal(pageRange(0, 10), 'Showing 1–10');
-    assert.equal(pageRange(10, 3), 'Showing 11–13');
+    assert.equal(pageRange(0, 10, 42), '1–10 of 42');
+    assert.equal(pageRange(10, 3, 13), '11–13 of 13');
+    assert.equal(pageRange(0, 10), '1–10', 'without a total, just the range');
     assert.equal(pageRange(0, 0), '');
 });

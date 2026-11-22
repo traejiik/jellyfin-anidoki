@@ -20,10 +20,15 @@ export default function renderHistory(container, { load, own = true, userName },
     const shell = common.element('div', 'doki-table-shell'); shell.append(table);
     const spoken = common.element('p', 'doki-sr-only'); spoken.setAttribute('role', 'status');
     const pager = common.element('nav', 'doki-pager'); pager.setAttribute('aria-label', 'History pages'); pager.hidden = true;
-    const previous = common.element('button', 'doki-button', 'Previous'); previous.type = 'button';
+    const step = (label, icon) => {
+        const button = common.element('button', 'doki-button doki-icon-button'); button.type = 'button';
+        button.setAttribute('aria-label', label); button.title = label; button.append(common.icon(icon));
+        return button;
+    };
+    const previous = step('Previous page', 'chevron-left'), next = step('Next page', 'chevron-right');
     const range = common.element('span', 'doki-pager-range');
-    const next = common.element('button', 'doki-button', 'Next'); next.type = 'button';
-    pager.append(previous, range, next);
+    const steps = common.element('div', 'doki-pager-steps'); steps.append(previous, next);
+    pager.append(range, steps);
     container.classList.add('doki-history');
     container.replaceChildren(shell, pager, spoken);
     let offset = 0;
@@ -83,7 +88,7 @@ export default function renderHistory(container, { load, own = true, userName },
             else body.replaceChildren(...page.entries.map(rowFor));
             pager.hidden = offset === 0 && !page.more;
             previous.disabled = offset === 0; next.disabled = !page.more;
-            range.textContent = pageRange(offset, page.entries.length);
+            range.textContent = pageRange(offset, page.entries.length, page.total);
             spoken.textContent = moving ? range.textContent : '';
             if (moving) shell.scrollIntoView?.({ block: 'nearest' });
         } catch (error) {

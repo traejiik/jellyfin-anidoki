@@ -264,9 +264,19 @@
     .anidoki .doki-layout { display: flex; flex-direction: column; gap: 20px; }
     /* The section pills stay in reach while scrolling, over the page background, below Jellyfin's fixed header. */
     .anidoki .doki-rail { order: 0; position: sticky; top: 48px; z-index: 3; width: 100%; min-width: 0; background: var(--doki-page); padding-block: 8px; }
-    /* A section reached from a pill lands below the header and the pills (about 144px), not under them. */
-    .anidoki .doki-stack > .doki-panel { scroll-margin-top: 156px; }
-    .anidoki .doki-section-nav { flex-direction: row; gap: .5rem; overflow-x: auto; max-width: 100%; padding-block: .25rem .5rem; }
+    /* A section reached from a pill lands below the header, the pills (about 144px) and their fade, not under them. */
+    .anidoki .doki-stack > .doki-panel { scroll-margin-top: 168px; }
+    .anidoki .doki-section-nav { flex-direction: row; gap: .5rem; overflow-x: auto; max-width: 100%; padding-block: .25rem .5rem; scrollbar-width: none;
+        --doki-fade-start: 0px; --doki-fade-end: 0px;
+        mask-image: linear-gradient(to right, transparent, #000 var(--doki-fade-start), #000 calc(100% - var(--doki-fade-end)), transparent); }
+    /* Pills slide into a fade at whichever end has more to scroll to; the fade shows the page behind, so it suits any theme. */
+    .anidoki .doki-section-nav[data-more~="start"] { --doki-fade-start: 40px; }
+    .anidoki .doki-section-nav[data-more~="end"] { --doki-fade-end: 40px; }
+    .anidoki .doki-section-nav::-webkit-scrollbar { display: none; }
+    /* Stuck under Jellyfin's header, the band runs the full width and up behind the header, so header and pills read as
+       one bar instead of a solid strip under a see-through one, and content fades in under its bottom edge. A border image
+       outset paints outside the box without widening the page. */
+    .anidoki .doki-rail[data-stuck] { border-image: linear-gradient(var(--doki-page) calc(100% - 16px), transparent) fill 0 / 0 / 48px 100vmax 16px; }
     .anidoki .doki-section-nav > a { flex: 0 0 auto; padding: 8px 14px; background: var(--doki-pill); border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-pill); }
     .anidoki .doki-section-nav a[aria-current="location"] { border-color: var(--doki-selection); }
     .anidoki .doki-stack { width: 100%; }
@@ -293,6 +303,10 @@
     .anidoki .doki-panel-actions { grid-column: 1; grid-row: 3; justify-content: start; }
     .anidoki .doki-panel-actions > .doki-button { flex: 1; }
     .anidoki .doki-panel-feedback { grid-row: 4; }
+    /* History's filter stays above the table it narrows, at full width. */
+    .anidoki #doki-history > .doki-panel-actions { grid-row: 2; }
+    .anidoki #doki-history > .doki-panel-body { grid-row: 3; }
+    .anidoki .doki-history-filter > .doki-input { flex: 1; }
     .anidoki .doki-user-table, .anidoki .doki-user-table tbody { display: block; }
     .anidoki .doki-user-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
     .anidoki .doki-user-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding: 14px; gap: 6px 12px; }
@@ -451,6 +465,8 @@
 /* The completion percentage select (5.5): wide enough for "90% (Jellyfin default)". */
 .anidoki .doki-setting-select { flex: none; width: auto; min-width: 13rem; }
 .anidoki .doki-threshold-row { margin-top: 12px; margin-bottom: 10px; }
+/* The admin's default follows the anime libraries' divider; give it the room a new group gets. */
+.anidoki #defaultThreshold > .doki-threshold-row { margin-top: 24px; }
 /* Mixed with the text colour so the theme's warning stays readable on light and dark panels. */
 .anidoki .doki-setting-alert { color: color-mix(in srgb, var(--tjk-warning) 70%, var(--doki-text)); font-size: .875rem; font-weight: 600; }
 .anidoki .doki-dialog { width: min(56rem, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 0; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-lg); background: var(--doki-solid-surface); color: var(--doki-text); font: inherit; }
@@ -789,10 +805,11 @@ body:has(.anidoki :is(.doki-dialog, .doki-confirm):modal) { overflow: hidden; }
 .anidoki .doki-update-message[data-tone="error"] { color: var(--tjk-error); }
 .anidoki .doki-update-message[data-tone="attention"] { color: var(--tjk-warning); }
 .anidoki .doki-update-message > .doki-button { margin-top: 12px; }
-/* Pages of 10: "Showing 11–20" on the left, Previous and Next on the right. */
-.anidoki .doki-pager { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+/* Pages of 10: "11–20 of 42" on the left, the previous and next arrows on the right. */
+.anidoki .doki-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
 .anidoki .doki-pager[hidden] { display: none; }
-.anidoki .doki-pager-range { order: -1; margin-inline-end: auto; color: var(--doki-muted); font-size: .875rem; }
+.anidoki .doki-pager-range { color: var(--doki-muted); font-size: .875rem; font-variant-numeric: tabular-nums; }
+.anidoki .doki-pager-steps { display: flex; gap: 8px; }
 
 /* Users table (5.7): Last update, and one attention line per tracker under Linked to. */
 .anidoki .doki-user-table th.doki-last-update-head { width: 10rem; }
@@ -847,6 +864,5 @@ body:has(.anidoki :is(.doki-dialog, .doki-confirm):modal) { overflow: hidden; }
     .anidoki .doki-users-table td[colspan] { grid-column: 1 / -1; grid-row: auto; }
 }
 
-/* The admin's History: the user filter sits between the description and the table. */
-.anidoki .doki-history-filter { flex-direction: row; align-items: center; gap: 12px; margin-bottom: 16px; }
-.anidoki .doki-history-filter > .doki-input { width: auto; min-width: 12rem; }
+/* The admin's History: the user filter sits in the panel's header, where Users keeps its Refresh button. */
+.anidoki .doki-history-filter > .doki-input { width: auto; min-width: 11rem; }
