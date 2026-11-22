@@ -83,8 +83,6 @@ public class AuthApiCall {
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
             HttpResponseMessage responseMessage;
             try {
-                // set a generous default rate limit
-                MemoryCacheHelper.SetRateLimitingForProvider(provider, _memoryCache);
                 switch (callType) {
                     case CallType.GET:
                         responseMessage = await client.GetAsync(url);
@@ -143,7 +141,9 @@ public class AuthApiCall {
                         break;
                     case HttpStatusCode.TooManyRequests:
                         lastFailure = TrackerFailureKind.RateLimited;
-                        _logger.LogWarning("({Provider}) Rate limit exceeded; retrying in {TimeoutSeconds} seconds", provider, timeoutSeconds);
+                        // The tracker's Retry-After, already applied from the headers above, wins when it is longer.
+                        int waitSeconds = Math.Max(timeoutSeconds, (int)Math.Ceiling(((MemoryCacheHelper.RateLimitedUntil(provider, _memoryCache) ?? DateTimeOffset.UtcNow) - DateTimeOffset.UtcNow).TotalSeconds));
+                        _logger.LogWarning("({Provider}) Rate limit exceeded; retrying in {TimeoutSeconds} seconds", provider, waitSeconds);
                         MemoryCacheHelper.SetRateLimitingForProvider(provider, _memoryCache, TimeSpan.FromSeconds(timeoutSeconds));
                         timeoutSeconds *= TimeoutIncrementMultiplier;
                         attempts++;

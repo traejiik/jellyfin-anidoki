@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 namespace jellyfin_anidoki.Helpers;
 
 public class MemoryCacheHelper {
-    private static string GetLastCallDateTimeKey(ApiName provider) => $"{provider}LastCallDateTime";
+    private static string GetNextAllowedKey(ApiName provider) => $"{provider}NextAllowedUtc";
     internal const string XRateLimitRemainingHeader = "X-RateLimit-Remaining";
     internal const string XRateLimitResetHeader = "X-RateLimit-Reset";
 
@@ -43,32 +43,51 @@ public class MemoryCacheHelper {
         return storedState;
     }
 
+    /// <summary>The gap a tracker keeps between calls: under every tracker's published limit (AniList and Shikimori allow 90 a minute).</summary>
+    internal static readonly TimeSpan Pace = TimeSpan.FromSeconds(1);
+
+    private static readonly object WindowLock = new();
+
     /// <summary>
-    /// Check if we can make an API call to the provided API provider without running into rate limiting restrictions.
+    /// Waits until the tracker accepts calls again, then reserves the next slot one <see cref="Pace"/> later. It waits the
+    /// time left, never the time since the last call (H4.8), so a back-off from a rate limit is waited out in full.
     /// </summary>
-    /// <param name="provider">Provider to check the rate limiting of.</param>
-    /// <param name="logger">Instance of <see cref="ILogger"/></param>
-    /// <param name="memoryCache">Instance of <see cref="IMemoryCache"/></param>
-    /// <param name="delayer">Instance of <see cref="IAsyncDelayer"/></param>
     public static async Task CheckRateLimiting(ApiName provider, ILogger logger, IMemoryCache memoryCache, IAsyncDelayer delayer) {
-        DateTime lastCallDateTime = memoryCache.Get<DateTime>(GetLastCallDateTimeKey(provider));
-        if (lastCallDateTime != default) {
-            logger.LogDebug("({Provider}) Delaying the request to stay under the rate limit", provider);
-            long started = Stopwatch.GetTimestamp();
-            await delayer.Delay(DateTime.UtcNow.Subtract(lastCallDateTime));
-            if (logger.IsEnabled(LogLevel.Debug))
-                logger.LogDebug("({Provider}) Waited {ElapsedMs} ms to stay under the rate limit", provider, LogText.ElapsedMs(started));
+        TimeSpan wait;
+        lock (WindowLock) {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            DateTimeOffset start = NextAllowed(provider, memoryCache) is { } next && next > now ? next : now;
+            Store(provider, memoryCache, start + Pace);
+            wait = start - now;
+        }
+        if (wait <= TimeSpan.Zero)
+            return;
+        logger.LogDebug("({Provider}) Delaying the request to stay under the rate limit", provider);
+        long started = Stopwatch.GetTimestamp();
+        await delayer.Delay(wait);
+        if (logger.IsEnabled(LogLevel.Debug))
+            logger.LogDebug("({Provider}) Waited {ElapsedMs} ms to stay under the rate limit", provider, LogText.ElapsedMs(started));
+    }
+
+    /// <summary>Holds the tracker's calls back for <paramref name="backOff"/>. It only ever pushes the next allowed time later.</summary>
+    public static void SetRateLimitingForProvider(ApiName provider, IMemoryCache memoryCache, TimeSpan backOff) {
+        lock (WindowLock) {
+            DateTimeOffset until = DateTimeOffset.UtcNow + backOff;
+            if (NextAllowed(provider, memoryCache) is not { } next || next < until)
+                Store(provider, memoryCache, until);
         }
     }
 
-    /// <summary>
-    /// Set the rate limiting for the provided API provider.
-    /// </summary>
-    /// <param name="provider">Provider to set the rate limiting for</param>
-    /// <param name="memoryCache">Instance of <see cref="IMemoryCache"/></param>
-    /// <param name="backOff">Optional back off time. Default of 5 seconds.</param>
-    public static void SetRateLimitingForProvider(ApiName provider, IMemoryCache memoryCache, TimeSpan? backOff = null) =>
-        memoryCache.Set(GetLastCallDateTimeKey(provider), DateTime.UtcNow, backOff ?? TimeSpan.FromSeconds(5));
+    /// <summary>When a rate-limited tracker accepts calls again, or null when it already does.</summary>
+    public static DateTimeOffset? RateLimitedUntil(ApiName provider, IMemoryCache memoryCache) =>
+        NextAllowed(provider, memoryCache) is { } next && next > DateTimeOffset.UtcNow ? next : null;
+
+    private static DateTimeOffset? NextAllowed(ApiName provider, IMemoryCache memoryCache) =>
+        memoryCache.TryGetValue(GetNextAllowedKey(provider), out DateTimeOffset next) ? next : null;
+
+    // Expires with the window, so an idle tracker leaves nothing behind.
+    private static void Store(ApiName provider, IMemoryCache memoryCache, DateTimeOffset next) =>
+        memoryCache.Set(GetNextAllowedKey(provider), next, next);
 
     /// <summary>
     /// Check the provided response message for rate limiting headers and add appropriate rate limiting for the provided API provider.
@@ -86,11 +105,19 @@ public class MemoryCacheHelper {
         }
 
         if (responseMessage.Headers.TryGetValues(XRateLimitResetHeader, out IEnumerable<string>? resetValues)) {
-            if (DateTimeOffset.TryParse(resetValues.First(), out DateTimeOffset resetTime) && resetTime > DateTimeOffset.UtcNow) {
+            // AniList sends Unix seconds; others a date.
+            string reset = resetValues.First();
+            if ((long.TryParse(reset, out long unixSeconds) ? DateTimeOffset.FromUnixTimeSeconds(unixSeconds) : DateTimeOffset.TryParse(reset, out DateTimeOffset parsed) ? parsed : (DateTimeOffset?)null)
+                is { } resetTime && resetTime > DateTimeOffset.UtcNow) {
                 TimeSpan delay = resetTime - DateTimeOffset.UtcNow;
                 logger.LogDebug("({Provider}) Rate limit until {ResetTime}; waiting {DelaySeconds} seconds", provider, resetTime, delay.TotalSeconds);
                 SetRateLimitingForProvider(provider, memoryCache, delay);
             }
+        }
+        if (responseMessage.Headers.RetryAfter is { } retryAfter
+            && (retryAfter.Delta ?? (retryAfter.Date is { } date ? date - DateTimeOffset.UtcNow : null)) is { } wait && wait > TimeSpan.Zero) {
+            logger.LogDebug("({Provider}) Asked to retry after {DelaySeconds} seconds", provider, (int)wait.TotalSeconds);
+            SetRateLimitingForProvider(provider, memoryCache, wait);
         }
     }
 }
