@@ -700,6 +700,9 @@ body:has(.anidoki :is(.doki-dialog, .doki-confirm):modal) { overflow: hidden; }
 .anidoki .doki-anime-hint[data-state="notice"] .doki-anime-hint-icon { color: var(--tjk-warning); transform: scale(1.25); }
 .anidoki .doki-anime-hint-body { max-height: 0; opacity: 0; overflow: hidden; padding-inline-start: 22px; font-size: .875rem; color: var(--doki-muted); }
 .anidoki .doki-anime-hint[data-state="notice"] .doki-anime-hint-body { max-height: 8em; opacity: 1; margin-top: 2px; padding-inline-start: 28px; }
+/* The note about libraries seeded from users' choices (5.9) ends with Dismiss, aligned with its text. */
+.anidoki .doki-anime-hint-actions { margin-top: 10px; padding-inline-start: 28px; }
+.anidoki .doki-anime-hint-actions[hidden] { display: none; }
 @media (prefers-reduced-motion: no-preference) {
     .anidoki .doki-anime-hint, .anidoki .doki-anime-hint-button, .anidoki .doki-anime-hint-icon, .anidoki .doki-anime-hint-body { transition: all .32s cubic-bezier(.2, 0, 0, 1); }
 }
