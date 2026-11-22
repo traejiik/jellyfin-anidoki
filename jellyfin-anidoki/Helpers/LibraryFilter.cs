@@ -27,22 +27,22 @@ public static class LibraryFilter {
     /// <summary>Provider ID keys that mark a title in a Mixed library as anime, compared ignoring case.</summary>
     private static readonly string[] AnimeIdKeys = ["AniList", "AniDB", "MyAnimeList", "Kitsu"];
 
-    /// <summary>Whether the item is synced at all. See <see cref="Scope(UserConfig, ILibraryManager, AnimeListIndex, ILogger, BaseItem)"/>.</summary>
-    public static bool Includes(UserConfig userConfig, ILibraryManager libraryManager, AnimeListIndex animeList, ILogger logger, BaseItem item) =>
-        Scope(userConfig, libraryManager, animeList, logger, item) != LibraryScope.Excluded;
+    /// <summary>Whether the item is synced at all. See <see cref="Scope(ILibraryManager, AnimeListIndex, ILogger, BaseItem)"/>.</summary>
+    public static bool Includes(ILibraryManager libraryManager, AnimeListIndex animeList, ILogger logger, BaseItem item) =>
+        Scope(libraryManager, animeList, logger, item) != LibraryScope.Excluded;
 
     /// <summary>
-    /// Once the admin has chosen any anime library, that list decides. Until then each user's
-    /// <see cref="UserConfig.LibraryToCheck"/> does, exactly as before 1.6.0.
+    /// The admin's anime libraries decide, for every user alike (D9). Until the admin chooses any, every library is
+    /// scanned as Dedicated, which is what a user who never picked libraries had before 2.0.0.
     /// </summary>
     /// <param name="animeList">The anime list, which tells whether a movie in a Mixed library is anime.</param>
-    public static LibraryScope Scope(UserConfig userConfig, ILibraryManager libraryManager, AnimeListIndex animeList, ILogger logger, BaseItem item) =>
-        Scope(Plugin.Instance?.PluginConfiguration.AnimeLibraries, userConfig, libraryManager, animeList, logger, item);
+    public static LibraryScope Scope(ILibraryManager libraryManager, AnimeListIndex animeList, ILogger logger, BaseItem item) =>
+        Scope(Plugin.Instance?.PluginConfiguration.AnimeLibraries, libraryManager, animeList, logger, item);
 
-    internal static LibraryScope Scope(IReadOnlyCollection<AnimeLibrary>? animeLibraries, UserConfig userConfig,
-        ILibraryManager libraryManager, AnimeListIndex animeList, ILogger logger, BaseItem item) {
+    internal static LibraryScope Scope(IReadOnlyCollection<AnimeLibrary>? animeLibraries, ILibraryManager libraryManager, AnimeListIndex animeList,
+        ILogger logger, BaseItem item) {
         if (animeLibraries is null or { Count: 0 })
-            return UserIncludes(userConfig, libraryManager, logger, item) ? LibraryScope.Included : LibraryScope.Excluded;
+            return LibraryScope.Included;
         try {
             LibraryScope scope = AnimeScope(animeLibraries, libraryManager, animeList, item);
             if (scope == LibraryScope.Excluded)
@@ -110,33 +110,5 @@ public static class LibraryFilter {
         if (MovieAniDbCheck.For(film, animeList) is { } check)
             return check.Confirms;
         return AnimeListHelpers.TryGetProviderId(film.ProviderIds, "Tmdb", out string? tmdbId) && animeList.AniDbIdForMovie(tmdbId) != null;
-    }
-
-    /// <summary>The per-user filter used before 1.6.0, unchanged. Removed with LibraryToCheck in 2.0.0.</summary>
-    private static bool UserIncludes(UserConfig userConfig, ILibraryManager libraryManager, ILogger logger, BaseItem item) {
-        try {
-            // user has no library filters; a missing list (an older configuration) means the same
-            if (userConfig.LibraryToCheck is null or { Length: 0 }) {
-                return true;
-            }
-
-            // item is in a path of a folder the user wants to be monitored
-            var topParent = item.GetTopParent();
-            if (topParent is not null) {
-                var allLocations = libraryManager.GetVirtualFolders()
-                    .Where(folder => userConfig.LibraryToCheck.Contains(folder.ItemId))
-                    .SelectMany(folder => folder.Locations)
-                    .ToHashSet();
-                if (allLocations.Contains(topParent.Path)) {
-                    return true;
-                }
-            }
-
-            logger.LogDebug("{ItemName} is not in a library this user syncs; ignoring it", item.Name);
-            return false;
-        } catch (Exception e) {
-            logger.LogWarning(e, "Could not check which library {ItemName} is in; ignoring it", item.Name);
-            return false;
-        }
     }
 }

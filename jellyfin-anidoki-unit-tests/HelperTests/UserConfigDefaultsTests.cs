@@ -37,24 +37,14 @@ public class UserConfigDefaultsTests {
         Assert.That(preference.GetBoolean(), Is.EqualTo(expected));
     }
 
-    [TestCase("<UserConfig />", new string[0])]
+    // D9: the old per-user list is still read from the XML, so the first start of 2.0.0 can seed the admin list from it.
+    [TestCase("<UserConfig />", null)]
     [TestCase("<UserConfig><LibraryToCheck /></UserConfig>", new string[0])]
     [TestCase("<UserConfig><LibraryToCheck><string>library-a</string></LibraryToCheck></UserConfig>", new[] { "library-a" })]
-    public void SavedConfigurationWithoutALibraryListReadsAsAllLibraries(string xml, string[] expected) {
+    public void AnOldLibraryListIsStillReadForSeeding(string xml, string[]? expected) {
         using var reader = new StringReader(xml);
         var config = (UserConfig)new XmlSerializer(typeof(UserConfig)).Deserialize(reader)!;
-        Assert.That(config.LibraryToCheck, Is.Not.Null.And.EqualTo(expected));
-    }
-
-    [TestCase(true)]
-    [TestCase(false)]
-    public void MissingOrEmptyLibraryListMonitorsEveryLibrary(bool missing) {
-        // Before the fix a missing list matched no library and every episode was ignored.
-        var library = new Moq.Mock<MediaBrowser.Controller.Library.ILibraryManager>(Moq.MockBehavior.Strict);
-        var config = new UserConfig { LibraryToCheck = missing ? null! : Array.Empty<string>() };
-        bool monitored = jellyfin_anidoki.Helpers.LibraryFilter.Includes(config, library.Object, new jellyfin_anidoki.Helpers.AnimeListIndex(() => null),
-            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, item: null!);
-        Assert.That(monitored, Is.True);
+        Assert.That(config.LibraryToCheck, Is.EqualTo(expected));
     }
 
     [Test]

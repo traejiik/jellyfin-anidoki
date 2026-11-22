@@ -134,6 +134,6 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
     /// <summary>A user's library filter applies; a user who never saved AniDoki settings has none.</summary>
     private bool Syncs(Guid userId, BaseItem item) {
         var config = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(entry => entry.UserId == userId);
-        return config == null || LibraryFilter.Includes(config, library, animeList, logger, item);
+        return config == null || LibraryFilter.Includes(library, animeList, logger, item);
     }
 }

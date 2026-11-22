@@ -41,6 +41,8 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
             Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath)));
         serviceCollection.AddSingleton(provider => new Operations.HistoryReader(
             Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath), provider.GetRequiredService<TimeProvider>()));
+        // D9: before anything syncs, so the first start of 2.0.0 scans the libraries the users had picked.
+        serviceCollection.AddHostedService<Configuration.AnimeLibrarySeeding>();
         serviceCollection.AddSingleton<Operations.OperationRunner>();
         // Registered before the triggers so leftovers from the previous run are marked before new work is queued.
         serviceCollection.AddHostedService(provider => provider.GetRequiredService<Operations.OperationRunner>());

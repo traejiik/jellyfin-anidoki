@@ -60,7 +60,7 @@ public sealed class ResolutionCheck(
         if (user == null || config == null)
             return targets;
         foreach (BaseItem item in SyncHelper.GetUsersJellyfinLibrary(userId, users, library)) {
-            if (!LibraryFilter.Includes(config, library, animeList.Index, _logger, item))
+            if (!LibraryFilter.Includes(library, animeList.Index, _logger, item))
                 continue;
             if (item is Movie movie) {
                 if (!SyncHelper.MediaShouldBeIgnored(movie) && userData.GetUserData(user, movie) is { Played: true })
@@ -107,7 +107,7 @@ public sealed class ResolutionCheck(
                 operation.CancellationToken.ThrowIfCancellationRequested();
             }
             if (SyncSource.From(targets[i]) is { } found) {
-                var source = found with { IdsOnly = LibraryFilter.Scope(config, library, animeList.Index, _logger, targets[i]) == LibraryScope.IdsOnly };
+                var source = found with { IdsOnly = LibraryFilter.Scope(library, animeList.Index, _logger, targets[i]) == LibraryScope.IdsOnly };
                 SourceIds ids = await sourceIds.Resolve(source);
                 IReadOnlyList<int> watched = watchState.Watched(source, userId).Select(episode => episode.Number).ToList();
                 foreach (UserApiAuth link in config.UserApiAuth) {

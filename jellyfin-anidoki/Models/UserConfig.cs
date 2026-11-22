@@ -25,6 +25,13 @@ public class UserConfig : UserEditableConfig {
     public long DiscordNotificationRevision { get; set; }
 
     /// <summary>
+    /// The libraries this user picked before 2.0.0 (null or empty: every library). Read from the saved XML only so the
+    /// first start of 2.0.0 can seed the admin's anime libraries from it (D9), then cleared; never sent to the pages.
+    /// </summary>
+    [JsonIgnore]
+    public string[]? LibraryToCheck { get; set; }
+
+    /// <summary>
     /// API authentication details of the user.
     /// </summary>
     public UserApiAuth[]? UserApiAuth { get; set; }
@@ -63,12 +70,6 @@ public class UserEditableConfig {
     public bool AddUnlistedAnime { get; set; }
 
     public bool ShowLogNotifications { get; set; } = true;
-
-    /// <summary>
-    /// Libraries to sync from; empty means all. Defaults to empty so a configuration saved
-    /// before this field existed reads as "all libraries", as the settings page shows it.
-    /// </summary>
-    public string[] LibraryToCheck { get; set; } = Array.Empty<string>();
 
     /// <summary>
     /// The percentage at which playback updates the trackers while the video plays (60 to the server's

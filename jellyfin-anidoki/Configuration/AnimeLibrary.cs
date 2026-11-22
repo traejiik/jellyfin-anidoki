@@ -21,3 +21,11 @@ public sealed class AnimeLibrary {
 
     public AnimeLibraryMode Mode { get; set; }
 }
+
+/// <summary>A library 2.0.0 set to Dedicated from the users' earlier choices, and who had chosen it.</summary>
+public sealed class AnimeLibrarySeed {
+    public Guid LibraryId { get; set; }
+
+    /// <summary>The Jellyfin names of the users whose choice included the library.</summary>
+    public string[] ChosenBy { get; set; } = [];
+}

@@ -2,11 +2,11 @@
 // and fields from newer plugin versions stay in the freshly loaded configuration.
 const serverFields = ['callbackUrl', 'callbackRedirectUrl', 'animeListSaveLocation',
     'watchedTickboxUpdatesProvider', 'shikimoriAppName', 'simklUpdateAll', 'updateNsfw', 'applySavedMatches',
-    'authenticationLinkExpireTimeMinutes', 'armServerBaseUrl', 'enableUserPages', 'shikimoriDomain', 'AnimeLibraries'];
+    'authenticationLinkExpireTimeMinutes', 'armServerBaseUrl', 'enableUserPages', 'shikimoriDomain', 'AnimeLibraries', 'AnimeLibrarySeeds'];
 const providerFields = ['ClientId'];
 // Client secrets are write-only: the server never returns them, so a draft holds only a replacement or a clear request.
 const secretDefaults = { ClientSecret: '', ClearClientSecret: false };
-const preferenceFields = ['PlanToWatchOnly', 'AddUnlistedAnime', 'RewatchCompleted', 'ShowLogNotifications', 'LibraryToCheck', 'TrackerThresholdPercent'];
+const preferenceFields = ['PlanToWatchOnly', 'AddUnlistedAnime', 'RewatchCompleted', 'ShowLogNotifications', 'TrackerThresholdPercent'];
 const clone = value => value === undefined ? undefined : structuredClone(value);
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -17,7 +17,6 @@ export function userPreferences(saved = {}) {
         AddUnlistedAnime: saved.AddUnlistedAnime ?? false,
         RewatchCompleted: saved.RewatchCompleted ?? true,
         ShowLogNotifications: saved.ShowLogNotifications ?? true,
-        LibraryToCheck: [...(saved.LibraryToCheck ?? [])],
         // Null updates trackers on player exit at Jellyfin's own percentage, the default.
         TrackerThresholdPercent: saved.TrackerThresholdPercent ?? null
     };
@@ -40,6 +39,8 @@ export function createDraft(saved = {}) {
     for (const field of serverFields) result[field] = clone(saved[field]);
     // An older configuration without the list would otherwise conflict with the server's empty one at save time.
     result.AnimeLibraries ??= [];
+    // Who chose each library 2.0.0 seeded (D9); emptied when the admin changes a library or dismisses the note.
+    result.AnimeLibrarySeeds ??= [];
     result.ProviderApiAuth = (saved.ProviderApiAuth ?? []).map(provider => ({
         Name: provider.Name,
         ClientId: provider.ClientId ?? '',
@@ -160,4 +161,11 @@ export function providerStatus(key, { clientId = '', hasSecret = false, appName 
         : key === 'Shikimori' && !appName?.trim() ? ['Missing app name', 'warning']
         : ['Configured', 'success'];
     return { text, tone, unsaved };
+}
+
+/** The libraries 2.0.0 set from the users' earlier choices, while the admin has not settled the note (D9). */
+export function seededLibraryNames(seeds, libraryId) {
+    const seed = (seeds ?? []).find(item => libraryKey(item.LibraryId) === libraryKey(libraryId));
+    const names = seed?.ChosenBy ?? [];
+    return names.length < 2 ? names[0] ?? '' : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
 }

@@ -60,12 +60,12 @@ function setGlobal(t, name, value) {
 const BrowserAddress = 'https://browser.example.test';
 const LocalAddress = 'http://192.0.2.10:8096';
 
-async function setupAdmin(t, users = [], localLookup = async () => Response.json({ baseAddress: LocalAddress })) {
+async function setupAdmin(t, users = [], localLookup = async () => Response.json({ baseAddress: LocalAddress }), { configuration = {}, libraries = [] } = {}) {
     const ids = ['TemplateConfigForm', 'configurationSummary', 'providerCards', 'userRows', 'userPanel', 'userHistory', 'userHistoryHelp',
         'saveStatus', 'refreshAccounts', 'useCurrent', 'useCurrentValue', 'useCurrentInUse', 'useLocal', 'useLocalValue', 'useLocalInUse', 'copyCallback', 'generalCallbackUrlInput',
         'addressCheck', 'addressStatus', 'testAnimeListSaveLocation', 'folderStatus', 'discardChanges',
         'apiUrl', 'saveChanges', 'navigationTabs', 'accountsRefreshStatus', 'accountsStatus',
-        'closeUserPanel', 'selectedUserName', 'userAccounts', 'userPreferences', 'animeLibraries', 'animeLibrariesHint', 'animeLibrariesHelp', 'animeLibrariesTip', 'animeLibrariesSummary'];
+        'closeUserPanel', 'selectedUserName', 'userAccounts', 'userPreferences', 'animeLibraries', 'animeLibrariesHint', 'animeLibrariesHelp', 'animeLibrariesTip', 'animeLibrariesSummary', 'animeLibrariesHintTitle', 'animeLibrariesHintBody', 'animeLibrariesHintActions', 'dismissAnimeSeedNote'];
     const nodes = Object.fromEntries(ids.map(id => [id, new DomElement()]));
     nodes.apiUrl.type = 'url';
     nodes.apiUrl.dataset.field = 'callbackUrl';
@@ -90,7 +90,7 @@ async function setupAdmin(t, users = [], localLookup = async () => Response.json
                 : /^AniDoki\/assets\/v\/[^/]+\/history-state\.js$/.test(path)
                     ? historyStateUrl
                     : `https://jellyfin.example.test/${path}`,
-        getPluginConfiguration: async () => ({ callbackUrl: '', ProviderApiAuth: [], UserConfig: [] }),
+        getPluginConfiguration: async () => ({ callbackUrl: '', ProviderApiAuth: [], UserConfig: [], ...structuredClone(configuration) }),
         getUsers: async () => users,
         setRequestHeaders() {},
         serverAddress: () => BrowserAddress
@@ -98,7 +98,8 @@ async function setupAdmin(t, users = [], localLookup = async () => Response.json
     let stream;
     const failedResponse = new Response(new ReadableStream({ start(controller) { stream = controller; } }), { status: 400 });
     t.mock.method(globalThis, 'fetch', async url => {
-        if (url.endsWith('/parameters')) return Response.json({ libraries: [] });
+        if (url.endsWith('/parameters')) return Response.json({ libraries });
+        if (url.endsWith('/animeLibraries/dismissSeedNote')) return new Response(null, { status: 204 });
         if (url.endsWith('/providerSecrets')) return Response.json([]);
         if (url.endsWith('/storage')) return Response.json({ available: true, message: null });
         if (url.endsWith('/users/activity')) return Response.json([]);
@@ -309,4 +310,30 @@ test('closing and reopening the user editor retains drafts and restores focus', 
     edit().emit('click');
     assert.equal(page.nodes.userPreferences.children[1].children[0].checked, false);
     assert.equal(DomElement.focused, page.nodes.selectedUserName);
+});
+
+test('libraries seeded from users’ choices show the note with Dismiss and name who chose each; Dismiss settles it', async t => {
+    const page = await setupAdmin(t, [], undefined, {
+        configuration: { AnimeLibraries: [{ LibraryId: 'lib1', Mode: 'Dedicated' }], AnimeLibrarySeeds: [{ LibraryId: 'lib1', ChosenBy: ['test', 'family'] }] },
+        libraries: [{ Id: 'lib1', Name: 'Anime', Type: 'tvshows' }, { Id: 'lib2', Name: 'Films', Type: 'movies' }]
+    });
+    const kinds = () => page.nodes.animeLibraries.children.map(row => row.children[0].children[1].textContent);
+    assert.equal(page.nodes.animeLibrariesHint.dataset.state, 'notice');
+    assert.equal(page.nodes.animeLibrariesHintTitle.textContent, 'Set from your users’ earlier choices');
+    assert.match(page.nodes.animeLibrariesHintBody.textContent, /^Users no longer pick libraries themselves\./);
+    assert.equal(page.nodes.animeLibrariesHintActions.hidden, false);
+    assert.deepEqual(kinds(), ['Shows · chosen by test and family', 'Movies · not scanned']);
+
+    page.nodes.dismissAnimeSeedNote.emit('click');
+    await waitFor(() => page.nodes.animeLibrariesHint.dataset.state === 'info');
+    assert.equal(page.nodes.animeLibrariesHintActions.hidden, true);
+    assert.deepEqual(kinds(), ['Shows', 'Movies · not scanned']);
+});
+
+test('with no library chosen the notice says every library is scanned', async t => {
+    const page = await setupAdmin(t, [], undefined, { libraries: [{ Id: 'lib1', Name: 'Anime', Type: 'tvshows' }] });
+    assert.equal(page.nodes.animeLibrariesHint.dataset.state, 'notice');
+    assert.equal(page.nodes.animeLibrariesHintTitle.textContent, 'Choose how each library is tracked');
+    assert.match(page.nodes.animeLibrariesHintBody.textContent, /every library is scanned as Dedicated/);
+    assert.equal(page.nodes.animeLibrariesHintActions.hidden, true);
 });

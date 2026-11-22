@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { animeLibraryChoices, animeLibraryMode, createDraft, changedValues, describeAnimeLibraries, mergeChanges, mergePreferences, providerStatus, thresholdChoices, thresholdFallsBack, userPreferences, withAnimeLibraryMode, secretChanges, withoutSecrets } from '../../../jellyfin-anidoki/Configuration/ConfigStateJs.js';
+import { animeLibraryChoices, animeLibraryMode, createDraft, changedValues, describeAnimeLibraries, mergeChanges, mergePreferences, providerStatus, seededLibraryNames, thresholdChoices, thresholdFallsBack, userPreferences, withAnimeLibraryMode, secretChanges, withoutSecrets } from '../../../jellyfin-anidoki/Configuration/ConfigStateJs.js';
 
 const saved = () => ({ callbackUrl: '', updateNsfw: true, ProviderApiAuth: [
     { Name: 'AniList', ClientId: 'one', ClientSecret: 'keep' },
@@ -114,7 +114,7 @@ test('new user preference record uses effective defaults', () => {
     assert.equal(result.value.UserConfig[0].RewatchCompleted, true);
 });
 test('old user preferences default on but explicit false stays false', () => {
-    assert.deepEqual(userPreferences(), { PlanToWatchOnly: true, AddUnlistedAnime: false, RewatchCompleted: true, ShowLogNotifications: true, LibraryToCheck: [], TrackerThresholdPercent: null });
+    assert.deepEqual(userPreferences(), { PlanToWatchOnly: true, AddUnlistedAnime: false, RewatchCompleted: true, ShowLogNotifications: true, TrackerThresholdPercent: null });
     assert.equal(userPreferences({ ShowLogNotifications: false }).ShowLogNotifications, false);
 });
 test('preference save preserves a remotely changed untouched option', () => {
@@ -126,10 +126,21 @@ test('preference save preserves a remotely changed untouched option', () => {
     assert.equal(result.value.RewatchCompleted, false);
     assert.equal(result.value.ConnectedProviders, undefined);
 });
-test('preference save names a remote library conflict', () => {
-    const baseline = userPreferences(); const draft = { ...baseline, LibraryToCheck: ['mine'] };
-    const latest = { ...baseline, LibraryToCheck: ['theirs'] };
-    assert.deepEqual(mergePreferences(latest, baseline, draft).conflicts, ['LibraryToCheck']);
+test('libraries are no longer a user preference: the admin chooses them (2.0.0)', () => {
+    assert.equal('LibraryToCheck' in userPreferences({ LibraryToCheck: ['old'] }), false);
+    assert.equal('LibraryToCheck' in mergePreferences({ LibraryToCheck: ['old'] }, userPreferences(), userPreferences()).value, false);
+});
+
+test('seeded libraries name who chose them until the note is settled', () => {
+    const seeds = [{ LibraryId: 'aaaa-bbbb', ChosenBy: ['test', 'family', 'guest'] }, { LibraryId: 'cccc', ChosenBy: ['test'] }];
+    assert.equal(seededLibraryNames(seeds, 'AAAABBBB'), 'test, family and guest', 'ids compare with or without dashes');
+    assert.equal(seededLibraryNames(seeds, 'cccc'), 'test');
+    assert.equal(seededLibraryNames(seeds, 'dddd'), '');
+    assert.equal(seededLibraryNames(undefined, 'cccc'), '');
+    assert.deepEqual(createDraft({}).AnimeLibrarySeeds, []);
+    const saved = { AnimeLibrarySeeds: seeds, AnimeLibraries: [] };
+    const draft = createDraft(saved); draft.AnimeLibrarySeeds = [];
+    assert.deepEqual(changedValues(createDraft(saved), draft).map(change => change.field), ['AnimeLibrarySeeds'], 'a library change clears them on save');
 });
 test('a draft always has an anime library list, copied from the saved one', () => {
     assert.deepEqual(createDraft({}).AnimeLibraries, []);

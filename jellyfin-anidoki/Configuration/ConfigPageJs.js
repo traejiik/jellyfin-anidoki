@@ -125,6 +125,7 @@ export default function (view) {
             }
         }, { signal });
         bindAnimeLibraryHelp(signal);
+        find('#dismissAnimeSeedNote').addEventListener('click', () => dismissSeedNote(signal), { signal });
         common.bindNavigation(root, signal); common.observeSaveBar(root, signal); common.bindDraftWarning(view, dirty, signal);
         setBusy(busy);
     }
@@ -302,7 +303,9 @@ export default function (view) {
             const mode = state.animeLibraryMode(draft.AnimeLibraries, library.Id);
             const row = common.element('li', 'doki-anime-row'); row.dataset.mode = mode || 'unset';
             const name = common.element('div', 'doki-anime-name');
-            const kind = !chosen ? `${library.kind} · not chosen yet` : mode === 'Off' ? `${library.kind} · not scanned` : library.kind;
+            const chosenBy = state.seededLibraryNames(draft.AnimeLibrarySeeds, library.Id);
+            const kind = !chosen ? `${library.kind} · not chosen yet` : mode === 'Off' ? `${library.kind} · not scanned`
+                : chosenBy ? `${library.kind} · chosen by ${chosenBy}` : library.kind;
             name.append(common.element('strong', '', library.Name), common.element('span', 'doki-anime-kind', kind));
             const group = common.element('fieldset', 'doki-segmented'); group.append(common.element('legend', 'doki-sr-only', `Mode for ${library.Name}`));
             for (const value of state.animeLibraryModes) {
@@ -310,6 +313,8 @@ export default function (view) {
                 input.type = 'radio'; input.name = `anime-library-${library.Id}`; input.value = value; input.checked = mode === value; input.disabled = busy;
                 input.addEventListener('change', () => {
                     draft.AnimeLibraries = state.withAnimeLibraryMode(draft.AnimeLibraries, library.Id, value);
+                    // A choice of the admin's own settles the note about seeded libraries when it is saved.
+                    draft.AnimeLibrarySeeds = [];
                     renderAnimeLibraries(signal, input.name); updateDirty();
                 }, { signal });
                 label.append(input, common.element('span', '', value)); group.append(label);
@@ -318,10 +323,33 @@ export default function (view) {
         }
         if (!libraries.length) container.append(common.element('li', 'doki-anime-row doki-help', 'No library holds shows or movies yet.'));
         find('#animeLibrariesSummary').textContent = state.describeAnimeLibraries(draft.AnimeLibraries, libraries);
-        // The notice is about the saved choice, so it settles into the info line once one is saved, and back on discard.
-        find('#animeLibrariesHint').dataset.state = (baseline.AnimeLibraries ?? []).length ? 'info' : 'notice';
+        renderAnimeLibrariesHint();
         // Choosing the first mode turns every other library Off, so the whole list redraws; keep focus on the group just used.
         if (focus) container.querySelector(`input[name="${focus}"]:checked`)?.focus();
+    }
+    // The hint is about the saved choice: the note about seeded libraries until the admin saves a choice or dismisses it
+    // (D9), the notice that every library is scanned while none is chosen, and otherwise the info line.
+    function renderAnimeLibrariesHint() {
+        const seeded = (baseline.AnimeLibrarySeeds ?? []).length > 0, chosen = (baseline.AnimeLibraries ?? []).length > 0;
+        find('#animeLibrariesHint').dataset.state = seeded || !chosen ? 'notice' : 'info';
+        find('#animeLibrariesHintTitle').textContent = seeded ? 'Set from your users’ earlier choices' : 'Choose how each library is tracked';
+        find('#animeLibrariesHintBody').textContent = seeded
+            ? 'Users no longer pick libraries themselves. Every library a user had chosen is now Dedicated; the rest are Off. Check the list, then save or dismiss this note.'
+            : 'No library is chosen yet, so every library is scanned as Dedicated. Choose a mode for each and save to narrow it.';
+        find('#animeLibrariesHintActions').hidden = !seeded;
+    }
+    async function dismissSeedNote(signal) {
+        try {
+            await guard(async () => {
+                await common.request('AniDoki/animeLibraries/dismissSeedNote', { method: 'POST', signal });
+                if (signal.aborted) return;
+                saved.AnimeLibrarySeeds = []; baseline.AnimeLibrarySeeds = []; draft.AnimeLibrarySeeds = [];
+                renderAnimeLibraries(signal); updateDirty();
+            });
+        } catch (error) {
+            const message = await common.errorMessage(error);
+            if (!signal.aborted) common.status(find('[data-page-status]'), message, 'error');
+        }
     }
     // The mode explanation opens beside its line: click toggles it, Escape or a click elsewhere closes it.
     function bindAnimeLibraryHelp(signal) {

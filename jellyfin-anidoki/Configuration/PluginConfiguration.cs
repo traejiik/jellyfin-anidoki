@@ -18,9 +18,15 @@ public class PluginConfiguration : BasePluginConfiguration {
     public ProviderApiAuth[]? ProviderApiAuth { get; set; }
 
     /// <summary>
-    /// Which libraries hold anime. Empty until an admin chooses; until then each user's LibraryToCheck applies.
+    /// Which libraries hold anime. Empty until an admin chooses; until then every library is scanned as Dedicated.
     /// </summary>
     public AnimeLibrary[] AnimeLibraries { get; set; } = [];
+
+    /// <summary>True once 2.0.0 has seeded <see cref="AnimeLibraries"/> from the users' earlier choices, so it runs once (D9).</summary>
+    public bool AnimeLibrariesSeeded { get; set; }
+
+    /// <summary>Which users chose each seeded library, for the admin's note; emptied when the admin saves a choice or dismisses it.</summary>
+    public AnimeLibrarySeed[] AnimeLibrarySeeds { get; set; } = [];
 
     /// <summary>
     /// Overriden callback URL set if the user is using Jellyfin over the internet. Generally should not be set if the user is on LAN.

@@ -204,6 +204,20 @@ public sealed class SettingsController : ControllerBase {
         throw new Exception("Provider not supported.");
     }
 
+    /// <summary>Settles the note that the anime libraries were set from the users' earlier choices (D9).</summary>
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [HttpPost("animeLibraries/dismissSeedNote")]
+    public IActionResult DismissAnimeLibrarySeedNote() {
+        var plugin = Plugin.Instance;
+        if (plugin?.PluginConfiguration == null)
+            return StatusCode(500, "Plugin configuration not loaded");
+        lock (plugin.PluginConfiguration) {
+            plugin.PluginConfiguration.AnimeLibrarySeeds = [];
+            plugin.SaveConfiguration();
+        }
+        return NoContent();
+    }
+
     [Authorize(Policy = Policies.RequiresElevation)]
     [HttpGet]
     [Route("parameters")]
@@ -261,21 +275,8 @@ public sealed class SettingsController : ControllerBase {
             var userConfig = config.UserConfig
                 .FirstOrDefault(x => x.UserId == jellyfinUser.Id);
 
-            var libraries = dto.LibraryToCheck ?? Array.Empty<string>();
-            HashSet<Guid> libraryIds = [];
-            foreach (var library in libraries) {
-                if (!Guid.TryParse(library, out var libraryId) || libraryId == Guid.Empty)
-                    return BadRequest("Library IDs must be valid, non-empty GUIDs");
-                libraryIds.Add(libraryId);
-            }
-
             if (!TrackerThreshold.IsValid(dto.TrackerThresholdPercent, MaxResumePct))
                 return BadRequest($"Choose a completion percentage from {TrackerThreshold.Minimum}% to {MaxResumePct}%, in steps of {TrackerThreshold.Step}.");
-
-            if (!_libraryManager.UserHasAccessToLibraries(libraryIds, jellyfinUser)) {
-                _logger.LogWarning("User {UserId} asked to sync libraries they cannot open: {Libraries}", jellyfinUser.Id, String.Join(", ", libraries));
-                return Forbid();
-            }
 
             if (userConfig == null) {
                 userConfig = new UserConfig {
@@ -284,7 +285,6 @@ public sealed class SettingsController : ControllerBase {
                     RewatchCompleted = dto.RewatchCompleted,
                     AddUnlistedAnime = dto.AddUnlistedAnime,
                     ShowLogNotifications = dto.ShowLogNotifications,
-                    LibraryToCheck = libraries,
                     TrackerThresholdPercent = dto.TrackerThresholdPercent
                 };
 
@@ -296,7 +296,6 @@ public sealed class SettingsController : ControllerBase {
                 userConfig.RewatchCompleted = dto.RewatchCompleted;
                 userConfig.AddUnlistedAnime = dto.AddUnlistedAnime;
                 userConfig.ShowLogNotifications = dto.ShowLogNotifications;
-                userConfig.LibraryToCheck = libraries;
                 userConfig.TrackerThresholdPercent = dto.TrackerThresholdPercent;
             }
 

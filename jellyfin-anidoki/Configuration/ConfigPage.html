@@ -34,10 +34,11 @@
                                     <p class="doki-help doki-help-full">Pick which libraries hold anime. Users only sync from these, and only from the ones they can open in Jellyfin.</p>
                                     <div class="doki-anime-hint" id="animeLibrariesHint" data-state="info">
                                         <span class="doki-anime-hint-anchor">
-                                            <button class="doki-anime-hint-button" id="animeLibrariesHelp" type="button" aria-expanded="false" aria-controls="animeLibrariesTip"><svg class="doki-anime-hint-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span>Choose how each library is tracked</span></button>
+                                            <button class="doki-anime-hint-button" id="animeLibrariesHelp" type="button" aria-expanded="false" aria-controls="animeLibrariesTip"><svg class="doki-anime-hint-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span id="animeLibrariesHintTitle">Choose how each library is tracked</span></button>
                                             <span class="doki-tooltip" id="animeLibrariesTip" role="tooltip" hidden><ul><li><strong>Dedicated</strong>: every title is matched.</li><li><strong>Mixed</strong>: only titles with an AniList, AniDB, MyAnimeList or Kitsu ID, and movies the anime list knows by their TMDB ID. Never searches by title.</li><li><strong>Off</strong>: never scanned.</li></ul></span>
                                         </span>
-                                        <span class="doki-anime-hint-body">Until you save a choice, each user’s earlier library choice still applies, and users who never picked one sync every library.</span>
+                                        <span class="doki-anime-hint-body" id="animeLibrariesHintBody">No library is chosen yet, so every library is scanned as Dedicated. Choose a mode for each and save to narrow it.</span>
+                                        <div class="doki-anime-hint-actions" id="animeLibrariesHintActions" hidden><button class="doki-button" id="dismissAnimeSeedNote" type="button">Dismiss</button></div>
                                     </div>
                                 </div>
                                 <ul class="doki-anime-list" id="animeLibraries"></ul>
