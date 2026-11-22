@@ -98,6 +98,22 @@ public class AuthApiCallTests {
         Assert.That(await Reported(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)),
             Is.EqualTo(((TrackerFailureKind?)TrackerFailureKind.Unauthorized, true)));
 
+    /// <summary>
+    /// AniList answers a revoked or invalid token with 400 "Invalid token", not 401, so it must read as a lost sign-in
+    /// (attention and Sign in again), not as a rejected request.
+    /// </summary>
+    [Test]
+    public async Task AniListInvalidTokenReportsUnauthorized() =>
+        Assert.That(await Reported(_ => new HttpResponseMessage(HttpStatusCode.BadRequest) {
+            Content = new StringContent("""{"errors":[{"message":"Invalid token","status":400,"locations":[{"line":1,"column":1}]}],"data":null}""")
+        }), Is.EqualTo(((TrackerFailureKind?)TrackerFailureKind.Unauthorized, true)));
+
+    [Test]
+    public async Task AniListOtherBadRequestStaysRejected() =>
+        Assert.That(await Reported(_ => new HttpResponseMessage(HttpStatusCode.BadRequest) {
+            Content = new StringContent("""{"errors":[{"message":"Validation error","status":400}],"data":null}""")
+        }), Is.EqualTo(((TrackerFailureKind?)TrackerFailureKind.Rejected, true)));
+
     [Test]
     public async Task NoResponseReportsTransientAndSaysSo() =>
         Assert.That(await Reported(_ => throw new HttpRequestException("connection reset")),
