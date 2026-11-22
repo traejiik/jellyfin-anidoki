@@ -71,9 +71,10 @@ public sealed class RetryWorker(RetryQueue retries, OperationRunner runner, Trig
             return false;
         }
         Guid operationId = Guid.NewGuid();
-        // Before enqueuing, so the next tick does not start it twice.
+        // Before enqueuing, so the next tick does not start it twice. The row read before the lease still names the
+        // operation this retry follows.
         retries.Lease(row.Id, operationId);
-        var subject = new RetrySubject(row.SourceItem, row.Trigger, row.Attempt, row.Provider);
+        var subject = new RetrySubject(row.SourceItem, row.Trigger, row.Attempt, row.Provider, row.LastOperationId);
         var handle = runner.Enqueue(row.UserId, OperationKind.Retry, OperationSources.Describe(item),
             operation => replay.Run(item, row.UserId, row.Trigger, row.Provider, operation), operationId, retry: subject);
         if (handle == null) {

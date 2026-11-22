@@ -35,7 +35,8 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
         Guid? previewOf = null, RetrySubject? retry = null) {
         Guid id = operationId ?? Guid.NewGuid();
         try {
-            store.Create(id, userId, kind, source, previewOf, kind == OperationKind.Retry ? retry?.Attempt : null);
+            bool isRetry = kind == OperationKind.Retry;
+            store.Create(id, userId, kind, source, previewOf, isRetry ? retry?.Attempt : null, isRetry ? retry?.RetryOf : null);
         } catch (Exception error) when (error is InvalidOperationException or SqliteException) {
             logger.LogWarning("{OperationKind} for user {UserId} was not started because AniDoki storage is unavailable: {ErrorMessage}", kind, userId, error.Message);
             return null;

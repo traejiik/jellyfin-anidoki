@@ -14,10 +14,12 @@ namespace jellyfin_anidoki.Operations;
 public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock) {
     /// <param name="previewOf">The preview an apply writes the selected rows of; null for anything else.</param>
     /// <param name="retryAttempt">Which attempt a <see cref="OperationKind.Retry"/> is; null for anything else.</param>
-    public void Create(Guid id, Guid userId, OperationKind kind, string source, Guid? previewOf = null, int? retryAttempt = null) =>
-        Execute("INSERT INTO operations (id, user_id, kind, state, source, created_utc, preview_of, retry_attempt) VALUES ($id, $user, $kind, $state, $source, $now, $previewOf, $attempt)",
+    /// <param name="retryOf">The operation a <see cref="OperationKind.Retry"/> follows; null for anything else.</param>
+    public void Create(Guid id, Guid userId, OperationKind kind, string source, Guid? previewOf = null, int? retryAttempt = null, Guid? retryOf = null) =>
+        Execute("INSERT INTO operations (id, user_id, kind, state, source, created_utc, preview_of, retry_attempt, retry_of) VALUES ($id, $user, $kind, $state, $source, $now, $previewOf, $attempt, $retryOf)",
             ("$id", Id(id)), ("$user", Id(userId)), ("$kind", kind.ToString()), ("$state", nameof(OperationState.Queued)), ("$source", source), ("$now", Now()),
-            ("$previewOf", previewOf is { } preview ? Id(preview) : DBNull.Value), ("$attempt", (object?)retryAttempt ?? DBNull.Value));
+            ("$previewOf", previewOf is { } preview ? Id(preview) : DBNull.Value), ("$attempt", (object?)retryAttempt ?? DBNull.Value),
+            ("$retryOf", retryOf is { } previous ? Id(previous) : DBNull.Value));
 
     public void MarkRunning(Guid id) =>
         Execute("UPDATE operations SET state = $state, started_utc = $now WHERE id = $id",

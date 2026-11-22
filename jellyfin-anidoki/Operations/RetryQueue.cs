@@ -14,7 +14,8 @@ namespace jellyfin_anidoki.Operations;
 /// carries its attempt and the one tracker it retries.
 /// </summary>
 /// <param name="Trigger">Playback, WatchedToggle or ConfirmedManual: the update rules the retry runs with.</param>
-public sealed record RetrySubject(Guid SourceItem, OperationKind Trigger, int Attempt = 0, ApiName? Provider = null);
+/// <param name="RetryOf">The operation a retry follows (the original update or the previous retry), so history can fold them.</param>
+public sealed record RetrySubject(Guid SourceItem, OperationKind Trigger, int Attempt = 0, ApiName? Provider = null, Guid? RetryOf = null);
 
 /// <summary>A pending retry of one tracker's update for one user and season.</summary>
 /// <param name="Attempt">The attempt this retry will run, 1 to <see cref="RetryQueue.MaxAttempts"/>.</param>
