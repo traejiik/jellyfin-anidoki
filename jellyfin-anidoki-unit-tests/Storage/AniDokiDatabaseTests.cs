@@ -256,6 +256,72 @@ public class AniDokiDatabaseTests {
     }
 
     [Test]
+    public void VersionEightDatabaseKeepsItsRowsAndGainsTheRetryQueue() {
+        string path = Path.Combine(_directory, "anidoki.db");
+        CreateAtVersion(path, 8);
+        using (var connection = Connect(path)) {
+            Execute(connection, """
+                INSERT INTO operations (id, user_id, kind, state, source, created_utc)
+                VALUES ('op', 'user', 'Playback', 'Failed', 'x', '2026-11-22T00:00:00.0000000+00:00')
+                """);
+            Execute(connection, """
+                INSERT INTO operation_actions (operation_id, seq, provider, target_id, target_title, outcome, step, meaningful)
+                VALUES ('op', 1, 'AniList', '500', 'Show', 'Failed', 'transient', 0)
+                """);
+            Execute(connection, "INSERT INTO watch_completions (id, user_id, item_id, cycle_key, trigger, completed_utc) VALUES ('c', 'user', 'item', 's', 'Stop', 'now')");
+        }
+
+        var database = new AniDokiDatabase(path);
+
+        Assert.That(database.IsAvailable, Is.True, database.Failure);
+        Assert.That(SchemaVersion(database), Is.EqualTo(StorageMigrations.Latest));
+        using var open = database.Open();
+        using (var command = open.CreateCommand()) {
+            command.CommandText = "SELECT (SELECT COUNT(*) FROM operations) + (SELECT COUNT(*) FROM operation_actions) + (SELECT COUNT(*) FROM watch_completions)";
+            Assert.That((long)command.ExecuteScalar()!, Is.EqualTo(3));
+        }
+        using (var command = open.CreateCommand()) {
+            command.CommandText = "SELECT retry_attempt FROM operations WHERE id = 'op'";
+            Assert.That(command.ExecuteScalar(), Is.EqualTo(DBNull.Value));
+        }
+        using (var command = open.CreateCommand()) {
+            command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN ('retries_series', 'retries_due', 'operation_actions_meaningful')";
+            Assert.That((long)command.ExecuteScalar()!, Is.EqualTo(3));
+        }
+        using (var command = open.CreateCommand()) {
+            command.CommandText = "SELECT COUNT(*) FROM retries";
+            Assert.That((long)command.ExecuteScalar()!, Is.Zero);
+        }
+    }
+
+    [Test]
+    public void MigrationNineLeavesTheMinimumReaderSoAVersionEightPluginCanStillWrite() {
+        var database = new AniDokiDatabase(Path.Combine(_directory, "anidoki.db"));
+        using var connection = database.Open();
+        using (var command = connection.CreateCommand()) {
+            command.CommandText = "SELECT min_reader FROM schema_compat";
+            Assert.That((long)command.ExecuteScalar()!, Is.EqualTo(4));
+        }
+
+        // The statements 1.7.x and the version-8 plugin run name their columns, so the new column and table do not affect them.
+        Assert.DoesNotThrow(() => Execute(connection, """
+            INSERT INTO operations (id, user_id, kind, state, source, created_utc, preview_of)
+            VALUES ('old', 'user', 'Playback', 'Queued', 'x', 'now', NULL)
+            """));
+    }
+
+    [Test]
+    public void OneTrackerAndSeasonHoldOneRetry() {
+        var database = new AniDokiDatabase(Path.Combine(_directory, "anidoki.db"));
+        using var connection = database.Open();
+        const string row = "INSERT INTO retries (id, user_id, provider, source_item, series_key, trigger, attempt, due_utc, last_operation_id, last_step) VALUES";
+        Execute(connection, $"{row} ('a', 'u', 'AniList', 'i', 's', 'Playback', 1, 'now', 'op', 'transient')");
+        Execute(connection, $"{row} ('b', 'u', 'Kitsu', 'i', 's', 'Playback', 1, 'now', 'op', 'transient')");
+
+        Assert.Throws<SqliteException>(() => Execute(connection, $"{row} ('c', 'u', 'AniList', 'j', 's', 'Playback', 1, 'now', 'op', 'transient')"));
+    }
+
+    [Test]
     public void OneWatchCycleHoldsOneCompletion() {
         var database = new AniDokiDatabase(Path.Combine(_directory, "anidoki.db"));
         using var connection = database.Open();

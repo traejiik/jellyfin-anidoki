@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.Notifications;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -15,7 +16,8 @@ namespace jellyfin_anidoki.Operations;
 /// Records every sync as an operation and runs it in the background, one at a time per user through
 /// <see cref="SyncExecutionGate"/>. Work run here already holds the user's gate, and <c>SyncPipeline.Run</c> never takes it.
 /// </summary>
-public sealed class OperationRunner(OperationStore store, ILogger<OperationRunner> logger) : IHostedService, IDisposable {
+/// <remarks>When an update that may be retried finishes, its outcomes go to <see cref="RetryQueue"/> (D6).</remarks>
+public sealed class OperationRunner(OperationStore store, ILogger<OperationRunner> logger, RetryQueue? retries = null) : IHostedService, IDisposable {
     public static readonly TimeSpan Retention = TimeSpan.FromDays(30);
 
     private readonly ConcurrentDictionary<Guid, (CancellationTokenSource Cancellation, Task Completion)> _active = new();
@@ -27,11 +29,13 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
     /// <summary>Records the operation as queued and starts it after any earlier operation for the same user.</summary>
     /// <returns>Null when it could not be recorded because storage is unavailable; nothing runs then.</returns>
     /// <param name="previewOf">The preview an apply writes the selected rows of.</param>
+    /// <param name="retry">What a playback, watched-mark or confirmed-mark update was for, so a failure that may pass is
+    /// retried. Manual syncs, previews and applies pass none: an admin is watching them.</param>
     public Handle? Enqueue(Guid userId, OperationKind kind, string source, Func<OperationContext, Task> run, Guid? operationId = null,
-        Guid? previewOf = null) {
+        Guid? previewOf = null, RetrySubject? retry = null) {
         Guid id = operationId ?? Guid.NewGuid();
         try {
-            store.Create(id, userId, kind, source, previewOf);
+            store.Create(id, userId, kind, source, previewOf, kind == OperationKind.Retry ? retry?.Attempt : null);
         } catch (Exception error) when (error is InvalidOperationException or SqliteException) {
             logger.LogWarning("{OperationKind} for user {UserId} was not started because AniDoki storage is unavailable: {ErrorMessage}", kind, userId, error.Message);
             return null;
@@ -41,7 +45,7 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
         Task<IDisposable> gate = SyncExecutionGate.Shared.Enter(userId, cancellation.Token);
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _active[id] = (cancellation, completion.Task);
-        _ = Execute(id, userId, kind, run, gate, cancellation, completion);
+        _ = Execute(id, userId, kind, run, retry, gate, cancellation, completion);
         return new Handle(id, completion.Task);
     }
 
@@ -87,7 +91,7 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
         _stopping.Dispose();
     }
 
-    private async Task Execute(Guid id, Guid userId, OperationKind kind, Func<OperationContext, Task> run, Task<IDisposable> gate,
+    private async Task Execute(Guid id, Guid userId, OperationKind kind, Func<OperationContext, Task> run, RetrySubject? retry, Task<IDisposable> gate,
         CancellationTokenSource cancellation, TaskCompletionSource completion) {
         var context = new OperationContext(id, userId, store, logger, cancellation.Token);
         IDisposable? lease = null;
@@ -110,6 +114,8 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
             OperationState state = context.Result ?? OperationStates.FromOutcomes(context.Outcomes);
             store.Finish(id, state, context.Message);
             logger.LogInformation("{OperationKind} {OperationId} finished as {OperationState}", kind, id, state);
+            if (retry != null)
+                ScheduleRetries(id, userId, retry, context.Outcomes);
         } catch (OperationCanceledException) when (cancellation.IsCancellationRequested) {
             bool stopping = _stopping.IsCancellationRequested;
             OperationState state = stopping ? OperationState.Interrupted : OperationState.Cancelled;
@@ -126,6 +132,34 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
             cancellation.Dispose();
             completion.TrySetResult();
             scope?.Dispose();
+        }
+    }
+
+    /// <summary>Hands the outcomes to the retry queue. A storage failure here never fails the update that already ran.</summary>
+    private void ScheduleRetries(Guid id, Guid userId, RetrySubject retry, IReadOnlyCollection<ProviderWriteOutcome> outcomes) {
+        if (retries == null)
+            return;
+        IReadOnlyList<RetryDecision> decisions;
+        try {
+            decisions = retries.AfterOperation(id, userId, retry, outcomes);
+        } catch (Exception error) when (error is InvalidOperationException or SqliteException) {
+            logger.LogWarning("Could not schedule tracker retries: {ErrorMessage}", error.Message);
+            return;
+        }
+        foreach (var decision in decisions) {
+            switch (decision.Kind) {
+                case RetryDecisionKind.Scheduled:
+                    int minutes = (int)Math.Ceiling(((decision.DueUtc ?? DateTimeOffset.UtcNow) - DateTimeOffset.UtcNow).TotalMinutes);
+                    logger.LogInformation("({Provider}) Will retry {Title} in {Minutes} minutes, attempt {Attempt} of {MaxAttempts}",
+                        decision.Provider, decision.Title, Math.Max(minutes, 1), decision.Attempt, RetryQueue.MaxAttempts);
+                    break;
+                case RetryDecisionKind.Dropped:
+                    logger.LogInformation("({Provider}) Gave up updating {Title} after {Count} attempts", decision.Provider, decision.Title, decision.Attempt);
+                    break;
+                default:
+                    logger.LogDebug("({Provider}) Cleared the pending retry for {Title}", decision.Provider, decision.Title);
+                    break;
+            }
         }
     }
 

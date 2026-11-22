@@ -13,10 +13,11 @@ namespace jellyfin_anidoki.Operations;
 /// </summary>
 public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock) {
     /// <param name="previewOf">The preview an apply writes the selected rows of; null for anything else.</param>
-    public void Create(Guid id, Guid userId, OperationKind kind, string source, Guid? previewOf = null) =>
-        Execute("INSERT INTO operations (id, user_id, kind, state, source, created_utc, preview_of) VALUES ($id, $user, $kind, $state, $source, $now, $previewOf)",
+    /// <param name="retryAttempt">Which attempt a <see cref="OperationKind.Retry"/> is; null for anything else.</param>
+    public void Create(Guid id, Guid userId, OperationKind kind, string source, Guid? previewOf = null, int? retryAttempt = null) =>
+        Execute("INSERT INTO operations (id, user_id, kind, state, source, created_utc, preview_of, retry_attempt) VALUES ($id, $user, $kind, $state, $source, $now, $previewOf, $attempt)",
             ("$id", Id(id)), ("$user", Id(userId)), ("$kind", kind.ToString()), ("$state", nameof(OperationState.Queued)), ("$source", source), ("$now", Now()),
-            ("$previewOf", previewOf is { } preview ? Id(preview) : DBNull.Value));
+            ("$previewOf", previewOf is { } preview ? Id(preview) : DBNull.Value), ("$attempt", (object?)retryAttempt ?? DBNull.Value));
 
     public void MarkRunning(Guid id) =>
         Execute("UPDATE operations SET state = $state, started_utc = $now WHERE id = $id",
@@ -144,7 +145,7 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
     private static OperationView? Read(SqliteConnection connection, string id) {
         OperationView? view;
         using (var command = connection.CreateCommand()) {
-            command.CommandText = "SELECT id, user_id, kind, state, source, created_utc, started_utc, finished_utc, message, done, total, preview_of FROM operations WHERE id = $id";
+            command.CommandText = "SELECT id, user_id, kind, state, source, created_utc, started_utc, finished_utc, message, done, total, preview_of, retry_attempt FROM operations WHERE id = $id";
             command.Parameters.AddWithValue("$id", id);
             using var reader = command.ExecuteReader();
             if (!reader.Read())
@@ -162,7 +163,8 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
                 reader.GetInt32(9),
                 reader.IsDBNull(10) ? null : reader.GetInt32(10),
                 new Dictionary<string, int>(),
-                reader.IsDBNull(11) ? null : Guid.Parse(reader.GetString(11)));
+                reader.IsDBNull(11) ? null : Guid.Parse(reader.GetString(11)),
+                reader.IsDBNull(12) ? null : reader.GetInt32(12));
         }
         var counts = new Dictionary<string, int>();
         using (var command = connection.CreateCommand()) {
