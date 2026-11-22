@@ -21,7 +21,9 @@ The AniDōki entry under Dashboard > Plugins opens the administrator settings. I
 
 To let users connect their own tracking accounts, enable user authentication pages in AniDōki and restart Jellyfin to apply the setting.
 
-Administrators choose which libraries hold anime under Sync behaviour. **Dedicated** libraries are matched normally. **Mixed** libraries sync only titles that carry an AniList, AniDB, MyAnimeList or Kitsu ID, and movies whose TMDB ID the [anime list](https://github.com/Anime-Lists/anime-lists) maps to an anime, and never guess by title. **Off** libraries, and libraries added later until they are given a mode, are not synced. Music and photo libraries are not listed. Users sync only from these libraries, and only the ones they can open in Jellyfin. Until an administrator chooses, each user's earlier library choice still applies.
+Administrators choose which libraries hold anime under Sync behaviour. **Dedicated** libraries are matched normally. **Mixed** libraries sync only titles that carry an AniList, AniDB, MyAnimeList or Kitsu ID, and movies whose TMDB ID the [anime list](https://github.com/Anime-Lists/anime-lists) maps to an anime, and never guess by title. **Off** libraries, and libraries added later until they are given a mode, are not synced. Music and photo libraries are not listed. Users sync only from these libraries, and only the ones they can open in Jellyfin. Until an administrator chooses, every library is scanned as Dedicated.
+
+The **History** section lists every user's updates from playback, watched marks and retries over the last 30 days, ten to a page, and can be narrowed to one user. The **Users** table shows each user's last update and a line for any account that needs attention.
 
 Uninstalling AniDōki through Jellyfin removes its Plugin Pages registration. Restart Jellyfin and refresh open clients as required by the plugin lifecycle. Other plugins' pages and AniDōki's saved settings are preserved. Manually deleting the plugin binaries does not run the uninstall callback.
 
@@ -53,6 +55,24 @@ When you stop playing an episode or movie, AniDōki updates your trackers only i
 - Items shorter than Jellyfin's minimum resume duration (5 minutes by default), and items with no known length, follow Jellyfin's own played mark.
 
 Playback at up to 2× speed counts in full. A stop that did not count is written to the log as "Did not count … as watched".
+
+#### Completion percentage
+
+By default your trackers are updated when the player exits, as above. Under **When you watch**, you can instead choose a **completion percentage** from 60% up to the server's resume percentage, in steps of 5: your trackers are then updated during playback, as soon as you have watched that much. Jellyfin's own watched mark does not change, and the same rules about skipping and seeking apply.
+
+Administrators set a **Default completion percentage** under Sync behaviour for users who have not chosen their own; in each user's choices it is marked **(default)**. It starts at Jellyfin's own, on player exit.
+
+#### Which titles are updated
+
+- **Only update anime on Plan to watch** limits changes to titles already on your plan-to-watch list.
+- **Also add anime that isn't on your list**, under it, adds a title you watch that is not on your list at all as Watching. Titles already on another list are still left alone.
+- **Rewatch completed anime** treats completed titles you watch again as rewatches. Simkl and Annict do not support it.
+
+### Retries, history and attention
+
+When a tracker is busy or unreachable, AniDōki tries the update again 2 minutes, 10 minutes, 1 hour and 6 hours later, and stops after the fourth try. A restart in the middle of an update runs it again once Jellyfin is back.
+
+Your **History**, on your personal settings page, lists your updates from the last 30 days with one line per tracker, such as "AniList updated", "AniList failed, retrying" or "No change needed". When a tracker rejects your sign-in, for example because you revoked AniDōki's access, its account row says so and offers **Sign in again**; nothing is sent to that tracker until you do. The same line appears on the administrator's Users table.
 
 ### Playback update notifications
 
@@ -122,39 +142,27 @@ AniDōki is designed for stock Jellyfin 12.4 and works with any theme: its pages
 4. Navigate to Plugins in Jellyfin (Settings > Admin Dashboard > Plugins).
 5. Adjust the settings accordingly. I would advise following the detailed instructions on the wiki page *(work in progress)*.
 
-Downgrading from 1.5.0 to an earlier version pauses syncing until you upgrade again: 1.5.0 adds to AniDōki's database, and earlier versions refuse a database newer than they know. Nothing is deleted.
+### Upgrading to 2.0
+
+- AniDōki 2.0 needs Jellyfin 12.4 or newer. Servers on Jellyfin 12.2 keep being offered AniDōki 1.x.
+- Anime libraries are now chosen by the administrator alone. On its first start, 2.0 fills the administrator's list from the libraries your users had picked, marks those libraries **chosen by** the users who picked them, and shows a note under Sync behaviour. Review the list, then save or dismiss the note.
+- Trackers are now updated only for episodes you actually played (see [What counts as watched](#what-counts-as-watched)), and failed updates are retried.
+
+Downgrading to an earlier version pauses syncing until you upgrade again: newer versions add to AniDōki's database, and earlier versions refuse a database newer than they know. Nothing is deleted.
 
 ## Troubleshooting
 
 ### Where the logs are
 
-Open **Logs** in Jellyfin's admin dashboard, or read the files named `log_yyyyMMdd.log` in Jellyfin's log folder (`/config/log` in the official Docker image; see [Jellyfin's configuration docs](https://jellyfin.org/docs/general/administration/configuration/) for other installs). AniDōki's lines are the ones whose source starts with `jellyfin_anidoki`.
+AniDōki writes its own log, `anidoki_yyyyMMdd.log`, next to Jellyfin's in Jellyfin's log folder (`/config/log` in the official Docker image; see [Jellyfin's configuration docs](https://jellyfin.org/docs/general/administration/configuration/) for other installs). Open **Logs** in Jellyfin's admin dashboard to read or download it. A new file starts each day, or at 20 MB, and the last 7 are kept.
 
-Each sync, preview, playback update and manual confirmation is an operation. By default AniDōki writes one line per result and one when the operation finishes:
+Each sync, preview, playback update and manual confirmation is an operation, and each line written during one starts with it, so one search finds them all:
 
 ```text
-[2026-11-16 01:17:20.241 +00:00] [INF] [9] jellyfin_anidoki.Operations.OperationRunner: PreviewFromTrackers ae39d23a-6331-4704-9539-80c61e122cf1 finished as Succeeded
+[2026-11-22 19:06:05.988 +00:00] [INF] [SyncToTrackers 120558ab-7999-4843-98f8-69144f50996e user d468bb03-9cfc-41f5-a7d4-67e541bcb9ee] jellyfin_anidoki.Operations.OperationRunner: SyncToTrackers 120558ab-7999-4843-98f8-69144f50996e finished as NoChange
 ```
 
-The log file writes text values in quotes and tracker names and states without them.
-
-### Turning on AniDōki's detailed log
-
-To see every step AniDōki takes, create a file named `logging.json` next to `logging.default.json` in Jellyfin's config folder (`/config/config` in the official Docker image) with:
-
-```json
-{
-    "Serilog": {
-        "MinimumLevel": {
-            "Override": {
-                "jellyfin_anidoki": "Debug"
-            }
-        }
-    }
-}
-```
-
-Then restart Jellyfin. Only AniDōki's lines become more detailed; the rest of Jellyfin logs as before. Each operation now starts with a line such as `SyncFromTrackers ea09840b-… started for user d468bb03-…`, and the lines up to its `finished as` line belong to it. The detailed log is long, so delete the file and restart Jellyfin again once you are done.
+By default the file also has AniDōki's **debug** lines: how each title was matched, which tracker calls were made and how long each step took. Turn **Write debug lines to the AniDōki log** off under Settings > Advanced to keep only results, warnings and errors. Jellyfin's own log (`log_yyyyMMdd.log`) keeps its usual level either way and still has AniDōki's result lines.
 
 ### Reporting a problem
 
@@ -162,9 +170,9 @@ When you open an issue, include:
 
 - the AniDōki version (Settings > Admin Dashboard > Plugins; a development build looks like `1.7.0.12`) and the Jellyfin version;
 - the tracker involved, what you did and roughly when;
-- the AniDōki lines from that operation, with the detailed log turned on if you can reproduce it.
+- the lines from that operation in the AniDōki log, with debug lines on.
 
-AniDōki never writes tokens or passwords to the log, but check the excerpt for anything from other plugins before posting it publicly.
+AniDōki never writes tokens or passwords to its log. The log does contain user IDs and anime titles, so check the excerpt before posting it publicly.
 
 ## Build
 
