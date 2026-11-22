@@ -399,7 +399,10 @@ export default function (view) {
         find('#userRows').querySelectorAll('button').forEach(button => button.setAttribute('aria-expanded', String(button.dataset.userId === selectedUser)));
         renderAccountRows(user, signal);
         renderHistory(user, signal);
-        find('#userPreferences').replaceChildren();
+        const maxResumePct = parameters?.maxResumePct ?? 90;
+        find('#userPreferences').replaceChildren(common.thresholdSetting({ value: prefs.TrackerThresholdPercent, maxResumePct, userName: user.Name, signal,
+            choices: state.thresholdChoices(maxResumePct), fallsBack: state.thresholdFallsBack(prefs.TrackerThresholdPercent, maxResumePct),
+            onChange: percent => { prefs.TrackerThresholdPercent = percent; updateDirty(); } }));
         for (const [field, title, help] of [['PlanToWatchOnly', 'Only update anime on Plan to watch', 'Limit changes to titles already on the user’s plan-to-watch list.'], ['RewatchCompleted', 'Rewatch completed anime', 'Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.'], ['ShowLogNotifications', 'Show tracker update toasts', 'Show confirmed updates after playback stops in the originating Jellyfin web session. Requires compatible File Transformation and a web refresh.']]) {
             const label = common.element('label', 'doki-check'); const input = common.element('input', 'doki-switch'); input.type = 'checkbox'; input.setAttribute('role', 'switch'); input.checked = prefs[field];
             input.addEventListener('change', () => { prefs[field] = input.checked; updateDirty(); }, { signal });

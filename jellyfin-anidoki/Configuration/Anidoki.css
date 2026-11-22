@@ -265,6 +265,9 @@
     .anidoki .doki-rail { position: sticky; top: 48px; z-index: 3; background: var(--doki-page); padding-block: 8px; }
     /* A section reached from a pill lands below the header and the pills (about 144px), not under them. */
     .anidoki .doki-stack > .doki-panel { scroll-margin-top: 156px; }
+    /* The completion percentage row wraps, and its select takes the full width. */
+    .anidoki .doki-threshold-row { flex-wrap: wrap; }
+    .anidoki .doki-threshold-row .doki-setting-select { flex: 1 1 100%; width: 100%; min-width: 0; }
 }
 @media (max-width: 35rem) {
     .anidoki .doki-user-panel { padding: 16px; }
@@ -438,6 +441,9 @@
 .anidoki .doki-setting-text strong { font-size: .925rem; }
 .anidoki .doki-setting-text .doki-help { margin: 0; max-width: none; }
 .anidoki .doki-setting-text .doki-status { margin: 0; }
+/* The completion percentage select (5.5): wide enough for "90% (Jellyfin default)". */
+.anidoki .doki-setting-select { flex: none; width: auto; min-width: 13rem; }
+.anidoki .doki-threshold-row { margin-top: 12px; }
 /* Mixed with the text colour so the theme's warning stays readable on light and dark panels. */
 .anidoki .doki-setting-alert { color: color-mix(in srgb, var(--tjk-warning) 70%, var(--doki-text)); font-size: .875rem; font-weight: 600; }
 .anidoki .doki-dialog { width: min(56rem, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 0; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-lg); background: var(--doki-solid-surface); color: var(--doki-text); font: inherit; }

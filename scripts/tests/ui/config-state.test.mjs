@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { animeLibraryChoices, animeLibraryMode, createDraft, changedValues, describeAnimeLibraries, mergeChanges, mergePreferences, providerStatus, userPreferences, withAnimeLibraryMode, secretChanges, withoutSecrets } from '../../../jellyfin-anidoki/Configuration/ConfigStateJs.js';
+import { animeLibraryChoices, animeLibraryMode, createDraft, changedValues, describeAnimeLibraries, mergeChanges, mergePreferences, providerStatus, thresholdChoices, thresholdFallsBack, userPreferences, withAnimeLibraryMode, secretChanges, withoutSecrets } from '../../../jellyfin-anidoki/Configuration/ConfigStateJs.js';
 
 const saved = () => ({ callbackUrl: '', updateNsfw: true, ProviderApiAuth: [
     { Name: 'AniList', ClientId: 'one', ClientSecret: 'keep' },
@@ -114,7 +114,7 @@ test('new user preference record uses effective defaults', () => {
     assert.equal(result.value.UserConfig[0].RewatchCompleted, true);
 });
 test('old user preferences default on but explicit false stays false', () => {
-    assert.deepEqual(userPreferences(), { PlanToWatchOnly: true, RewatchCompleted: true, ShowLogNotifications: true, LibraryToCheck: [] });
+    assert.deepEqual(userPreferences(), { PlanToWatchOnly: true, RewatchCompleted: true, ShowLogNotifications: true, LibraryToCheck: [], TrackerThresholdPercent: null });
     assert.equal(userPreferences({ ShowLogNotifications: false }).ShowLogNotifications, false);
 });
 test('preference save preserves a remotely changed untouched option', () => {
@@ -190,4 +190,26 @@ for (const [name, key, values, text, tone] of [
 
 test('provider status carries the unsaved flag without changing the words or tone', () => {
     assert.deepEqual(providerStatus('Mal', { clientId: 'id', unsaved: true }), { text: 'Missing secret', tone: 'warning', unsaved: true });
+});
+
+test('completion percentages run from 60% to the server’s own in steps of 5', () => {
+    assert.deepEqual(thresholdChoices(90), [60, 65, 70, 75, 80, 85, 90]);
+    assert.deepEqual(thresholdChoices(80), [60, 65, 70, 75, 80]);
+    assert.deepEqual(thresholdChoices(), [60, 65, 70, 75, 80, 85, 90], 'Jellyfin’s default when the server’s value is unknown');
+});
+
+test('a saved percentage above the server’s own falls back to the default; none never does', () => {
+    assert.equal(thresholdFallsBack(85, 80), true);
+    assert.equal(thresholdFallsBack(80, 80), false);
+    assert.equal(thresholdFallsBack(null, 80), false);
+});
+
+test('a changed completion percentage is a preference change that saves and merges like the others', () => {
+    const saved = { UserConfig: [{ UserId: 'u', ...userPreferences() }] };
+    const draft = createDraft(saved);
+    draft.UserConfig[0].TrackerThresholdPercent = 75;
+    assert.deepEqual(changedValues(createDraft(saved), draft).map(change => [change.field, change.value]), [['TrackerThresholdPercent', 75]]);
+    assert.equal(userPreferences({ TrackerThresholdPercent: 70 }).TrackerThresholdPercent, 70);
+    const merged = mergePreferences({ ...userPreferences(), PlanToWatchOnly: false }, userPreferences(), { ...userPreferences(), TrackerThresholdPercent: 60 });
+    assert.deepEqual([merged.value.TrackerThresholdPercent, merged.value.PlanToWatchOnly, merged.conflicts], [60, false, []]);
 });

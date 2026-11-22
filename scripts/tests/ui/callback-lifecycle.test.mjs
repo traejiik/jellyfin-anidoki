@@ -280,7 +280,7 @@ test('closing and reopening the user editor retains drafts and restores focus', 
     // Name, Linked to, Last update, then the edit button.
     const edit = () => page.nodes.userRows.children[0].children[3].children[0];
     edit().emit('click');
-    const preference = page.nodes.userPreferences.children[0].children[0];
+    const preference = page.nodes.userPreferences.children[1].children[0];
     preference.checked = false;
     preference.emit('change');
     page.nodes.closeUserPanel.emit('click');
@@ -291,6 +291,6 @@ test('closing and reopening the user editor retains drafts and restores focus', 
     await waitFor(() => !page.nodes.accountsRefreshStatus.hidden);
     assert.equal(page.nodes.userPanel.hidden, true, 'Refreshing must not reopen a closed editor');
     edit().emit('click');
-    assert.equal(page.nodes.userPreferences.children[0].children[0].checked, false);
+    assert.equal(page.nodes.userPreferences.children[1].children[0].checked, false);
     assert.equal(DomElement.focused, page.nodes.selectedUserName);
 });
