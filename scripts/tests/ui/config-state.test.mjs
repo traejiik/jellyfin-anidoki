@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { animeLibraryChoices, animeLibraryMode, createDraft, changedValues, describeAnimeLibraries, mergeChanges, mergePreferences, providerStatus, seededLibraryNames, thresholdChoices, thresholdFallsBack, userPreferences, withAnimeLibraryMode, secretChanges, withoutSecrets } from '../../../jellyfin-anidoki/Configuration/ConfigStateJs.js';
+import { animeLibraryChoices, animeLibraryMode, createDraft, changedValues, describeAnimeLibraries, mergeChanges, mergePreferences, orderByReadiness, providerStatus, seededLibraryNames, thresholdChoices, thresholdFallsBack, userPreferences, withAnimeLibraryMode, secretChanges, withoutSecrets } from '../../../jellyfin-anidoki/Configuration/ConfigStateJs.js';
 
 const saved = () => ({ callbackUrl: '', updateNsfw: true, ProviderApiAuth: [
     { Name: 'AniList', ClientId: 'one', ClientSecret: 'keep' },
@@ -234,4 +234,15 @@ test('adding unlisted anime is off by default, and saves and merges like the oth
     assert.deepEqual(changedValues(createDraft(saved), draft).map(change => [change.field, change.value]), [['AddUnlistedAnime', true]]);
     const merged = mergePreferences(userPreferences(), userPreferences(), { ...userPreferences(), AddUnlistedAnime: true });
     assert.deepEqual([merged.value.AddUnlistedAnime, merged.conflicts], [true, []]);
+});
+
+test('provider apps are listed configured first, then problems, then no app needed, then not set up; ties keep their order', () => {
+    const tones = { AniList: 'missing', Mal: 'success', Kitsu: 'neutral', Annict: 'neutral', Shikimori: 'warning', Simkl: 'success' };
+    const order = orderByReadiness(Object.keys(tones).map(key => ({ key })), provider => tones[provider.key]).map(provider => provider.key);
+    assert.deepEqual(order, ['Mal', 'Simkl', 'Shikimori', 'Kitsu', 'Annict', 'AniList']);
+});
+
+test('a chosen player exit (0) is not above the server’s percentage', () => {
+    assert.equal(thresholdFallsBack(0, 85), false);
+    assert.equal(thresholdFallsBack(90, 85), true);
 });

@@ -57,6 +57,7 @@ public class ConfigurationRoundTripTests {
         simklUpdateAll = true,
         applySavedMatches = false,
         LogFileDebug = false,
+        DefaultTrackerThresholdPercent = 70,
         updateNsfw = true,
         authenticationLinkExpireTimeMinutes = 15,
         armServerBaseUrl = "https://arm.example",

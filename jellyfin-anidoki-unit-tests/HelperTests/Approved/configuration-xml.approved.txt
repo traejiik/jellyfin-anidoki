@@ -69,6 +69,7 @@
   <simklUpdateAll>true</simklUpdateAll>
   <simklUpdateAllHonoured>false</simklUpdateAllHonoured>
   <applySavedMatches>false</applySavedMatches>
+  <DefaultTrackerThresholdPercent>70</DefaultTrackerThresholdPercent>
   <LogFileDebug>false</LogFileDebug>
   <updateNsfw>true</updateNsfw>
   <authenticationLinkExpireTimeMinutes>15</authenticationLinkExpireTimeMinutes>
@@ -149,6 +150,7 @@
   <simklUpdateAll>true</simklUpdateAll>
   <simklUpdateAllHonoured>false</simklUpdateAllHonoured>
   <applySavedMatches>false</applySavedMatches>
+  <DefaultTrackerThresholdPercent>70</DefaultTrackerThresholdPercent>
   <LogFileDebug>false</LogFileDebug>
   <updateNsfw>true</updateNsfw>
   <authenticationLinkExpireTimeMinutes>15</authenticationLinkExpireTimeMinutes>
@@ -167,6 +169,7 @@
   <simklUpdateAll>true</simklUpdateAll>
   <simklUpdateAllHonoured>false</simklUpdateAllHonoured>
   <applySavedMatches>true</applySavedMatches>
+  <DefaultTrackerThresholdPercent xsi:nil="true" />
   <LogFileDebug>true</LogFileDebug>
   <updateNsfw>false</updateNsfw>
   <authenticationLinkExpireTimeMinutes>0</authenticationLinkExpireTimeMinutes>
@@ -183,6 +186,7 @@
   <simklUpdateAll>true</simklUpdateAll>
   <simklUpdateAllHonoured>false</simklUpdateAllHonoured>
   <applySavedMatches>true</applySavedMatches>
+  <DefaultTrackerThresholdPercent xsi:nil="true" />
   <LogFileDebug>true</LogFileDebug>
   <updateNsfw>false</updateNsfw>
   <authenticationLinkExpireTimeMinutes>0</authenticationLinkExpireTimeMinutes>

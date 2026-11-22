@@ -1,7 +1,7 @@
 // Only editable fields enter a draft. Credentials refreshed by account actions
 // and fields from newer plugin versions stay in the freshly loaded configuration.
 const serverFields = ['callbackUrl', 'callbackRedirectUrl', 'animeListSaveLocation',
-    'watchedTickboxUpdatesProvider', 'shikimoriAppName', 'simklUpdateAll', 'updateNsfw', 'applySavedMatches', 'LogFileDebug',
+    'watchedTickboxUpdatesProvider', 'shikimoriAppName', 'simklUpdateAll', 'updateNsfw', 'applySavedMatches', 'LogFileDebug', 'DefaultTrackerThresholdPercent',
     'authenticationLinkExpireTimeMinutes', 'armServerBaseUrl', 'enableUserPages', 'shikimoriDomain', 'AnimeLibraries', 'AnimeLibrarySeeds'];
 const providerFields = ['ClientId'];
 // Client secrets are write-only: the server never returns them, so a draft holds only a replacement or a clear request.
@@ -31,7 +31,7 @@ export function thresholdChoices(maxResumePct = 90) {
 }
 /** True when a saved choice no longer applies because the server's percentage dropped below it; the default applies then. */
 export function thresholdFallsBack(chosen, maxResumePct = 90) {
-    return chosen != null && !thresholdChoices(maxResumePct).includes(chosen);
+    return chosen != null && chosen !== 0 && !thresholdChoices(maxResumePct).includes(chosen);
 }
 
 export function createDraft(saved = {}) {
@@ -161,6 +161,16 @@ export function providerStatus(key, { clientId = '', hasSecret = false, appName 
         : key === 'Shikimori' && !appName?.trim() ? ['Missing app name', 'warning']
         : ['Configured', 'success'];
     return { text, tone, unsaved };
+}
+
+// Provider apps rows by readiness: configured first, then those with a problem, then the ones that need no app, then the
+// ones not set up. Within a group the usual order stands. The page orders by the saved state, so a row does not move
+// while it is being edited.
+const toneOrder = { success: 0, warning: 1, neutral: 2, missing: 3 };
+export function orderByReadiness(providers, toneOf) {
+    return providers.map((provider, index) => ({ provider, index, rank: toneOrder[toneOf(provider)] ?? 2 }))
+        .sort((a, b) => a.rank - b.rank || a.index - b.index)
+        .map(item => item.provider);
 }
 
 /** The libraries 2.0.0 set from the users' earlier choices, while the admin has not settled the note (D9). */

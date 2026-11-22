@@ -148,12 +148,24 @@ export function safeExternalUrl(address) {
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Use an HTTP or HTTPS address without credentials.');
     return url.href;
 }
-export function authorizationLink(container, url, name) {
-    container.replaceChildren();
-    const link = element('a', 'doki-button', `Continue to ${name}`);
+// The step before leaving for the tracker's sign-in page, laid out like the disconnect confirmation: what happens, then
+// Cancel and Continue. again: a lost sign-in being renewed; userName: the admin linking another user's account.
+export function authorizationLink(container, url, name, { again = false, userName, onCancel } = {}) {
+    container.className = 'doki-account-detail doki-confirm-inline';
+    container.setAttribute('role', 'group'); container.setAttribute('aria-label', `${again ? 'Sign in to' : 'Link'} ${name}`);
+    const text = element('p', 'doki-help doki-confirm-text');
+    text.append(element('strong', '', again ? `Sign in to ${name} again` : `Link ${name}`),
+        userName ? ` Sign in on ${name} with ${userName}’s account and allow AniDōki. You come back here afterwards.`
+            : ` Sign in on ${name} and allow AniDōki. You come back here afterwards.`);
+    const actions = element('div', 'doki-actions');
+    const cancel = element('button', 'doki-button', 'Cancel'); cancel.type = 'button';
+    cancel.addEventListener('click', () => onCancel?.());
+    const link = element('a', 'doki-button doki-button-primary', `Continue to ${name}`);
     // Same tab: the callback page links back here, and the settings page reloads the linked accounts.
     link.href = safeExternalUrl(url); link.rel = 'noreferrer';
-    container.append(link);
+    actions.append(cancel, link);
+    container.replaceChildren(text, actions);
+    link.focus?.();
 }
 export function ensureStyles() {
     if (document.querySelector('link[data-anidoki-styles]')) return;
@@ -196,9 +208,11 @@ export function bindNavigation(root, signal) {
     const links = [...root.querySelectorAll('.doki-section-nav a')];
     const revealPill = link => {
         const nav = link.parentElement;
+        // The pill clears the 40px edge fade, unless it is the first or last.
         const edge = nav.getBoundingClientRect(), item = link.getBoundingClientRect();
-        if (item.left < edge.left) nav.scrollLeft += item.left - edge.left;
-        else if (item.right > edge.right) nav.scrollLeft += item.right - edge.right;
+        const start = link === links[0] ? 0 : 40, end = link === links.at(-1) ? 0 : 40;
+        if (item.left < edge.left + start) nav.scrollLeft += item.left - edge.left - start;
+        else if (item.right > edge.right - end) nav.scrollLeft += item.right - edge.right + end;
     };
     const activate = link => {
         links.forEach(item => item.removeAttribute('aria-current'));
@@ -214,11 +228,33 @@ export function bindNavigation(root, signal) {
         link.addEventListener('focus', () => revealPill(link), { signal });
     });
     if (links.length) activate(links[0]);
+    // The pill row's edge fades and the stuck band (CSS) follow its scroll position and the page's.
+    const nav = links[0]?.parentElement, rail = root.querySelector('.doki-rail');
+    const edges = () => {
+        if (!nav) return;
+        const more = [];
+        if (nav.scrollLeft > 1) more.push('start');
+        if (nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 1) more.push('end');
+        if (more.length) nav.dataset.more = more.join(' '); else delete nav.dataset.more;
+        if (rail && globalThis.getComputedStyle) {
+            const style = getComputedStyle(rail);
+            const stuck = style.position === 'sticky' && rail.getBoundingClientRect().top <= parseFloat(style.top) + 1 && nav.scrollWidth > 0 && style.order === '0';
+            if (stuck) rail.dataset.stuck = ''; else delete rail.dataset.stuck;
+        }
+    };
+    let frame = 0;
+    const nextFrame = globalThis.requestAnimationFrame ?? (callback => queueMicrotask(callback));
+    const later = () => { if (!frame) frame = nextFrame(() => { frame = 0; edges(); }); };
+    nav?.addEventListener('scroll', later, { signal, passive: true });
+    globalThis.addEventListener?.('scroll', later, { signal, passive: true, capture: true });
+    globalThis.addEventListener?.('resize', later, { signal, passive: true });
+    later();
     const observer = new IntersectionObserver(entries => {
         const entry = entries.filter(item => item.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
         if (entry) { const link = links.find(item => item.dataset.section === `#${entry.target.id}`); if (link) activate(link); }
-        // On a phone the header and the sticky pills cover about 144px, where a section reached from a pill lands just below.
-    }, { rootMargin: `-${globalThis.matchMedia?.('(max-width: 600px)').matches ? 160 : 90}px 0px -55% 0px` });
+        // Where the rail is a row of pills (up to 50rem), the header and the sticky pills cover about 144px, where a section
+        // reached from a pill lands just below.
+    }, { rootMargin: `-${globalThis.matchMedia?.('(max-width: 50rem)').matches ? 172 : 90}px 0px -55% 0px` });
     links.forEach(link => { const section = root.querySelector(link.dataset.section); if (section) observer.observe(section); });
     signal.addEventListener('abort', () => observer.disconnect(), { once: true });
 }
@@ -238,15 +274,19 @@ export function bindDraftWarning(view, isDirty, signal) {
     window.addEventListener('beforeunload', warning, { signal });
 }
 
-// The Completion percentage row at the top of When you watch (D3). value: the saved percentage or null; choices: the
-// percentages the server allows; fallsBack: the saved value is above the server's percentage, so the default applies.
-// userName names the user on the admin's panel; without it the wording speaks to the signed-in user.
-export function thresholdSetting({ value, maxResumePct = 90, choices, fallsBack = false, userName, onChange, signal }) {
-    const id = `doki-threshold-${userName ? 'admin' : 'user'}`;
+// The Completion percentage row (D3). value: the saved choice: null follows the admin's default, 0 is player exit, or a
+// percentage; choices: the percentages the server allows; fallsBack: the saved percentage is above the server's, so the
+// default applies. serverDefault: the admin's default (null for player exit), whose option reads "(default)".
+// userName names the user on the admin's panel; without it the wording speaks to the signed-in user. server: the admin's
+// own default row, where null is player exit.
+export function thresholdSetting({ value, maxResumePct = 90, choices, fallsBack = false, userName, serverDefault = null, server = false, onChange, signal }) {
+    const id = server ? 'doki-threshold-server' : `doki-threshold-${userName ? 'admin' : 'user'}`;
     const row = element('div', 'doki-setting-row doki-threshold-row');
     const text = element('div', 'doki-setting-text');
-    const title = element('strong', '', 'Completion percentage'); title.id = `${id}-title`;
-    const help = element('span', 'doki-help', userName
+    const title = element('strong', '', server ? 'Default completion percentage' : 'Completion percentage'); title.id = `${id}-title`;
+    const help = element('span', 'doki-help', server
+        ? 'How much of an episode users watch before their trackers are updated, unless they choose their own. Percentages update them during playback. Jellyfin’s own watched mark doesn’t change.'
+        : userName
         ? `How much of an episode ${userName} watches before their trackers are updated. Percentages update them during playback. Jellyfin’s own watched mark doesn’t change.`
         : 'How much of an episode you watch before your trackers count it as watched. Percentages update them during playback. Jellyfin’s own watched mark doesn’t change.');
     help.id = `${id}-help`;
@@ -257,15 +297,25 @@ export function thresholdSetting({ value, maxResumePct = 90, choices, fallsBack 
             : `You chose ${value}%, which is above this server’s ${maxResumePct}%, so the default applies.`);
         text.append(note);
     }
+    const exitValue = '0';
+    const defaultValue = server ? exitValue : choices.includes(serverDefault) ? String(serverDefault) : exitValue;
+    const label = (percent, optionValue) => server
+        ? (optionValue === exitValue ? `${percent}% (Jellyfin default)` : `${percent}%`)
+        : (optionValue === defaultValue ? `${percent}% (default)` : `${percent}%`);
     const select = element('select', 'doki-input doki-setting-select');
     select.id = id; select.setAttribute('aria-labelledby', title.id); select.setAttribute('aria-describedby', help.id);
     const exit = element('optgroup'); exit.label = 'When the player exits';
-    const standard = element('option', '', `${maxResumePct}% (Jellyfin default)`); standard.value = ''; exit.append(standard);
+    const standard = element('option', '', label(maxResumePct, exitValue)); standard.value = exitValue; exit.append(standard);
     const during = element('optgroup'); during.label = 'During playback';
-    for (const percent of choices) { const option = element('option', '', `${percent}%`); option.value = String(percent); during.append(option); }
+    for (const percent of choices) { const option = element('option', '', label(percent, String(percent))); option.value = String(percent); during.append(option); }
     select.append(exit, during);
-    select.value = value != null && !fallsBack ? String(value) : '';
-    select.addEventListener('change', () => onChange(select.value === '' ? null : Number(select.value)), { signal });
+    select.value = server ? (choices.includes(value) ? String(value) : exitValue)
+        : value == null || fallsBack ? defaultValue : String(value);
+    select.addEventListener('change', () => {
+        // The admin's player exit is null. A user who picks the default's option follows the default from then on.
+        if (server) onChange(select.value === exitValue ? null : Number(select.value));
+        else onChange(select.value === defaultValue ? null : Number(select.value));
+    }, { signal });
     row.append(text, select);
     return row;
 }
@@ -299,7 +349,11 @@ export function renderAccounts(container, { linked, visible, admin = false, user
             try {
                 const result = await action(kind, provider.key, credentials);
                 if (signal.aborted) return false;
-                if (result?.authorizationUrl) { authorizationLink(detail, result.authorizationUrl, provider.name); detail.hidden = false; }
+                if (result?.authorizationUrl) {
+                    status(feedback, '');
+                    authorizationLink(detail, result.authorizationUrl, provider.name, { again: connected, userName: admin ? userName : undefined, onCancel: closeLink });
+                    detail.hidden = false;
+                }
                 else status(feedback, result?.message ?? (kind === 'test' ? 'Connection verified.' : 'Account updated.'), 'success');
                 return true;
             } catch (error) {
@@ -308,6 +362,10 @@ export function renderAccounts(container, { linked, visible, admin = false, user
                 return false;
             }
             finally { if (!signal.aborted) buttons.forEach(button => button.disabled = false); }
+        };
+        const closeLink = () => {
+            detail.hidden = true; detail.replaceChildren(); detail.className = 'doki-account-detail';
+            detail.removeAttribute('role'); detail.removeAttribute('aria-label');
         };
         const button = (label, handler) => {
             const node = element('button', 'doki-button', label); node.type = 'button'; node.addEventListener('click', handler, { signal }); buttons.push(node); return node;
@@ -361,7 +419,7 @@ export function renderAccounts(container, { linked, visible, admin = false, user
                     ` AniDōki stops updating it straight away; ${admin ? `${userName} must sign in again to relink` : 'your list is not changed'}.`);
                 const actions = element('div', 'doki-actions');
                 const keep = button('Keep linked', closeConfirm);
-                const confirm = button(`Disconnect ${provider.name}`, () => run('disconnect')); confirm.classList.add('doki-button-danger');
+                const confirm = button(`Disconnect ${provider.name}`, () => run('disconnect')); confirm.classList.add('doki-button-primary');
                 actions.append(keep, confirm);
                 detail.replaceChildren(text, actions); detail.hidden = false;
                 disconnect.setAttribute('aria-expanded', 'true'); keep.focus();

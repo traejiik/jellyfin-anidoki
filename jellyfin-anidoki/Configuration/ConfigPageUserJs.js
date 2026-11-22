@@ -96,6 +96,7 @@ export default function (view, host = view) {
     function renderThreshold(signal) {
         const maxResumePct = cache.parameters?.maxResumePct ?? 90, value = cache.draft.TrackerThresholdPercent;
         find('#thresholdSetting').replaceChildren(common.thresholdSetting({ value, maxResumePct, choices: state.thresholdChoices(maxResumePct),
+            serverDefault: cache.parameters?.defaultThresholdPercent ?? null,
             fallsBack: state.thresholdFallsBack(value, maxResumePct), signal,
             onChange: percent => { cache.draft.TrackerThresholdPercent = percent; updateDirty(); } }));
         if (cache.busy) find('#thresholdSetting select').disabled = true;

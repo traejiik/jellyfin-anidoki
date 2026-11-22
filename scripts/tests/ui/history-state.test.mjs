@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { importConfiguration } from './load-configuration.mjs';
-const { relativeTime, relativeLabel, lastUpdateCell, lastUpdateLine, attentionText, resultLine, historyRow } = await importConfiguration('HistoryStateJs.js');
+const { relativeTime, relativeLabel, lastUpdateCell, lastUpdateLine, attentionText, resultLine, historyRow, pageRange } = await importConfiguration('HistoryStateJs.js');
 
 const now = Date.parse('2026-11-22T20:00:00Z');
 const ago = ms => new Date(now - ms).toISOString();
@@ -77,4 +77,11 @@ test('a history row names the episode, trigger and time, and says No change need
     assert.deepEqual(movie.lines, [{ text: 'Kitsu updated', tone: 'success' }]);
     assert.equal(historyRow({ trigger: 'ConfirmedManual', whenUtc: ago(0), title: 'x', results: [] }, now).trigger, 'Confirmed mark');
     assert.equal(historyRow({ trigger: 'Retry', whenUtc: ago(0), title: 'x', results: [] }, now).trigger, 'Retry');
+});
+
+test('the pager names the rows shown', () => {
+    assert.equal(pageRange(0, 10, 42), '1–10 of 42');
+    assert.equal(pageRange(10, 3, 13), '11–13 of 13');
+    assert.equal(pageRange(0, 10), '1–10', 'without a total, just the range');
+    assert.equal(pageRange(0, 0), '');
 });

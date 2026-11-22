@@ -13,7 +13,7 @@
             <form id="TemplateConfigForm" hidden>
                 <div class="doki-layout doki-content">
                     <aside class="doki-rail"><p>On this page</p><nav class="doki-section-nav" aria-label="On this page">
-                        <a href="#server" data-section="#doki-server">Server address</a><a href="#providers" data-section="#doki-providers">Provider apps</a><a href="#behaviour" data-section="#doki-behaviour">Sync behaviour</a><a href="#users" data-section="#doki-users">Users</a><a href="#advanced" data-section="#doki-advanced">Advanced</a>
+                        <a href="#server" data-section="#doki-server">Server address</a><a href="#providers" data-section="#doki-providers">Provider apps</a><a href="#behaviour" data-section="#doki-behaviour">Sync behaviour</a><a href="#users" data-section="#doki-users">Users</a><a href="#history" data-section="#doki-history">History</a><a href="#advanced" data-section="#doki-advanced">Advanced</a>
                     </nav></aside>
                     <main class="doki-stack">
                         <section class="doki-panel" id="doki-server"><h2>Server address</h2><p class="doki-help">Where people reach Jellyfin. Include http(s), the port if needed, and any base path. Leave blank to use the detected local address.</p>
@@ -44,6 +44,7 @@
                                 <ul class="doki-anime-list" id="animeLibraries"></ul>
                                 <p class="doki-anime-foot">Music and photo libraries are never scanned. New libraries start as Off.</p>
                             </div>
+                            <div id="defaultThreshold"></div>
                             <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="watchedTickboxUpdatesProvider" id="watchedTickboxUpdatesProvider"><span><strong>Update trackers when marked watched</strong><span class="doki-help doki-help-full">Supported web clients ask before updating individual episodes. Clients without the prompt update automatically. Bulk marks in confirmation-enabled web sessions affect Jellyfin only.</span></span></label>
                             <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="updateNsfw" id="UpdateNsfw"><span><strong>Include NSFW anime</strong><span class="doki-help doki-help-full">Allow the existing sync rules to update adult titles.</span></span></label>
                         </section>
@@ -57,9 +58,14 @@
                                     <header class="doki-user-panel-header"><h3 id="selectedUserName" tabindex="-1"></h3><button class="doki-button" id="closeUserPanel" type="button" aria-label="Close user settings">Close</button></header>
                                     <section class="doki-user-section"><h4>Linked accounts</h4><div id="userAccounts"></div></section>
                                     <section class="doki-user-section"><h4>When you watch</h4><div id="userPreferences"></div></section>
-                                    <section class="doki-user-section" aria-labelledby="userHistoryTitle"><h4 id="userHistoryTitle">History</h4><p class="doki-help doki-help-full" id="userHistoryHelp"></p><div id="userHistory"></div></section>                                </section>
+                                </section>
                             </div>
                             <p class="doki-status doki-panel-feedback" id="accountsStatus" role="status"></p>
+                        </section>
+                        <section class="doki-panel doki-accounts-panel" id="doki-history" aria-labelledby="adminHistoryTitle">
+                            <div class="doki-panel-title"><h2 id="adminHistoryTitle">History</h2><p class="doki-help">Every user’s updates from playback, watched marks and retries in the last 30 days. Manual syncs are not listed.</p></div>
+                            <div class="doki-panel-actions doki-history-filter"><label class="doki-sr-only" for="historyUser">Show history for</label><select class="doki-input" id="historyUser"><option value="">All users</option></select></div>
+                            <div class="doki-panel-body"><div id="adminHistory"></div></div>
                         </section>
                         <section class="doki-panel" id="doki-advanced"><h2>Advanced</h2><p class="doki-help">Optional redirects, matching service, export location, authentication expiry, saved matches, and the AniDōki log.</p>
                             <label class="doki-check"><input class="doki-switch" type="checkbox" role="switch" data-field="applySavedMatches" id="applySavedMatches"><span><strong>Use saved matches</strong><span class="doki-help doki-help-full">Seasons with a saved match or a personal correction sync to it; every other season is matched automatically. Turn this off to match every season automatically. Saved matches are kept either way.</span></span></label>

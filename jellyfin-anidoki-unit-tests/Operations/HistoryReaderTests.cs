@@ -76,6 +76,22 @@ public class HistoryReaderTests {
     // What is listed
 
     [Test]
+    public void TheAdminsHistoryListsEveryUsersUpdatesWithTheirUser() {
+        Guid mine = Ran(OperationKind.Playback, Result(OutcomeKind.Confirmed));
+        _clock.Now += TimeSpan.FromMinutes(10);
+        Guid other = Guid.NewGuid(), theirs = Guid.NewGuid();
+        _store.Create(theirs, other, OperationKind.Playback, "Other Show · episode 2");
+        _store.AddAction(theirs, 1, Result(OutcomeKind.Confirmed));
+        _store.Finish(theirs, OperationStates.FromOutcomes([Result(OutcomeKind.Confirmed)]), null);
+
+        var everyone = _history.Read(null, 0, 10).Entries;
+        Assert.That(everyone.Select(entry => (entry.OperationId, entry.UserId, entry.Title)),
+            Is.EqualTo(new[] { (theirs, other, "Other Show"), (mine, _user, "Fixture Show") }), "newest first, each with its user");
+        Assert.That(_history.Read(_user, 0, 10).Entries.Select(entry => entry.OperationId), Is.EqualTo(new[] { mine }), "one user's stays theirs");
+        Assert.That(_history.Read(null, 0, 1), Has.Property(nameof(HistoryPage.Total)).EqualTo(2).And.Property(nameof(HistoryPage.More)).True, "the total counts every page");
+    }
+
+    [Test]
     public void NothingRecordedIsAnEmptyPage() {
         var page = _history.Read(_user, 0, 10);
 

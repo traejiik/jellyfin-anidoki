@@ -19,4 +19,24 @@ public class TrackerThresholdTests {
         Assert.That(TrackerThreshold.Effective(chosen, maxResumePct), Is.EqualTo(effective));
         Assert.That(TrackerThreshold.IsValid(chosen, maxResumePct), Is.EqualTo(chosen == null || effective != null));
     }
+
+    // User's choice, admin's default, server's percentage → what applies (null: player exit).
+    [TestCase(null, null, 85, null)]
+    [TestCase(null, 70, 85, 70)]
+    [TestCase(0, 70, 85, null)]
+    [TestCase(65, 70, 85, 65)]
+    [TestCase(65, null, 85, 65)]
+    [TestCase(90, 70, 85, 70)]
+    [TestCase(90, null, 85, null)]
+    [TestCase(null, 90, 85, null)]
+    public void AUserFollowsTheAdminsDefaultUnlessTheyChoose(int? user, int? serverDefault, int maxResumePct, int? applies) =>
+        Assert.That(TrackerThreshold.ForUser(user, serverDefault, maxResumePct), Is.EqualTo(applies));
+
+    [TestCase(null, true)]
+    [TestCase(0, true)]
+    [TestCase(70, true)]
+    [TestCase(5, false)]
+    [TestCase(95, false)]
+    public void AUserMayFollowTheDefaultChoosePlayerExitOrAPercentage(int? chosen, bool valid) =>
+        Assert.That(TrackerThreshold.IsValidForUser(chosen, 90), Is.EqualTo(valid));
 }

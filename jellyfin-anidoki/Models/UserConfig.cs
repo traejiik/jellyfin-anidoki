@@ -73,7 +73,8 @@ public class UserEditableConfig {
 
     /// <summary>
     /// The percentage at which playback updates the trackers while the video plays (60 to the server's
-    /// <c>MaxResumePct</c>, in steps of 5); null updates them on player exit at Jellyfin's own percentage, the default.
+    /// <c>MaxResumePct</c>, in steps of 5); 0 updates them on player exit at Jellyfin's own percentage; null follows the
+    /// admin's <see cref="Configuration.PluginConfiguration.DefaultTrackerThresholdPercent"/>.
     /// </summary>
     public int? TrackerThresholdPercent { get; set; }
 }

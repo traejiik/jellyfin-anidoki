@@ -14,6 +14,9 @@ namespace jellyfin_anidoki.Playback;
 /// listener records from its verdict is.
 /// </summary>
 public sealed class WatchTracker(TimeProvider clock, IServerConfigurationManager configuration, IUserDataManager userData) {
+    /// <summary>Jellyfin's own watched percentage, the highest completion percentage a user can choose.</summary>
+    public int MaxResumePct => configuration.Configuration.MaxResumePct;
+
     /// <summary>A watch with no report for this long is dropped.</summary>
     public static readonly TimeSpan IdleLimit = TimeSpan.FromHours(6);
 

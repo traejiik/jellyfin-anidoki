@@ -23,15 +23,18 @@ public sealed record HistoryResult(
 /// <param name="Results">Empty when no tracker needed a change.</param>
 public sealed record HistoryEntry(
     [property: JsonPropertyName("operationId")] Guid OperationId,
+    [property: JsonPropertyName("userId")] Guid UserId,
     [property: JsonPropertyName("trigger")] string Trigger,
     [property: JsonPropertyName("whenUtc")] DateTimeOffset WhenUtc,
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("episode")] int? Episode,
     [property: JsonPropertyName("results")] IReadOnlyList<HistoryResult> Results);
 
+/// <param name="Total">How many entries all the pages hold, up to the cap.</param>
 public sealed record HistoryPage(
     [property: JsonPropertyName("entries")] IReadOnlyList<HistoryEntry> Entries,
-    [property: JsonPropertyName("more")] bool More);
+    [property: JsonPropertyName("more")] bool More,
+    [property: JsonPropertyName("total")] int Total);
 
 public sealed record AttentionView(
     [property: JsonPropertyName("kind")] string Kind,
@@ -56,8 +59,11 @@ public sealed record UserActivity(
 /// <see cref="InvalidOperationException"/> when storage is unavailable.
 /// </summary>
 public sealed class HistoryReader(AniDokiDatabase database, TimeProvider clock) {
-    /// <summary>The most entries a page can reach, newest first.</summary>
+    /// <summary>The most entries one user's pages can reach, newest first.</summary>
     public const int MaxEntries = 50;
+
+    /// <summary>The most entries the admin's all-users pages can reach.</summary>
+    public const int MaxEntriesAllUsers = 100;
 
     private static readonly string[] Listed = [nameof(OperationKind.Playback), nameof(OperationKind.WatchedToggle), nameof(OperationKind.ConfirmedManual), nameof(OperationKind.Retry)];
 
@@ -69,14 +75,16 @@ public sealed class HistoryReader(AniDokiDatabase database, TimeProvider clock) 
 
     private sealed record Action(string Provider, string Outcome, string Step, bool Meaningful);
 
-    private sealed record Operation(string Id, OperationKind Kind, string State, string Source, DateTimeOffset Created, DateTimeOffset? Finished,
+    private sealed record Operation(string Id, Guid UserId, OperationKind Kind, string State, string Source, DateTimeOffset Created, DateTimeOffset? Finished,
         int? Attempt, string? RetryOf, List<Action> Actions) {
         public bool IsFinished => State is not (nameof(OperationState.Queued) or nameof(OperationState.Running));
     }
 
-    public HistoryPage Read(Guid userId, int offset, int limit) {
-        offset = Math.Clamp(offset, 0, MaxEntries);
-        limit = Math.Clamp(limit, 1, MaxEntries);
+    /// <summary>One user's updates, or every user's when <paramref name="userId"/> is null (the admin's History).</summary>
+    public HistoryPage Read(Guid? userId, int offset, int limit) {
+        int max = userId == null ? MaxEntriesAllUsers : MaxEntries;
+        offset = Math.Clamp(offset, 0, max);
+        limit = Math.Clamp(limit, 1, max);
         var (operations, pending) = Load(userId);
         var byId = operations.ToDictionary(operation => operation.Id);
         var chains = new Dictionary<string, List<Operation>>();
@@ -94,10 +102,10 @@ public sealed class HistoryReader(AniDokiDatabase database, TimeProvider clock) 
             .Select(chain => (Root: byId[chain.Key], Retries: chain.Value))
             .Where(chain => chain.Root.IsFinished)
             .OrderByDescending(chain => chain.Root.Created)
-            .Take(MaxEntries)
+            .Take(max)
             .ToList();
         var page = entries.Skip(offset).Take(limit).Select(chain => Entry(chain.Root, chain.Retries, pending)).ToList();
-        return new HistoryPage(page, offset + limit < entries.Count);
+        return new HistoryPage(page, offset + limit < entries.Count, entries.Count);
     }
 
     /// <summary>Each user's last update and attention per tracker; one user's, or everyone's when <paramref name="userId"/> is null.</summary>
@@ -134,29 +142,29 @@ public sealed class HistoryReader(AniDokiDatabase database, TimeProvider clock) 
         }).ToList();
     }
 
-    private (List<Operation> Operations, List<(string Provider, string Operation)> Pending) Load(Guid userId) {
-        string user = userId.ToString("D");
+    private (List<Operation> Operations, List<(string Provider, string Operation)> Pending) Load(Guid? userId) {
+        object user = userId is { } only ? only.ToString("D") : DBNull.Value;
         var operations = new Dictionary<string, Operation>();
         var pending = new List<(string, string)>();
         using var connection = database.Open();
         using (var command = connection.CreateCommand()) {
             command.CommandText = $"""
-                SELECT id, kind, state, source, created_utc, finished_utc, retry_attempt, retry_of FROM operations
-                WHERE user_id = $user AND created_utc >= $since AND kind IN ({string.Join(", ", Listed.Select(kind => $"'{kind}'"))})
+                SELECT id, user_id, kind, state, source, created_utc, finished_utc, retry_attempt, retry_of FROM operations
+                WHERE ($user IS NULL OR user_id = $user) AND created_utc >= $since AND kind IN ({string.Join(", ", Listed.Select(kind => $"'{kind}'"))})
                 """;
             command.Parameters.AddWithValue("$user", user);
             command.Parameters.AddWithValue("$since", (clock.GetUtcNow() - OperationRunner.Retention).ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
             using var reader = command.ExecuteReader();
             while (reader.Read())
-                operations[reader.GetString(0)] = new Operation(reader.GetString(0), Enum.Parse<OperationKind>(reader.GetString(1)), reader.GetString(2),
-                    reader.GetString(3), Parse(reader.GetString(4)), reader.IsDBNull(5) ? null : Parse(reader.GetString(5)),
-                    reader.IsDBNull(6) ? null : reader.GetInt32(6), reader.IsDBNull(7) ? null : reader.GetString(7), []);
+                operations[reader.GetString(0)] = new Operation(reader.GetString(0), Guid.Parse(reader.GetString(1)), Enum.Parse<OperationKind>(reader.GetString(2)),
+                    reader.GetString(3), reader.GetString(4), Parse(reader.GetString(5)), reader.IsDBNull(6) ? null : Parse(reader.GetString(6)),
+                    reader.IsDBNull(7) ? null : reader.GetInt32(7), reader.IsDBNull(8) ? null : reader.GetString(8), []);
         }
         using (var command = connection.CreateCommand()) {
             command.CommandText = """
                 SELECT a.operation_id, a.provider, a.outcome, a.step, a.meaningful
                 FROM operation_actions a JOIN operations o ON o.id = a.operation_id
-                WHERE o.user_id = $user ORDER BY a.operation_id, a.seq
+                WHERE ($user IS NULL OR o.user_id = $user) ORDER BY a.operation_id, a.seq
                 """;
             command.Parameters.AddWithValue("$user", user);
             using var reader = command.ExecuteReader();
@@ -166,7 +174,7 @@ public sealed class HistoryReader(AniDokiDatabase database, TimeProvider clock) 
             }
         }
         using (var command = connection.CreateCommand()) {
-            command.CommandText = "SELECT provider, last_operation_id FROM retries WHERE user_id = $user";
+            command.CommandText = "SELECT provider, last_operation_id FROM retries WHERE $user IS NULL OR user_id = $user";
             command.Parameters.AddWithValue("$user", user);
             using var reader = command.ExecuteReader();
             while (reader.Read())
@@ -193,7 +201,7 @@ public sealed class HistoryReader(AniDokiDatabase database, TimeProvider clock) 
         }
         results.Sort((left, right) => Order(left.Provider).CompareTo(Order(right.Provider)));
         var (title, episode) = Describe(root.Source);
-        return new HistoryEntry(Guid.Parse(root.Id), root.Kind.ToString(), root.Finished ?? root.Created, title, episode, results);
+        return new HistoryEntry(Guid.Parse(root.Id), root.UserId, root.Kind.ToString(), root.Finished ?? root.Created, title, episode, results);
     }
 
     private static HistoryResult? Classify(Action action, Operation source, bool retrying, int? tryNumber) {

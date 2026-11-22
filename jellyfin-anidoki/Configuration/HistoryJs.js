@@ -1,16 +1,17 @@
-// The History table on the user's page and in the admin's per-user panel, with its loading, failed, storage and empty
-// states and Show 10 more. Every state keeps the heading row, so the panel does not jump when rows arrive.
-import { historyMessages, historyRow } from './history-state.js';
+// The History table on the user's page and the admin's History section, with its loading, failed, storage and empty
+// states and pages of 10. Every state keeps the heading row, so the panel does not jump when rows arrive.
+import { historyMessages, historyRow, pageRange } from './history-state.js';
 
-const columns = ['Episode', 'Trigger', 'When', 'Result'];
 export const pageSize = 10;
 
 /**
  * Renders into container. load(offset, limit) resolves to { entries, more } or rejects with the failed Response.
- * own: the signed-in user's history (wording "your"); first: how many rows to show before Show 10 more.
+ * own: the signed-in user's history (wording "your"). userName(id): adds a User column, for the admin's all-users table.
  */
-export default function renderHistory(container, { load, own = true, first = pageSize }, common, signal) {
+export default function renderHistory(container, { load, own = true, userName }, common, signal) {
+    const columns = userName ? ['Episode', 'User', 'Trigger', 'When', 'Result'] : ['Episode', 'Trigger', 'When', 'Result'];
     const table = common.element('table', 'doki-update-table');
+    if (userName) table.classList.add('doki-update-table-users');
     const head = common.element('thead'), headRow = common.element('tr');
     for (const name of columns) { const cell = common.element('th', `doki-update-${name.toLowerCase()}`, name); cell.scope = 'col'; headRow.append(cell); }
     head.append(headRow);
@@ -18,12 +19,19 @@ export default function renderHistory(container, { load, own = true, first = pag
     table.append(head, body);
     const shell = common.element('div', 'doki-table-shell'); shell.append(table);
     const spoken = common.element('p', 'doki-sr-only'); spoken.setAttribute('role', 'status');
-    const more = common.element('button', 'doki-button doki-update-more', `Show ${pageSize} more`); more.type = 'button'; more.hidden = true;
-    const feedback = common.element('p', 'doki-status'); feedback.setAttribute('role', 'status');
-    const actions = common.element('div', 'doki-actions'); actions.append(more);
+    const pager = common.element('nav', 'doki-pager'); pager.setAttribute('aria-label', 'History pages'); pager.hidden = true;
+    const step = (label, icon) => {
+        const button = common.element('button', 'doki-button doki-icon-button'); button.type = 'button';
+        button.setAttribute('aria-label', label); button.title = label; button.append(common.icon(icon));
+        return button;
+    };
+    const previous = step('Previous page', 'chevron-left'), next = step('Next page', 'chevron-right');
+    const range = common.element('span', 'doki-pager-range');
+    const steps = common.element('div', 'doki-pager-steps'); steps.append(previous, next);
+    pager.append(range, steps);
     container.classList.add('doki-history');
-    container.replaceChildren(shell, actions, feedback, spoken);
-    let shown = 0;
+    container.replaceChildren(shell, pager, spoken);
+    let offset = 0;
 
     const message = (text, tone, retry) => {
         const row = common.element('tr'), cell = common.element('td', 'doki-update-message'); cell.colSpan = columns.length;
@@ -34,9 +42,9 @@ export default function renderHistory(container, { load, own = true, first = pag
         if (retry) { const again = common.element('button', 'doki-button', 'Try again'); again.type = 'button'; again.addEventListener('click', retry, { signal }); cell.append(again); }
         row.append(cell); body.replaceChildren(row);
     };
-    const skeleton = () => {
+    const skeleton = rows => {
         table.setAttribute('aria-busy', 'true');
-        body.replaceChildren(...Array.from({ length: 3 }, () => {
+        body.replaceChildren(...Array.from({ length: rows }, () => {
             const row = common.element('tr', 'doki-update-loading'); row.setAttribute('aria-hidden', 'true');
             for (const _ of columns) { const cell = common.element('td'); cell.append(common.element('span', 'doki-update-skeleton')); row.append(cell); }
             return row;
@@ -47,7 +55,8 @@ export default function renderHistory(container, { load, own = true, first = pag
         const item = historyRow(entry);
         const row = common.element('tr');
         const episode = common.element('td', 'doki-update-episode');
-        episode.append(common.element('span', 'doki-update-meta', `${item.when} · ${item.trigger}`));
+        const who = userName ? userName(entry.userId) : '';
+        episode.append(common.element('span', 'doki-update-meta', [item.when, who, item.trigger].filter(Boolean).join(' · ')));
         const name = common.element('span', 'doki-update-name');
         const title = common.element('strong', 'doki-update-title', item.title); title.title = item.title;
         name.append(title);
@@ -55,7 +64,9 @@ export default function renderHistory(container, { load, own = true, first = pag
         episode.append(name);
         const result = common.element('td', 'doki-update-result');
         for (const line of item.lines) { const node = common.element('span', 'doki-update-line', line.text); node.dataset.tone = line.tone; result.append(node); }
-        row.append(episode, common.element('td', 'doki-update-trigger', item.trigger), common.element('td', 'doki-update-when', item.when), result);
+        row.append(episode);
+        if (userName) row.append(common.element('td', 'doki-update-user', who));
+        row.append(common.element('td', 'doki-update-trigger', item.trigger), common.element('td', 'doki-update-when', item.when), result);
         return row;
     };
     const failure = async error => {
@@ -65,40 +76,33 @@ export default function renderHistory(container, { load, own = true, first = pag
         }
         return 'failed';
     };
-    async function fill() {
-        skeleton(); more.hidden = true; common.status(feedback, '');
+    async function show(start = 0) {
+        const moving = start !== offset;
+        skeleton(moving ? Math.max(body.children.length, 3) : 3);
+        previous.disabled = next.disabled = true;
         try {
-            const page = await load(0, first);
+            const page = await load(start, pageSize);
             if (signal.aborted) return;
-            shown = page.entries.length;
-            if (!shown) message(historyMessages.empty, 'muted');
+            offset = start;
+            if (!page.entries.length) message(own ? historyMessages.empty : historyMessages.emptyOther, 'muted');
             else body.replaceChildren(...page.entries.map(rowFor));
-            more.hidden = !page.more;
-            spoken.textContent = '';
+            pager.hidden = offset === 0 && !page.more;
+            previous.disabled = offset === 0; next.disabled = !page.more;
+            range.textContent = pageRange(offset, page.entries.length, page.total);
+            spoken.textContent = moving ? range.textContent : '';
+            if (moving) shell.scrollIntoView?.({ block: 'nearest' });
         } catch (error) {
             if (signal.aborted) return;
             spoken.textContent = '';
+            pager.hidden = true;
             if (await failure(error) === 'storage') message(own ? historyMessages.storage : historyMessages.adminStorage, 'attention');
-            else message(own ? historyMessages.failed.own : historyMessages.failed.other, 'error', fill);
+            else message(own ? historyMessages.failed.own : historyMessages.failed.other, 'error', () => show(start));
         } finally {
             if (!signal.aborted) table.removeAttribute('aria-busy');
         }
     }
-    more.addEventListener('click', async () => {
-        more.disabled = true; common.status(feedback, 'Loading…');
-        try {
-            const page = await load(shown, pageSize);
-            if (signal.aborted) return;
-            body.append(...page.entries.map(rowFor)); shown += page.entries.length;
-            more.hidden = !page.more; common.status(feedback, '');
-        } catch (error) {
-            if (!signal.aborted) common.status(feedback, await failure(error) === 'storage'
-                ? (own ? historyMessages.storage : historyMessages.adminStorage)
-                : 'Could not load more. Check your connection to Jellyfin, then try again.', 'error');
-        } finally {
-            if (!signal.aborted) more.disabled = false;
-        }
-    }, { signal });
-    fill();
-    return { reload: fill };
+    previous.addEventListener('click', () => show(Math.max(0, offset - pageSize)), { signal });
+    next.addEventListener('click', () => show(offset + pageSize), { signal });
+    show(0);
+    return { reload: () => show(0) };
 }
