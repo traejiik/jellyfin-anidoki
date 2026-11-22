@@ -55,7 +55,7 @@ export default function (view, host = view) {
         if (signal.aborted) return;
         find('#TemplateConfigForm').hidden = false; common.status(find('[data-page-status]'), ''); render(signal);
         loadActivity(signal);
-        for (const field of ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications']) find(`#${field}`).addEventListener('change', event => { cache.draft[field] = event.target.checked; updateDirty(); }, { signal });
+        for (const field of ['PlanToWatchOnly', 'AddUnlistedAnime', 'RewatchCompleted', 'ShowLogNotifications']) find(`#${field}`).addEventListener('change', event => { cache.draft[field] = event.target.checked; nestUnlisted(); updateDirty(); }, { signal });
         find('#TemplateConfigForm').addEventListener('submit', event => { event.preventDefault(); save(signal); }, { signal });
         find('#discardChanges').addEventListener('click', () => { cache.draft = state.userPreferences(cache.baseline); cache.discordDiscard?.(); render(signal); }, { signal });
         find('#refreshAccounts').addEventListener('click', async () => {
@@ -84,11 +84,14 @@ export default function (view, host = view) {
             .catch(async error => { if (!signal.aborted) common.status(find('#matchesStatus'), await common.errorMessage(error), 'error'); });
     }
     function render(signal) {
-        for (const field of ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications']) find(`#${field}`).checked = cache.draft[field];
+        for (const field of ['PlanToWatchOnly', 'AddUnlistedAnime', 'RewatchCompleted', 'ShowLogNotifications']) find(`#${field}`).checked = cache.draft[field];
         renderThreshold(signal);
+        nestUnlisted();
         renderAccounts(signal);
         updateDirty();
     }
+    // Adding unlisted anime only applies with Plan to watch only on, so it is hidden otherwise; its value is kept.
+    function nestUnlisted() { find('#addUnlistedRow').hidden = !cache.draft.PlanToWatchOnly; }
     // Re-rendered with the page, so Discard and a save show the stored choice again.
     function renderThreshold(signal) {
         const maxResumePct = cache.parameters?.maxResumePct ?? 90, value = cache.draft.TrackerThresholdPercent;

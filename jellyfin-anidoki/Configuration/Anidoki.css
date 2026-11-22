@@ -182,6 +182,9 @@
 .anidoki .doki-check input { accent-color: var(--doki-accent); width: 20px; height: 20px; margin: 3px 0; flex: 0 0 20px; }
 .anidoki .doki-check strong { display: block; font-size: .925rem; }
 .anidoki .doki-check .doki-help { display: block; margin-top: 3px; }
+/* A switch that belongs to the one above it (5.8): indented by the switch and its gap, so its text lines up with the parent's. */
+.anidoki .doki-check.doki-check-nested { margin-inline-start: 54px; }
+.anidoki .doki-check[hidden] { display: none; }
 /* A switch has 10px of its own padding, so a field after it keeps the 20px fields keep between them. */
 .anidoki .doki-check + .doki-field { margin-top: 10px; }
 .anidoki .doki-check input.doki-switch { appearance: none; position: relative; width: 42px; height: 24px; flex: 0 0 42px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-pill); background: color-mix(in srgb, var(--doki-text) 22%, transparent); cursor: pointer; }

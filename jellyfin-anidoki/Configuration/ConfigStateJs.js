@@ -6,13 +6,15 @@ const serverFields = ['callbackUrl', 'callbackRedirectUrl', 'animeListSaveLocati
 const providerFields = ['ClientId'];
 // Client secrets are write-only: the server never returns them, so a draft holds only a replacement or a clear request.
 const secretDefaults = { ClientSecret: '', ClearClientSecret: false };
-const preferenceFields = ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications', 'LibraryToCheck', 'TrackerThresholdPercent'];
+const preferenceFields = ['PlanToWatchOnly', 'AddUnlistedAnime', 'RewatchCompleted', 'ShowLogNotifications', 'LibraryToCheck', 'TrackerThresholdPercent'];
 const clone = value => value === undefined ? undefined : structuredClone(value);
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export function userPreferences(saved = {}) {
     return {
         PlanToWatchOnly: saved.PlanToWatchOnly ?? true,
+        // Only matters while PlanToWatchOnly is on; its value is kept while that is off.
+        AddUnlistedAnime: saved.AddUnlistedAnime ?? false,
         RewatchCompleted: saved.RewatchCompleted ?? true,
         ShowLogNotifications: saved.ShowLogNotifications ?? true,
         LibraryToCheck: [...(saved.LibraryToCheck ?? [])],
