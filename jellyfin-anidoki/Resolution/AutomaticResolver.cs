@@ -97,6 +97,14 @@ public sealed class AutomaticResolver(ILogger logger) : ISourceResolver {
             return new Unresolved("no-title-match", new UnresolvedRecord("", source.SearchTitle ?? ""), None);
         }
 
+        // An entry named by its own title beats one matched only by a synonym (AniList lists a commercial that has
+        // "Your Name." as a synonym before the film); within each group the search order stands.
+        if (!matching.Any(ByMalId)) {
+            var named = matching.Where(candidate => TitleMatching.MatchesByName(candidate.Titles, source.CandidateTitles)).ToList();
+            if (named.Count > 0)
+                matching = named;
+        }
+
         SourceResolution answer = await FromCandidate(matching[0], ByMalId(matching[0]), source, ids, tracker, chain, kind, cancellationToken);
         // D12: several equal candidates are recorded for review, never acted on. The first is still the one taken, and
         // an unresolved answer keeps its reason, since the executor records Note ?? Reason.
