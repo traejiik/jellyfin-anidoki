@@ -42,7 +42,7 @@ The build is versioned from the latest release tag (for example `1.1.1.27`), so 
 - Prefer file-scoped namespaces in new files.
 - Use PascalCase for types and methods, camelCase for locals, and `_camelCase` for private fields.
 - Keep one statement per line in new code.
-- Nullable reference types are on in the plugin and the tests, and nullable warnings fail the build. No file opts out with `#nullable disable`. Fix a nullable error with an annotation or a real null check, not with `#pragma` or a `!` that hides a value that can be null.
+- Nullable reference types are on in the plugin and the tests, and every compiler and analyzer warning fails the build, nullable ones included. No file opts out with `#nullable disable`. Fix a nullable error with an annotation or a real null check, not with `#pragma` or a `!` that hides a value that can be null.
 - Logging:
   - Use message templates (`_logger.LogInformation("({Provider}) {Title}: {Kind}", provider, title, kind)`), never string interpolation.
   - Write a full sentence with a subject and no closing punctuation or `...`.
