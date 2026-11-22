@@ -240,3 +240,28 @@ test('a token that could not be saved is not tested', async t => {
     assert.deepEqual(calls, ['link']);
     assert.equal(row.byClass('doki-status').textContent, 'Could not save');
 });
+
+test('the completion percentage select offers Jellyfin’s default on exit and percentages during playback', t => {
+    setup(t);
+    const changes = [];
+    const row = common.thresholdSetting({ value: 75, maxResumePct: 90, choices: [60, 65, 70, 75, 80, 85, 90], onChange: value => changes.push(value), signal: new AbortController().signal });
+    const select = row.find(node => node.tag === 'select');
+    const [exit, during] = select.children;
+    assert.equal(exit.label, 'When the player exits');
+    assert.deepEqual(exit.children.map(option => [option.value, option.textContent]), [['', '90% (Jellyfin default)']]);
+    assert.equal(during.label, 'During playback');
+    assert.deepEqual(during.children.map(option => option.textContent), ['60%', '65%', '70%', '75%', '80%', '85%', '90%']);
+    assert.equal(select.value, '75');
+    assert.match(row.textContent, /Jellyfin’s own watched mark doesn’t change/);
+    select.value = ''; select.dispatchEvent(new Event('change'));
+    select.value = '60'; select.dispatchEvent(new Event('change'));
+    assert.deepEqual(changes, [null, 60]);
+});
+
+test('a choice above the server’s percentage shows the default and says why; the admin’s wording names the user', t => {
+    setup(t);
+    const row = common.thresholdSetting({ value: 85, maxResumePct: 80, choices: [60, 65, 70, 75, 80], fallsBack: true, userName: 'test', onChange() {}, signal: new AbortController().signal });
+    assert.equal(row.find(node => node.tag === 'select').value, '');
+    assert.match(row.textContent, /How much of an episode test watches before their trackers are updated/);
+    assert.match(row.textContent, /test chose 85%, which is above this server’s 80%, so the default applies\./);
+});

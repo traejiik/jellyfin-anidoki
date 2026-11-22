@@ -9,4 +9,6 @@ public class Parameters {
     public bool https { get; set; }
     public List<ExpandoObject>? providerList { get; set; }
     public List<ExpandoObject>? libraries { get; set; }
+    /// <summary>The server's played percentage (Jellyfin's <c>MaxResumePct</c>), which caps a user's completion percentage.</summary>
+    public int maxResumePct { get; set; }
 }

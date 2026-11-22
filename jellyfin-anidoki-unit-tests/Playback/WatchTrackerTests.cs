@@ -49,6 +49,46 @@ public class WatchTrackerTests {
     }
 
     [Test]
+    public void ACompletionPercentageIsReportedOnceWhenTheWatchPassesIt() {
+        _tracker.Observe(_user, _episode, "s", 0, false, false, 60);
+        var crossings = new System.Collections.Generic.List<long>();
+        for (long position = 10; position <= 1400; position += 10) {
+            _clock.Now = _clock.Now.AddSeconds(10);
+            if (_tracker.Observe(_user, _episode, "s", position * Second, false, true, 60))
+                crossings.Add(position);
+        }
+
+        Assert.That(crossings, Is.EqualTo(new[] { 870L }), "60% of 1440 s is 864 s, first passed by the report at 870 s");
+    }
+
+    [Test]
+    public void NoPercentageOrNoRuntimeNeverCrosses() {
+        var noRuntime = new Episode { Id = Guid.NewGuid(), Name = "Episode 6" };
+        bool crossed = false;
+        _tracker.Observe(_user, _episode, "none", 0, false, false);
+        _tracker.Observe(_user, noRuntime, "runtime", 0, false, false, 60);
+        for (long position = 10; position <= 1400; position += 10) {
+            _clock.Now = _clock.Now.AddSeconds(10);
+            crossed |= _tracker.Observe(_user, _episode, "none", position * Second, false, true);
+            crossed |= _tracker.Observe(_user, noRuntime, "runtime", position * Second, false, true, 60);
+        }
+
+        Assert.That(crossed, Is.False);
+    }
+
+    [Test]
+    public void APercentageAboveTheServersOwnIsIgnored() {
+        _tracker.Observe(_user, _episode, "s", 0, false, false, 95);
+        bool crossed = false;
+        for (long position = 10; position <= 1440; position += 10) {
+            _clock.Now = _clock.Now.AddSeconds(10);
+            crossed |= _tracker.Observe(_user, _episode, "s", position * Second, false, true, 95);
+        }
+
+        Assert.That(crossed, Is.False);
+    }
+
+    [Test]
     public void AWatchedSessionCountsAndASkippedOneDoesNot() {
         Play(_user, "watched", 0, 1400);
         Play(_user, "skipped", 0, 100);

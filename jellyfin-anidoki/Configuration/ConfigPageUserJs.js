@@ -85,8 +85,17 @@ export default function (view, host = view) {
     }
     function render(signal) {
         for (const field of ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications']) find(`#${field}`).checked = cache.draft[field];
+        renderThreshold(signal);
         renderAccounts(signal);
         updateDirty();
+    }
+    // Re-rendered with the page, so Discard and a save show the stored choice again.
+    function renderThreshold(signal) {
+        const maxResumePct = cache.parameters?.maxResumePct ?? 90, value = cache.draft.TrackerThresholdPercent;
+        find('#thresholdSetting').replaceChildren(common.thresholdSetting({ value, maxResumePct, choices: state.thresholdChoices(maxResumePct),
+            fallsBack: state.thresholdFallsBack(value, maxResumePct), signal,
+            onChange: percent => { cache.draft.TrackerThresholdPercent = percent; updateDirty(); } }));
+        if (cache.busy) find('#thresholdSetting select').disabled = true;
     }
     function renderAccounts(signal) {
         const available = (cache.parameters.providerList ?? []).map(provider => provider.Key);

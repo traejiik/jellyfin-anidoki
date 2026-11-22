@@ -6,7 +6,7 @@ const serverFields = ['callbackUrl', 'callbackRedirectUrl', 'animeListSaveLocati
 const providerFields = ['ClientId'];
 // Client secrets are write-only: the server never returns them, so a draft holds only a replacement or a clear request.
 const secretDefaults = { ClientSecret: '', ClearClientSecret: false };
-const preferenceFields = ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications', 'LibraryToCheck'];
+const preferenceFields = ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications', 'LibraryToCheck', 'TrackerThresholdPercent'];
 const clone = value => value === undefined ? undefined : structuredClone(value);
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -15,8 +15,22 @@ export function userPreferences(saved = {}) {
         PlanToWatchOnly: saved.PlanToWatchOnly ?? true,
         RewatchCompleted: saved.RewatchCompleted ?? true,
         ShowLogNotifications: saved.ShowLogNotifications ?? true,
-        LibraryToCheck: [...(saved.LibraryToCheck ?? [])]
+        LibraryToCheck: [...(saved.LibraryToCheck ?? [])],
+        // Null updates trackers on player exit at Jellyfin's own percentage, the default.
+        TrackerThresholdPercent: saved.TrackerThresholdPercent ?? null
     };
+}
+
+// D3: a completion percentage runs from 60% up to the server's own (MaxResumePct), in steps of 5.
+export const thresholdMinimum = 60;
+export function thresholdChoices(maxResumePct = 90) {
+    const choices = [];
+    for (let percent = thresholdMinimum; percent <= maxResumePct; percent += 5) choices.push(percent);
+    return choices;
+}
+/** True when a saved choice no longer applies because the server's percentage dropped below it; the default applies then. */
+export function thresholdFallsBack(chosen, maxResumePct = 90) {
+    return chosen != null && !thresholdChoices(maxResumePct).includes(chosen);
 }
 
 export function createDraft(saved = {}) {

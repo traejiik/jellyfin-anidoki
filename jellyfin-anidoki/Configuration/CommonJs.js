@@ -238,6 +238,38 @@ export function bindDraftWarning(view, isDirty, signal) {
     window.addEventListener('beforeunload', warning, { signal });
 }
 
+// The Completion percentage row at the top of When you watch (D3). value: the saved percentage or null; choices: the
+// percentages the server allows; fallsBack: the saved value is above the server's percentage, so the default applies.
+// userName names the user on the admin's panel; without it the wording speaks to the signed-in user.
+export function thresholdSetting({ value, maxResumePct = 90, choices, fallsBack = false, userName, onChange, signal }) {
+    const id = `doki-threshold-${userName ? 'admin' : 'user'}`;
+    const row = element('div', 'doki-setting-row doki-threshold-row');
+    const text = element('div', 'doki-setting-text');
+    const title = element('strong', '', 'Completion percentage'); title.id = `${id}-title`;
+    const help = element('span', 'doki-help', userName
+        ? `How much of an episode ${userName} watches before their trackers are updated. Percentages update them during playback. Jellyfin’s own watched mark doesn’t change.`
+        : 'How much of an episode you watch before your trackers count it as watched. Percentages update them during playback. Jellyfin’s own watched mark doesn’t change.');
+    help.id = `${id}-help`;
+    text.append(title, help);
+    if (fallsBack) {
+        const note = element('span', 'doki-help', userName
+            ? `${userName} chose ${value}%, which is above this server’s ${maxResumePct}%, so the default applies.`
+            : `You chose ${value}%, which is above this server’s ${maxResumePct}%, so the default applies.`);
+        text.append(note);
+    }
+    const select = element('select', 'doki-input doki-setting-select');
+    select.id = id; select.setAttribute('aria-labelledby', title.id); select.setAttribute('aria-describedby', help.id);
+    const exit = element('optgroup'); exit.label = 'When the player exits';
+    const standard = element('option', '', `${maxResumePct}% (Jellyfin default)`); standard.value = ''; exit.append(standard);
+    const during = element('optgroup'); during.label = 'During playback';
+    for (const percent of choices) { const option = element('option', '', `${percent}%`); option.value = String(percent); during.append(option); }
+    select.append(exit, during);
+    select.value = value != null && !fallsBack ? String(value) : '';
+    select.addEventListener('change', () => onChange(select.value === '' ? null : Number(select.value)), { signal });
+    row.append(text, select);
+    return row;
+}
+
 // summaries: provider key → { lastUpdate, attention, signInAgain, replaceToken }. A linked row shows lastUpdate as its second line
 // and attention in its status line until a Test result replaces it. signInAgain (the user's own page, a rejected sign-in) puts
 // Sign in again in Test's place; replaceToken (the admin's panel, a rejected Annict token) puts Replace token there.

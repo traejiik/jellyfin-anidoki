@@ -29,20 +29,29 @@ public sealed class WatchTracker(TimeProvider clock, IServerConfigurationManager
     public int Count => _watches.Count;
 
     /// <summary>Adds a start or progress report. Reports with no position, and reports after the stop, are ignored.</summary>
-    public void Observe(User user, BaseItem item, string cycle, long? positionTicks, bool isPaused, bool isProgress) {
+    /// <param name="thresholdPercent">The user's chosen completion percentage (D3), or null for none; a choice the
+    /// server's <c>MaxResumePct</c> no longer allows is ignored.</param>
+    /// <returns>True the one time a progress report takes the watch past the user's percentage.</returns>
+    public bool Observe(User user, BaseItem item, string cycle, long? positionTicks, bool isPaused, bool isProgress, int? thresholdPercent = null) {
         DateTimeOffset now = clock.GetUtcNow();
         Sweep(now);
         if (positionTicks is not long position)
-            return;
+            return false;
         var report = new WatchReport(position, isPaused, now);
         var entry = _watches.GetOrAdd((user.Id, item.Id, cycle), _ => new Entry { LastSeen = now });
         lock (entry) {
             if (entry.Verdict != null)
-                return;
+                return false;
             entry.LastSeen = now;
-            entry.State = entry.State == null
-                ? WatchEvaluator.Begin(report, SavedPosition(user, item), isProgress)
-                : isProgress ? WatchEvaluator.Report(entry.State, report, item.RunTimeTicks).State : entry.State;
+            if (entry.State == null) {
+                entry.State = WatchEvaluator.Begin(report, SavedPosition(user, item), isProgress);
+                return false;
+            }
+            if (!isProgress)
+                return false;
+            int? percent = TrackerThreshold.Effective(thresholdPercent, configuration.Configuration.MaxResumePct);
+            (entry.State, bool crossed) = WatchEvaluator.Report(entry.State, report, item.RunTimeTicks, percent);
+            return crossed;
         }
     }
 

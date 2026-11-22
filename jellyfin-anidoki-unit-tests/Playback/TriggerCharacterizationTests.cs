@@ -466,6 +466,104 @@ public class TriggerCharacterizationTests {
         Assert.That(_store.ReadForUser(user.Id), Has.Count.EqualTo(2));
     }
 
+    // ---- Completion percentage (D3) ----
+
+    private void Threshold(User user, int? percent) =>
+        _harness.Configuration.UserConfig!.Single(config => config.UserId == user.Id).TrackerThresholdPercent = percent;
+
+    [Test]
+    public async Task PassingTheCompletionPercentageUpdatesTrackersWhilePlayingAndTheStopAddsNothing() {
+        var user = NewUser();
+        Configure(user.Id);
+        Threshold(user, 60);
+        _loggerFactory = _logs;
+        var episode = TimedEpisode();
+        await StartPlayback();
+
+        Play("early", episode, 0, 880, user);
+        var during = await Finished(user.Id, 1);
+        Assert.That(during.Single().Kind, Is.EqualTo(OperationKind.Playback), "the update ran before the stop");
+
+        Play("early", episode, 890, 1380, user);
+        StopAt("early", episode, 1380, user);
+        await _runner.Drain();
+
+        Assert.That(_store.ReadForUser(user.Id), Has.Count.EqualTo(1));
+        Assert.That(_logs.At(LogLevel.Debug), Has.Some.Contains("Dropped a duplicate stop for Episode 5"));
+    }
+
+    [Test]
+    public async Task ThePercentageNeverMarksTheItemPlayedInJellyfin() {
+        var user = NewUser();
+        Configure(user.Id);
+        Threshold(user, 60);
+        var episode = TimedEpisode();
+        await StartPlayback();
+
+        Play("early", episode, 0, 880, user);
+        await Finished(user.Id, 1);
+
+        // Reading the saved position is the only call AniDōki makes; it never saves user data, so Played is untouched.
+        _userData.Verify(manager => manager.GetUserData(It.IsAny<User>(), It.IsAny<BaseItem>()), Times.AtLeastOnce);
+        _userData.VerifyNoOtherCalls();
+    }
+
+    [Test]
+    public async Task TwoUsersOnOneSessionFollowTheirOwnPercentage() {
+        var early = NewUser("early");
+        var late = NewUser("late");
+        Configure(early.Id, late.Id);
+        Threshold(early, 60);
+        var episode = TimedEpisode();
+        await StartPlayback();
+
+        Report("shared", episode, 0, true, early, late);
+        for (long position = 10; position <= 880; position += 10) {
+            _clock.Now = _clock.Now.AddSeconds(10);
+            Report("shared", episode, position, false, early, late);
+        }
+        await Finished(early.Id, 1);
+        Assert.That(_store.ReadForUser(late.Id), Is.Empty, "the other user has no percentage, so waits for the stop");
+
+        for (long position = 890; position <= 1400; position += 10) {
+            _clock.Now = _clock.Now.AddSeconds(10);
+            Report("shared", episode, position, false, early, late);
+        }
+        _sessions.Raise(s => s.PlaybackStopped += null, new PlaybackStopEventArgs {
+            Users = [early, late],
+            Item = episode,
+            PlayedToCompletion = true,
+            PlaySessionId = "shared",
+            PlaybackPositionTicks = 1400 * Second
+        });
+
+        Assert.That(await Finished(late.Id, 1), Has.Length.EqualTo(1));
+        await _runner.Drain();
+        Assert.That(_store.ReadForUser(early.Id), Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task StoppingBeforeJellyfinsOwnPercentageKeepsTheEarlierUpdate() {
+        var user = NewUser();
+        Configure(user.Id);
+        Threshold(user, 60);
+        var episode = TimedEpisode();
+        await StartPlayback();
+
+        Play("early", episode, 0, 1000, user);
+        await Finished(user.Id, 1);
+        _sessions.Raise(s => s.PlaybackStopped += null, new PlaybackStopEventArgs {
+            Users = [user],
+            Item = episode,
+            PlayedToCompletion = false,
+            PlaySessionId = "early",
+            PlaybackPositionTicks = 1000 * Second
+        });
+        await _runner.Drain();
+
+        Assert.That(_store.ReadForUser(user.Id), Has.Count.EqualTo(1));
+    }
+
     // ---- Completion ledger (D5) ----
 
     [Test]

@@ -10,6 +10,7 @@
         <string>library-a</string>
         <string>library-b</string>
       </LibraryToCheck>
+      <TrackerThresholdPercent xsi:nil="true" />
       <UserId>11111111-1111-1111-1111-111111111111</UserId>
       <DiscordNotificationsEnabled>true</DiscordNotificationsEnabled>
       <DiscordNotificationRevision>3</DiscordNotificationRevision>
@@ -36,6 +37,7 @@
       <RewatchCompleted>true</RewatchCompleted>
       <ShowLogNotifications>true</ShowLogNotifications>
       <LibraryToCheck />
+      <TrackerThresholdPercent xsi:nil="true" />
       <UserId>33333333-3333-3333-3333-333333333333</UserId>
       <DiscordNotificationsEnabled>false</DiscordNotificationsEnabled>
       <DiscordNotificationRevision>0</DiscordNotificationRevision>
@@ -83,6 +85,7 @@
         <string>library-a</string>
         <string>library-b</string>
       </LibraryToCheck>
+      <TrackerThresholdPercent xsi:nil="true" />
       <UserId>11111111-1111-1111-1111-111111111111</UserId>
       <DiscordNotificationsEnabled>true</DiscordNotificationsEnabled>
       <DiscordNotificationRevision>3</DiscordNotificationRevision>
@@ -109,6 +112,7 @@
       <RewatchCompleted>true</RewatchCompleted>
       <ShowLogNotifications>true</ShowLogNotifications>
       <LibraryToCheck />
+      <TrackerThresholdPercent xsi:nil="true" />
       <UserId>33333333-3333-3333-3333-333333333333</UserId>
       <DiscordNotificationsEnabled>false</DiscordNotificationsEnabled>
       <DiscordNotificationRevision>0</DiscordNotificationRevision>

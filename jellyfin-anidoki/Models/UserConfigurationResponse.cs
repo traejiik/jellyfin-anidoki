@@ -10,6 +10,7 @@ public sealed class UserConfigurationResponse {
         PlanToWatchOnly = config?.PlanToWatchOnly ?? true;
         RewatchCompleted = config?.RewatchCompleted ?? true;
         ShowLogNotifications = config?.ShowLogNotifications ?? true;
+        TrackerThresholdPercent = config?.TrackerThresholdPercent;
         ConnectedProviders = config?.UserApiAuth?
             .Where(auth => !string.IsNullOrWhiteSpace(auth.AccessToken))
             .Select(auth => auth.Name).Distinct().ToArray() ?? Array.Empty<ApiName>();
@@ -19,5 +20,6 @@ public sealed class UserConfigurationResponse {
     public bool PlanToWatchOnly { get; }
     public bool RewatchCompleted { get; }
     public bool ShowLogNotifications { get; }
+    public int? TrackerThresholdPercent { get; }
     public ApiName[] ConnectedProviders { get; }
 }

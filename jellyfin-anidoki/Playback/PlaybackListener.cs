@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,6 +29,8 @@ namespace jellyfin_anidoki.Playback;
 /// Listens to Jellyfin's playback events. Start and progress reports feed each user's watch (<see cref="WatchTracker"/>).
 /// A stop that Jellyfin reports as played to completion, and whose watch reached Jellyfin's resume percentage
 /// (<see cref="WatchEvaluator"/>), starts one Playback operation per user, once per play session (see <see cref="CompletionLedger"/>).
+/// A user with a completion percentage (D3) gets that operation during playback instead, when the watch passes it;
+/// the stop that follows is then a duplicate.
 /// </summary>
 public sealed class PlaybackListener(
     ISessionManager sessionManager,
@@ -87,11 +90,38 @@ public sealed class PlaybackListener(
         try {
             if (e.Item is not BaseItem item || WatchCycle(e) is not string cycle)
                 return;
-            foreach (User user in e.Users)
-                watches.Observe(user, item, cycle, e.PlaybackPositionTicks, e.IsPaused, isProgress);
+            // The ledger keys the stop by its play session, so without one an earlier update could not be told from the stop.
+            bool hasSession = !string.IsNullOrEmpty(e.PlaySessionId);
+            foreach (User user in e.Users) {
+                if (watches.Observe(user, item, cycle, e.PlaybackPositionTicks, e.IsPaused, isProgress, hasSession ? ChosenThreshold(user.Id) : null))
+                    Crossed(e, item, user.Id, cycle);
+            }
         } catch (Exception exception) {
             _logger.LogDebug(exception, "Could not measure the playback report for {ItemName}", e.Item?.Name);
         }
+    }
+
+    private static int? ChosenThreshold(Guid userId) =>
+        Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(config => config.UserId == userId)?.TrackerThresholdPercent;
+
+    /// <summary>The watch passed the user's completion percentage: the trackers are updated now, while it plays.</summary>
+    private void Crossed(PlaybackProgressEventArgs e, BaseItem item, Guid userId, string cycle) {
+        if (SyncHelper.MediaShouldBeIgnored(item)) {
+            _logger.LogDebug("Ignoring {ItemName}; it carries the ignore tag", item.Name);
+            return;
+        }
+        _logger.LogDebug("Counted {ItemName} as watched during playback, at the user's completion percentage", item.Name);
+        Start(item, userId, cycle, CompletionTrigger.Threshold, PlaybackNotificationContext.Capture(item, e.Session), Stopwatch.GetTimestamp());
+    }
+
+    private void Start(BaseItem item, Guid userId, string cycle, CompletionTrigger trigger, PlaybackNotificationContext context, long counted) {
+        Guid operationId = Guid.NewGuid();
+        if (!Admit(userId, item, cycle, trigger, operationId))
+            return;
+        var handle = runner.Enqueue(userId, OperationKind.Playback, OperationSources.Describe(item),
+            operation => RunPlayback(item, userId, context, counted, operation), operationId, retry: new RetrySubject(item.Id, OperationKind.Playback));
+        if (handle == null)
+            _logger.LogWarning("Playback update for {ItemName} was not started because AniDoki storage is unavailable", item.Name);
     }
 
     private void PlaybackStopped(object? sender, PlaybackStopEventArgs e) {
@@ -115,16 +145,8 @@ public sealed class PlaybackListener(
             // Without a play session no two reports can be told apart, so each counts on its own.
             string cycle = string.IsNullOrEmpty(e.PlaySessionId) ? Guid.NewGuid().ToString("N") : e.PlaySessionId;
             foreach (var (user, verdict) in verdicts) {
-                if (!Counts(item, verdict))
-                    continue;
-                Guid userId = user.Id;
-                Guid operationId = Guid.NewGuid();
-                if (!Admit(userId, item, cycle, operationId))
-                    continue;
-                var handle = runner.Enqueue(userId, OperationKind.Playback, OperationSources.Describe(item),
-                    operation => RunPlayback(item, userId, context, stopped, operation), operationId, retry: new RetrySubject(item.Id, OperationKind.Playback));
-                if (handle == null)
-                    _logger.LogWarning("Playback update for {ItemName} was not started because AniDoki storage is unavailable", item.Name);
+                if (Counts(item, verdict))
+                    Start(item, user.Id, cycle, CompletionTrigger.Stop, context, stopped);
             }
         } catch (Exception exception) {
             _logger.LogError(exception, "Could not start the playback update");
@@ -157,12 +179,18 @@ public sealed class PlaybackListener(
     private static string? WatchCycle(PlaybackProgressEventArgs e) =>
         !string.IsNullOrEmpty(e.PlaySessionId) ? e.PlaySessionId : e.Session?.Id is { Length: > 0 } session ? session : null;
 
-    /// <summary>Asks the ledger; false drops a duplicate stop. Storage errors let the stop through, and enqueuing then reports them.</summary>
-    private bool Admit(Guid userId, BaseItem item, string cycle, Guid operationId) {
+    /// <summary>
+    /// Asks the ledger; false drops a duplicate, such as the stop after the completion percentage was passed. Storage
+    /// errors let it through, and enqueuing then reports them.
+    /// </summary>
+    private bool Admit(Guid userId, BaseItem item, string cycle, CompletionTrigger trigger, Guid operationId) {
         try {
-            if (ledger.TryRecord(userId, item.Id, cycle, CompletionTrigger.Stop, operationId))
+            if (ledger.TryRecord(userId, item.Id, cycle, trigger, operationId))
                 return true;
-            _logger.LogDebug("Dropped a duplicate stop for {ItemName}, because this watch is already recorded", item.Name);
+            if (trigger == CompletionTrigger.Stop)
+                _logger.LogDebug("Dropped a duplicate stop for {ItemName}, because this watch is already recorded", item.Name);
+            else
+                _logger.LogDebug("Dropped the update at the completion percentage for {ItemName}, because this watch is already recorded", item.Name);
             return false;
         } catch (Exception error) when (error is InvalidOperationException or SqliteException) {
             _logger.LogDebug("Could not check the completion ledger for {ItemName}: {ErrorMessage}", item.Name, error.Message);
@@ -170,9 +198,10 @@ public sealed class PlaybackListener(
         }
     }
 
-    private async Task RunPlayback(BaseItem item, Guid userId, PlaybackNotificationContext context, long stopped, OperationContext operation) {
+    /// <param name="counted">When the watch counted: the stop, or the report that passed the completion percentage.</param>
+    private async Task RunPlayback(BaseItem item, Guid userId, PlaybackNotificationContext context, long counted, OperationContext operation) {
         if (_logger.IsEnabled(LogLevel.Debug))
-            _logger.LogDebug("Started the playback update for {ItemName} {ElapsedMs} ms after playback stopped", item.Name, LogText.ElapsedMs(stopped));
+            _logger.LogDebug("Started the playback update for {ItemName} {ElapsedMs} ms after the watch counted", item.Name, LogText.ElapsedMs(counted));
         var collector = new PlaybackOutcomeCollector(operation.Record);
         var pipeline = new SyncPipeline(libraryManager, loggerFactory, httpContextAccessor, serverApplicationHost, httpClientFactory, arm, animeList, memoryCache, _delayer) {
             WatchState = watchState
@@ -185,7 +214,7 @@ public sealed class PlaybackListener(
             discord?.Enqueue(SyncOperationSummary.Capture(item, userId, operation.OperationId, SyncNotificationTrigger.Playback, collector));
             PlaybackNotificationPublisher.Publish(collector, context, userId, notifications, _logger);
             if (_logger.IsEnabled(LogLevel.Debug))
-                _logger.LogDebug("Finished the playback update for {ItemName} {ElapsedMs} ms after playback stopped; a toast is published only for a confirmed change", item.Name, LogText.ElapsedMs(stopped));
+                _logger.LogDebug("Finished the playback update for {ItemName} {ElapsedMs} ms after the watch counted; a toast is published only for a confirmed change", item.Name, LogText.ElapsedMs(counted));
         }
     }
 
