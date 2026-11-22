@@ -62,8 +62,9 @@ public class ManualMarkTrackingTests {
         Assert.That(ManualMarkRequestFilter.IsTracked(_user, new Episode(), _library.Object, new AnimeListIndex(() => null), NullLogger.Instance), Is.True);
     }
     [Test]
-    public void ItemOutsideSelectedLibrariesIsNotTracked() {
-        Configure(new UserConfig { UserId = _user, LibraryToCheck = [_libraryId.ToString()] });
+    public void ItemOutsideTheAnimeLibrariesIsNotTracked() {
+        Configure(new UserConfig { UserId = _user });
+        Plugin.Instance!.Configuration.AnimeLibraries = [new AnimeLibrary { LibraryId = _libraryId, Mode = AnimeLibraryMode.Dedicated }];
         Assert.That(ManualMarkRequestFilter.IsTracked(_user, new Episode(), _library.Object, new AnimeListIndex(() => null), NullLogger.Instance), Is.False);
     }
 }

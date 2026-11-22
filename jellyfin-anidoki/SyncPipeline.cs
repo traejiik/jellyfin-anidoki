@@ -126,7 +126,7 @@ public class SyncPipeline {
             return;
         }
 
-        LibraryScope scope = LibraryFilter.Scope(userConfig, _libraryManager, _animeListIndex, _logger, e);
+        LibraryScope scope = LibraryFilter.Scope(_libraryManager, _animeListIndex, _logger, e);
         if (scope != LibraryScope.Excluded && video is Episode or Movie && playedToCompletion) {
             var syncSource = SyncSource.From(video);
             if (syncSource == null) {

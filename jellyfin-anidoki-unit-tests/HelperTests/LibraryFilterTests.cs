@@ -153,23 +153,17 @@ public class LibraryFilterTests {
     }
 
     [Test]
-    public void WithNoAdminListEachUsersOwnChoiceStillApplies() {
-        var library = Library().Object;
-        var all = new UserConfig { LibraryToCheck = [] };
-        var some = new UserConfig { LibraryToCheck = [AnimeFolder.ToString("N")] };
+    public void WithNoAdminListEveryLibraryIsScanned() {
+        // Strict: an empty list decides without looking up a library (D9; what a user who never picked libraries had).
+        var library = new Mock<ILibraryManager>(MockBehavior.Strict).Object;
 
-        Assert.That(LibraryFilter.Scope(null, all, library, AnimeList(), NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Included));
-        Assert.That(LibraryFilter.Scope([], all, library, AnimeList(), NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Included));
-        // An item outside the user's picked libraries, as ManualMarkTrackingTests checks through the old entry point.
-        Assert.That(LibraryFilter.Scope([], some, library, AnimeList(), NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Excluded));
+        Assert.That(LibraryFilter.Scope(null, library, AnimeList(), NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Included));
+        Assert.That(LibraryFilter.Scope([], library, AnimeList(), NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Included));
     }
 
     [Test]
-    public void OnceTheAdminChoosesAUsersAllLibrariesNoLongerApplies() {
-        var all = new UserConfig { LibraryToCheck = [] };
-
-        Assert.That(LibraryFilter.Scope(Admin, all, Library().Object, AnimeList(), NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Excluded));
-    }
+    public void OnceTheAdminChoosesItsListDecides() =>
+        Assert.That(LibraryFilter.Scope(Admin, Library().Object, AnimeList(), NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Excluded));
 
     [Test]
     public void TheMatchListAsksTheSameQuestionAsSync() {

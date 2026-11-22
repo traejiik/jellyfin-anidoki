@@ -95,7 +95,7 @@ public partial class UserConfigurationTests {
             Assert.That(created.PlanToWatchOnly, Is.True);
             Assert.That(created.RewatchCompleted, Is.True);
             Assert.That(created.ShowLogNotifications, Is.True);
-            Assert.That(created.LibraryToCheck, Is.Empty);
+            Assert.That(created.LibraryToCheck, Is.Null, "a new user has no pre-2.0 library choice to seed from");
             Assert.That(_plugin.Configuration.UserConfig.Single(config => config.UserId == _target.Id), Is.SameAs(_targetConfig));
         });
     }

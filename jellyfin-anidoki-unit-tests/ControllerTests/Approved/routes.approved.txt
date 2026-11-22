@@ -1,3 +1,4 @@
+POST AniDoki/animeLibraries/dismissSeedNote | auth=policy:RequiresElevation | action=DismissAnimeLibrarySeedNote | params= | api=yes | order=- | precedence=1.11
 POST AniDoki/annictToken | auth=policy:RequiresElevation | action=SetAnnictToken | params=user[Query]:Guid, request[Body]:AnnictTokenRequest | api=yes | order=- | precedence=1.1
 GET AniDoki/apiUrlTest | auth=anonymous | action=ApiUrlTest | params= | api=yes | order=- | precedence=1.1
 GET AniDoki/assets/v/{version}/{asset} | auth=anonymous | action=GetAsset | params=asset[Path]:String | api=yes | order=- | precedence=1.1133

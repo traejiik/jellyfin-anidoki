@@ -295,7 +295,7 @@ public sealed class AuthController : ControllerBase {
             var existing = configuration.UserConfig.FirstOrDefault(config => config.UserId == userId);
             if (existing != null)
                 return existing;
-            var created = new UserConfig { UserId = userId, LibraryToCheck = Array.Empty<string>() };
+            var created = new UserConfig { UserId = userId };
             configuration.UserConfig = configuration.UserConfig.Append(created).ToArray();
             plugin.SaveConfiguration();
             return created;

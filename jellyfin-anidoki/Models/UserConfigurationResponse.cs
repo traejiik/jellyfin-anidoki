@@ -6,7 +6,6 @@ namespace jellyfin_anidoki.Models;
 
 public sealed class UserConfigurationResponse {
     public UserConfigurationResponse(UserConfig? config) {
-        LibraryToCheck = config?.LibraryToCheck ?? Array.Empty<string>();
         PlanToWatchOnly = config?.PlanToWatchOnly ?? true;
         RewatchCompleted = config?.RewatchCompleted ?? true;
         AddUnlistedAnime = config?.AddUnlistedAnime ?? false;
@@ -17,7 +16,6 @@ public sealed class UserConfigurationResponse {
             .Select(auth => auth.Name).Distinct().ToArray() ?? Array.Empty<ApiName>();
     }
 
-    public string[] LibraryToCheck { get; }
     public bool PlanToWatchOnly { get; }
     public bool RewatchCompleted { get; }
     public bool AddUnlistedAnime { get; }

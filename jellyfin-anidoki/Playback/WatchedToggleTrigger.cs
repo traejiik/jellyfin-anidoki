@@ -82,7 +82,7 @@ public sealed class WatchedToggleTrigger(
         ToggleMark first = batch[0];
         Guid userId = first.UserId;
         var userConfig = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(config => config.UserId == userId);
-        if (userConfig == null || !LibraryFilter.Includes(userConfig, libraryManager, animeList.Index, _logger, first.Item))
+        if (userConfig == null || !LibraryFilter.Includes(libraryManager, animeList.Index, _logger, first.Item))
             return;
         List<ToggleMark> kept = batch.Where(mark => !SyncHelper.MediaShouldBeIgnored(mark.Item)).ToList();
         if (kept.Count == 0) {

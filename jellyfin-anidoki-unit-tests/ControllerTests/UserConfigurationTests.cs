@@ -142,7 +142,7 @@ public partial class UserConfigurationTests {
         var auth = _requesterConfig.UserApiAuth;
         var keyPairs = _requesterConfig.KeyPairs;
         var result = (OkObjectResult)(update
-            ? _settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig { LibraryToCheck = [] })
+            ? _settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig())
             : _settings.GetConfigurationUser(_requester.Id));
         string json = JsonSerializer.Serialize(result.Value);
         Assert.Multiple(() => {
@@ -171,7 +171,7 @@ public partial class UserConfigurationTests {
             Assert.That(planToWatchOnly.GetBoolean(), Is.True);
             Assert.That(json.GetProperty("RewatchCompleted").GetBoolean(), Is.True);
             Assert.That(json.GetProperty("ShowLogNotifications").GetBoolean(), Is.True);
-            Assert.That(json.GetProperty("LibraryToCheck").GetArrayLength(), Is.Zero);
+            Assert.That(json.TryGetProperty("LibraryToCheck", out _), Is.False, "libraries are the admin's alone since 2.0.0");
             Assert.That(json.GetProperty("ConnectedProviders").GetArrayLength(), Is.Zero);
             Assert.That(_plugin.Configuration.UserConfig, nullConfiguration ? Is.Null : Is.EqualTo(new[] { _targetConfig }));
         });
@@ -203,7 +203,7 @@ public partial class UserConfigurationTests {
     public void AddingUnlistedAnimeIsSavedAndReadBack(bool add) {
         _requesterConfig.AddUnlistedAnime = !add;
 
-        var result = (OkObjectResult)_settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig { PlanToWatchOnly = true, LibraryToCheck = [], AddUnlistedAnime = add });
+        var result = (OkObjectResult)_settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig { PlanToWatchOnly = true, AddUnlistedAnime = add });
 
         Assert.That(_requesterConfig.AddUnlistedAnime, Is.EqualTo(add));
         Assert.That(((UserConfigurationResponse)result.Value!).AddUnlistedAnime, Is.EqualTo(add));
@@ -213,7 +213,7 @@ public partial class UserConfigurationTests {
     [TestCase(62)]
     [TestCase(95)]
     public void ACompletionPercentageOutsideSixtyToTheServersOwnInStepsOfFiveIsRefused(int percent) {
-        var result = _settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig { LibraryToCheck = [], TrackerThresholdPercent = percent });
+        var result = _settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig { TrackerThresholdPercent = percent });
 
         Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
         Assert.That(_requesterConfig.TrackerThresholdPercent, Is.Null);
@@ -225,7 +225,7 @@ public partial class UserConfigurationTests {
     public void ACompletionPercentageIsSavedAndReadBack(int? percent) {
         _requesterConfig.TrackerThresholdPercent = 60;
 
-        var result = (OkObjectResult)_settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig { LibraryToCheck = [], TrackerThresholdPercent = percent });
+        var result = (OkObjectResult)_settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig { TrackerThresholdPercent = percent });
 
         Assert.That(_requesterConfig.TrackerThresholdPercent, Is.EqualTo(percent));
         Assert.That(((UserConfigurationResponse)result.Value!).TrackerThresholdPercent, Is.EqualTo(percent));
@@ -273,15 +273,13 @@ public partial class UserConfigurationTests {
         var targetKeyPairs = _targetConfig.KeyPairs;
         var result = _settings.UpdateConfigurationUser(_target.Id, new UserEditableConfig {
             PlanToWatchOnly = false,
-            RewatchCompleted = false,
-            LibraryToCheck = [_libraryId.ToString()]
+            RewatchCompleted = false
         });
 
         Assert.Multiple(() => {
             Assert.That(result, Is.TypeOf<OkObjectResult>());
             Assert.That(_targetConfig.PlanToWatchOnly, Is.False);
             Assert.That(_targetConfig.RewatchCompleted, Is.False);
-            Assert.That(_targetConfig.LibraryToCheck, Is.EqualTo(new[] { _libraryId.ToString() }));
             Assert.That(_targetConfig.UserApiAuth, Is.SameAs(targetAuth));
             Assert.That(_targetConfig.KeyPairs, Is.SameAs(targetKeyPairs));
             Assert.That(_targetConfig.UserApiAuth![0].AccessToken == "target-mal-fixture", Is.True);
@@ -289,7 +287,6 @@ public partial class UserConfigurationTests {
             Assert.That(_targetConfig.KeyPairs!.Single(pair => pair.Key == "FutureKey").Value, Is.EqualTo("target"));
             Assert.That(_requesterConfig.PlanToWatchOnly, Is.True);
             Assert.That(_requesterConfig.RewatchCompleted, Is.True);
-            Assert.That(_requesterConfig.LibraryToCheck, Is.Empty);
             Assert.That(_requesterConfig.UserApiAuth, Is.SameAs(requesterAuth));
             Assert.That(_requesterConfig.UserApiAuth![0].AccessToken == "requester-mal-fixture", Is.True);
             Assert.That(_plugin.Configuration.UserConfig, Is.EqualTo(new[] { _requesterConfig, _targetConfig }));
@@ -374,63 +371,35 @@ public partial class UserConfigurationTests {
     }
 
     [Test]
-    public void NullLibrariesAreSavedAsEmptyArray() {
-        var result = _settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig {
-            LibraryToCheck = null!
-        });
-        Assert.Multiple(() => {
-            Assert.That(result, Is.TypeOf<OkObjectResult>());
-            Assert.That(_requesterConfig.LibraryToCheck, Is.Not.Null.And.Empty);
-        });
-    }
+    public void DismissingTheSeedNoteClearsItAndIsForAdminsOnly() {
+        _plugin.Configuration.AnimeLibrarySeeds = [new AnimeLibrarySeed { LibraryId = _libraryId, ChosenBy = ["test"] }];
 
-    [TestCase("invalid")]
-    [TestCase("")]
-    [TestCase("00000000-0000-0000-0000-000000000000")]
-    [TestCase(null)]
-    public void InvalidLibraryIdsRejectSaveWithoutChangingPreferences(string? invalidId) {
-        var result = _settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig {
-            PlanToWatchOnly = false,
-            RewatchCompleted = false,
-            LibraryToCheck = [_libraryId.ToString(), invalidId!]
-        });
-        Assert.Multiple(() => {
-            Assert.That(result, Is.TypeOf<BadRequestObjectResult>());
-            Assert.That(_requesterConfig.PlanToWatchOnly, Is.True);
-            Assert.That(_requesterConfig.RewatchCompleted, Is.True);
-            Assert.That(_requesterConfig.LibraryToCheck, Is.Empty);
-        });
+        Assert.That(_settings.DismissAnimeLibrarySeedNote(), Is.TypeOf<NoContentResult>());
+        Assert.That(_plugin.Configuration.AnimeLibrarySeeds, Is.Empty);
+        Assert.That(typeof(SettingsController).GetMethod(nameof(SettingsController.DismissAnimeLibrarySeedNote))!
+            .GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute), false).Cast<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>().Single().Policy,
+            Is.EqualTo(MediaBrowser.Common.Api.Policies.RequiresElevation));
     }
 
     [Test]
-    public void AdministratorSaveChecksSelectedUsersLibraryAccess() {
-        SetPermission(_requester, PermissionKind.IsAdministrator, true);
-        SetPermission(_target, PermissionKind.EnableAllFolders, false);
-        _target.Preferences.Clear();
-        var result = _settings.UpdateConfigurationUser(_target.Id, new UserEditableConfig {
-            PlanToWatchOnly = false,
-            RewatchCompleted = false,
-            LibraryToCheck = [_libraryId.ToString()]
-        });
-        Assert.Multiple(() => {
-            Assert.That(result, Is.TypeOf<ForbidResult>());
-            Assert.That(_targetConfig.PlanToWatchOnly, Is.True);
-            Assert.That(_requesterConfig.PlanToWatchOnly, Is.True);
-        });
-    }
+    public void LibrariesAreNoLongerChosenPerUser() {
+        _requesterConfig.LibraryToCheck = [_libraryId.ToString()];
+        var dto = JsonSerializer.Deserialize<UserEditableConfig>($"{{\"PlanToWatchOnly\":false,\"LibraryToCheck\":[\"{Guid.NewGuid()}\"]}}")!;
 
-    [Test]
-    public void EmptyLibrariesRemainEmptyArray() {
-        Assert.That(_settings.UpdateConfigurationUser(_requester.Id,
-            new UserEditableConfig { LibraryToCheck = [] }), Is.TypeOf<OkObjectResult>());
-        Assert.That(_requesterConfig.LibraryToCheck, Is.Empty);
+        var result = (OkObjectResult)_settings.UpdateConfigurationUser(_requester.Id, dto);
+
+        Assert.Multiple(() => {
+            Assert.That(_requesterConfig.PlanToWatchOnly, Is.False);
+            Assert.That(_requesterConfig.LibraryToCheck, Is.EqualTo(new[] { _libraryId.ToString() }), "a sent list is ignored; the old one waits for seeding");
+            Assert.That(JsonSerializer.Serialize(result.Value), Does.Not.Contain("LibraryToCheck"));
+        });
     }
 
     [Test]
     public void NewUserConfigurationIsCreatedWithoutReplacingOtherUsers() {
         _plugin.Configuration.UserConfig = [_targetConfig];
         Assert.That(_settings.UpdateConfigurationUser(_requester.Id,
-            new UserEditableConfig { PlanToWatchOnly = true, RewatchCompleted = false, LibraryToCheck = [] }),
+            new UserEditableConfig { PlanToWatchOnly = true, RewatchCompleted = false }),
             Is.TypeOf<OkObjectResult>());
         Assert.Multiple(() => {
             Assert.That(_plugin.Configuration.UserConfig[0], Is.SameAs(_targetConfig));
@@ -679,7 +648,7 @@ public partial class UserConfigurationTests {
 
     private async Task<IActionResult> InvokeUserOperation(string operation, Guid user) => operation switch {
         "get" => _settings.GetConfigurationUser(user),
-        "put" => _settings.UpdateConfigurationUser(user, new UserEditableConfig { LibraryToCheck = [] }),
+        "put" => _settings.UpdateConfigurationUser(user, new UserEditableConfig()),
         "profile" => await _settings.GetUserUser(ApiName.Mal, user),
         "authorize" => _auth.BuildAuthorizeRequestUrlUser(ApiName.Mal, user),
         "grant" => await _auth.PasswordGrantAuthenticationUserBody(KitsuGrant(user)),

@@ -25,7 +25,7 @@ public sealed class ManualMarkRequestFilter(AuthenticatedSessionResolver resolve
     internal static bool IsTracked(Guid userId, MediaBrowser.Controller.Entities.BaseItem item, ILibraryManager library, AnimeListIndex animeList,
         ILogger logger) {
         var preferences = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(c => c.UserId == userId);
-        return preferences != null && LibraryFilter.Includes(preferences, library, animeList, logger, item);
+        return preferences != null && LibraryFilter.Includes(library, animeList, logger, item);
     }
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next) {
