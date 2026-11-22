@@ -12,6 +12,8 @@ namespace jellyfin_anidoki;
 
 public class PluginServiceRegistrator : IPluginServiceRegistrator {
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost) {
+        // First, so every AniDoki logger created from here on also writes to the AniDoki log file.
+        Logging.AniDokiLogFile.Attach();
         serviceCollection.AddHttpClient("AniDokiDiscord", client => client.Timeout = TimeSpan.FromSeconds(15))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }).RemoveAllLoggers();
         serviceCollection.AddSingleton<Notifications.Discord.DiscordSettingsService>();

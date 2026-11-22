@@ -70,6 +70,12 @@ public class PluginConfiguration : BasePluginConfiguration {
     public bool applySavedMatches { get; set; } = true;
 
     /// <summary>
+    /// True (the default) to write AniDoki's Debug lines to its own log file as well as Information and above.
+    /// Jellyfin's log keeps its own level either way.
+    /// </summary>
+    public bool LogFileDebug { get; set; } = true;
+
+    /// <summary>
     /// True to update NSFW anime.
     /// </summary>
     public bool updateNsfw { get; set; }

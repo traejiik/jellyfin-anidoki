@@ -56,6 +56,7 @@ public class ConfigurationRoundTripTests {
         shikimoriAppName = "anidoki-app",
         simklUpdateAll = true,
         applySavedMatches = false,
+        LogFileDebug = false,
         updateNsfw = true,
         authenticationLinkExpireTimeMinutes = 15,
         armServerBaseUrl = "https://arm.example",

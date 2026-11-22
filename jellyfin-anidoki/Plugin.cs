@@ -34,6 +34,9 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages {
         _secrets = new SecretStore(Database);
         LoadCredentials();
         HonourSimklUpdateAll();
+        Logging.AniDokiLogFile.IncludeDebugLines(PluginConfiguration.LogFileDebug);
+        if (Logging.AniDokiLogFile.Folder == null)
+            _logger.LogInformation("Could not set up the AniDoki log file; AniDoki lines go to the Jellyfin log only");
         try {
             if (PluginConfiguration.enableUserPages)
                 CheckPluginPages(applicationPaths, serverConfigurationManager);
@@ -131,6 +134,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages {
             throw new InvalidOperationException($"AniDoki settings were not saved because storage is unavailable: {StorageError}");
         _secrets.ReplaceAll(SecretOverlay.Extract(config));
         base.SaveConfiguration(config);
+        Logging.AniDokiLogFile.IncludeDebugLines(config.LogFileDebug);
     }
 
     /// <summary>The admin page posts configuration without credentials; carry the current ones over before saving.</summary>

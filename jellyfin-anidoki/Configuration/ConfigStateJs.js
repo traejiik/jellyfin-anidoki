@@ -1,7 +1,7 @@
 // Only editable fields enter a draft. Credentials refreshed by account actions
 // and fields from newer plugin versions stay in the freshly loaded configuration.
 const serverFields = ['callbackUrl', 'callbackRedirectUrl', 'animeListSaveLocation',
-    'watchedTickboxUpdatesProvider', 'shikimoriAppName', 'simklUpdateAll', 'updateNsfw', 'applySavedMatches',
+    'watchedTickboxUpdatesProvider', 'shikimoriAppName', 'simklUpdateAll', 'updateNsfw', 'applySavedMatches', 'LogFileDebug',
     'authenticationLinkExpireTimeMinutes', 'armServerBaseUrl', 'enableUserPages', 'shikimoriDomain', 'AnimeLibraries', 'AnimeLibrarySeeds'];
 const providerFields = ['ClientId'];
 // Client secrets are write-only: the server never returns them, so a draft holds only a replacement or a clear request.

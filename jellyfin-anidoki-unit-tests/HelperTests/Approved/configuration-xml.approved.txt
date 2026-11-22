@@ -69,6 +69,7 @@
   <simklUpdateAll>true</simklUpdateAll>
   <simklUpdateAllHonoured>false</simklUpdateAllHonoured>
   <applySavedMatches>false</applySavedMatches>
+  <LogFileDebug>false</LogFileDebug>
   <updateNsfw>true</updateNsfw>
   <authenticationLinkExpireTimeMinutes>15</authenticationLinkExpireTimeMinutes>
   <armServerBaseUrl>https://arm.example</armServerBaseUrl>
@@ -148,6 +149,7 @@
   <simklUpdateAll>true</simklUpdateAll>
   <simklUpdateAllHonoured>false</simklUpdateAllHonoured>
   <applySavedMatches>false</applySavedMatches>
+  <LogFileDebug>false</LogFileDebug>
   <updateNsfw>true</updateNsfw>
   <authenticationLinkExpireTimeMinutes>15</authenticationLinkExpireTimeMinutes>
   <armServerBaseUrl>https://arm.example</armServerBaseUrl>
@@ -165,6 +167,7 @@
   <simklUpdateAll>true</simklUpdateAll>
   <simklUpdateAllHonoured>false</simklUpdateAllHonoured>
   <applySavedMatches>true</applySavedMatches>
+  <LogFileDebug>true</LogFileDebug>
   <updateNsfw>false</updateNsfw>
   <authenticationLinkExpireTimeMinutes>0</authenticationLinkExpireTimeMinutes>
   <enableUserPages>false</enableUserPages>
@@ -180,6 +183,7 @@
   <simklUpdateAll>true</simklUpdateAll>
   <simklUpdateAllHonoured>false</simklUpdateAllHonoured>
   <applySavedMatches>true</applySavedMatches>
+  <LogFileDebug>true</LogFileDebug>
   <updateNsfw>false</updateNsfw>
   <authenticationLinkExpireTimeMinutes>0</authenticationLinkExpireTimeMinutes>
   <enableUserPages>false</enableUserPages>

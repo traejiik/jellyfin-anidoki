@@ -19,4 +19,12 @@ public class PluginConfigurationDefaultsTests {
 
     [Test]
     public void ANewConfigurationUsesSavedMatches() => Assert.That(new PluginConfiguration().applySavedMatches, Is.True);
+
+    [TestCase("<PluginConfiguration />", true)]
+    [TestCase("<PluginConfiguration><LogFileDebug>false</LogFileDebug></PluginConfiguration>", false)]
+    public void TheLogFileHasDebugLinesUnlessSwitchedOff(string xml, bool expected) {
+        using var reader = new StringReader(xml);
+        var config = (PluginConfiguration)new XmlSerializer(typeof(PluginConfiguration)).Deserialize(reader)!;
+        Assert.That(config.LogFileDebug, Is.EqualTo(expected));
+    }
 }
