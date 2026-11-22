@@ -51,6 +51,7 @@
     --doki-action: var(--tjk-action);
     --doki-selection: color-mix(in srgb, var(--accentHoverColor, var(--doki-action)) 92%, #000);
     --doki-on-accent: var(--tjk-on-accent);
+    --doki-page: var(--jf-palette-background-default, #101010);
     color: var(--doki-text);
     font-family: inherit;
     font-size: 1rem;
@@ -250,6 +251,11 @@
     .anidoki .doki-section-nav > a { flex: 0 0 auto; padding: 8px 14px; background: var(--doki-pill); border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-pill); }
     .anidoki .doki-section-nav a[aria-current="location"] { border-color: var(--doki-selection); }
     .anidoki .doki-stack { width: 100%; }
+}
+/* Phone: the section pills stay in reach while scrolling, over the page background, below Jellyfin's fixed 48px header
+   (stock's 56px header covers only the top padding). */
+@media (max-width: 600px) {
+    .anidoki .doki-rail { position: sticky; top: 48px; z-index: 3; background: var(--doki-page); padding-block: 8px; }
 }
 @media (max-width: 35rem) {
     .anidoki .doki-user-panel { padding: 16px; }
