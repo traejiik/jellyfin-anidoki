@@ -5,6 +5,7 @@
     <UserConfig>
       <PlanToWatchOnly>false</PlanToWatchOnly>
       <RewatchCompleted>false</RewatchCompleted>
+      <AddUnlistedAnime>false</AddUnlistedAnime>
       <ShowLogNotifications>false</ShowLogNotifications>
       <LibraryToCheck>
         <string>library-a</string>
@@ -35,6 +36,7 @@
     <UserConfig>
       <PlanToWatchOnly>true</PlanToWatchOnly>
       <RewatchCompleted>true</RewatchCompleted>
+      <AddUnlistedAnime>false</AddUnlistedAnime>
       <ShowLogNotifications>true</ShowLogNotifications>
       <LibraryToCheck />
       <TrackerThresholdPercent xsi:nil="true" />
@@ -80,6 +82,7 @@
     <UserConfig>
       <PlanToWatchOnly>false</PlanToWatchOnly>
       <RewatchCompleted>false</RewatchCompleted>
+      <AddUnlistedAnime>false</AddUnlistedAnime>
       <ShowLogNotifications>false</ShowLogNotifications>
       <LibraryToCheck>
         <string>library-a</string>
@@ -110,6 +113,7 @@
     <UserConfig>
       <PlanToWatchOnly>true</PlanToWatchOnly>
       <RewatchCompleted>true</RewatchCompleted>
+      <AddUnlistedAnime>false</AddUnlistedAnime>
       <ShowLogNotifications>true</ShowLogNotifications>
       <LibraryToCheck />
       <TrackerThresholdPercent xsi:nil="true" />

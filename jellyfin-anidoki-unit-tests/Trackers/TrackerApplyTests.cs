@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Planning;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki_unit_tests.Characterization;
 using NUnit.Framework;
@@ -61,6 +62,24 @@ public class TrackerApplyTests {
         await adapter.Apply(await Read(adapter, provider), new EntryChange(12, TrackerStatus.Completed), CancellationToken.None);
 
         Assert.That(Writes(tracker).Single(), Does.Contain("rewatching=-"));
+    }
+
+    /// <summary>
+    /// D8's contract: with Plan to watch only and AddUnlistedAnime on, a title not on the list is planned as an add and
+    /// each tracker writes it once as Watching (Kitsu, which reads a missing entry as Watching at 0, adds as before).
+    /// </summary>
+    [TestCaseSource(nameof(Providers))]
+    public async Task AnUnlistedTitleIsAddedAsWatchingWhenAddUnlistedIsOn(ApiName provider) {
+        var (adapter, tracker) = Adapter(provider);
+        tracker.Add(SyncHarness.Entry(500, "Fixture Show", 12, null));
+        EntryState entry = await Read(adapter, provider);
+
+        var decision = Planner.Plan(new PlanInput(5, entry, new PlanRules(true, false, AddUnlisted: true), PlanPolicy.Automatic,
+            adapter.Capabilities, ProviderQuirks.For(provider), new DateTime(2026, 11, 22)));
+        Assert.That(decision, Is.InstanceOf<Write>(), $"{provider}: {decision}");
+        await adapter.Apply(entry, ((Write)decision).Change, CancellationToken.None);
+
+        Assert.That(Writes(tracker).Single(), Does.StartWith($"write(id=500, progress={(adapter.Capabilities.TracksProgress ? 5 : 1)}, status=Watching,"));
     }
 
     [TestCaseSource(nameof(Providers))]

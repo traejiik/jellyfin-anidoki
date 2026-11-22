@@ -275,6 +275,22 @@ test('a failed new refresh clears the old success and reports the error in the c
 });
 
 
+test('adding unlisted anime sits under Plan to watch only and hides while it is off, keeping its value', async t => {
+    const page = await setupAdmin(t, [{ Id: 'u1', Name: 'test user' }]);
+    page.nodes.userRows.children[0].children[3].children[0].emit('click');
+    const [, planToWatch, unlisted] = page.nodes.userPreferences.children;
+    assert.match(unlisted.className, /doki-check-nested/);
+    assert.equal(unlisted.hidden, false, 'Plan to watch only is on by default');
+    unlisted.children[0].checked = true; unlisted.children[0].emit('change');
+    planToWatch.children[0].checked = false; planToWatch.children[0].emit('change');
+    assert.equal(unlisted.hidden, true);
+    planToWatch.children[0].checked = true; planToWatch.children[0].emit('change');
+    assert.equal(unlisted.hidden, false);
+    assert.equal(unlisted.children[0].checked, true, 'its value is kept while hidden');
+    // The panel's History loads on its own; let it settle before the page goes away.
+    await waitFor(() => page.nodes.userHistory.children.length > 0);
+});
+
 test('closing and reopening the user editor retains drafts and restores focus', async t => {
     const page = await setupAdmin(t, [{ Id: 'u1', Name: 'test user' }]);
     // Name, Linked to, Last update, then the edit button.

@@ -403,11 +403,16 @@ export default function (view) {
         find('#userPreferences').replaceChildren(common.thresholdSetting({ value: prefs.TrackerThresholdPercent, maxResumePct, userName: user.Name, signal,
             choices: state.thresholdChoices(maxResumePct), fallsBack: state.thresholdFallsBack(prefs.TrackerThresholdPercent, maxResumePct),
             onChange: percent => { prefs.TrackerThresholdPercent = percent; updateDirty(); } }));
-        for (const [field, title, help] of [['PlanToWatchOnly', 'Only update anime on Plan to watch', 'Limit changes to titles already on the user’s plan-to-watch list.'], ['RewatchCompleted', 'Rewatch completed anime', 'Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.'], ['ShowLogNotifications', 'Show tracker update toasts', 'Show confirmed updates after playback stops in the originating Jellyfin web session. Requires compatible File Transformation and a web refresh.']]) {
-            const label = common.element('label', 'doki-check'); const input = common.element('input', 'doki-switch'); input.type = 'checkbox'; input.setAttribute('role', 'switch'); input.checked = prefs[field];
-            input.addEventListener('change', () => { prefs[field] = input.checked; updateDirty(); }, { signal });
+        const nested = {};
+        for (const [field, title, help] of [['PlanToWatchOnly', 'Only update anime on Plan to watch', 'Limit changes to titles already on the user’s plan-to-watch list.'], ['AddUnlistedAnime', 'Also add anime that isn’t on their list', 'A title they watch that isn’t on their list at all is added as Watching. Titles already on another list are still left alone.'], ['RewatchCompleted', 'Rewatch completed anime', 'Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.'], ['ShowLogNotifications', 'Show tracker update toasts', 'Show confirmed updates after playback stops in the originating Jellyfin web session. Requires compatible File Transformation and a web refresh.']]) {
+            const label = common.element('label', field === 'AddUnlistedAnime' ? 'doki-check doki-check-nested' : 'doki-check'); const input = common.element('input', 'doki-switch'); input.type = 'checkbox'; input.setAttribute('role', 'switch'); input.checked = prefs[field];
+            input.addEventListener('change', () => { prefs[field] = input.checked; nest(); updateDirty(); }, { signal });
             const text = common.element('span'); text.append(common.element('strong', '', title), common.element('span', 'doki-help', help)); label.append(input, text); find('#userPreferences').append(label);
+            nested[field] = label;
         }
+        // Adding unlisted anime only applies with Plan to watch only on, so it is hidden otherwise; its value is kept.
+        function nest() { nested.AddUnlistedAnime.hidden = !prefs.PlanToWatchOnly; }
+        nest();
     }
     async function accountAction(userId, kind, provider, credentials, signal) {
         return guard(async () => {

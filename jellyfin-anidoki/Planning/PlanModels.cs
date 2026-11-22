@@ -4,7 +4,8 @@ using jellyfin_anidoki.Trackers;
 namespace jellyfin_anidoki.Planning;
 
 /// <summary>A user's sync rules, read once per sync.</summary>
-public sealed record PlanRules(bool PlanToWatchOnly, bool RewatchCompleted);
+/// <param name="AddUnlisted">With <paramref name="PlanToWatchOnly"/> on, also add a title that is not on the list at all (D8).</param>
+public sealed record PlanRules(bool PlanToWatchOnly, bool RewatchCompleted, bool AddUnlisted = false);
 
 /// <summary>
 /// ConfirmedManual only moves progress forward and never starts or finishes a rewatch. ManualSync replays the highest

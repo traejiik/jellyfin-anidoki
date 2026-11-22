@@ -114,7 +114,7 @@ test('new user preference record uses effective defaults', () => {
     assert.equal(result.value.UserConfig[0].RewatchCompleted, true);
 });
 test('old user preferences default on but explicit false stays false', () => {
-    assert.deepEqual(userPreferences(), { PlanToWatchOnly: true, RewatchCompleted: true, ShowLogNotifications: true, LibraryToCheck: [], TrackerThresholdPercent: null });
+    assert.deepEqual(userPreferences(), { PlanToWatchOnly: true, AddUnlistedAnime: false, RewatchCompleted: true, ShowLogNotifications: true, LibraryToCheck: [], TrackerThresholdPercent: null });
     assert.equal(userPreferences({ ShowLogNotifications: false }).ShowLogNotifications, false);
 });
 test('preference save preserves a remotely changed untouched option', () => {
@@ -212,4 +212,15 @@ test('a changed completion percentage is a preference change that saves and merg
     assert.equal(userPreferences({ TrackerThresholdPercent: 70 }).TrackerThresholdPercent, 70);
     const merged = mergePreferences({ ...userPreferences(), PlanToWatchOnly: false }, userPreferences(), { ...userPreferences(), TrackerThresholdPercent: 60 });
     assert.deepEqual([merged.value.TrackerThresholdPercent, merged.value.PlanToWatchOnly, merged.conflicts], [60, false, []]);
+});
+
+test('adding unlisted anime is off by default, and saves and merges like the other switches', () => {
+    assert.equal(userPreferences().AddUnlistedAnime, false);
+    assert.equal(userPreferences({ AddUnlistedAnime: true }).AddUnlistedAnime, true);
+    const saved = { UserConfig: [{ UserId: 'u', ...userPreferences() }] };
+    const draft = createDraft(saved);
+    draft.UserConfig[0].AddUnlistedAnime = true;
+    assert.deepEqual(changedValues(createDraft(saved), draft).map(change => [change.field, change.value]), [['AddUnlistedAnime', true]]);
+    const merged = mergePreferences(userPreferences(), userPreferences(), { ...userPreferences(), AddUnlistedAnime: true });
+    assert.deepEqual([merged.value.AddUnlistedAnime, merged.conflicts], [true, []]);
 });

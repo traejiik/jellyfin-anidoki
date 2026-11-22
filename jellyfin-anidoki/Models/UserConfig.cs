@@ -56,6 +56,12 @@ public class UserEditableConfig {
     /// </summary>
     public bool RewatchCompleted { get; set; }
 
+    /// <summary>
+    /// With <see cref="PlanToWatchOnly"/> on, also add a title that is not on the user's list at all (D8). Off by default;
+    /// with Plan to watch only off, unlisted titles are added anyway.
+    /// </summary>
+    public bool AddUnlistedAnime { get; set; }
+
     public bool ShowLogNotifications { get; set; } = true;
 
     /// <summary>

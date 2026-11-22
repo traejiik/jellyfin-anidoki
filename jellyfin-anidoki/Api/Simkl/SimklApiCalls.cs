@@ -214,11 +214,8 @@ public class SimklApiCalls {
         try {
             StreamReader streamReader = new StreamReader(await apiCall.Content.ReadAsStreamAsync());
             SimklUserList? deserialized = JsonSerializer.Deserialize<SimklUserList>(await streamReader.ReadToEndAsync());
-            if (deserialized != null) {
-                return deserialized.Entry;
-            } else {
-                return null;
-            }
+            // Simkl answers an empty list with null or {}: that is a list without the title, not a failed read.
+            return deserialized?.Entry ?? [];
         } catch (Exception e) {
             _logger.LogError(e, "({Provider}) Could not read the user's anime list", ApiName.Simkl);
             return null;

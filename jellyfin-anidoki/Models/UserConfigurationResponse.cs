@@ -9,6 +9,7 @@ public sealed class UserConfigurationResponse {
         LibraryToCheck = config?.LibraryToCheck ?? Array.Empty<string>();
         PlanToWatchOnly = config?.PlanToWatchOnly ?? true;
         RewatchCompleted = config?.RewatchCompleted ?? true;
+        AddUnlistedAnime = config?.AddUnlistedAnime ?? false;
         ShowLogNotifications = config?.ShowLogNotifications ?? true;
         TrackerThresholdPercent = config?.TrackerThresholdPercent;
         ConnectedProviders = config?.UserApiAuth?
@@ -19,6 +20,7 @@ public sealed class UserConfigurationResponse {
     public string[] LibraryToCheck { get; }
     public bool PlanToWatchOnly { get; }
     public bool RewatchCompleted { get; }
+    public bool AddUnlistedAnime { get; }
     public bool ShowLogNotifications { get; }
     public int? TrackerThresholdPercent { get; }
     public ApiName[] ConnectedProviders { get; }

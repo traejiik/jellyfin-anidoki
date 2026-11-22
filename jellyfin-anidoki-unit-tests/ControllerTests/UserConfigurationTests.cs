@@ -198,6 +198,17 @@ public partial class UserConfigurationTests {
         });
     }
 
+    [TestCase(true)]
+    [TestCase(false)]
+    public void AddingUnlistedAnimeIsSavedAndReadBack(bool add) {
+        _requesterConfig.AddUnlistedAnime = !add;
+
+        var result = (OkObjectResult)_settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig { PlanToWatchOnly = true, LibraryToCheck = [], AddUnlistedAnime = add });
+
+        Assert.That(_requesterConfig.AddUnlistedAnime, Is.EqualTo(add));
+        Assert.That(((UserConfigurationResponse)result.Value!).AddUnlistedAnime, Is.EqualTo(add));
+    }
+
     [TestCase(55)]
     [TestCase(62)]
     [TestCase(95)]
