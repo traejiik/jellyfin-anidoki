@@ -37,6 +37,10 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
                 provider.GetRequiredService<TimeProvider>(), item => Playback.RetryWorker.SeriesKey(library, item),
                 tracker => Helpers.MemoryCacheHelper.RateLimitedUntil(tracker, cache));
         });
+        serviceCollection.AddSingleton(provider => new Operations.AccountAttention(
+            Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath)));
+        serviceCollection.AddSingleton(provider => new Operations.HistoryReader(
+            Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath), provider.GetRequiredService<TimeProvider>()));
         serviceCollection.AddSingleton<Operations.OperationRunner>();
         // Registered before the triggers so leftovers from the previous run are marked before new work is queued.
         serviceCollection.AddHostedService(provider => provider.GetRequiredService<Operations.OperationRunner>());
