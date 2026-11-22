@@ -13,6 +13,8 @@ const reasons = {
     'plan-to-watch-only': 'Not on Plan to Watch',
     'match-ignored': 'Ignored by a saved match'
 };
+/** The planner's reason for a skip, or undefined for a step it does not name. */
+export const skipReason = step => reasons[step];
 const results = { NoChange: 'Already up to date', Skipped: 'Skipped', Unresolved: 'No matching entry found', Failed: 'Update failed', Unconfirmed: 'Update not confirmed' };
 // Second line under a result that names no entry, where the toast has no reason sentence of its own.
 const notes = { Failed: 'Not retried automatically.', Unconfirmed: "It may have taken effect. It won't be retried automatically." };

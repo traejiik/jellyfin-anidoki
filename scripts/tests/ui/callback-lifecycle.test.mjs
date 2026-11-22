@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setImmediate as nextTurn } from 'node:timers/promises';
 import adminController from '../../../jellyfin-anidoki/Configuration/ConfigPageJs.js';
+import { configurationUrl } from './load-configuration.mjs';
+
+// The page imports history-state.js, which imports outcome-lines.js; served inlined, as the browser would resolve them.
+const historyStateUrl = await configurationUrl('HistoryStateJs.js');
 
 class DomElement {
     constructor(tag = 'div') {
@@ -57,7 +61,7 @@ const BrowserAddress = 'https://browser.example.test';
 const LocalAddress = 'http://192.0.2.10:8096';
 
 async function setupAdmin(t, users = [], localLookup = async () => Response.json({ baseAddress: LocalAddress })) {
-    const ids = ['TemplateConfigForm', 'configurationSummary', 'providerCards', 'userRows', 'userPanel',
+    const ids = ['TemplateConfigForm', 'configurationSummary', 'providerCards', 'userRows', 'userPanel', 'userHistory', 'userHistoryHelp',
         'saveStatus', 'refreshAccounts', 'useCurrent', 'useCurrentValue', 'useCurrentInUse', 'useLocal', 'useLocalValue', 'useLocalInUse', 'copyCallback', 'generalCallbackUrlInput',
         'addressCheck', 'addressStatus', 'testAnimeListSaveLocation', 'folderStatus', 'discardChanges',
         'apiUrl', 'saveChanges', 'navigationTabs', 'accountsRefreshStatus', 'accountsStatus',
@@ -83,7 +87,9 @@ async function setupAdmin(t, users = [], localLookup = async () => Response.json
             ? new URL('../../../jellyfin-anidoki/Configuration/CommonJs.js', import.meta.url).href
             : /^AniDoki\/assets\/v\/[^/]+\/config-state\.js$/.test(path)
                 ? new URL('../../../jellyfin-anidoki/Configuration/ConfigStateJs.js', import.meta.url).href
-                : `https://jellyfin.example.test/${path}`,
+                : /^AniDoki\/assets\/v\/[^/]+\/history-state\.js$/.test(path)
+                    ? historyStateUrl
+                    : `https://jellyfin.example.test/${path}`,
         getPluginConfiguration: async () => ({ callbackUrl: '', ProviderApiAuth: [], UserConfig: [] }),
         getUsers: async () => users,
         setRequestHeaders() {},
@@ -95,6 +101,7 @@ async function setupAdmin(t, users = [], localLookup = async () => Response.json
         if (url.endsWith('/parameters')) return Response.json({ libraries: [] });
         if (url.endsWith('/providerSecrets')) return Response.json([]);
         if (url.endsWith('/storage')) return Response.json({ available: true, message: null });
+        if (url.endsWith('/users/activity')) return Response.json([]);
         if (url.endsWith('/callbackPreview')) return localLookup();
         const address = new URL(url).searchParams.get('address');
         return address ? Response.json({ baseAddress: address, callbackUrl: `${address}/AniDoki/authCallback` }) : failedResponse;
@@ -270,7 +277,8 @@ test('a failed new refresh clears the old success and reports the error in the c
 
 test('closing and reopening the user editor retains drafts and restores focus', async t => {
     const page = await setupAdmin(t, [{ Id: 'u1', Name: 'test user' }]);
-    const edit = () => page.nodes.userRows.children[0].children[2].children[0];
+    // Name, Linked to, Last update, then the edit button.
+    const edit = () => page.nodes.userRows.children[0].children[3].children[0];
     edit().emit('click');
     const preference = page.nodes.userPreferences.children[0].children[0];
     preference.checked = false;

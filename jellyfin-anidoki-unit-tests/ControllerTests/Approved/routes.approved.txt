@@ -39,6 +39,7 @@ GET AniDoki/storage | auth=policy:RequiresElevation | action=GetStorageState | p
 POST AniDoki/sync | auth=policy:RequiresElevation | action=StartSync | params=provider[Query]:String, userId[Query]:Guid, status[Query]:StatusFilter, syncAction[Query]:SyncAction | api=yes | order=- | precedence=1.1
 GET AniDoki/testAnimeListSaveLocation | auth=policy:RequiresElevation | action=TestAnimeSaveLocation | params=saveLocation:String | api=yes | order=- | precedence=1.1
 GET AniDoki/user | auth=policy:RequiresElevation | action=GetUser | params=apiName:ApiName, userId:String, user[Query]:Guid? | api=yes | order=- | precedence=1.1
+GET AniDoki/user/activity | auth=authenticated | action=ReadOwnActivity | params=user[Query]:Guid | api=yes | order=- | precedence=1.11
 GET AniDoki/user/buildAuthorizeRequestUrl | auth=authenticated | action=BuildAuthorizeRequestUrlUser | params=provider:ApiName, user:Guid | api=yes | order=- | precedence=1.11
 GET AniDoki/user/configuration | auth=authenticated | action=GetConfigurationUser | params=user:Guid | api=yes | order=- | precedence=1.11
 PUT AniDoki/user/configuration | auth=authenticated | action=UpdateConfigurationUser | params=user[Query]:Guid, dto[Body]:UserEditableConfig | api=yes | order=- | precedence=1.11
@@ -49,6 +50,7 @@ GET AniDoki/user/discord/settings | auth=authenticated | action=Read | params= |
 PUT AniDoki/user/discord/settings | auth=authenticated | action=Save | params=command[Body]:DiscordSettingsCommand | api=yes | order=- | precedence=1.111
 POST AniDoki/user/discord/test | auth=authenticated | action=Test | params=command[Body]:DiscordTestCommand | api=yes | order=- | precedence=1.111
 GET AniDoki/user/events | auth=authenticated | action=Read | params=cursor[Query]:String | api=yes | order=- | precedence=1.11
+GET AniDoki/user/history | auth=authenticated | action=ReadOwnHistory | params=user[Query]:Guid, offset[Query]:Int32, limit[Query]:Int32 | api=yes | order=- | precedence=1.11
 GET AniDoki/user/manual-marks | auth=authenticated | action=Read | params= | api=yes | order=- | precedence=1.11
 POST AniDoki/user/manual-marks/capability | auth=authenticated | action=Enroll | params= | api=yes | order=- | precedence=1.111
 GET AniDoki/user/manual-marks/{operationId:guid} | auth=authenticated | action=ReadOne | params=operationId:Guid | api=yes | order=- | precedence=1.112
@@ -61,7 +63,10 @@ DELETE AniDoki/user/matches/{sourceKey}/{provider} | auth=authenticated | action
 PUT AniDoki/user/matches/{sourceKey}/{provider} | auth=authenticated | action=Save | params=sourceKey:String, provider:ApiName, request[Body]:SaveMatchRequest, cancellationToken:CancellationToken | api=yes | order=- | precedence=1.1133
 GET AniDoki/user/matches/{sourceKey}/{provider}/automatic | auth=authenticated | action=Automatic | params=sourceKey:String, provider:ApiName, cancellationToken:CancellationToken | api=yes | order=- | precedence=1.11331
 POST AniDoki/user/matches/{sourceKey}/{provider}/preview | auth=authenticated | action=Preview | params=sourceKey:String, provider:ApiName, request[Body]:PreviewRequest, cancellationToken:CancellationToken | api=yes | order=- | precedence=1.11331
+GET AniDoki/user/operations/{operationId:guid} | auth=authenticated | action=ReadOwnOperation | params=operationId:Guid | api=yes | order=- | precedence=1.112
 GET AniDoki/user/parameters | auth=authenticated | action=GetFrontendParametersUser | params=includes:ParameterInclude[] | api=yes | order=- | precedence=1.11
 POST AniDoki/user/passwordGrant | auth=authenticated | action=PasswordGrantAuthenticationUserBody | params=request[Body]:PasswordGrantRequest | api=yes | order=- | precedence=1.11
 GET AniDoki/user/user | auth=authenticated | action=GetUserUser | params=apiName:ApiName, user:Guid | api=yes | order=- | precedence=1.11
+GET AniDoki/users/activity | auth=policy:RequiresElevation | action=ReadActivity | params= | api=yes | order=- | precedence=1.11
+GET AniDoki/users/{userId:guid}/history | auth=policy:RequiresElevation | action=ReadHistory | params=userId:Guid, offset[Query]:Int32, limit[Query]:Int32 | api=yes | order=- | precedence=1.121
 GET AniDoki/{viewName} | auth=authenticated | action=GetView | params=viewName[Path]:String | api=yes | order=- | precedence=1.3

@@ -311,6 +311,30 @@ public class AniDokiDatabaseTests {
     }
 
     [Test]
+    public void VersionNineDatabaseKeepsItsOperationsAndGainsTheRetryLink() {
+        string path = Path.Combine(_directory, "anidoki.db");
+        CreateAtVersion(path, 9);
+        using (var connection = Connect(path)) {
+            Execute(connection, """
+                INSERT INTO operations (id, user_id, kind, state, source, created_utc, retry_attempt)
+                VALUES ('op', 'user', 'Retry', 'Succeeded', 'x', '2026-11-22T00:00:00.0000000+00:00', 1)
+                """);
+        }
+
+        var database = new AniDokiDatabase(path);
+
+        Assert.That(database.IsAvailable, Is.True, database.Failure);
+        Assert.That(SchemaVersion(database), Is.EqualTo(StorageMigrations.Latest));
+        using var open = database.Open();
+        using var command = open.CreateCommand();
+        command.CommandText = "SELECT retry_attempt, retry_of FROM operations WHERE id = 'op'";
+        using var reader = command.ExecuteReader();
+        Assert.That(reader.Read(), Is.True);
+        Assert.That(reader.GetInt32(0), Is.EqualTo(1));
+        Assert.That(reader.IsDBNull(1), Is.True);
+    }
+
+    [Test]
     public void OneTrackerAndSeasonHoldOneRetry() {
         var database = new AniDokiDatabase(Path.Combine(_directory, "anidoki.db"));
         using var connection = database.Open();

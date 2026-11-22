@@ -167,3 +167,76 @@ test('a hidden view ignores clicks and Escape', t => {
     anilist.button('Disconnect').click();
     assert.equal(anilist.byClass('doki-account-detail').hidden, true);
 });
+
+function renderLinked(provider, { admin = false, summaries, action = async () => ({}) } = {}) {
+    const container = new Node('div');
+    common.renderAccounts(container, { linked: [provider], visible: [provider], admin, userName: admin ? 'test' : 'your account', action, summaries }, new AbortController().signal);
+    return container.children[0];
+}
+
+test('a rejected sign-in on the user’s own page offers Sign in again in Test’s place, and starts the Link flow', async t => {
+    setup(t);
+    const calls = [];
+    const row = renderLinked('AniList', { summaries: { AniList: { attention: 'AniList rejected your sign-in', signInAgain: true } }, action: async (kind, provider) => { calls.push([kind, provider]); return {}; } });
+    assert.equal(row.button('Test'), null);
+    const again = row.button('Sign in again');
+    assert.ok(again.className.includes('doki-button-primary'));
+    again.click();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(calls, [['link', 'AniList']]);
+});
+
+test('Kitsu’s Sign in again asks for the email and password again', t => {
+    setup(t);
+    const row = renderLinked('Kitsu', { summaries: { Kitsu: { signInAgain: true } } });
+    row.button('Sign in again').click();
+    const detail = row.byClass('doki-account-detail');
+    assert.equal(detail.hidden, false);
+    assert.ok(detail.button('Sign in'));
+    assert.match(detail.textContent, /Kitsu email/);
+});
+
+test('the admin’s panel keeps Test for a rejected sign-in: only the user can sign in again', t => {
+    setup(t);
+    const row = renderLinked('AniList', { admin: true, summaries: { AniList: { attention: 'AniList rejected the sign-in', signInAgain: false } } });
+    assert.ok(row.button('Test'));
+    assert.equal(row.button('Sign in again'), null);
+});
+
+test('Annict never offers Sign in again: the token is the admin’s to replace', t => {
+    setup(t);
+    const row = renderLinked('Annict', { summaries: { Annict: { signInAgain: true } } });
+    assert.ok(row.button('Test'));
+    assert.equal(row.button('Sign in again'), null);
+});
+
+test('a rejected Annict token on the admin’s panel offers Replace token, which saves the token and then tests it', async t => {
+    setup(t);
+    const calls = [];
+    const row = renderLinked('Annict', { admin: true, summaries: { Annict: { replaceToken: true } }, action: async (kind, provider, credentials) => { calls.push([kind, provider, credentials]); return {}; } });
+    assert.equal(row.button('Test'), null);
+    row.button('Replace token').click();
+    const detail = row.byClass('doki-account-detail');
+    assert.match(detail.textContent, /New Annict token for test/);
+    const input = detail.find(node => node.tag === 'input');
+    input.value = 'new-token';
+    detail.button('Save token').click();
+    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(calls, [['link', 'Annict', { Token: 'new-token' }], ['test', 'Annict', {}]]);
+    assert.equal(input.value, '', 'the token does not stay in the field');
+});
+
+test('a token that could not be saved is not tested', async t => {
+    setup(t);
+    const calls = [];
+    const row = renderLinked('Annict', { admin: true, summaries: { Annict: { replaceToken: true } }, action: async kind => { calls.push(kind); if (kind === 'link') throw new Error('Could not save'); return {}; } });
+    row.button('Replace token').click();
+    const detail = row.byClass('doki-account-detail');
+    detail.find(node => node.tag === 'input').value = 'bad';
+    detail.button('Save token').click();
+    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(calls, ['link']);
+    assert.equal(row.byClass('doki-status').textContent, 'Could not save');
+});

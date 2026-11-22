@@ -95,6 +95,23 @@ public class RetryHookTests {
     }
 
     [Test]
+    public async Task ARetryRecordsTheUpdateItFollowedSoHistoryShowsThemAsOne() {
+        var original = _runner.Enqueue(_user, OperationKind.Playback, "Fixture Show · episode 5", Fails("transient"),
+            retry: new RetrySubject(_item, OperationKind.Playback))!;
+        await original.Completion;
+        var retry = _runner.Enqueue(_user, OperationKind.Retry, "Fixture Show · episode 5", operation => {
+            operation.Record(new ProviderWriteOutcome(ApiName.AniList, "500", "Fixture Show", OutcomeKind.Confirmed, 5, null, false, "progress", true));
+            return Task.CompletedTask;
+        }, retry: new RetrySubject(_item, OperationKind.Playback, 1, ApiName.AniList, original.OperationId))!;
+        await retry.Completion;
+
+        var entry = new HistoryReader(new AniDokiDatabase(Path.Combine(_directory, "anidoki.db")), TimeProvider.System).Read(_user, 0, 10).Entries.Single();
+
+        Assert.That(entry.OperationId, Is.EqualTo(original.OperationId));
+        Assert.That(entry.Results.Single(), Is.EqualTo(new HistoryResult("AniList", "Updated", 2)));
+    }
+
+    [Test]
     public async Task AnUnavailableRetryQueueDoesNotFailTheUpdate() {
         File.WriteAllText(Path.Combine(_directory, "file-not-a-folder"), "x");
         var broken = new RetryQueue(new AniDokiDatabase(Path.Combine(_directory, "file-not-a-folder", "x.db")), TimeProvider.System, _ => "season");

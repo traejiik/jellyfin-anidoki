@@ -217,7 +217,8 @@ export function bindNavigation(root, signal) {
     const observer = new IntersectionObserver(entries => {
         const entry = entries.filter(item => item.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
         if (entry) { const link = links.find(item => item.dataset.section === `#${entry.target.id}`); if (link) activate(link); }
-    }, { rootMargin: '-90px 0px -55% 0px' });
+        // On a phone the header and the sticky pills cover about 144px, where a section reached from a pill lands just below.
+    }, { rootMargin: `-${globalThis.matchMedia?.('(max-width: 600px)').matches ? 160 : 90}px 0px -55% 0px` });
     links.forEach(link => { const section = root.querySelector(link.dataset.section); if (section) observer.observe(section); });
     signal.addEventListener('abort', () => observer.disconnect(), { once: true });
 }
@@ -237,8 +238,9 @@ export function bindDraftWarning(view, isDirty, signal) {
     window.addEventListener('beforeunload', warning, { signal });
 }
 
-// summaries: provider key → { lastUpdate, attention }, both optional text. A linked row shows lastUpdate as its second line and
-// attention in its status line until a Test result replaces it.
+// summaries: provider key → { lastUpdate, attention, signInAgain, replaceToken }. A linked row shows lastUpdate as its second line
+// and attention in its status line until a Test result replaces it. signInAgain (the user's own page, a rejected sign-in) puts
+// Sign in again in Test's place; replaceToken (the admin's panel, a rejected Annict token) puts Replace token there.
 export function renderAccounts(container, { linked, visible, admin = false, userName, action, summaries = {} }, signal) {
     container.replaceChildren();
     for (const provider of providers.filter(item => visible.includes(item.key) || linked.includes(item.key))) {
@@ -259,24 +261,58 @@ export function renderAccounts(container, { linked, visible, admin = false, user
         const detail = element('div', 'doki-account-detail'); detail.hidden = true;
         detail.id = `doki-${admin ? 'admin' : 'user'}-${provider.key}-detail`;
         const buttons = [];
+        // Resolves true when the action succeeded, so a saved token can be tested straight after.
         const run = async (kind, credentials = {}) => {
             buttons.forEach(button => button.disabled = true); status(feedback, 'Working…');
             try {
                 const result = await action(kind, provider.key, credentials);
-                if (signal.aborted) return;
+                if (signal.aborted) return false;
                 if (result?.authorizationUrl) { authorizationLink(detail, result.authorizationUrl, provider.name); detail.hidden = false; }
                 else status(feedback, result?.message ?? (kind === 'test' ? 'Connection verified.' : 'Account updated.'), 'success');
+                return true;
             } catch (error) {
                 const message = await errorMessage(error);
                 if (!signal.aborted) status(feedback, message, 'error');
+                return false;
             }
             finally { if (!signal.aborted) buttons.forEach(button => button.disabled = false); }
         };
         const button = (label, handler) => {
             const node = element('button', 'doki-button', label); node.type = 'button'; node.addEventListener('click', handler, { signal }); buttons.push(node); return node;
         };
+        // Kitsu's sign-in and Annict's token are typed here rather than on the tracker's site.
+        const credentialForm = ({ heading, submitLabel = 'Link account', after } = {}) => {
+            detail.replaceChildren();
+            const credentials = {};
+            const fields = element('div', 'doki-account-fields');
+            for (const [key, label, type] of provider.key === 'Kitsu' ? [['Username', 'Kitsu email', 'email'], ['Password', 'Kitsu password', 'password']] : [['Token', heading ?? `Annict token for ${userName}`, 'password']]) {
+                const field = element('label', 'doki-field', label); const input = element('input', 'doki-input'); input.type = type; input.autocomplete = 'off'; field.append(input); fields.append(field); credentials[key] = input;
+            }
+            detail.append(fields);
+            if (provider.key === 'Annict') detail.append(element('p', 'doki-help', 'The token is kept in the AniDōki database on the server, not in the plugin configuration.'));
+            const actions = element('div', 'doki-actions');
+            const link = button(submitLabel, async () => {
+                const values = Object.fromEntries(Object.entries(credentials).map(([key, input]) => [key, input.value]));
+                if (Object.values(values).some(value => !value)) { status(feedback, 'Fill in all account fields.', 'error'); return; }
+                try { if (await run('link', values) && after && !signal.aborted) await after(); } finally { for (const input of Object.values(credentials)) if (input.type === 'password') input.value = ''; }
+            });
+            link.classList.add('doki-button-primary');
+            actions.append(link, button('Close', () => { detail.replaceChildren(); detail.hidden = true; }));
+            detail.append(actions); detail.hidden = false;
+            Object.values(credentials)[0]?.focus?.();
+            signal.addEventListener('abort', () => { detail.replaceChildren(); }, { once: true });
+        };
         if (connected) {
-            row.append(button('Test', () => run('test')));
+            if (summary.signInAgain && provider.key !== 'Annict') {
+                const again = button('Sign in again', () => provider.key === 'Kitsu' ? credentialForm({ submitLabel: 'Sign in' }) : run('link'));
+                again.classList.add('doki-button-primary'); row.append(again);
+            } else if (summary.replaceToken && provider.key === 'Annict') {
+                // The token is saved, then tested, so the row says straight away whether Annict accepts it.
+                const replace = button('Replace token', () => credentialForm({ heading: `New Annict token for ${userName}`, submitLabel: 'Save token', after: () => run('test') }));
+                replace.classList.add('doki-button-primary'); row.append(replace);
+            } else {
+                row.append(button('Test', () => run('test')));
+            }
             let disconnect = null;
             const closeConfirm = () => {
                 detail.hidden = true; detail.replaceChildren(); detail.className = 'doki-account-detail';
@@ -306,26 +342,7 @@ export function renderAccounts(container, { linked, visible, admin = false, user
         } else if (provider.key === 'Annict' && !admin) {
             row.append(element('span', 'doki-help', 'Ask your administrator to link a personal token.'));
         } else if (provider.key === 'Kitsu' || provider.key === 'Annict') {
-            row.append(button('Link', () => {
-                detail.replaceChildren();
-                const credentials = {};
-                const fields = element('div', 'doki-account-fields');
-                for (const [key, label, type] of provider.key === 'Kitsu' ? [['Username', 'Kitsu email', 'email'], ['Password', 'Kitsu password', 'password']] : [['Token', `Annict token for ${userName}`, 'password']]) {
-                    const field = element('label', 'doki-field', label); const input = element('input', 'doki-input'); input.type = type; input.autocomplete = 'off'; field.append(input); fields.append(field); credentials[key] = input;
-                }
-                detail.append(fields);
-                if (provider.key === 'Annict') detail.append(element('p', 'doki-help', 'The token is kept in the AniDōki database on the server, not in the plugin configuration.'));
-                const actions = element('div', 'doki-actions');
-                const link = button('Link account', async () => {
-                    const values = Object.fromEntries(Object.entries(credentials).map(([key, input]) => [key, input.value]));
-                    if (Object.values(values).some(value => !value)) { status(feedback, 'Fill in all account fields.', 'error'); return; }
-                    try { await run('link', values); } finally { for (const input of Object.values(credentials)) if (input.type === 'password') input.value = ''; }
-                });
-                link.classList.add('doki-button-primary');
-                actions.append(link, button('Close', () => { detail.replaceChildren(); detail.hidden = true; }));
-                detail.append(actions); detail.hidden = false;
-                signal.addEventListener('abort', () => { detail.replaceChildren(); }, { once: true });
-            }));
+            row.append(button('Link', () => credentialForm()));
         } else {
             row.append(button('Link', () => run('link')));
         }

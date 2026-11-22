@@ -6,7 +6,7 @@
         <form id="TemplateConfigForm" hidden>
             <div class="doki-layout doki-content">
                 <aside class="doki-rail"><p>On this page</p><nav class="doki-section-nav" aria-label="On this page">
-                    <a href="#accounts" data-section="#doki-accounts">Linked accounts</a><a href="#watch" data-section="#doki-watch">When you watch</a><a href="#notifications" data-section="#doki-notifications">Notifications</a><a href="#advanced" data-section="#doki-advanced">Advanced</a>
+                    <a href="#accounts" data-section="#doki-accounts">Linked accounts</a><a href="#watch" data-section="#doki-watch">When you watch</a><a href="#notifications" data-section="#doki-notifications">Notifications</a><a href="#history" data-section="#doki-history">History</a><a href="#advanced" data-section="#doki-advanced">Advanced</a>
                 </nav></aside>
                 <main class="doki-stack">
                     <section class="doki-panel doki-accounts-panel" id="doki-accounts">
@@ -32,6 +32,10 @@
                             <div class="doki-actions"><button type="button" id="testDiscord" class="doki-button">Send test</button></div>
                             <p id="discordStatus" class="doki-status" role="status"></p>
                         </div>
+                    </section>
+                    <section class="doki-panel" id="doki-history" aria-labelledby="historyTitle">
+                        <div class="doki-panel-title"><h2 id="historyTitle">History</h2><p class="doki-help doki-help-full">Your last 10 updates from playback, watched marks and retries. Manual syncs run by an admin are not listed.</p></div>
+                        <div id="historyTable"></div>
                     </section>
                     <section class="doki-panel" id="doki-advanced" aria-labelledby="advancedTitle">
                         <div class="doki-panel-title"><h2 id="advancedTitle">Advanced</h2><p class="doki-help">Settings most people never need.</p></div>

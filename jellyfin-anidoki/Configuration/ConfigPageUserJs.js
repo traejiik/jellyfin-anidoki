@@ -9,7 +9,7 @@ export default function (view, host = view) {
     cachedViews.set(host, cache); cache.lifecycle?.abort(); cache.active?.abort();
     cache.lifecycle = new AbortController();
     const root = view.querySelector('.anidoki'), find = selector => view.querySelector(selector);
-    let common, state;
+    let common, state, history;
     const preferencesDirty = () => cache.baseline && JSON.stringify(cache.baseline) !== JSON.stringify(cache.draft);
     // Discord saves with the page, so its edits count as unsaved changes too.
     const dirty = () => !!(preferencesDirty() || cache.discordDirty?.());
@@ -41,11 +41,11 @@ export default function (view, host = view) {
     show();
 
     async function start(signal) {
-        [common, state] = await Promise.all([import(assetUrl('common.js')), import(assetUrl('config-state.js'))]);
+        [common, state, history] = await Promise.all([import(assetUrl('common.js')), import(assetUrl('config-state.js')), import(assetUrl('history-state.js'))]);
         if (signal.aborted) return;
         common.ensureStyles(); common.prepareStickyShell(root, signal);
         const userId = ApiClient.getCurrentUserId();
-        if (cache.userId && cache.userId !== userId) { cache.saved = null; cache.baseline = null; cache.draft = null; cache.discordDraft = null; cache.discordDirty = null; cache.matches = null; cache.matchesDirty = null; }
+        if (cache.userId && cache.userId !== userId) { cache.activity = null; cache.saved = null; cache.baseline = null; cache.draft = null; cache.discordDraft = null; cache.discordDirty = null; cache.matches = null; cache.matchesDirty = null; }
         cache.userId = userId;
         if (!cache.saved) {
             const result = await Promise.all([common.json(`AniDoki/user/configuration?user=${cache.userId}`, { signal }), common.json('AniDoki/user/parameters', { signal })]);
@@ -54,17 +54,25 @@ export default function (view, host = view) {
         }
         if (signal.aborted) return;
         find('#TemplateConfigForm').hidden = false; common.status(find('[data-page-status]'), ''); render(signal);
+        loadActivity(signal);
         for (const field of ['PlanToWatchOnly', 'RewatchCompleted', 'ShowLogNotifications']) find(`#${field}`).addEventListener('change', event => { cache.draft[field] = event.target.checked; updateDirty(); }, { signal });
         find('#TemplateConfigForm').addEventListener('submit', event => { event.preventDefault(); save(signal); }, { signal });
         find('#discardChanges').addEventListener('click', () => { cache.draft = state.userPreferences(cache.baseline); cache.discordDiscard?.(); render(signal); }, { signal });
         find('#refreshAccounts').addEventListener('click', async () => {
             common.refreshFeedback(find('#accountsRefreshStatus'), false); common.status(find('#accountsStatus'), '');
-            try { await guard(async () => { cache.saved = await common.json(`AniDoki/user/configuration?user=${cache.userId}`, { signal }); if (!signal.aborted) { renderAccounts(signal); common.refreshFeedback(find('#accountsRefreshStatus'), true); } }); }
+            try { await guard(async () => { cache.saved = await common.json(`AniDoki/user/configuration?user=${cache.userId}`, { signal }); if (!signal.aborted) { renderAccounts(signal); common.refreshFeedback(find('#accountsRefreshStatus'), true); loadActivity(signal); } }); }
             catch (error) {
                 const message = await common.errorMessage(error);
                 if (!signal.aborted) common.status(find('#accountsStatus'), message, 'error');
             }
         }, { signal });
+        // History loads on its own, so a failure there leaves the rest of the page working.
+        import(common.assetUrl('history.js')).then(table => {
+            if (!signal.aborted) table.default(find('#historyTable'), { load: (offset, limit) => common.json(`AniDoki/user/history?user=${cache.userId}&offset=${offset}&limit=${limit}`, { signal }) }, common, signal);
+        }).catch(async error => {
+            if (signal.aborted) return;
+            const line = common.element('p', 'doki-status'); common.status(line, await common.errorMessage(error), 'error'); find('#historyTable').replaceChildren(line);
+        });
         common.observeSaveBar(root, signal); common.bindNavigation(root, signal); common.bindDraftWarning(view, () => dirty() || !!cache.matchesDirty?.(), signal); setBusy(cache.busy);
         const discord = await import(common.assetUrl('discord-settings.js'));
         if (!signal.aborted) await discord.default(root, common, cache, signal, () => cache.busy, updateDirty);
@@ -83,10 +91,30 @@ export default function (view, host = view) {
     function renderAccounts(signal) {
         const available = (cache.parameters.providerList ?? []).map(provider => provider.Key);
         const visible = [...new Set([...available, 'Kitsu', 'Annict', ...connected()])];
-        common.renderAccounts(find('#linkedAccounts'), { linked: connected(), visible, userName: 'your account', action: (kind, provider, credentials) => accountAction(kind, provider, credentials, signal) }, signal);
+        common.renderAccounts(find('#linkedAccounts'), { linked: connected(), visible, userName: 'your account', summaries: summaries(), action: (kind, provider, credentials) => accountAction(kind, provider, credentials, signal) }, signal);
         for (const provider of connected()) if (!available.includes(provider) && !['Kitsu', 'Annict'].includes(provider)) find('#linkedAccounts').append(common.element('p', 'doki-help', `${common.providerName(provider)} is linked, but the server’s app setup is incomplete. Ask your administrator to check it.`));
         find('#RewatchCompleted').disabled = cache.busy || unsupportedRewatch();
         find('#rewatchHelp').textContent = unsupportedRewatch() ? 'Your linked trackers (Simkl / Annict) do not support this option. Its saved value is preserved.' : 'Automatically treat completed titles as rewatches. Simkl and Annict do not support this option.';
+    }
+    // Last update and attention per linked tracker. Without them (still loading, or the read failed) the rows show neither.
+    function summaries() {
+        if (!cache.activity) return {};
+        return Object.fromEntries(connected().map(provider => {
+            const tracker = cache.activity.trackers?.find(item => item.provider === provider);
+            const attention = tracker?.attention;
+            return [provider, {
+                lastUpdate: history.lastUpdateLine(tracker?.lastUpdateUtc),
+                attention: history.attentionText(provider, attention, { surface: 'user' }),
+                signInAgain: attention?.kind === 'SignInRejected'
+            }];
+        }));
+    }
+    async function loadActivity(signal) {
+        try {
+            const activity = await common.json(`AniDoki/user/activity?user=${cache.userId}`, { signal });
+            if (signal.aborted) return;
+            cache.activity = activity; renderAccounts(signal);
+        } catch { /* The rows work without it; History reports a storage or connection problem itself. */ }
     }
     async function accountAction(kind, provider, credentials, signal) {
         return guard(async () => {
@@ -99,7 +127,7 @@ export default function (view, host = view) {
             else await common.request('AniDoki/user/passwordGrant', { method: 'POST', body: { Provider: provider, User: cache.userId, ...credentials }, signal });
             cache.saved = await common.json(`AniDoki/user/configuration?user=${cache.userId}`, { signal });
             const message = kind === 'disconnect' ? `${common.providerName(provider)} disconnected.` : 'Account linked. Your preference edits are retained.';
-            if (!signal.aborted) { renderAccounts(signal); common.status(find('#accountsStatus'), message, 'success'); }
+            if (!signal.aborted) { renderAccounts(signal); common.status(find('#accountsStatus'), message, 'success'); loadActivity(signal); }
             return { message };
         });
     }

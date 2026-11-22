@@ -35,7 +35,8 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
         Guid? previewOf = null, RetrySubject? retry = null) {
         Guid id = operationId ?? Guid.NewGuid();
         try {
-            store.Create(id, userId, kind, source, previewOf, kind == OperationKind.Retry ? retry?.Attempt : null);
+            bool isRetry = kind == OperationKind.Retry;
+            store.Create(id, userId, kind, source, previewOf, isRetry ? retry?.Attempt : null, isRetry ? retry?.RetryOf : null);
         } catch (Exception error) when (error is InvalidOperationException or SqliteException) {
             logger.LogWarning("{OperationKind} for user {UserId} was not started because AniDoki storage is unavailable: {ErrorMessage}", kind, userId, error.Message);
             return null;
@@ -77,7 +78,9 @@ public sealed class OperationRunner(OperationStore store, ILogger<OperationRunne
     }
 
     public async Task StopAsync(CancellationToken cancellationToken) {
-        _retention?.Dispose();
+        // DisposeAsync waits for a retention pass already running, so nothing writes to the database after stopping.
+        if (_retention != null)
+            await _retention.DisposeAsync();
         _stopping.Cancel();
         try {
             await Drain().WaitAsync(cancellationToken);

@@ -195,6 +195,9 @@ internal static class StorageMigrations {
             CREATE INDEX retries_due ON retries (due_utc);
             ALTER TABLE operations ADD COLUMN retry_attempt INTEGER;
             CREATE INDEX operation_actions_meaningful ON operation_actions (provider, meaningful);
+            """),
+        (10, """
+            ALTER TABLE operations ADD COLUMN retry_of TEXT;
             """)
     ];
 
