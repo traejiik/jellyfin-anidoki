@@ -63,4 +63,10 @@ public class UserEditableConfig {
     /// before this field existed reads as "all libraries", as the settings page shows it.
     /// </summary>
     public string[] LibraryToCheck { get; set; } = Array.Empty<string>();
+
+    /// <summary>
+    /// The percentage at which playback updates the trackers while the video plays (60 to the server's
+    /// <c>MaxResumePct</c>, in steps of 5); null updates them on player exit at Jellyfin's own percentage, the default.
+    /// </summary>
+    public int? TrackerThresholdPercent { get; set; }
 }

@@ -17,9 +17,11 @@ using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Extensions;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Playback;
 using jellyfin_anidoki.Enums;
 using MediaBrowser.Common.Api;
 using MediaBrowser.Controller;
+using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -43,6 +45,7 @@ public sealed class SettingsController : ControllerBase {
     private readonly IMemoryCache _memoryCache;
     private readonly ILogger<SettingsController> _logger;
     private readonly IAsyncDelayer _delayer;
+    private readonly IServerConfigurationManager? _serverConfiguration;
 
     public SettingsController(IHttpClientFactory httpClientFactory,
         ILoggerFactory loggerFactory,
@@ -50,7 +53,8 @@ public sealed class SettingsController : ControllerBase {
         IHttpContextAccessor httpContextAccessor,
         ILibraryManager libraryManager,
         IUserManager userManager,
-        IMemoryCache memoryCache) {
+        IMemoryCache memoryCache,
+        IServerConfigurationManager? serverConfiguration = null) {
         _httpClientFactory = httpClientFactory;
         _loggerFactory = loggerFactory;
         _serverApplicationHost = serverApplicationHost;
@@ -60,7 +64,11 @@ public sealed class SettingsController : ControllerBase {
         _memoryCache = memoryCache;
         _logger = loggerFactory.CreateLogger<SettingsController>();
         _delayer = new Delayer();
+        _serverConfiguration = serverConfiguration;
     }
+
+    /// <summary>Jellyfin's played percentage; its own default when the server configuration is not available.</summary>
+    private int MaxResumePct => _serverConfiguration?.Configuration.MaxResumePct ?? 90;
 
     [Authorize(Policy = Policies.RequiresElevation)]
     [HttpGet]
@@ -261,6 +269,9 @@ public sealed class SettingsController : ControllerBase {
                 libraryIds.Add(libraryId);
             }
 
+            if (!TrackerThreshold.IsValid(dto.TrackerThresholdPercent, MaxResumePct))
+                return BadRequest($"Choose a completion percentage from {TrackerThreshold.Minimum}% to {MaxResumePct}%, in steps of {TrackerThreshold.Step}.");
+
             if (!_libraryManager.UserHasAccessToLibraries(libraryIds, jellyfinUser)) {
                 _logger.LogWarning("User {UserId} asked to sync libraries they cannot open: {Libraries}", jellyfinUser.Id, String.Join(", ", libraries));
                 return Forbid();
@@ -272,7 +283,8 @@ public sealed class SettingsController : ControllerBase {
                     PlanToWatchOnly = dto.PlanToWatchOnly,
                     RewatchCompleted = dto.RewatchCompleted,
                     ShowLogNotifications = dto.ShowLogNotifications,
-                    LibraryToCheck = libraries
+                    LibraryToCheck = libraries,
+                    TrackerThresholdPercent = dto.TrackerThresholdPercent
                 };
 
                 config.UserConfig = config.UserConfig
@@ -283,6 +295,7 @@ public sealed class SettingsController : ControllerBase {
                 userConfig.RewatchCompleted = dto.RewatchCompleted;
                 userConfig.ShowLogNotifications = dto.ShowLogNotifications;
                 userConfig.LibraryToCheck = libraries;
+                userConfig.TrackerThresholdPercent = dto.TrackerThresholdPercent;
             }
 
             plugin.SaveConfiguration();
@@ -301,7 +314,7 @@ public sealed class SettingsController : ControllerBase {
     }
 
     private Parameters GetFrontendParameters(ParameterInclude[]? includes, bool onlyConfiguredProviders, bool onlyLibrariesUserHasAccessTo) {
-        Parameters toReturn = new Parameters();
+        Parameters toReturn = new Parameters { maxResumePct = MaxResumePct };
 
         if (includes == null || includes.Contains(ParameterInclude.ProviderList)) {
             toReturn.providerList = new List<ExpandoObject>();

@@ -198,6 +198,28 @@ public partial class UserConfigurationTests {
         });
     }
 
+    [TestCase(55)]
+    [TestCase(62)]
+    [TestCase(95)]
+    public void ACompletionPercentageOutsideSixtyToTheServersOwnInStepsOfFiveIsRefused(int percent) {
+        var result = _settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig { LibraryToCheck = [], TrackerThresholdPercent = percent });
+
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(_requesterConfig.TrackerThresholdPercent, Is.Null);
+    }
+
+    [TestCase(75)]
+    [TestCase(90)]
+    [TestCase(null)]
+    public void ACompletionPercentageIsSavedAndReadBack(int? percent) {
+        _requesterConfig.TrackerThresholdPercent = 60;
+
+        var result = (OkObjectResult)_settings.UpdateConfigurationUser(_requester.Id, new UserEditableConfig { LibraryToCheck = [], TrackerThresholdPercent = percent });
+
+        Assert.That(_requesterConfig.TrackerThresholdPercent, Is.EqualTo(percent));
+        Assert.That(((UserConfigurationResponse)result.Value!).TrackerThresholdPercent, Is.EqualTo(percent));
+    }
+
     [TestCase(ApiName.Mal)]
     [TestCase(ApiName.AniList)]
     [TestCase(ApiName.Shikimori)]
