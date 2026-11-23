@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using jellyfin_anidoki.Api;
@@ -30,6 +31,8 @@ public class ClassConversions {
                 IsRewatching = aniListAnime.MediaListEntry.MediaListStatus == AniListSearch.MediaListStatus.Repeating
             };
             anime.MyListStatus.RewatchCount = aniListAnime.MediaListEntry.RepeatCount;
+            anime.MyListStatus.ScoreRaw = aniListAnime.MediaListEntry.Score is double score && score > 0
+                ? (int)Math.Round(score, MidpointRounding.AwayFromZero) : null;
 
             switch (aniListAnime.MediaListEntry.MediaListStatus) {
                 case AniListSearch.MediaListStatus.Current:

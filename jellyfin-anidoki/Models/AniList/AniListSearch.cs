@@ -50,6 +50,9 @@ public class AniListSearch {
 
         [JsonPropertyName("repeat")] public int RepeatCount { get; set; }
 
+        /// <summary>The score on the 100-point scale (the read asks for POINT_100); 0 when unrated.</summary>
+        [JsonPropertyName("score")] public double? Score { get; set; }
+
         [JsonPropertyName("startedAt")] public FuzzyDate? StartedAt { get; set; }
 
         [JsonPropertyName("completedAt")] public FuzzyDate? CompletedAt { get; set; }

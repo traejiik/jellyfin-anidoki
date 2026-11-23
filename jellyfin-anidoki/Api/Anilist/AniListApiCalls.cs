@@ -10,6 +10,7 @@ using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Trackers;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
@@ -155,6 +156,7 @@ public class AniListApiCalls {
               status
               progress
               repeat
+              score(format: POINT_100)
               startedAt {
                 day
                 month
@@ -208,25 +210,56 @@ public class AniListApiCalls {
         return null;
     }
 
+    /// <returns>The signed-in account's scoring format, or null when it cannot be read or is not one AniDōki knows.</returns>
+    public async Task<ScoreFormat?> GetScoreFormat() {
+        string query = @"query {
+          Viewer {
+            id
+            mediaListOptions {
+              scoreFormat
+            }
+          }
+        }";
+
+        var response = await GraphQlHelper.AuthenticatedRequest(_httpClientFactory, _loggerFactory, _serverApplicationHost, _httpContextAccessor, _memoryCache, _delayer, _userConfig, query, ApiName.AniList);
+        if (response == null)
+            return null;
+        using var streamReader = new StreamReader(await response.Content.ReadAsStreamAsync());
+        var result = JsonSerializer.Deserialize<AniListViewer.AniListGetViewer>(await streamReader.ReadToEndAsync());
+        return result?.Data?.Viewer?.MediaListOptions?.ScoreFormat switch {
+            "POINT_100" => ScoreFormat.Point100,
+            "POINT_10_DECIMAL" => ScoreFormat.Point10Decimal,
+            "POINT_10" => ScoreFormat.Point10,
+            "POINT_5" => ScoreFormat.Point5,
+            "POINT_3" => ScoreFormat.Point3,
+            _ => null
+        };
+    }
+
     public async Task<bool> UpdateAnime(int id, AniListSearch.MediaListStatus status, int progress, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null) {
         return await UpdateAnimeReceipt(id, status, progress, numberOfTimesRewatched, startDate, endDate) != null;
     }
 
-    internal async Task<UpdateAnimeStatusResponse?> UpdateAnimeReceipt(int id, AniListSearch.MediaListStatus status, int progress, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null) {
+    /// <param name="scoreRaw">A score on the 100-point scale to write (0 clears it); null sends no score, as before scores existed.</param>
+    internal async Task<UpdateAnimeStatusResponse?> UpdateAnimeReceipt(int id, AniListSearch.MediaListStatus status, int progress, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null, int? scoreRaw = null) {
         string query = @"mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int" +
                        (numberOfTimesRewatched != null ? ", $repeat: Int" : "") +
                        (startDate != null ? ",$startDay: Int, $startMonth: Int, $startYear: Int" : "") +
                        (endDate != null ? ",$endDay: Int, $endMonth: Int, $endYear: Int" : "") +
+                       (scoreRaw != null ? ", $scoreRaw: Int" : "") +
                        @") {
           SaveMediaListEntry (mediaId: $mediaId, status: $status, progress: $progress" +
                        (numberOfTimesRewatched != null ? ", repeat: $repeat" : "") +
                        (startDate != null ? @", startedAt: {day: $startDay, month: $startMonth, year: $startYear}" : "") +
                        (endDate != null ? @", completedAt: {day: $endDay, month: $endMonth, year: $endYear}" : "") +
+                       (scoreRaw != null ? ", scoreRaw: $scoreRaw" : "") +
                        @") {
             id
             progress
             status
-            repeat
+            repeat" +
+                       (scoreRaw != null ? "\n            score(format: POINT_100)" : "") +
+                       @"
           }
         }";
 
@@ -244,6 +277,10 @@ public class AniListApiCalls {
             variables.Add("startDay", startDate.Value.Day.ToString());
             variables.Add("startMonth", startDate.Value.Month.ToString());
             variables.Add("startYear", startDate.Value.Year.ToString());
+        }
+
+        if (scoreRaw != null) {
+            variables.Add("scoreRaw", scoreRaw.Value.ToString());
         }
 
         if (endDate != null) {
@@ -278,7 +315,9 @@ public class AniListApiCalls {
                 AcknowledgedProgress = returnedProgress,
                 AcknowledgedStatus = returnedStatus,
                 AcknowledgedRewatching = returnedStatus.HasValue ? returnedStatus == Status.Rewatching : null,
-                AcknowledgedRewatchCount = MutationAcknowledgement.Number(entry, "repeat", out var repeat) && repeat >= 0 ? repeat : null
+                AcknowledgedRewatchCount = MutationAcknowledgement.Number(entry, "repeat", out var repeat) && repeat >= 0 ? repeat : null,
+                AcknowledgedScoreRaw = scoreRaw != null && entry.TryGetProperty("score", out var scoreField) && scoreField.ValueKind == JsonValueKind.Number
+                    ? (int)Math.Round(scoreField.GetDouble(), MidpointRounding.AwayFromZero) : null
             };
             return true;
         });

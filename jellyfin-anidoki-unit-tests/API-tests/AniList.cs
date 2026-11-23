@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -277,5 +278,105 @@ public class AniList {
         var result = await new AniListTrackerClient(Api(Helpers.Sequence((HttpStatusCode.OK, "{}")))).GetUser();
 
         Assert.That(result, Is.Null);
+    }
+
+    /// <summary>Like <see cref="Api"/>, with a linked AniList account, so authenticated calls are sent.</summary>
+    private AniListApiCalls SignedInApi(IHttpClientFactory factory) =>
+        new(factory, new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object, new Mock<IHttpContextAccessor>().Object,
+            new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, new UserConfig {
+                UserApiAuth = [new UserApiAuth { AccessToken = "accessToken", Name = ApiName.AniList, RefreshToken = "refreshToken" }]
+            });
+
+    private static System.Text.Json.JsonElement Body(Helpers.SentRequest request) =>
+        System.Text.Json.JsonDocument.Parse(request.Body!).RootElement;
+
+    private static string Query(Helpers.SentRequest request) => Body(request).GetProperty("query").GetString()!;
+
+    private static string? Variable(Helpers.SentRequest request, string name) =>
+        Body(request).GetProperty("variables").TryGetProperty(name, out var value) ? value.GetString() : null;
+
+    private const string EntryWithScore = "{\"data\":{\"Media\":{\"id\":500,\"episodes\":12,\"mediaListEntry\":{\"status\":\"CURRENT\",\"progress\":3,\"repeat\":0,\"score\":SCORE}}}}";
+
+    [Test]
+    public async Task TheEntryScoreIsReadOnTheHundredPointScale() {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new AniListTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, EntryWithScore.Replace("SCORE", "85.0")))));
+
+        var anime = await client.GetAnime(500);
+
+        Assert.That(Query(sent.Single()), Does.Contain("score(format: POINT_100)"));
+        Assert.That(anime!.MyListStatus!.ScoreRaw, Is.EqualTo(85));
+    }
+
+    [Test]
+    public async Task AnUnratedEntryReadsAsNull() {
+        var client = new AniListTrackerClient(SignedInApi(Helpers.Sequence((HttpStatusCode.OK, EntryWithScore.Replace("SCORE", "0")))));
+
+        var anime = await client.GetAnime(500);
+
+        Assert.That(anime!.MyListStatus!.ScoreRaw, Is.Null);
+    }
+
+    private const string SavedEntry = "{\"data\":{\"SaveMediaListEntry\":{\"id\":1,\"progress\":5,\"status\":\"CURRENT\",\"repeat\":0,\"score\":SCORE}}}";
+
+    [Test]
+    public async Task AScoreIsWrittenAsScoreRaw() {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new AniListTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedEntry.Replace("SCORE", "85")))));
+
+        var response = await client.UpdateAnime(500, 5, Status.Watching, scoreRaw: 85);
+
+        string query = Query(sent.Single());
+        Assert.That(query, Does.Contain("$scoreRaw: Int"));
+        Assert.That(query, Does.Contain("scoreRaw: $scoreRaw"));
+        Assert.That(query, Does.Contain("score(format: POINT_100)"));
+        Assert.That(Variable(sent.Single(), "scoreRaw"), Is.EqualTo("85"));
+        Assert.That(response!.AcknowledgedScoreRaw, Is.EqualTo(85));
+    }
+
+    [Test]
+    public async Task ClearingWritesScoreRawZero() {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new AniListTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedEntry.Replace("SCORE", "0")))));
+
+        var response = await client.UpdateAnime(500, 5, Status.Watching, clearScore: true);
+
+        Assert.That(Variable(sent.Single(), "scoreRaw"), Is.EqualTo("0"));
+        Assert.That(response!.AcknowledgedScoreRaw, Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task AWriteWithoutAScoreIsUnchanged() {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new AniListTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedEntry.Replace("SCORE", "0")))));
+
+        var response = await client.UpdateAnime(500, 5, Status.Watching);
+
+        Assert.That(Query(sent.Single()), Does.Not.Contain("score"));
+        Assert.That(Variable(sent.Single(), "scoreRaw"), Is.Null);
+        Assert.That(response!.AcknowledgedScoreRaw, Is.Null);
+    }
+
+    [TestCase("POINT_100", ScoreFormat.Point100)]
+    [TestCase("POINT_10_DECIMAL", ScoreFormat.Point10Decimal)]
+    [TestCase("POINT_10", ScoreFormat.Point10)]
+    [TestCase("POINT_5", ScoreFormat.Point5)]
+    [TestCase("POINT_3", ScoreFormat.Point3)]
+    public async Task TheViewersFormatIsRead(string scoreFormat, ScoreFormat expected) {
+        var sent = new List<Helpers.SentRequest>();
+        string response = $"{{\"data\":{{\"Viewer\":{{\"id\":1,\"mediaListOptions\":{{\"scoreFormat\":\"{scoreFormat}\"}}}}}}}}";
+        var client = new AniListTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, response))));
+
+        Assert.That(await client.GetScoreFormat(), Is.EqualTo(expected));
+        Assert.That(Query(sent.Single()), Does.Contain("mediaListOptions"));
+        Assert.That(Query(sent.Single()), Does.Contain("scoreFormat"));
+    }
+
+    [Test]
+    public async Task AnUnknownFormatReadsAsNull() {
+        var client = new AniListTrackerClient(SignedInApi(Helpers.Sequence((HttpStatusCode.OK,
+            "{\"data\":{\"Viewer\":{\"id\":1,\"mediaListOptions\":{\"scoreFormat\":\"POINT_7\"}}}}"))));
+
+        Assert.That(await client.GetScoreFormat(), Is.Null);
     }
 }
