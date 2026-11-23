@@ -204,6 +204,7 @@ public class ClassConversions {
                 NumEpisodesWatched = userRate.Episodes,
                 IsRewatching = userRate.Status is ShikimoriUserRate.StatusEnum.rewatching,
                 RewatchCount = userRate.Rewatches,
+                ScoreRaw = userRate.Score is > 0 and <= 10 ? userRate.Score * 10 : null,
             };
             switch (userRate.Status) {
                 case ShikimoriUserRate.StatusEnum.completed:

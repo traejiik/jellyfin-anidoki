@@ -14,6 +14,10 @@ public class ShikimoriUserRate {
     [JsonPropertyName("rewatches")]
     public int Rewatches { get; set; }
 
+    /// <summary>The score, 1–10; 0 when unrated.</summary>
+    [JsonPropertyName("score")]
+    public int? Score { get; set; }
+
     public enum StatusEnum {
         planned,
         watching,

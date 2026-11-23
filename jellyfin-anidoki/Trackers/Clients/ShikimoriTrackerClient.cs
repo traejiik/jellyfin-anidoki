@@ -51,8 +51,15 @@ public sealed class ShikimoriTrackerClient(ShikimoriApiCalls api) : ITrackerClie
             Status.Plan_to_watch => ShikimoriUserRate.StatusEnum.planned,
             _ => ShikimoriUserRate.StatusEnum.watching
         };
-        if (!await api.UpdateAnime(alternativeId, shikimoriStatus, numberOfWatchedEpisodes, numberOfTimesRewatched))
+        int? score = clearScore ? 0 : (int?)ScoreScale.ToDisplay(scoreRaw, ScoreFormat.Point10);
+        ShikimoriUserRate? acknowledged = await api.UpdateAnimeReceipt(alternativeId, shikimoriStatus, numberOfWatchedEpisodes, numberOfTimesRewatched, score);
+        if (acknowledged == null)
             return null;
-        return new UpdateAnimeStatusResponse { UsesAcknowledgementFields = true, AcknowledgedProgress = numberOfWatchedEpisodes, AcknowledgedStatus = status };
+        return new UpdateAnimeStatusResponse {
+            UsesAcknowledgementFields = true,
+            AcknowledgedProgress = numberOfWatchedEpisodes,
+            AcknowledgedStatus = status,
+            AcknowledgedScoreRaw = score != null && acknowledged.Score is >= 0 and <= 10 ? acknowledged.Score * 10 : null
+        };
     }
 }
