@@ -76,7 +76,7 @@ export function resultLine(result) {
 
 export const noChangeLine = { text: 'No change needed', tone: 'muted' };
 
-const triggers = { Playback: 'Playback', WatchedToggle: 'Marked watched', ConfirmedManual: 'Confirmed mark', Retry: 'Retry' };
+const triggers = { Playback: 'Playback', WatchedToggle: 'Marked watched', ConfirmedManual: 'Confirmed mark', Retry: 'Retry', Edit: 'Edited in AniDōki' };
 
 /** A history entry ready to render: title, episode label, trigger, when, and its result lines. */
 export function historyRow(entry, now) {

@@ -64,6 +64,7 @@ test('history result wording and tones match the design', () => {
     assert.deepEqual(line('Unconfirmed'), { text: 'AniList may have updated; check it', tone: 'attention' });
     assert.deepEqual(line('Skipped', { step: 'plan-to-watch-only' }), { text: 'AniList skipped: not on Plan to Watch', tone: 'muted' });
     assert.deepEqual(line('Skipped', { step: 'something-new' }), { text: 'AniList skipped', tone: 'muted' });
+    assert.deepEqual(line('Skipped', { step: 'edit-stale' }), { text: 'AniList skipped: changed on the tracker since you opened it', tone: 'muted' });
     assert.deepEqual(line('Unresolved'), { text: 'AniList: no matching entry', tone: 'muted' });
     assert.deepEqual(line('Failed'), { text: 'AniList failed', tone: 'attention' });
 });
@@ -77,6 +78,7 @@ test('a history row names the episode, trigger and time, and says No change need
     assert.deepEqual(movie.lines, [{ text: 'Kitsu updated', tone: 'success' }]);
     assert.equal(historyRow({ trigger: 'ConfirmedManual', whenUtc: ago(0), title: 'x', results: [] }, now).trigger, 'Confirmed mark');
     assert.equal(historyRow({ trigger: 'Retry', whenUtc: ago(0), title: 'x', results: [] }, now).trigger, 'Retry');
+    assert.equal(historyRow({ trigger: 'Edit', whenUtc: ago(0), title: 'x', results: [] }, now).trigger, 'Edited in AniDōki');
 });
 
 test('the pager names the rows shown', () => {
