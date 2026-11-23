@@ -215,12 +215,16 @@ public sealed class TrackerProvider(ApiName name, ITrackerClient client, TimePro
         if (response == null)
             return null;
         WriteReceipt receipt = ToReceipt(response);
-        int? expected = clearScore ? 0 : scoreRaw;
+        // A tracker with a fixed scale stores the score on its own step (MAL saves 85 as 9), so that is what it confirms.
+        int? expected = clearScore ? 0 : OnTrackerStep(scoreRaw);
         if (expected == null)
             return receipt;
         int? acknowledged = response.AcknowledgedScoreRaw;
         return receipt with { Score = acknowledged is > 0 ? acknowledged : null, Complete = receipt.Complete && acknowledged == expected };
     }
+
+    private int? OnTrackerStep(int? raw) =>
+        ScoreScale.FixedFormat(name) is { } format ? ScoreScale.ToRaw(ScoreScale.ToDisplay(raw, format), format) : raw;
 
     private WriteReceipt ToReceipt(UpdateAnimeStatusResponse response) {
         int? progress = response.UsesAcknowledgementFields ? response.AcknowledgedProgress : response.NumEpisodesWatched;

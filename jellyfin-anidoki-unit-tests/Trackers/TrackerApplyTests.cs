@@ -252,15 +252,16 @@ public class TrackerApplyTests {
         Assert.That(tracker.Writes.Single().ClearScore, Is.False);
     }
 
+    // 80 is on every scored tracker's step, so each stores it as sent.
     [TestCaseSource(nameof(ScoredProviders))]
     public async Task AScoreGoesOutWithTheWrite(ApiName provider) {
         var (adapter, tracker) = Adapter(provider);
         Seed(tracker, Status.Watching, 3, false);
 
-        var receipt = await adapter.Apply(await Read(adapter, provider), new EntryChange(5, TrackerStatus.Watching, Score: 85), CancellationToken.None);
+        var receipt = await adapter.Apply(await Read(adapter, provider), new EntryChange(5, TrackerStatus.Watching, Score: 80), CancellationToken.None);
 
-        Assert.That(Writes(tracker).Single(), Does.EndWith(", score=85)"));
-        Assert.That(receipt!.Score, Is.EqualTo(85));
+        Assert.That(Writes(tracker).Single(), Does.EndWith(", score=80)"));
+        Assert.That(receipt!.Score, Is.EqualTo(80));
         Assert.That(receipt.Complete, Is.True);
     }
 
@@ -331,5 +332,23 @@ public class TrackerApplyTests {
         Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => adapter.Apply(state,
             new EntryChange(5, TrackerStatus.Watching, Score: raw), CancellationToken.None));
         Assert.That(tracker.Writes, Is.Empty);
+    }
+
+
+    /// <summary>A tracker that stores whole points saves raw 85 as 9 (90); that is the score landing, not failing.</summary>
+    [TestCase(ApiName.Mal, 85, 90)]
+    [TestCase(ApiName.Shikimori, 85, 90)]
+    [TestCase(ApiName.Simkl, 81, 80)]
+    [TestCase(ApiName.Kitsu, 87, 85)]
+    [TestCase(ApiName.Kitsu, 3, 10)]
+    public async Task AScoreStoredOnTheTrackersOwnStepStillCompletes(ApiName provider, int sent, int stored) {
+        var (adapter, tracker) = Adapter(provider);
+        Seed(tracker, Status.Watching, 3, false);
+        tracker.ScoreGrid = ScoreScale.FixedFormat(provider);
+
+        var receipt = await adapter.Apply(await Read(adapter, provider), new EntryChange(5, TrackerStatus.Watching, Score: sent), CancellationToken.None);
+
+        Assert.That(receipt!.Complete, Is.True);
+        Assert.That(receipt.Score, Is.EqualTo(stored));
     }
 }

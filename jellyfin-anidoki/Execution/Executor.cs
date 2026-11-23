@@ -191,9 +191,11 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
         }
     }
 
-    // Titles and ReadAt are left out: a re-read always has a new ReadAt, and titles do not affect a plan.
+    // Titles, ReadAt and the score are left out: a re-read always has a new ReadAt, and titles and scores do not affect a plan.
     private static bool SameEntry(EntryState first, EntryState second) =>
-        first.TotalEpisodes == second.TotalEpisodes && first.List == second.List;
+        first.TotalEpisodes == second.TotalEpisodes && WithoutScore(first.List) == WithoutScore(second.List);
+
+    private static ListState? WithoutScore(ListState? list) => list is null ? null : list with { Score = null };
 
     private PlanDecision Decide(ResolvedTarget target, EntryState state) =>
         Planner.Plan(new PlanInput(target.TargetEpisode, state, rules, policy, tracker.Capabilities, _quirks, clock.GetUtcNow().LocalDateTime));

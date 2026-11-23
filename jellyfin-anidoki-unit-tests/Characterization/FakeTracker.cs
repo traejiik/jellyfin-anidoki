@@ -52,6 +52,9 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient, IScoreForm
     /// <summary>How many times the scoring format was asked for.</summary>
     public int ScoreFormatReads { get; private set; }
 
+    /// <summary>Stores a score on this format's step, as a tracker with a fixed scale does; null stores it as sent.</summary>
+    public ScoreFormat? ScoreGrid { get; set; }
+
     /// <summary>Writes a score but leaves it out of the acknowledgement, as a tracker that ignored the field would.</summary>
     public bool DropScoreAcknowledgement { get; set; }
 
@@ -107,6 +110,8 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient, IScoreForm
         Writes.Add(new RecordedWrite(animeId, numberOfWatchedEpisodes, status, isRewatching, numberOfTimesRewatched,
             startDate != null, endDate != null, scoreRaw, clearScore));
         WriteContexts.Add(new WriteContext(alternativeId, ids?.MyAnimeList, isShow));
+        if (scoreRaw != null && ScoreGrid is { } grid)
+            scoreRaw = ScoreScale.ToRaw(ScoreScale.ToDisplay(scoreRaw, grid), grid);
         if (FailingWrites.Contains(Writes.Count)) {
             if (WriteFailure is { } failure)
                 TrackerCallScope.Report(failure);

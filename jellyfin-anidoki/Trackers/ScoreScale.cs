@@ -30,6 +30,9 @@ public static class ScoreScale {
         _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
     };
 
+    /// <summary>The lowest score the format can hold: one step, except Kitsu's half steps, which start at 1.0 (ratingTwenty 2).</summary>
+    public static decimal Minimum(ScoreFormat format) => format == ScoreFormat.Point10Half ? 1m : Step(format);
+
     /// <returns>The score as shown in <paramref name="format"/>, or null when unrated.</returns>
     public static decimal? ToDisplay(int? raw, ScoreFormat format) {
         if (raw is not { } value)
@@ -39,7 +42,7 @@ public static class ScoreScale {
         return format switch {
             ScoreFormat.Point100 => value,
             ScoreFormat.Point10Decimal => Math.Round(value / 10m, 1, MidpointRounding.AwayFromZero),
-            ScoreFormat.Point10Half => Math.Round(value / 5m, MidpointRounding.AwayFromZero) / 2,
+            ScoreFormat.Point10Half => Math.Max(1, Math.Round(value / 5m, MidpointRounding.AwayFromZero) / 2),
             ScoreFormat.Point10 => Math.Max(1, Math.Round(value / 10m, MidpointRounding.AwayFromZero)),
             ScoreFormat.Point5 => Math.Max(1, Math.Round(value / 20m, MidpointRounding.AwayFromZero)),
             ScoreFormat.Point3 => value <= Point3Low ? 1 : value <= Point3Middle ? 2 : 3,
@@ -48,11 +51,11 @@ public static class ScoreScale {
     }
 
     /// <returns>The raw score for a value shown in <paramref name="format"/>, or null when <paramref name="display"/> is null.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">The value is not a score in the format: 0 or less, above its maximum, or off its step.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a score in the format: below its minimum, above its maximum, or off its step.</exception>
     public static int? ToRaw(decimal? display, ScoreFormat format) {
         if (display is not { } value)
             return null;
-        if (value <= 0 || value > Maximum(format) || value % Step(format) != 0)
+        if (value < Minimum(format) || value > Maximum(format) || value % Step(format) != 0)
             throw new ArgumentOutOfRangeException(nameof(display), display, $"Not a {format} score");
         return format switch {
             ScoreFormat.Point100 => (int)value,

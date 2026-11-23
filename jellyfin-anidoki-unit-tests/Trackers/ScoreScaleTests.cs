@@ -68,7 +68,7 @@ public class ScoreScaleTests {
         foreach (var format in AllFormats) {
             decimal step = ScoreScale.Step(format);
             int count = (int)(ScoreScale.Maximum(format) / step);
-            foreach (decimal shown in Enumerable.Range(1, count).Select(i => i * step))
+            foreach (decimal shown in Enumerable.Range(1, count).Select(i => i * step).Where(shown => shown >= ScoreScale.Minimum(format)))
                 Assert.That(ScoreScale.ToDisplay(ScoreScale.ToRaw(shown, format), format), Is.EqualTo(shown), $"{format} {shown}");
         }
     }
@@ -91,4 +91,13 @@ public class ScoreScaleTests {
     [TestCase(ApiName.Annict)]
     public void NoFixedFormat(ApiName provider) =>
         Assert.That(ScoreScale.FixedFormat(provider), Is.Null);
+
+
+    [Test]
+    public void KitsusHalfStepsStartAtOne() {
+        Assert.That(ScoreScale.Minimum(ScoreFormat.Point10Half), Is.EqualTo(1m));
+        Assert.That(ScoreScale.Minimum(ScoreFormat.Point10Decimal), Is.EqualTo(Shown("0.1")));
+        Assert.That(ScoreScale.ToDisplay(2, ScoreFormat.Point10Half), Is.EqualTo(1m));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ScoreScale.ToRaw(Shown("0.5"), ScoreFormat.Point10Half));
+    }
 }
