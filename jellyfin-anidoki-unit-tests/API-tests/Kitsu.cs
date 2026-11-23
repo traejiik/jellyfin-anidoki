@@ -352,4 +352,62 @@ public class Kitsu {
 
         Assert.That(await api.GetRelatedAnime(1), Is.Empty);
     }
+
+    private static readonly List<KeyPairs> KitsuUser = [new KeyPairs { Key = "KitsuUserId", Value = "1" }];
+
+    private static string LibraryEntry(string rating) =>
+        "{\"data\":[{\"id\":\"9\",\"type\":\"libraryEntries\",\"attributes\":{\"status\":\"current\",\"progress\":3,\"reconsuming\":false,\"reconsumeCount\":0,\"ratingTwenty\":" + rating + "}}]}";
+
+    private static string SavedEntry(string rating) =>
+        "{\"data\":{\"id\":\"9\",\"type\":\"libraryEntries\",\"attributes\":{\"status\":\"current\",\"progress\":5,\"ratingTwenty\":" + rating + "}}}";
+
+    private static System.Text.Json.JsonElement SentAttributes(Helpers.SentRequest request) =>
+        System.Text.Json.JsonDocument.Parse(request.Body!).RootElement.GetProperty("data").GetProperty("attributes");
+
+    [TestCase("17", 85)]
+    [TestCase("null", null)]
+    public async Task TheRatingIsReadFromRatingTwenty(string rating, int? raw) {
+        var client = new jellyfin_anidoki.Trackers.KitsuTrackerClient(Api(Helpers.Sequence((HttpStatusCode.OK, LibraryEntry(rating))), KitsuUser));
+
+        var status = await client.GetConvertedUserList(500);
+
+        Assert.That(status.ScoreRaw, Is.EqualTo(raw));
+    }
+
+    [Test]
+    public async Task AScoreIsSentAsRatingTwenty() {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new jellyfin_anidoki.Trackers.KitsuTrackerClient(Api(Helpers.RecordedSequence(sent,
+            (HttpStatusCode.OK, LibraryEntry("null")), (HttpStatusCode.OK, SavedEntry("17"))), KitsuUser));
+
+        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Models.Mal.Status.Watching, scoreRaw: 85);
+
+        Assert.That(SentAttributes(sent[1]).GetProperty("ratingTwenty").GetInt32(), Is.EqualTo(17));
+        Assert.That(response!.AcknowledgedScoreRaw, Is.EqualTo(85));
+    }
+
+    [Test]
+    public async Task ClearingSendsAnExplicitNull() {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new jellyfin_anidoki.Trackers.KitsuTrackerClient(Api(Helpers.RecordedSequence(sent,
+            (HttpStatusCode.OK, LibraryEntry("17")), (HttpStatusCode.OK, SavedEntry("null"))), KitsuUser));
+
+        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Models.Mal.Status.Watching, clearScore: true);
+
+        Assert.That(SentAttributes(sent[1]).TryGetProperty("ratingTwenty", out var rating), Is.True);
+        Assert.That(rating.ValueKind, Is.EqualTo(System.Text.Json.JsonValueKind.Null));
+        Assert.That(response!.AcknowledgedScoreRaw, Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task AWriteWithoutAScoreHasNoRatingKey() {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new jellyfin_anidoki.Trackers.KitsuTrackerClient(Api(Helpers.RecordedSequence(sent,
+            (HttpStatusCode.OK, LibraryEntry("17")), (HttpStatusCode.OK, SavedEntry("17"))), KitsuUser));
+
+        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Models.Mal.Status.Watching);
+
+        Assert.That(SentAttributes(sent[1]).TryGetProperty("ratingTwenty", out _), Is.False);
+        Assert.That(response!.AcknowledgedScoreRaw, Is.Null);
+    }
 }

@@ -22,6 +22,9 @@ public class KitsuUpdate {
         [JsonPropertyName("startedAt")] public DateTime? StartedAt { get; set; }
 
         [JsonPropertyName("finishedAt")] public DateTime? FinishedAt { get; set; }
+
+        /// <summary>The rating, 2–20 (shown as 1–10 in halves); null when unrated.</summary>
+        [JsonPropertyName("ratingTwenty")] public int? RatingTwenty { get; set; }
     }
 
     public enum Status {

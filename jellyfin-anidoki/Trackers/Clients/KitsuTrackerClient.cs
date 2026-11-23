@@ -44,7 +44,8 @@ public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITra
         userList = new MyListStatus {
             NumEpisodesWatched = entry.Attributes.Progress ?? 0,
             IsRewatching = entry.Attributes.Reconsuming ?? false,
-            RewatchCount = entry.Attributes.ReconsumeCount ?? 0
+            RewatchCount = entry.Attributes.ReconsumeCount ?? 0,
+            ScoreRaw = entry.Attributes.RatingTwenty is > 0 and var rating ? rating * 5 : null
         };
         switch (entry.Attributes.Status) {
             case KitsuUpdate.Status.completed:
@@ -81,12 +82,18 @@ public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITra
             Status.Plan_to_watch => KitsuUpdate.Status.planned,
             _ => KitsuUpdate.Status.current
         };
-        if (!await api.UpdateAnimeStatus(animeId, numberOfWatchedEpisodes, kitsuStatus, isRewatching, numberOfTimesRewatched, startDate, endDate))
+        // Kitsu rates 2–20 in steps of one, which is 10–100 in steps of five on the contracts' scale.
+        int? ratingTwenty = scoreRaw == null ? null : Math.Clamp((int)Math.Round(scoreRaw.Value / 5m, MidpointRounding.AwayFromZero), 2, 20);
+        KitsuUpdate.Attributes? acknowledged = await api.UpdateAnimeStatusReceipt(animeId, numberOfWatchedEpisodes, kitsuStatus, isRewatching,
+            numberOfTimesRewatched, startDate, endDate, ratingTwenty, clearScore);
+        if (acknowledged == null)
             return null;
         return new UpdateAnimeStatusResponse {
             UsesAcknowledgementFields = true,
             AcknowledgedProgress = numberOfWatchedEpisodes,
-            AcknowledgedStatus = kitsuStatus == KitsuUpdate.Status.current ? Status.Watching : status == Status.Rewatching ? Status.Completed : status
+            AcknowledgedStatus = kitsuStatus == KitsuUpdate.Status.current ? Status.Watching : status == Status.Rewatching ? Status.Completed : status,
+            AcknowledgedScoreRaw = clearScore ? (acknowledged.RatingTwenty == null ? 0 : null)
+                : ratingTwenty != null ? acknowledged.RatingTwenty * 5 : null
         };
     }
 
