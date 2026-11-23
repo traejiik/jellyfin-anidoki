@@ -24,6 +24,8 @@ internal sealed class ReadOnlyTracker(ITrackerProvider inner) : ITrackerProvider
     public Task<EntryRef?> FindByCrossIds(ResolvedIds ids, string title, MediaKind kind, CancellationToken cancellationToken) =>
         inner.FindByCrossIds(ids, title, kind, cancellationToken);
 
+    public Task<ScoreFormat?> ReadScoreFormat(CancellationToken cancellationToken) => inner.ReadScoreFormat(cancellationToken);
+
     public Task<WriteReceipt?> Apply(EntryState current, EntryChange change, CancellationToken cancellationToken) =>
         throw new InvalidOperationException("Resolution must never write.");
 }

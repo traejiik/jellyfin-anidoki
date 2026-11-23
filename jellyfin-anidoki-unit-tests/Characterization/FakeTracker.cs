@@ -15,7 +15,7 @@ namespace jellyfin_anidoki_unit_tests.Characterization;
 /// alternative ID, Simkl writes need cross IDs and the media kind, and MAL reads never carry a rewatch count. Reads
 /// return copies; writes update the stored entry and are recorded in order.
 /// </summary>
-internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
+internal sealed class FakeTracker(ApiName provider) : ITrackerClient, IScoreFormatSource {
     private readonly Dictionary<int, Anime> _entries = new();
 
     public ApiName Provider => provider;
@@ -45,6 +45,20 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
 
     /// <summary>Reported on each write listed in <see cref="FailingWrites"/>.</summary>
     public TrackerFailureKind? WriteFailure { get; set; }
+
+    /// <summary>The account's scoring format, as AniList reports it per user.</summary>
+    public ScoreFormat? ScoreFormat { get; set; } = jellyfin_anidoki.Trackers.ScoreFormat.Point10Decimal;
+
+    /// <summary>How many times the scoring format was asked for.</summary>
+    public int ScoreFormatReads { get; private set; }
+
+    /// <summary>Writes a score but leaves it out of the acknowledgement, as a tracker that ignored the field would.</summary>
+    public bool DropScoreAcknowledgement { get; set; }
+
+    public Task<ScoreFormat?> GetScoreFormat() {
+        ScoreFormatReads++;
+        return Task.FromResult(ScoreFormat);
+    }
 
     private bool ReadFails() {
         if (ReadFailure is not { } kind)
@@ -85,12 +99,13 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
 
     public Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status,
         bool? isRewatching = null, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null,
-        string? alternativeId = null, ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null) {
+        string? alternativeId = null, ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null, int? scoreRaw = null,
+        bool clearScore = false) {
         // The real client sends nothing without the identifiers this provider writes by.
         if ((UsesAlternativeIds && alternativeId == null) || (provider == ApiName.Simkl && (ids == null || isShow == null)))
             return Task.FromResult<UpdateAnimeStatusResponse?>(null);
         Writes.Add(new RecordedWrite(animeId, numberOfWatchedEpisodes, status, isRewatching, numberOfTimesRewatched,
-            startDate != null, endDate != null));
+            startDate != null, endDate != null, scoreRaw, clearScore));
         WriteContexts.Add(new WriteContext(alternativeId, ids?.MyAnimeList, isShow));
         if (FailingWrites.Contains(Writes.Count)) {
             if (WriteFailure is { } failure)
@@ -104,7 +119,8 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
                 Status = status,
                 NumEpisodesWatched = numberOfWatchedEpisodes,
                 IsRewatching = isRewatching ?? stored.MyListStatus?.IsRewatching ?? false,
-                RewatchCount = numberOfTimesRewatched ?? previousCount
+                RewatchCount = numberOfTimesRewatched ?? previousCount,
+                ScoreRaw = clearScore ? null : scoreRaw ?? stored.MyListStatus?.ScoreRaw
             };
         }
         // Echo what was written, as a tracker that stores the values does. The count comes from the server's record,
@@ -115,7 +131,8 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
             AcknowledgedStatus = status,
             AcknowledgedRewatching = isRewatching,
             AcknowledgedRewatchCount = numberOfTimesRewatched ?? previousCount,
-            NumTimesRewatched = numberOfTimesRewatched ?? previousCount ?? 0
+            NumTimesRewatched = numberOfTimesRewatched ?? previousCount ?? 0,
+            AcknowledgedScoreRaw = DropScoreAcknowledgement ? null : clearScore ? 0 : scoreRaw
         });
     }
 
@@ -135,7 +152,8 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
             NumEpisodesWatched = source.MyListStatus.NumEpisodesWatched,
             IsRewatching = source.MyListStatus.IsRewatching,
             // MAL's my_list_status has no field the client maps to RewatchCount, so MAL reads never carry one.
-            RewatchCount = forRead && provider == ApiName.Mal ? null : source.MyListStatus.RewatchCount
+            RewatchCount = forRead && provider == ApiName.Mal ? null : source.MyListStatus.RewatchCount,
+            ScoreRaw = source.MyListStatus.ScoreRaw
         }
     };
 
@@ -150,7 +168,8 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
             Status = stored.Status,
             NumEpisodesWatched = stored.NumEpisodesWatched,
             IsRewatching = stored.IsRewatching,
-            RewatchCount = stored.RewatchCount ?? 0
+            RewatchCount = stored.RewatchCount ?? 0,
+            ScoreRaw = stored.ScoreRaw
         };
     }
 
@@ -158,9 +177,12 @@ internal sealed class FakeTracker(ApiName provider) : ITrackerClient {
 }
 
 internal sealed record RecordedWrite(int EntryId, int Progress, Status Status, bool? Rewatching, int? RewatchCount,
-    bool StartDate, bool EndDate) {
+    bool StartDate, bool EndDate, int? Score = null, bool ClearScore = false) {
+    // The score part appears only when one was sent, so every approved line written before scores stays the same.
     public override string ToString() =>
-        $"write(id={EntryId}, progress={Progress}, status={Status}, rewatching={Format(Rewatching)}, count={Format(RewatchCount)}, start={StartDate}, end={EndDate})";
+        $"write(id={EntryId}, progress={Progress}, status={Status}, rewatching={Format(Rewatching)}, count={Format(RewatchCount)}, start={StartDate}, end={EndDate}{ScorePart})";
+
+    private string ScorePart => ClearScore ? ", score=cleared" : Score is { } score ? $", score={score}" : "";
 
     private static string Format<T>(T? value) where T : struct => value?.ToString() ?? "-";
 }

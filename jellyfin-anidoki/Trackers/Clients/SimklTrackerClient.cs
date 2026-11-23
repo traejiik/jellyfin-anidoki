@@ -31,7 +31,7 @@ public sealed class SimklTrackerClient(SimklApiCalls api) : ITrackerClient {
 
     public async Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status, bool? isRewatching = null,
         int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null, string? alternativeId = null,
-        ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null) {
+        ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null, int? scoreRaw = null, bool clearScore = false) {
         if (isShow == null || ids == null)
             return null;
         SimklStatus simklStatus = status switch {

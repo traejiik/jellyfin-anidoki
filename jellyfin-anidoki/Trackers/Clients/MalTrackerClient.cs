@@ -22,7 +22,7 @@ public sealed class MalTrackerClient(MalApiCalls api) : ITrackerClient, ITracker
 
     public async Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status, bool? isRewatching = null,
         int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null, string? alternativeId = null,
-        ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null) =>
+        ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null, int? scoreRaw = null, bool clearScore = false) =>
         await api.UpdateAnimeStatus(animeId, numberOfWatchedEpisodes, status, isRewatching, numberOfTimesRewatched, startDate, endDate);
 
     public async Task<MalApiCalls.User?> GetUser() => await api.GetUserInformation();

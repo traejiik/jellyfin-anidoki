@@ -221,8 +221,9 @@ public class ManualSyncTests {
 
         public Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status, bool? isRewatching = null,
             int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null, string? alternativeId = null,
-            ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null) =>
-            inner.UpdateAnime(animeId, numberOfWatchedEpisodes, status, isRewatching, numberOfTimesRewatched, startDate, endDate, alternativeId, ids, isShow);
+            ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null, int? scoreRaw = null, bool clearScore = false) =>
+            inner.UpdateAnime(animeId, numberOfWatchedEpisodes, status, isRewatching, numberOfTimesRewatched, startDate, endDate, alternativeId, ids, isShow,
+                scoreRaw, clearScore);
     }
 
     // Cancelling while an item is syncing ends the run as cancelled; the item's error handler must not swallow it.

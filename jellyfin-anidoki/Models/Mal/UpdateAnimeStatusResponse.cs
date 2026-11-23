@@ -11,6 +11,9 @@ public class UpdateAnimeStatusResponse : ListStatus {
     [JsonIgnore] public bool? AcknowledgedRewatching { get; set; }
     [JsonIgnore] public int? AcknowledgedRewatchCount { get; set; }
 
+    /// <summary>The score the tracker confirmed, 1–100; 0 when a clear was confirmed; null when no score was sent or none was reported.</summary>
+    [JsonIgnore] public int? AcknowledgedScoreRaw { get; set; }
+
     [JsonPropertyName("finish_date")] public string? FinishDate { get; set; }
     [JsonPropertyName("priority")] public int Priority { get; set; }
 

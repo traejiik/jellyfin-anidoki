@@ -50,6 +50,8 @@ internal sealed class CatalogueFake(ApiName provider) : ITrackerProvider {
     public Task<EntryRef?> FindByCrossIds(ResolvedIds ids, string title, MediaKind kind, CancellationToken cancellationToken) =>
         Task.FromResult<EntryRef?>(null);
 
+    public Task<ScoreFormat?> ReadScoreFormat(CancellationToken cancellationToken) => Task.FromResult<ScoreFormat?>(null);
+
     public Task<WriteReceipt?> Apply(EntryState current, EntryChange change, CancellationToken cancellationToken) =>
         throw new InvalidOperationException("The match API must never write to a tracker.");
 }

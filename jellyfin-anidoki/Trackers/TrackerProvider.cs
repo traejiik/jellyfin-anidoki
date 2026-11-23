@@ -72,7 +72,19 @@ public sealed class TrackerProvider(ApiName name, ITrackerClient client, TimePro
         }
     }
 
+    public async Task<ScoreFormat?> ReadScoreFormat(CancellationToken cancellationToken) {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!Capabilities.SupportsScore)
+            return null;
+        if (ScoreScale.FixedFormat(name) is { } format)
+            return format;
+        if (client is not IScoreFormatSource source)
+            return null;
+        return await ReadingValue(source.GetScoreFormat, cancellationToken);
+    }
+
     public async Task<WriteReceipt?> Apply(EntryState current, EntryChange change, CancellationToken cancellationToken) {
+        CheckScoreChange(change);
         using var calls = TrackerCallScope.Begin();
         WriteReceipt? receipt;
         try {
@@ -105,6 +117,37 @@ public sealed class TrackerProvider(ApiName name, ITrackerClient client, TimePro
         if (calls.Failure is { } failure && failure != TrackerFailureKind.NotFound)
             throw new TrackerFailureException(failure);
         return result;
+    }
+
+    /// <summary><see cref="Reading{T}"/> for a value result.</summary>
+    private static async Task<T?> ReadingValue<T>(Func<Task<T?>> read, CancellationToken cancellationToken) where T : struct {
+        using var calls = TrackerCallScope.Begin();
+        T? result;
+        try {
+            result = await read();
+        } catch (Exception error) when (calls.Failure is not null && !cancellationToken.IsCancellationRequested) {
+            if (calls.Failure == TrackerFailureKind.NotFound)
+                return null;
+            throw new TrackerFailureException(calls.Failure.Value, error);
+        }
+
+        if (calls.Failure is { } failure && failure != TrackerFailureKind.NotFound)
+            throw new TrackerFailureException(failure);
+        return result;
+    }
+
+    /// <summary>A score change is checked before any request, so a rejected one sends nothing.</summary>
+    private void CheckScoreChange(EntryChange change) {
+        if (change.Score == null && !change.ClearScore)
+            return;
+        if (change.Score != null && change.ClearScore)
+            throw new ArgumentException("A change cannot both set and clear the score", nameof(change));
+        if (!Capabilities.SupportsScore)
+            throw new ArgumentException($"{name} has no list score", nameof(change));
+        if (change.Rewatch != RewatchTransition.None)
+            throw new ArgumentException("A score change cannot be part of a rewatch", nameof(change));
+        if (change.Score is < 1 or > 100)
+            throw new ArgumentOutOfRangeException(nameof(change), change.Score, "A score is 1–100");
     }
 
     private async Task<WriteReceipt?> ApplyCalls(EntryState current, EntryChange change, CancellationToken cancellationToken) {
@@ -154,18 +197,29 @@ public sealed class TrackerProvider(ApiName name, ITrackerClient client, TimePro
             default:
                 // Completing an entry already on the list clears any rewatch flag the provider kept, as the sync always has.
                 bool? cleared = change.Status == TrackerStatus.Completed && current.List != null && Capabilities.TracksProgress ? false : null;
-                return await Write(current, progress, ToClientStatus(change.Status), cleared, null, change, cancellationToken);
+                return await Write(current, progress, ToClientStatus(change.Status), cleared, null, change, cancellationToken, withScore: true);
         }
     }
 
+    /// <param name="withScore">Send the change's score or clear with this call; only a plain change carries one (see <see cref="CheckScoreChange"/>).</param>
     private async Task<WriteReceipt?> Write(EntryState current, int progress, Status status, bool? rewatching, int? rewatchCount,
-        EntryChange change, CancellationToken cancellationToken) {
+        EntryChange change, CancellationToken cancellationToken, bool withScore = false) {
         cancellationToken.ThrowIfCancellationRequested();
         EntryRef entry = current.Entry;
         bool? isShow = entry.Lookup == null ? null : entry.Lookup.Kind == MediaKind.Series;
+        int? scoreRaw = withScore ? change.Score : null;
+        bool clearScore = withScore && change.ClearScore;
         UpdateAnimeStatusResponse? response = await client.UpdateAnime(entry.Id, progress, status, rewatching, rewatchCount,
-            change.StartDate, change.EndDate, entry.AlternativeId, entry.Lookup == null ? null : ToClientIds(entry.Lookup.Ids), isShow);
-        return response == null ? null : ToReceipt(response);
+            change.StartDate, change.EndDate, entry.AlternativeId, entry.Lookup == null ? null : ToClientIds(entry.Lookup.Ids), isShow,
+            scoreRaw, clearScore);
+        if (response == null)
+            return null;
+        WriteReceipt receipt = ToReceipt(response);
+        int? expected = clearScore ? 0 : scoreRaw;
+        if (expected == null)
+            return receipt;
+        int? acknowledged = response.AcknowledgedScoreRaw;
+        return receipt with { Score = acknowledged is > 0 ? acknowledged : null, Complete = receipt.Complete && acknowledged == expected };
     }
 
     private WriteReceipt ToReceipt(UpdateAnimeStatusResponse response) {
@@ -189,7 +243,7 @@ public sealed class TrackerProvider(ApiName name, ITrackerClient client, TimePro
             return null;
         bool rewatching = status.IsRewatching || status.Status == Status.Rewatching;
         return new ListState(rewatching ? TrackerStatus.Completed : ToTrackerStatus(status.Status), status.NumEpisodesWatched,
-            rewatching, Capabilities.ReportsRewatchCount ? status.RewatchCount : null);
+            rewatching, Capabilities.ReportsRewatchCount ? status.RewatchCount : null, Capabilities.SupportsScore ? status.ScoreRaw : null);
     }
 
     private static EntryTitles Titles(Anime anime) => new(anime.Title, anime.AlternativeTitles?.En, anime.AlternativeTitles?.Ja,

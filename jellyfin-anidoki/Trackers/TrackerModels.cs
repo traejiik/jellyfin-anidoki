@@ -24,8 +24,11 @@ public sealed record CrossReference(ResolvedIds Ids, string Title, MediaKind Kin
 
 public sealed record EntryRef(ApiName Provider, int Id, string? AlternativeId, CrossReference? Lookup = null);
 
-/// <summary>The user's list state. <see cref="RewatchCount"/> is null when the provider does not report it.</summary>
-public sealed record ListState(TrackerStatus Status, int Progress, bool Rewatching, int? RewatchCount);
+/// <summary>
+/// The user's list state. <see cref="RewatchCount"/> is null when the provider does not report it; <see cref="Score"/> is
+/// 1–100 (see <see cref="ScoreScale"/>), null when unrated or the provider has no score.
+/// </summary>
+public sealed record ListState(TrackerStatus Status, int Progress, bool Rewatching, int? RewatchCount, int? Score = null);
 
 /// <summary>
 /// An entry as read. <see cref="TotalEpisodes"/> is 0 when unknown; <see cref="List"/> is null when it is not on the list;
@@ -42,10 +45,14 @@ public sealed record EntryRelation(RelationKind Kind, EntryRef Entry);
 /// <summary>
 /// What should be true after a write. A rewatch change (<see cref="Rewatch"/> other than None) must target
 /// <see cref="TrackerStatus.Completed"/>: Start and Continue leave a rewatch in progress at <see cref="Progress"/>,
-/// Finish completes it and counts it once.
+/// Finish completes it and counts it once. <see cref="Score"/> (1–100) sets the list score and <see cref="ClearScore"/>
+/// removes it; with neither, the score is left as it is and no score is sent.
 /// </summary>
 public sealed record EntryChange(int Progress, TrackerStatus Status, RewatchTransition Rewatch = RewatchTransition.None,
-    DateTime? StartDate = null, DateTime? EndDate = null);
+    DateTime? StartDate = null, DateTime? EndDate = null, int? Score = null, bool ClearScore = false);
 
-/// <summary>What the provider acknowledged. <see cref="Complete"/> is false when a multi-call write stopped part way.</summary>
-public sealed record WriteReceipt(int? Progress, TrackerStatus? Status, bool? Rewatching, int? RewatchCount, bool Complete);
+/// <summary>
+/// What the provider acknowledged. <see cref="Complete"/> is false when a multi-call write stopped part way, or when a score
+/// was sent and not confirmed. <see cref="Score"/> is the confirmed score, null when none was confirmed or it was cleared.
+/// </summary>
+public sealed record WriteReceipt(int? Progress, TrackerStatus? Status, bool? Rewatching, int? RewatchCount, bool Complete, int? Score = null);

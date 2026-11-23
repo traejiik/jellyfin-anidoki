@@ -53,6 +53,8 @@ internal sealed class SpyTracker(ITrackerProvider inner) : ITrackerProvider {
     public Task<EntryRef?> FindByCrossIds(ResolvedIds ids, string title, MediaKind kind, CancellationToken cancellationToken) =>
         inner.FindByCrossIds(ids, title, kind, cancellationToken);
 
+    public Task<ScoreFormat?> ReadScoreFormat(CancellationToken cancellationToken) => inner.ReadScoreFormat(cancellationToken);
+
     public Task<WriteReceipt?> Apply(EntryState current, EntryChange change, CancellationToken cancellationToken) {
         Changes.Add(change);
         Applied.Add(current);

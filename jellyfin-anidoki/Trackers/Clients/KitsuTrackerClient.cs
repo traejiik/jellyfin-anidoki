@@ -72,7 +72,7 @@ public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITra
 
     public async Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status, bool? isRewatching = null,
         int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null, string? alternativeId = null,
-        ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null) {
+        ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null, int? scoreRaw = null, bool clearScore = false) {
         KitsuUpdate.Status kitsuStatus = status switch {
             Status.Watching => KitsuUpdate.Status.current,
             Status.Completed or Status.Rewatching => isRewatching == true ? KitsuUpdate.Status.current : KitsuUpdate.Status.completed,
