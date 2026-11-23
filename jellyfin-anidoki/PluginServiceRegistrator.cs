@@ -67,6 +67,13 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
         serviceCollection.AddSingleton<Matching.IAutomaticMatches, Matching.AutomaticMatches>();
         serviceCollection.AddSingleton<Matching.IMatchProblems, Matching.RecentMatchProblems>();
         serviceCollection.AddSingleton<Matching.MatchService>();
+        serviceCollection.AddSingleton<Progress.ISeriesItems, Progress.JellyfinSeriesItems>();
+        serviceCollection.AddSingleton<Progress.ScoreFormatCache>();
+        serviceCollection.AddSingleton<Progress.SeriesProgressReader>();
+        serviceCollection.AddSingleton<Progress.EntryEditor>();
+        serviceCollection.AddSingleton<Progress.IPlayedEpisodes, Progress.JellyfinPlayedEpisodes>();
+        serviceCollection.AddSingleton<Progress.SeriesInbound>();
+        serviceCollection.AddSingleton<Progress.SeriesOutbound>();
         serviceCollection.AddSingleton<ManualMarks.ManualMarkStore>();
         serviceCollection.AddSingleton<ManualMarks.ManualMarkQueue>();
         serviceCollection.AddSingleton(provider => {

@@ -65,7 +65,8 @@ public sealed class HistoryReader(AniDokiDatabase database, TimeProvider clock) 
     /// <summary>The most entries the admin's all-users pages can reach.</summary>
     public const int MaxEntriesAllUsers = 100;
 
-    private static readonly string[] Listed = [nameof(OperationKind.Playback), nameof(OperationKind.WatchedToggle), nameof(OperationKind.ConfirmedManual), nameof(OperationKind.Retry)];
+    private static readonly string[] Listed = [nameof(OperationKind.Playback), nameof(OperationKind.WatchedToggle), nameof(OperationKind.ConfirmedManual), nameof(OperationKind.Retry),
+        nameof(OperationKind.Edit)];
 
     // The line that wins when one tracker has several entries in one update.
     private static readonly HistoryResultKind[] Priority = [HistoryResultKind.NeedsSignIn, HistoryResultKind.GaveUp, HistoryResultKind.Retrying,

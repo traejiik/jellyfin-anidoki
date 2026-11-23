@@ -100,7 +100,7 @@ public class HistoryReaderTests {
     }
 
     [Test]
-    public void PlaybackWatchedMarksAndConfirmedMarksAreListedButManualSyncsAndPreviewsAreNot() {
+    public void PlaybackWatchedMarksConfirmedMarksAndEditsAreListedButManualSyncsAndPreviewsAreNot() {
         Ran(OperationKind.Playback, Result(OutcomeKind.Confirmed));
         Ran(OperationKind.WatchedToggle, Result(OutcomeKind.Confirmed));
         Ran(OperationKind.ConfirmedManual, Result(OutcomeKind.Confirmed));
@@ -108,9 +108,10 @@ public class HistoryReaderTests {
         Ran(OperationKind.SyncFromTrackers, Result(OutcomeKind.Confirmed));
         Ran(OperationKind.PreviewToTrackers);
         Ran(OperationKind.ResolutionCheck);
+        Ran(OperationKind.Edit, Result(OutcomeKind.Confirmed));
 
         Assert.That(_history.Read(_user, 0, 10).Entries.Select(entry => entry.Trigger),
-            Is.EqualTo(new[] { "ConfirmedManual", "WatchedToggle", "Playback" }));
+            Is.EqualTo(new[] { "Edit", "ConfirmedManual", "WatchedToggle", "Playback" }));
     }
 
     [Test]

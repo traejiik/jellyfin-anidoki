@@ -227,38 +227,8 @@ public class Sync {
     /// Marks the episodes played on <paramref name="playedDate"/>, then the season unless <paramref name="marksSeason"/> is false.
     /// The one place a sync from trackers saves user data; applying a preview from trackers marks through it too.
     /// </summary>
-    internal void Mark(User user, Season season, IReadOnlyList<Episode> episodes, DateTime playedDate, bool marksSeason) {
-        foreach (Episode episode in episodes) {
-            _logger.LogDebug("Marking {SeriesName} season {SeasonNumber} episode {EpisodeNumber} as played for user {UserId}", episode.Series.Name, episode.Season.IndexNumber, episode.IndexNumber, user.Id);
-            _userDataManager.SaveUserData(user, episode, SetUserData(user, episode, playedDate), UserDataSaveReason.UpdateUserData, CancellationToken.None);
-        }
-
-        if (!marksSeason) {
-            _logger.LogDebug("Not marking {ItemName} itself as played; one or more of its episodes carry the ignore tag", season.Name);
-        } else {
-            // this could fail because show has ovas, hard to detect. todo warn users
-            _userDataManager.SaveUserData(user, season, SetUserData(user, season, playedDate), UserDataSaveReason.UpdateUserData, CancellationToken.None);
-            _logger.LogDebug("Marked {ItemName} itself as played", season.Name);
-        }
-    }
-
-    /// <summary>
-    /// Save the select users items.
-    /// </summary>
-    /// <param name="user">User you want to save the items for.</param>
-    /// <param name="itemToBeUpdated">Items to be saved.</param>
-    /// <param name="completedDate">Played date.</param>
-    /// <returns>User item data.</returns>
-    private UserItemData SetUserData(User user, BaseItem itemToBeUpdated, DateTime? completedDate) {
-        // Jellyfin creates the user data row when it reads one, so a null here is unexpected; it stays an exception, which the operation reports.
-        var userItemData = _userDataManager.GetUserData(user, itemToBeUpdated)!;
-        userItemData.Played = true;
-        if (completedDate != null) {
-            userItemData.LastPlayedDate = completedDate.Value;
-        }
-
-        return userItemData;
-    }
+    internal void Mark(User user, Season season, IReadOnlyList<Episode> episodes, DateTime playedDate, bool marksSeason) =>
+        new PlayedMarker(_userDataManager, _logger).Mark(user, season, episodes, playedDate, marksSeason);
 
     /// <summary>
     /// Get a list of metadata IDs from our external APIs.

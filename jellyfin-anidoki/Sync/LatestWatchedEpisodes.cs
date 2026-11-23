@@ -25,7 +25,7 @@ internal static class LatestWatchedEpisodes {
         return targets;
     }
 
-    private static List<Episode>? OfSeries(Series series, Guid userId, IUserManager userManager, ILogger logger) {
+    internal static List<Episode>? OfSeries(Series series, Guid userId, IUserManager userManager, ILogger logger) {
         var latestEpisodes = new List<Episode>();
 
         var seasons = series.Children.OfType<Season>().ToList();

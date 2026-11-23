@@ -11,7 +11,8 @@ const reasons = {
     'rewatch-disabled': 'Completed, and rewatching is off',
     'rewatch-unsupported': 'Rewatching is not supported',
     'plan-to-watch-only': 'Not on Plan to Watch',
-    'match-ignored': 'Ignored by a saved match'
+    'match-ignored': 'Ignored by a saved match',
+    'edit-stale': 'Changed on the tracker since you opened it'
 };
 /** The planner's reason for a skip, or undefined for a step it does not name. */
 export const skipReason = step => reasons[step];
