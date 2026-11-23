@@ -19,4 +19,7 @@ public class SimklUserEntry {
 
     [JsonPropertyName("show")] public Show? Show { get; set; }
     [JsonPropertyName("anime_type")] public string? AnimeType { get; set; }
+
+    /// <summary>The user's rating, 1–10; null when unrated.</summary>
+    [JsonPropertyName("user_rating")] public int? UserRating { get; set; }
 }

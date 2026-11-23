@@ -41,6 +41,14 @@ public sealed class SimklTrackerClient(SimklApiCalls api) : ITrackerClient {
             Status.Plan_to_watch => SimklStatus.plantowatch,
             _ => SimklStatus.watching
         };
-        return await api.UpdateAnimeReceipt(animeId, simklStatus, isShow.Value, ids, numberOfWatchedEpisodes);
+        UpdateAnimeStatusResponse? response = await api.UpdateAnimeReceipt(animeId, simklStatus, isShow.Value, ids, numberOfWatchedEpisodes);
+        if (response == null || (scoreRaw == null && !clearScore))
+            return response;
+        // Simkl keeps ratings apart from the list, so the rating is a second call after a confirmed list write. If it fails,
+        // the list write stands and the missing acknowledgement marks the change incomplete.
+        int? rating = clearScore ? null : (int?)ScoreScale.ToDisplay(scoreRaw, ScoreFormat.Point10);
+        if (await api.SetRating(animeId, ids, isShow.Value, rating))
+            response.AcknowledgedScoreRaw = rating * 10 ?? 0;
+        return response;
     }
 }

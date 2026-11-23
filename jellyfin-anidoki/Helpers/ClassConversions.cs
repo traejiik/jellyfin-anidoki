@@ -286,7 +286,8 @@ public class ClassConversions {
             anime.MyListStatus = new MyListStatus {
                 NumEpisodesWatched = simklUserEntry.WatchedEpisodesCount,
                 IsRewatching = false, // simkl does not support rewatching at the moment
-                RewatchCount = 0
+                RewatchCount = 0,
+                ScoreRaw = simklUserEntry.UserRating is > 0 and <= 10 ? simklUserEntry.UserRating * 10 : null
             };
 
             switch (simklUserEntry.Status) {
