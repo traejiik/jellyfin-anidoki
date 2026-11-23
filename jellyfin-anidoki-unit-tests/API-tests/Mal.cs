@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -142,5 +143,58 @@ public class Mal {
             new() { RequestMethod = HttpMethod.Put, ResponseCode = responseCode, ResponseContent = body }
         });
         Assert.That(await _malApiCalls.UpdateAnimeStatus(1, 1, Status.Watching), Is.Null);
+    }
+
+    private static MalApiCalls SignedInApi(IHttpClientFactory factory) =>
+        new(factory, new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object, new Mock<IHttpContextAccessor>().Object,
+            new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, new UserConfig {
+                UserApiAuth = [new UserApiAuth { AccessToken = "accessToken", Name = ApiName.Mal, RefreshToken = "refreshToken" }]
+            });
+
+    private const string EntryWithScore = "{\"id\":500,\"title\":\"Fixture Show\",\"num_episodes\":12,\"my_list_status\":{\"status\":\"watching\",\"score\":SCORE,\"num_episodes_watched\":3,\"is_rewatching\":false,\"updated_at\":\"2026-01-01T00:00:00Z\"}}";
+
+    private const string SavedStatus = "{\"status\":\"watching\",\"score\":SCORE,\"num_episodes_watched\":5,\"is_rewatching\":false,\"updated_at\":\"2026-01-01T00:00:00Z\"}";
+
+    [TestCase("7", 70)]
+    [TestCase("0", null)]
+    public async Task TheScoreIsReadAsTenPoint(string score, int? raw) {
+        var client = new jellyfin_anidoki.Trackers.MalTrackerClient(SignedInApi(Helpers.Sequence((HttpStatusCode.OK, EntryWithScore.Replace("SCORE", score)))));
+
+        var anime = await client.GetAnime(500);
+
+        Assert.That(anime!.MyListStatus!.ScoreRaw, Is.EqualTo(raw));
+    }
+
+    [Test]
+    public async Task AScoreIsSentAsAnInteger() {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new jellyfin_anidoki.Trackers.MalTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedStatus.Replace("SCORE", "9")))));
+
+        var response = await client.UpdateAnime(500, 5, Status.Watching, scoreRaw: 85);
+
+        Assert.That(sent.Single().Body, Does.Contain("score=9"));
+        Assert.That(response!.AcknowledgedScoreRaw, Is.EqualTo(90));
+    }
+
+    [Test]
+    public async Task ClearingSendsZero() {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new jellyfin_anidoki.Trackers.MalTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedStatus.Replace("SCORE", "0")))));
+
+        var response = await client.UpdateAnime(500, 5, Status.Watching, clearScore: true);
+
+        Assert.That(sent.Single().Body, Does.Contain("score=0"));
+        Assert.That(response!.AcknowledgedScoreRaw, Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task AWriteWithoutAScoreHasNoScoreField() {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new jellyfin_anidoki.Trackers.MalTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedStatus.Replace("SCORE", "7")))));
+
+        var response = await client.UpdateAnime(500, 5, Status.Watching);
+
+        Assert.That(sent.Single().Body, Does.Not.Contain("score"));
+        Assert.That(response!.AcknowledgedScoreRaw, Is.Null);
     }
 }

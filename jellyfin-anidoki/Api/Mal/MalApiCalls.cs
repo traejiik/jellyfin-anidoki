@@ -201,8 +201,9 @@ public class MalApiCalls {
         return entries.ToList();
     }
 
+    /// <param name="score">The list score, 0–10 (0 clears it); null sends no score.</param>
     public async Task<UpdateAnimeStatusResponse?> UpdateAnimeStatus(int animeId, int numberOfWatchedEpisodes, Status? status = null,
-        bool? isRewatching = null, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null) {
+        bool? isRewatching = null, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null, int? score = null) {
         UrlBuilder url = new UrlBuilder {
             Base = $"{ApiUrl}/anime/{animeId}/my_list_status"
         };
@@ -233,6 +234,10 @@ public class MalApiCalls {
             body.Add(new KeyValuePair<string, string>("finish_date", endDate.Value.ToString("yyyy-MM-dd")));
         }
 
+        if (score != null) {
+            body.Add(new KeyValuePair<string, string>("score", score.Value.ToString()));
+        }
+
         var builtUrl = url.Build();
 
         UpdateAnimeStatusResponse? updateResponse;
@@ -260,6 +265,8 @@ public class MalApiCalls {
                         updateResponse.AcknowledgedRewatching = rewatching.GetBoolean();
                     if (MutationAcknowledgement.Number(root, "num_times_rewatched", out var rewatchCount))
                         updateResponse.AcknowledgedRewatchCount = rewatchCount;
+                    if (score != null && MutationAcknowledgement.Number(root, "score", out var returnedScore) && returnedScore is >= 0 and <= 10)
+                        updateResponse.AcknowledgedScoreRaw = returnedScore * 10;
                 }
                 _logger.LogDebug("({Provider}) The update of anime {AnimeId} was acknowledged", ApiName.Mal, animeId);
             } else {
