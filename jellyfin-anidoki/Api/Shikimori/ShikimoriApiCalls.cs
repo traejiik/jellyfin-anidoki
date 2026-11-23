@@ -63,6 +63,7 @@ public class ShikimoriApiCalls {
          status
          rewatches
          episodes
+         score
       }
 
       fragment AnimeFields on Anime {
@@ -260,14 +261,20 @@ public class ShikimoriApiCalls {
         return result;
     }
 
-    public async Task<bool> UpdateAnime(string id, ShikimoriUserRate.StatusEnum updateStatus, int progress, int? numberOfTimesRewatched = null) {
+    public async Task<bool> UpdateAnime(string id, ShikimoriUserRate.StatusEnum updateStatus, int progress, int? numberOfTimesRewatched = null) =>
+        await UpdateAnimeReceipt(id, updateStatus, progress, numberOfTimesRewatched) != null;
+
+    /// <param name="score">The score, 0–10 (0 clears it); null sends no score.</param>
+    /// <returns>The user rate as Shikimori acknowledged it, or null when the write was not confirmed.</returns>
+    internal async Task<ShikimoriUserRate?> UpdateAnimeReceipt(string id, ShikimoriUserRate.StatusEnum updateStatus, int progress,
+        int? numberOfTimesRewatched = null, int? score = null) {
         UrlBuilder url = new UrlBuilder {
             Base = $"{_apiBaseUrl}/v2/user_rates"
         };
 
         string? shikimoriUserId = await GetUserId();
         if (shikimoriUserId == null)
-            return false;
+            return null;
 
         ShikimoriUpdate.UpdateBody updateBody = new ShikimoriUpdate.UpdateBody {
             UserRate = new ShikimoriUpdate.UserRate {
@@ -282,6 +289,10 @@ public class ShikimoriApiCalls {
             updateBody.UserRate.Rewatches = numberOfTimesRewatched.Value;
         }
 
+        if (score != null) {
+            updateBody.UserRate.Score = score.Value;
+        }
+
         var jsonSerializerOptions = new JsonSerializerOptions {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         };
@@ -289,15 +300,25 @@ public class ShikimoriApiCalls {
         var stringContent = new StringContent(JsonSerializer.Serialize(updateBody, jsonSerializerOptions), Encoding.UTF8, "application/json");
         var apiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Shikimori, AuthApiCall.CallType.POST, url.Build(), stringContent: stringContent, requestHeaders: _requestHeaders);
         if (apiCall != null) {
-            return await MutationAcknowledgement.Validate(apiCall, rate =>
-                MutationAcknowledgement.Id(rate) &&
-                MutationAcknowledgement.Number(rate, "target_id", out var targetId) && targetId.ToString() == id &&
-                MutationAcknowledgement.Text(rate, "target_type", "Anime") &&
-                MutationAcknowledgement.Number(rate, "episodes", out var episodes) && episodes == progress &&
-                MutationAcknowledgement.Text(rate, "status", updateStatus.ToString()));
+            ShikimoriUserRate? acknowledged = null;
+            bool confirmed = await MutationAcknowledgement.Validate(apiCall, rate => {
+                if (!(MutationAcknowledgement.Id(rate) &&
+                      MutationAcknowledgement.Number(rate, "target_id", out var targetId) && targetId.ToString() == id &&
+                      MutationAcknowledgement.Text(rate, "target_type", "Anime") &&
+                      MutationAcknowledgement.Number(rate, "episodes", out var episodes) && episodes == progress &&
+                      MutationAcknowledgement.Text(rate, "status", updateStatus.ToString())))
+                    return false;
+                acknowledged = new ShikimoriUserRate {
+                    Status = updateStatus,
+                    Episodes = episodes,
+                    Score = MutationAcknowledgement.Number(rate, "score", out var returnedScore) ? returnedScore : null
+                };
+                return true;
+            });
+            return confirmed ? acknowledged : null;
         }
 
-        return false;
+        return null;
     }
 
     private async Task<string?> GetUserId() {

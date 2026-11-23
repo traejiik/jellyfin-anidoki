@@ -17,7 +17,10 @@ public interface ITrackerClient {
 
     Task<Anime?> GetAnime(ArmClient.OfflineDatabaseResponse ids, string title, bool getRelated = false);
 
+    /// <param name="scoreRaw">A score to set, 1–100; null leaves it alone.</param>
+    /// <param name="clearScore">Remove the score. With neither, the request is the one sent before scores existed.</param>
     Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status,
         bool? isRewatching = null, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null,
-        string? alternativeId = null, ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null);
+        string? alternativeId = null, ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null, int? scoreRaw = null,
+        bool clearScore = false);
 }

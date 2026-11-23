@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
@@ -236,25 +237,7 @@ public class SimklApiCalls {
             return null;
         }
 
-        SimklExtendedIds convertedIds = new SimklExtendedIds {
-            Simkl = animeId
-        };
-
-        if (ids.Anilist != null) {
-            convertedIds.Anilist = ids.Anilist;
-        }
-
-        if (ids.Kitsu != null) {
-            convertedIds.Kitsu = ids.Kitsu;
-        }
-
-        if (ids.MyAnimeList != null) {
-            convertedIds.Mal = ids.MyAnimeList;
-        }
-
-        if (ids.AniDb != null) {
-            convertedIds.Anidb = ids.AniDb;
-        }
+        SimklExtendedIds convertedIds = ToSimklIds(animeId, ids);
 
         SimklUpdateBody updateBody = new SimklUpdateBody();
         if (isShow) {
@@ -330,5 +313,59 @@ public class SimklApiCalls {
         }
 
         return null;
+    }
+
+    private static SimklExtendedIds ToSimklIds(int animeId, ArmClient.OfflineDatabaseResponse ids) {
+        SimklExtendedIds convertedIds = new SimklExtendedIds {
+            Simkl = animeId
+        };
+
+        if (ids.Anilist != null) {
+            convertedIds.Anilist = ids.Anilist;
+        }
+
+        if (ids.Kitsu != null) {
+            convertedIds.Kitsu = ids.Kitsu;
+        }
+
+        if (ids.MyAnimeList != null) {
+            convertedIds.Mal = ids.MyAnimeList;
+        }
+
+        if (ids.AniDb != null) {
+            convertedIds.Anidb = ids.AniDb;
+        }
+
+        return convertedIds;
+    }
+
+    /// <summary>Sets the user's rating (POST /sync/ratings), or removes it (POST /sync/ratings/remove) when <paramref name="rating"/> is null.</summary>
+    /// <param name="rating">1–10.</param>
+    /// <returns>True when Simkl accepted the request.</returns>
+    public async Task<bool> SetRating(int animeId, ArmClient.OfflineDatabaseResponse ids, bool isShow, int? rating) {
+        UrlBuilder url = new UrlBuilder {
+            Base = $"{ApiBaseUrl}/sync/ratings{(rating == null ? "/remove" : "")}"
+        };
+
+        if (_requestHeaders.TryGetValue("simkl-api-key", out string? clientId)) {
+            url.Parameters.Add(new KeyValuePair<string, string>("client_id", clientId));
+        } else {
+            return false;
+        }
+
+        var item = new JsonObject { ["ids"] = JsonSerializer.SerializeToNode(ToSimklIds(animeId, ids)) };
+        if (rating != null)
+            item["rating"] = rating.Value;
+        var body = new JsonObject { [isShow ? "shows" : "movies"] = new JsonArray(item) };
+        var stringContent = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+
+        HttpResponseMessage? response = await _authApiCall.AuthenticatedApiCall(ApiName.Simkl, AuthApiCall.CallType.POST, url.Build(), stringContent: stringContent, requestHeaders: _requestHeaders);
+        if (response is { IsSuccessStatusCode: true })
+            return true;
+        if (response == null)
+            _logger.LogWarning("({Provider}) Could not save the rating for anime {AnimeId}", ApiName.Simkl, animeId);
+        else
+            _logger.LogWarning("({Provider}) Could not save the rating for anime {AnimeId}: {StatusCode}", ApiName.Simkl, animeId, (int)response.StatusCode);
+        return false;
     }
 }

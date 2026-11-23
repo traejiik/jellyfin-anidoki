@@ -53,6 +53,8 @@ internal sealed class SpyTracker(ITrackerProvider inner) : ITrackerProvider {
     public Task<EntryRef?> FindByCrossIds(ResolvedIds ids, string title, MediaKind kind, CancellationToken cancellationToken) =>
         inner.FindByCrossIds(ids, title, kind, cancellationToken);
 
+    public Task<ScoreFormat?> ReadScoreFormat(CancellationToken cancellationToken) => inner.ReadScoreFormat(cancellationToken);
+
     public Task<WriteReceipt?> Apply(EntryState current, EntryChange change, CancellationToken cancellationToken) {
         Changes.Add(change);
         Applied.Add(current);
@@ -821,5 +823,21 @@ public class ExecutorTests {
 
         Assert.That(tracker.ReadCount, Is.EqualTo(1));
         Assert.That(fake.Writes, Has.Count.EqualTo(1));
+    }
+
+
+    /// <summary>A rating does not change what is planned, so rating a show on the tracker's site is not a moved entry.</summary>
+    [Test]
+    public async Task ARatingChangedOnTheTrackerIsNotAMovedEntry() {
+        var (tracker, fake) = Seed(ApiName.AniList, Entry(500, 12, ListStatus(Status.Watching, 3)));
+        EntryState rated = StateAt(3) with { List = StateAt(3).List! with { Score = 80 } };
+        tracker.ScriptedReads.Enqueue(rated);
+        var (executor, recorded) = Recording(tracker);
+        var planned = await PlanOne(executor, PlayedFrom(StateAt(3), 5));
+
+        Assert.That(await executor.ApplyPlanned(planned, ApplyMode.Strict, CancellationToken.None), Is.True);
+
+        Assert.That(fake.Writes, Has.Count.EqualTo(1));
+        Assert.That(recorded.Single().Outcome.Kind, Is.EqualTo(OutcomeKind.Confirmed));
     }
 }

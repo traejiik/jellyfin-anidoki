@@ -18,6 +18,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Models.Mal;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.API_tests;
@@ -232,5 +234,85 @@ public class Simkl {
                 ResponseContent = "{\"added\":{\"shows\":0,\"movies\":0,\"episodes\":1,\"statuses\":[{\"request\":{\"ids\":{\"simkl\":" + acknowledgedId + "}},\"response\":{\"status\":\"watching\"}}]},\"not_found\":{\"shows\":[],\"movies\":[],\"episodes\":[]}}" }
         });
         Assert.That(await _simklApiCalls.UpdateAnime(45006, SimklStatus.watching, true, new ArmClient.OfflineDatabaseResponse(), 1), Is.EqualTo(expected));
+    }
+
+    private const string HistoryAdded = "{\"added\":{\"shows\":0,\"movies\":0,\"episodes\":1,\"statuses\":[{\"request\":{\"ids\":{\"simkl\":45006}},\"response\":{\"status\":\"watching\"}}]},\"not_found\":{\"shows\":[],\"movies\":[],\"episodes\":[]}}";
+
+    private static jellyfin_anidoki.Trackers.SimklTrackerClient RatingClient(List<Helpers.SentRequest> sent, params (HttpStatusCode Code, string Body)[] responses) =>
+        new(new SimklApiCalls(Helpers.RecordedSequence(sent, responses),
+            new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object, new Mock<IHttpContextAccessor>().Object,
+            new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, new Dictionary<string, string> { { "simkl-api-key", "client" } },
+            new UserConfig { UserApiAuth = [new UserApiAuth { Name = ApiName.Simkl, AccessToken = String.Empty }] }));
+
+    private static readonly ArmClient.OfflineDatabaseResponse FixtureIds = new() { MyAnimeList = 1 };
+
+    [TestCase(8, 80)]
+    [TestCase(null, null)]
+    public void TheRatingIsReadFromTheUserList(int? rating, int? raw) {
+        var entry = JsonSerializer.Deserialize<SimklUserEntry>(rating == null ? "{\"status\":\"watching\"}" : $"{{\"status\":\"watching\",\"user_rating\":{rating}}}")!;
+
+        var anime = jellyfin_anidoki.Helpers.ClassConversions.ConvertSimklAnime(new SimklExtendedMedia { Title = "Show" }, entry);
+
+        Assert.That(anime.MyListStatus!.ScoreRaw, Is.EqualTo(raw));
+    }
+
+    [Test]
+    public async Task AScoreIsASecondCallAfterTheListWrite() {
+        using var harness = new SyncHarness();
+        var sent = new List<Helpers.SentRequest>();
+        var client = RatingClient(sent, (HttpStatusCode.OK, HistoryAdded), (HttpStatusCode.Created, "{}"));
+
+        var response = await client.UpdateAnime(45006, 3, Status.Watching, ids: FixtureIds, isShow: true, scoreRaw: 85);
+
+        Assert.That(sent, Has.Count.EqualTo(2));
+        Assert.That(sent[0].Uri!.AbsolutePath, Does.EndWith("/sync/history"));
+        Assert.That(sent[1].Uri!.AbsolutePath, Does.EndWith("/sync/ratings"));
+        using var body = JsonDocument.Parse(sent[1].Body!);
+        Assert.That(body.RootElement.GetProperty("shows")[0].GetProperty("rating").GetInt32(), Is.EqualTo(9));
+        Assert.That(response!.AcknowledgedScoreRaw, Is.EqualTo(90));
+    }
+
+    [Test]
+    public async Task ClearingCallsRatingsRemove() {
+        using var harness = new SyncHarness();
+        var sent = new List<Helpers.SentRequest>();
+        var client = RatingClient(sent, (HttpStatusCode.OK, HistoryAdded), (HttpStatusCode.OK, "{}"));
+
+        var response = await client.UpdateAnime(45006, 3, Status.Watching, ids: FixtureIds, isShow: true, clearScore: true);
+
+        Assert.That(sent[1].Uri!.AbsolutePath, Does.EndWith("/sync/ratings/remove"));
+        Assert.That(sent[1].Body, Does.Not.Contain("rating"));
+        Assert.That(response!.AcknowledgedScoreRaw, Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task AFailedRatingCallKeepsTheListWrite() {
+        using var harness = new SyncHarness();
+        var sent = new List<Helpers.SentRequest>();
+        var client = RatingClient(sent, (HttpStatusCode.OK, HistoryAdded), (HttpStatusCode.InternalServerError, ""));
+
+        var response = await client.UpdateAnime(45006, 3, Status.Watching, ids: FixtureIds, isShow: true, scoreRaw: 85);
+
+        Assert.That(response!.AcknowledgedProgress, Is.EqualTo(3));
+        Assert.That(response.AcknowledgedScoreRaw, Is.Null);
+
+        var adapter = new TrackerProvider(ApiName.Simkl, RatingClient([], (HttpStatusCode.OK, HistoryAdded), (HttpStatusCode.InternalServerError, "")), TimeProvider.System);
+        var entry = new EntryRef(ApiName.Simkl, 45006, null, new CrossReference(new ResolvedIds(null, 1, null, null), "Show", MediaKind.Series));
+        var receipt = await adapter.Apply(new EntryState(entry, 12, new ListState(TrackerStatus.Watching, 2, false, null), DateTimeOffset.UnixEpoch),
+            new EntryChange(3, TrackerStatus.Watching, Score: 85), System.Threading.CancellationToken.None);
+        Assert.That(receipt!.Complete, Is.False);
+        Assert.That(receipt.Progress, Is.EqualTo(3));
+    }
+
+    [Test]
+    public async Task AWriteWithoutAScoreMakesOneCall() {
+        using var harness = new SyncHarness();
+        var sent = new List<Helpers.SentRequest>();
+        var client = RatingClient(sent, (HttpStatusCode.OK, HistoryAdded), (HttpStatusCode.OK, "{}"));
+
+        var response = await client.UpdateAnime(45006, 3, Status.Watching, ids: FixtureIds, isShow: true);
+
+        Assert.That(sent, Has.Count.EqualTo(1));
+        Assert.That(response!.AcknowledgedScoreRaw, Is.Null);
     }
 }

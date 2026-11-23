@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -30,8 +31,12 @@ public class Shikimori {
     private UserConfig _userConfig = null!;
     private SyncHarness? _harness;
 
+    // Cleared after disposing, so a test that builds no harness does not dispose the previous test's twice.
     [TearDown]
-    public void TearDown() => _harness?.Dispose();
+    public void TearDown() {
+        _harness?.Dispose();
+        _harness = null;
+    }
 
     private void Setup(List<Helpers.HttpCall> httpCalls, bool withKeyPairs = true) {
         // Reading the user saves the configuration, so each test needs a live plugin of its own, not one an earlier
@@ -309,5 +314,67 @@ public class Shikimori {
         Setup(WhoamiAndUpdate(), withKeyPairs: false);
 
         Assert.That(await _shikimoriApiCalls.UpdateAnime("1", ShikimoriUserRate.StatusEnum.watching, 1), Is.True);
+    }
+
+    private static ShikimoriApiCalls SignedInApi(IHttpClientFactory factory) =>
+        new(factory, new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object, new Mock<IHttpContextAccessor>().Object,
+            new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, new Dictionary<string, string> { { "User-Agent", "awd" } },
+            new UserConfig {
+                UserApiAuth = [new UserApiAuth { AccessToken = "accessToken", Name = ApiName.Shikimori, RefreshToken = "refreshToken" }],
+                KeyPairs = [new KeyPairs { Key = "ShikimoriUserId", Value = "7" }]
+            });
+
+    private static string RatedAnime(string score) =>
+        "{\"data\":{\"animes\":[{\"id\":\"500\",\"malId\":\"500\",\"name\":\"Fixture Show\",\"episodes\":12,\"userRate\":{\"status\":\"watching\",\"rewatches\":0,\"episodes\":3,\"score\":" + score + "}}]}}";
+
+    private static string SavedRate(string score) =>
+        "{\"id\":1,\"target_id\":500,\"target_type\":\"Anime\",\"episodes\":5,\"status\":\"watching\",\"rewatches\":0,\"score\":" + score + "}";
+
+    private static System.Text.Json.JsonElement SentRate(Helpers.SentRequest request) =>
+        JsonDocument.Parse(request.Body!).RootElement.GetProperty("user_rate");
+
+    [TestCase("8", 80)]
+    [TestCase("0", null)]
+    public async Task TheScoreIsReadAsTenPoint(string score, int? raw) {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new jellyfin_anidoki.Trackers.ShikimoriTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, RatedAnime(score)))));
+
+        var anime = await client.GetAnime(500, "500");
+
+        Assert.That(sent.Single().Body, Does.Contain("score"));
+        Assert.That(anime!.MyListStatus!.ScoreRaw, Is.EqualTo(raw));
+    }
+
+    [Test]
+    public async Task AScoreIsSent() {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new jellyfin_anidoki.Trackers.ShikimoriTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedRate("9")))));
+
+        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Models.Mal.Status.Watching, alternativeId: "500", scoreRaw: 85);
+
+        Assert.That(SentRate(sent.Single()).GetProperty("score").GetInt32(), Is.EqualTo(9));
+        Assert.That(response!.AcknowledgedScoreRaw, Is.EqualTo(90));
+    }
+
+    [Test]
+    public async Task ClearingSendsZero() {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new jellyfin_anidoki.Trackers.ShikimoriTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedRate("0")))));
+
+        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Models.Mal.Status.Watching, alternativeId: "500", clearScore: true);
+
+        Assert.That(SentRate(sent.Single()).GetProperty("score").GetInt32(), Is.EqualTo(0));
+        Assert.That(response!.AcknowledgedScoreRaw, Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task AWriteWithoutAScoreHasNoScoreKey() {
+        var sent = new List<Helpers.SentRequest>();
+        var client = new jellyfin_anidoki.Trackers.ShikimoriTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedRate("7")))));
+
+        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Models.Mal.Status.Watching, alternativeId: "500");
+
+        Assert.That(SentRate(sent.Single()).TryGetProperty("score", out _), Is.False);
+        Assert.That(response!.AcknowledgedScoreRaw, Is.Null);
     }
 }

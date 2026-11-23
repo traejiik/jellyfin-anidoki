@@ -26,8 +26,15 @@ public interface ITrackerProvider {
     /// <returns>The entry the IDs identify on this provider, or null.</returns>
     Task<EntryRef?> FindByCrossIds(ResolvedIds ids, string title, MediaKind kind, CancellationToken cancellationToken);
 
+    /// <returns>How this account shows scores: null when the provider has none or the format cannot be read.</returns>
+    Task<ScoreFormat?> ReadScoreFormat(CancellationToken cancellationToken);
+
     /// <param name="current">The state the change was planned against.</param>
     /// <returns>The acknowledged result, or null when nothing was confirmed.</returns>
-    /// <exception cref="System.ArgumentException">The change is a rewatch on a provider without rewatch support, or a rewatch not targeting Completed.</exception>
+    /// <exception cref="System.ArgumentException">
+    /// The change is a rewatch on a provider without rewatch support, a rewatch not targeting Completed, a score change on a
+    /// provider without scores or combined with a rewatch, or both a score and a clear.
+    /// </exception>
+    /// <exception cref="System.ArgumentOutOfRangeException">The score is outside 1–100.</exception>
     Task<WriteReceipt?> Apply(EntryState current, EntryChange change, CancellationToken cancellationToken);
 }

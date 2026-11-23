@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using jellyfin_anidoki.Api;
@@ -30,6 +31,8 @@ public class ClassConversions {
                 IsRewatching = aniListAnime.MediaListEntry.MediaListStatus == AniListSearch.MediaListStatus.Repeating
             };
             anime.MyListStatus.RewatchCount = aniListAnime.MediaListEntry.RepeatCount;
+            anime.MyListStatus.ScoreRaw = aniListAnime.MediaListEntry.Score is double score && score > 0
+                ? (int)Math.Round(score, MidpointRounding.AwayFromZero) : null;
 
             switch (aniListAnime.MediaListEntry.MediaListStatus) {
                 case AniListSearch.MediaListStatus.Current:
@@ -201,6 +204,7 @@ public class ClassConversions {
                 NumEpisodesWatched = userRate.Episodes,
                 IsRewatching = userRate.Status is ShikimoriUserRate.StatusEnum.rewatching,
                 RewatchCount = userRate.Rewatches,
+                ScoreRaw = userRate.Score is > 0 and <= 10 ? userRate.Score * 10 : null,
             };
             switch (userRate.Status) {
                 case ShikimoriUserRate.StatusEnum.completed:
@@ -282,7 +286,8 @@ public class ClassConversions {
             anime.MyListStatus = new MyListStatus {
                 NumEpisodesWatched = simklUserEntry.WatchedEpisodesCount,
                 IsRewatching = false, // simkl does not support rewatching at the moment
-                RewatchCount = 0
+                RewatchCount = 0,
+                ScoreRaw = simklUserEntry.UserRating is > 0 and <= 10 ? simklUserEntry.UserRating * 10 : null
             };
 
             switch (simklUserEntry.Status) {

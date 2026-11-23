@@ -19,6 +19,10 @@ public class ShikimoriUpdate {
         [JsonPropertyName("rewatches")]
         public int Rewatches { get; set; }
 
+        /// <summary>The score, 0–10 (0 clears it); left out when null.</summary>
+        [JsonPropertyName("score")]
+        public int? Score { get; set; }
+
         [JsonPropertyName("status")]
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public ShikimoriUserRate.StatusEnum Status { get; set; }

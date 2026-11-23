@@ -236,4 +236,119 @@ public class TrackerApplyTests {
         Assert.ThrowsAsync<OperationCanceledException>(() => adapter.Apply(state, new EntryChange(5, TrackerStatus.Watching), cancellation.Token));
         Assert.That(tracker.Writes, Is.Empty);
     }
+
+
+    private static IEnumerable<ApiName> ScoredProviders() => AllProviders.Where(provider => provider != ApiName.Annict);
+
+    [TestCaseSource(nameof(Providers))]
+    public async Task APlainChangeSendsNoScore(ApiName provider) {
+        var (adapter, tracker) = Adapter(provider);
+        Seed(tracker, Status.Watching, 3, false);
+
+        await adapter.Apply(await Read(adapter, provider), new EntryChange(5, TrackerStatus.Watching), CancellationToken.None);
+
+        Assert.That(Writes(tracker).Single(), Does.Not.Contain("score"));
+        Assert.That(tracker.Writes.Single().Score, Is.Null);
+        Assert.That(tracker.Writes.Single().ClearScore, Is.False);
+    }
+
+    // 80 is on every scored tracker's step, so each stores it as sent.
+    [TestCaseSource(nameof(ScoredProviders))]
+    public async Task AScoreGoesOutWithTheWrite(ApiName provider) {
+        var (adapter, tracker) = Adapter(provider);
+        Seed(tracker, Status.Watching, 3, false);
+
+        var receipt = await adapter.Apply(await Read(adapter, provider), new EntryChange(5, TrackerStatus.Watching, Score: 80), CancellationToken.None);
+
+        Assert.That(Writes(tracker).Single(), Does.EndWith(", score=80)"));
+        Assert.That(receipt!.Score, Is.EqualTo(80));
+        Assert.That(receipt.Complete, Is.True);
+    }
+
+    [TestCaseSource(nameof(ScoredProviders))]
+    public async Task ClearingAScoreIsOneWrite(ApiName provider) {
+        var (adapter, tracker) = Adapter(provider);
+        Seed(tracker, Status.Watching, 3, false);
+
+        var receipt = await adapter.Apply(await Read(adapter, provider), new EntryChange(5, TrackerStatus.Watching, ClearScore: true), CancellationToken.None);
+
+        Assert.That(Writes(tracker).Single(), Does.EndWith(", score=cleared)"));
+        Assert.That(receipt!.Score, Is.Null);
+        Assert.That(receipt.Complete, Is.True);
+    }
+
+    [Test]
+    public async Task AScoreTheTrackerDidNotAcknowledgeLeavesTheWriteIncomplete() {
+        var (adapter, tracker) = Adapter(ApiName.AniList);
+        Seed(tracker, Status.Watching, 3, false);
+        tracker.DropScoreAcknowledgement = true;
+
+        var receipt = await adapter.Apply(await Read(adapter, ApiName.AniList), new EntryChange(5, TrackerStatus.Watching, Score: 85), CancellationToken.None);
+
+        Assert.That(receipt!.Complete, Is.False);
+        Assert.That(receipt.Progress, Is.EqualTo(5));
+    }
+
+    [Test]
+    public async Task AnnictRejectsAScoreBeforeAnyRequest() {
+        var (adapter, tracker) = Adapter(ApiName.Annict);
+        Seed(tracker, Status.Watching, 3, false);
+        EntryState state = await Read(adapter, ApiName.Annict);
+
+        Assert.ThrowsAsync<ArgumentException>(() => adapter.Apply(state, new EntryChange(5, TrackerStatus.Watching, Score: 85), CancellationToken.None));
+        Assert.ThrowsAsync<ArgumentException>(() => adapter.Apply(state, new EntryChange(5, TrackerStatus.Watching, ClearScore: true), CancellationToken.None));
+        Assert.That(tracker.Writes, Is.Empty);
+    }
+
+    [Test]
+    public async Task AScoreCannotRideOnARewatch() {
+        var (adapter, tracker) = Adapter(ApiName.AniList);
+        Seed(tracker, Status.Completed, 12, false);
+        EntryState state = await Read(adapter, ApiName.AniList);
+
+        Assert.ThrowsAsync<ArgumentException>(() => adapter.Apply(state,
+            new EntryChange(1, TrackerStatus.Completed, RewatchTransition.Start, Score: 85), CancellationToken.None));
+        Assert.That(tracker.Writes, Is.Empty);
+    }
+
+    [Test]
+    public async Task ScoreAndClearTogetherAreRejected() {
+        var (adapter, tracker) = Adapter(ApiName.AniList);
+        Seed(tracker, Status.Watching, 3, false);
+        EntryState state = await Read(adapter, ApiName.AniList);
+
+        Assert.ThrowsAsync<ArgumentException>(() => adapter.Apply(state,
+            new EntryChange(5, TrackerStatus.Watching, Score: 85, ClearScore: true), CancellationToken.None));
+        Assert.That(tracker.Writes, Is.Empty);
+    }
+
+    [TestCase(0)]
+    [TestCase(101)]
+    public async Task ARawScoreOutsideOneToAHundredIsRejected(int raw) {
+        var (adapter, tracker) = Adapter(ApiName.AniList);
+        Seed(tracker, Status.Watching, 3, false);
+        EntryState state = await Read(adapter, ApiName.AniList);
+
+        Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => adapter.Apply(state,
+            new EntryChange(5, TrackerStatus.Watching, Score: raw), CancellationToken.None));
+        Assert.That(tracker.Writes, Is.Empty);
+    }
+
+
+    /// <summary>A tracker that stores whole points saves raw 85 as 9 (90); that is the score landing, not failing.</summary>
+    [TestCase(ApiName.Mal, 85, 90)]
+    [TestCase(ApiName.Shikimori, 85, 90)]
+    [TestCase(ApiName.Simkl, 81, 80)]
+    [TestCase(ApiName.Kitsu, 87, 85)]
+    [TestCase(ApiName.Kitsu, 3, 10)]
+    public async Task AScoreStoredOnTheTrackersOwnStepStillCompletes(ApiName provider, int sent, int stored) {
+        var (adapter, tracker) = Adapter(provider);
+        Seed(tracker, Status.Watching, 3, false);
+        tracker.ScoreGrid = ScoreScale.FixedFormat(provider);
+
+        var receipt = await adapter.Apply(await Read(adapter, provider), new EntryChange(5, TrackerStatus.Watching, Score: sent), CancellationToken.None);
+
+        Assert.That(receipt!.Complete, Is.True);
+        Assert.That(receipt.Score, Is.EqualTo(stored));
+    }
 }

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
@@ -163,7 +164,15 @@ public class KitsuApiCalls {
     }
 
     public async Task<bool> UpdateAnimeStatus(int animeId, int numberOfWatchedEpisodes, KitsuUpdate.Status status,
-        bool? isRewatching = null, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null) {
+        bool? isRewatching = null, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null) =>
+        await UpdateAnimeStatusReceipt(animeId, numberOfWatchedEpisodes, status, isRewatching, numberOfTimesRewatched, startDate, endDate) != null;
+
+    /// <param name="ratingTwenty">A rating to set, 2–20; null leaves it alone.</param>
+    /// <param name="clearRating">Remove the rating (sent as an explicit null).</param>
+    /// <returns>The library entry's attributes as Kitsu acknowledged them, or null when the write was not confirmed.</returns>
+    internal async Task<KitsuUpdate.Attributes?> UpdateAnimeStatusReceipt(int animeId, int numberOfWatchedEpisodes, KitsuUpdate.Status status,
+        bool? isRewatching = null, int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null,
+        int? ratingTwenty = null, bool clearRating = false) {
         _logger.LogDebug("({Provider}) Preparing to update anime {AnimeId}", ApiName.Kitsu, animeId);
         int? userId = await GetUserId();
 
@@ -218,24 +227,46 @@ public class KitsuApiCalls {
                 payload.Data.Attributes.FinishedAt = endDate.Value;
             }
 
+            if (ratingTwenty != null) {
+                payload.Data.Attributes.RatingTwenty = ratingTwenty.Value;
+            }
+
             var jsonSerializerOptions = new JsonSerializerOptions {
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
 
-            var stringContent = new StringContent(JsonSerializer.Serialize(payload, jsonSerializerOptions), Encoding.UTF8, "application/vnd.api+json");
+            string json = JsonSerializer.Serialize(payload, jsonSerializerOptions);
+            if (clearRating) {
+                // Nulls are left out of the payload, so the explicit null that clears a rating is added afterwards.
+                JsonNode document = JsonNode.Parse(json)!;
+                document["data"]!["attributes"]!["ratingTwenty"] = null;
+                json = document.ToJsonString();
+            }
+
+            var stringContent = new StringContent(json, Encoding.UTF8, "application/vnd.api+json");
             HttpResponseMessage? apiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Kitsu, libraryStatus != null ? AuthApiCall.CallType.PATCH : AuthApiCall.CallType.POST, url.Build(), stringContent: stringContent);
 
             if (apiCall != null) {
-                return await MutationAcknowledgement.Validate(apiCall, root =>
-                    MutationAcknowledgement.Object(root, "data", out var entry) &&
-                    MutationAcknowledgement.Id(entry) && MutationAcknowledgement.Text(entry, "type", "libraryEntries") &&
-                    MutationAcknowledgement.Object(entry, "attributes", out var attributes) &&
-                    MutationAcknowledgement.Number(attributes, "progress", out var progress) && progress == numberOfWatchedEpisodes &&
-                    MutationAcknowledgement.Text(attributes, "status", status.ToString()));
+                KitsuUpdate.Attributes? acknowledged = null;
+                bool confirmed = await MutationAcknowledgement.Validate(apiCall, root => {
+                    if (!(MutationAcknowledgement.Object(root, "data", out var entry) &&
+                          MutationAcknowledgement.Id(entry) && MutationAcknowledgement.Text(entry, "type", "libraryEntries") &&
+                          MutationAcknowledgement.Object(entry, "attributes", out var attributes) &&
+                          MutationAcknowledgement.Number(attributes, "progress", out var progress) && progress == numberOfWatchedEpisodes &&
+                          MutationAcknowledgement.Text(attributes, "status", status.ToString())))
+                        return false;
+                    acknowledged = new KitsuUpdate.Attributes {
+                        Status = status,
+                        Progress = progress,
+                        RatingTwenty = MutationAcknowledgement.Number(attributes, "ratingTwenty", out var rating) ? rating : null
+                    };
+                    return true;
+                });
+                return confirmed ? acknowledged : null;
             }
         }
 
-        return false;
+        return null;
     }
 
     public async Task<KitsuUpdate.KitsuLibraryEntry?> GetUserAnimeStatus(int userId, int animeId) {

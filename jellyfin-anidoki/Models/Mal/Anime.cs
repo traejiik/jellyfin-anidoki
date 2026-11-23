@@ -32,6 +32,9 @@ public class MyListStatus {
     [JsonPropertyName("start_date")] public string? StartDate { get; set; }
     [JsonPropertyName("finish_date")] public string? FinishDate { get; set; }
     public int? RewatchCount { get; set; }
+
+    /// <summary>The list score on the 1–100 scale the tracker contracts use; null when unrated. Each client fills it from its own field.</summary>
+    [JsonIgnore] public int? ScoreRaw { get; set; }
 }
 
 public class StartSeason {

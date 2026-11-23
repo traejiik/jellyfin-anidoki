@@ -10,7 +10,7 @@ using jellyfin_anidoki.Models.Mal;
 
 namespace jellyfin_anidoki.Trackers;
 
-public sealed class AniListTrackerClient(AniListApiCalls api) : ITrackerClient, ITrackerListSource {
+public sealed class AniListTrackerClient(AniListApiCalls api) : ITrackerClient, ITrackerListSource, IScoreFormatSource {
     public async Task<List<Anime>?> SearchAnime(string query) {
         bool updateNsfw = Plugin.Instance?.PluginConfiguration?.updateNsfw == true;
         return ConvertSearchResults(await api.SearchAnime(query), updateNsfw);
@@ -65,7 +65,7 @@ public sealed class AniListTrackerClient(AniListApiCalls api) : ITrackerClient, 
 
     public async Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status, bool? isRewatching = null,
         int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null, string? alternativeId = null,
-        ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null) {
+        ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null, int? scoreRaw = null, bool clearScore = false) {
         AniListSearch.MediaListStatus aniListStatus = status switch {
             Status.Watching => AniListSearch.MediaListStatus.Current,
             Status.Completed => isRewatching == true ? AniListSearch.MediaListStatus.Repeating : AniListSearch.MediaListStatus.Completed,
@@ -75,8 +75,11 @@ public sealed class AniListTrackerClient(AniListApiCalls api) : ITrackerClient, 
             Status.Rewatching => AniListSearch.MediaListStatus.Repeating,
             _ => AniListSearch.MediaListStatus.Current
         };
-        return await api.UpdateAnimeReceipt(animeId, aniListStatus, numberOfWatchedEpisodes, numberOfTimesRewatched, startDate, endDate);
+        return await api.UpdateAnimeReceipt(animeId, aniListStatus, numberOfWatchedEpisodes, numberOfTimesRewatched, startDate, endDate,
+            clearScore ? 0 : scoreRaw);
     }
+
+    public Task<ScoreFormat?> GetScoreFormat() => api.GetScoreFormat();
 
     public async Task<MalApiCalls.User?> GetUser() {
         AniListViewer.Viewer? user = await api.GetCurrentUser();

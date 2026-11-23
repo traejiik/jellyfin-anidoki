@@ -168,4 +168,55 @@ public class TrackerReadTests {
         Assert.ThrowsAsync<OperationCanceledException>(() => adapter.ReadEntry(Ref(ApiName.AniList), cancellation.Token));
         Assert.ThrowsAsync<OperationCanceledException>(() => adapter.Search("x", cancellation.Token));
     }
+
+
+    private static IEnumerable<ApiName> ScoredProviders() => AllProviders.Where(provider => provider != ApiName.Annict);
+
+    [TestCaseSource(nameof(ScoredProviders))]
+    public async Task TheScoreIsRead(ApiName provider) {
+        var (adapter, tracker) = Adapter(provider);
+        tracker.Add(SyncHarness.Entry(500, "Fixture Show", 12, new MyListStatus { Status = Status.Watching, NumEpisodesWatched = 3, RewatchCount = 1, ScoreRaw = 70 }));
+
+        var state = await adapter.ReadEntry(Ref(provider), CancellationToken.None);
+
+        Assert.That(state!.List!.Score, Is.EqualTo(70));
+    }
+
+    [Test]
+    public async Task AnnictNeverReportsAScore() {
+        var (adapter, tracker) = Adapter(ApiName.Annict);
+        tracker.Add(SyncHarness.Entry(500, "Fixture Show", 12, new MyListStatus { Status = Status.Watching, NumEpisodesWatched = 3, ScoreRaw = 70 }));
+
+        var state = await adapter.ReadEntry(Ref(ApiName.Annict), CancellationToken.None);
+
+        Assert.That(state!.List!.Score, Is.Null);
+    }
+
+    [TestCase(ApiName.Mal, ScoreFormat.Point10)]
+    [TestCase(ApiName.Kitsu, ScoreFormat.Point10Half)]
+    [TestCase(ApiName.Shikimori, ScoreFormat.Point10)]
+    [TestCase(ApiName.Simkl, ScoreFormat.Point10)]
+    public async Task FixedFormatsNeedNoRequest(ApiName provider, ScoreFormat format) {
+        var (adapter, tracker) = Adapter(provider);
+
+        Assert.That(await adapter.ReadScoreFormat(CancellationToken.None), Is.EqualTo(format));
+        Assert.That(tracker.ScoreFormatReads, Is.Zero);
+    }
+
+    [Test]
+    public async Task AniListAsksTheClientForTheFormat() {
+        var (adapter, tracker) = Adapter(ApiName.AniList);
+        tracker.ScoreFormat = ScoreFormat.Point5;
+
+        Assert.That(await adapter.ReadScoreFormat(CancellationToken.None), Is.EqualTo(ScoreFormat.Point5));
+        Assert.That(tracker.ScoreFormatReads, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task AnnictHasNoFormat() {
+        var (adapter, tracker) = Adapter(ApiName.Annict);
+
+        Assert.That(await adapter.ReadScoreFormat(CancellationToken.None), Is.Null);
+        Assert.That(tracker.ScoreFormatReads, Is.Zero);
+    }
 }

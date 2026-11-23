@@ -6,6 +6,11 @@ public class AniListViewer {
     public class Viewer {
         [JsonPropertyName("id")] public int Id { get; set; }
         [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("mediaListOptions")] public MediaListOptions? MediaListOptions { get; set; }
+    }
+
+    public class MediaListOptions {
+        [JsonPropertyName("scoreFormat")] public string? ScoreFormat { get; set; }
     }
 
     public class AniListViewerData {
