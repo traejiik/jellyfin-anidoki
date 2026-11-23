@@ -72,6 +72,9 @@ public sealed class EntryEditor(ISeriesItems items, SeriesProgressReader reader,
     internal static string? Problem(EntryEditContract edit, EntryState? state, ProviderCapabilities capabilities) {
         if (!Enum.IsDefined(edit.Status))
             return "Choose a status.";
+        // D11: rewatches are not edited here, and a plain write would end the rewatch on the tracker.
+        if (state?.List?.Rewatching == true)
+            return "This entry is being rewatched. Change it on the tracker for now.";
         if (edit.Progress < 0)
             return "Episodes watched cannot be negative.";
         int total = state?.TotalEpisodes ?? 0;

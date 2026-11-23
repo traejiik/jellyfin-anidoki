@@ -88,6 +88,14 @@ public class EntryEditorTests {
     }
 
     [Test]
+    public async Task AnEntryBeingRewatchedIsNotEditedSoItsRewatchIsNotEnded() {
+        _fixture.Match.Catalogue.Add(B, 12, new ListState(TrackerStatus.Completed, 1, true, 1));
+
+        Assert.That(await Check(Edit(entry: B, shown: Shown(TrackerStatus.Completed, 1, null), status: TrackerStatus.Completed, progress: 1, score: 85)),
+            Is.TypeOf<EditCheck.Invalid>());
+    }
+
+    [Test]
     public async Task AnUnknownTotalAcceptsAnyProgress() {
         _fixture.Match.Catalogue.Add(B, 0, new ListState(TrackerStatus.Watching, 2, false, 0));
 
