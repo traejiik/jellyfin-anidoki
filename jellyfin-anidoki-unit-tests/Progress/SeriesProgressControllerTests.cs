@@ -51,7 +51,8 @@ public class SeriesProgressControllerTests {
     [TearDown]
     public void TearDown() => _fixture.Dispose();
 
-    private SeriesProgressController As(User user) => new(_fixture.Reader, _editor, _runner, _store, _fixture.Match.Users.Object) {
+    private SeriesProgressController As(User user) => new(_fixture.Reader, _editor, null!, new SeriesInbound(_fixture.Reader, new FakePlayedEpisodes(),
+        NullLogger<SeriesInbound>.Instance), _fixture.Items, _fixture.Match.Trackers, _runner, _store, _fixture.Match.Users.Object) {
         ControllerContext = new ControllerContext {
             HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimValues.UserId, user.Id.ToString())])) }
         }
@@ -99,6 +100,32 @@ public class SeriesProgressControllerTests {
 
         Assert.That(As(_fixture.Match.Alice).ReadEdit(bobs).Result, Is.TypeOf<ForbidResult>());
         Assert.That(As(_fixture.Match.Alice).ReadEdit(sync).Result, Is.TypeOf<NotFoundResult>());
+    }
+
+    [Test]
+    public void ASyncWhileAnotherInTheSameDirectionRunsIsAConflict() {
+        Guid running = Guid.NewGuid();
+        _store.Create(running, _fixture.Alice, OperationKind.SyncFromTrackers, "All");
+
+        var result = As(_fixture.Match.Alice).SyncToJellyfin(new SeriesSyncRequest(_fixture.Series.Id, ApiName.AniList)).Result;
+
+        Assert.That(((ConflictObjectResult)result!).Value, Is.EqualTo(new OperationStarted(running)));
+    }
+
+    [Test]
+    public void SyncingAnUnlinkedTrackerOrAMovieToTrackersIsUnprocessable() {
+        var movie = _fixture.Items.Add(_fixture.Series with { Id = Guid.NewGuid(), IsMovie = true });
+        var controller = As(_fixture.Match.Alice);
+
+        Assert.That(controller.SyncToJellyfin(new SeriesSyncRequest(_fixture.Series.Id, ApiName.Kitsu)).Result, Is.TypeOf<UnprocessableEntityObjectResult>());
+        Assert.That(controller.SyncToTrackers(new SeriesSyncRequest(movie.Id, ApiName.AniList)).Result, Is.TypeOf<UnprocessableEntityObjectResult>());
+    }
+
+    [Test]
+    public void SyncingASeriesTheUserCannotSeeIsNotFound() {
+        var hidden = _fixture.Items.Add(_fixture.Series with { Id = Guid.NewGuid() }, _fixture.Match.Bob.Id);
+
+        Assert.That(As(_fixture.Match.Alice).SyncToJellyfin(new SeriesSyncRequest(hidden.Id, ApiName.AniList)).Result, Is.TypeOf<NotFoundResult>());
     }
 
     [Test]

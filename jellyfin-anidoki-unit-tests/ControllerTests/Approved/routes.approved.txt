@@ -70,6 +70,8 @@ POST AniDoki/user/passwordGrant | auth=authenticated | action=PasswordGrantAuthe
 POST AniDoki/user/progress/edit | auth=authenticated | action=Edit | params=request[Body]:EditRequest, cancellationToken:CancellationToken | api=yes | order=- | precedence=1.111
 GET AniDoki/user/progress/edit/{operationId:guid} | auth=authenticated | action=ReadEdit | params=operationId:Guid | api=yes | order=- | precedence=1.1112
 GET AniDoki/user/progress/series/{itemId:guid} | auth=authenticated | action=ReadSeries | params=itemId:Guid, cancellationToken:CancellationToken | api=yes | order=- | precedence=1.1112
+POST AniDoki/user/progress/sync-to-jellyfin | auth=authenticated | action=SyncToJellyfin | params=request[Body]:SeriesSyncRequest | api=yes | order=- | precedence=1.111
+POST AniDoki/user/progress/sync-to-trackers | auth=authenticated | action=SyncToTrackers | params=request[Body]:SeriesSyncRequest | api=yes | order=- | precedence=1.111
 GET AniDoki/user/user | auth=authenticated | action=GetUserUser | params=apiName:ApiName, user:Guid | api=yes | order=- | precedence=1.11
 GET AniDoki/users/activity | auth=policy:RequiresElevation | action=ReadActivity | params= | api=yes | order=- | precedence=1.11
 GET AniDoki/users/history | auth=policy:RequiresElevation | action=ReadHistory | params=user[Query]:Guid?, offset[Query]:Int32, limit[Query]:Int32 | api=yes | order=- | precedence=1.11

@@ -5,6 +5,7 @@ using jellyfin_anidoki.Extensions;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Operations;
+using jellyfin_anidoki.Trackers;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -20,8 +21,8 @@ namespace jellyfin_anidoki.Progress;
 [Route("AniDoki/user/progress")]
 [Authorize]
 [MatchErrors]
-public sealed class SeriesProgressController(SeriesProgressReader reader, EntryEditor editor, OperationRunner runner, OperationStore store,
-    IUserManager users) : ControllerBase {
+public sealed class SeriesProgressController(SeriesProgressReader reader, EntryEditor editor, SeriesOutbound outbound, SeriesInbound inbound,
+    ISeriesItems items, IMatchTrackers trackers, OperationRunner runner, OperationStore store, IUserManager users) : ControllerBase {
     /// <summary>A series, season or episode ID opens its series; a movie ID opens the movie.</summary>
     [HttpGet("series/{itemId:guid}")]
     public async Task<ActionResult<SeriesViewContract>> ReadSeries(Guid itemId, CancellationToken cancellationToken) {
@@ -68,6 +69,36 @@ public sealed class SeriesProgressController(SeriesProgressReader reader, EntryE
         if (store.Read(operationId) is not { Kind: OperationKind.Edit } view)
             return NotFound();
         return view.UserId != user ? Forbid() : Ok(EntryEditor.Results(view, store.ReadActions(operationId)));
+    }
+
+    /// <summary>D5: Sync to a tracker for one series, when Jellyfin is ahead. Never lowers the tracker's progress.</summary>
+    [HttpPost("sync-to-trackers")]
+    public ActionResult<OperationStarted> SyncToTrackers([FromBody] SeriesSyncRequest request) =>
+        StartSync(request, OperationKind.SyncToTrackers, item => item.IsMovie ? "A movie updates its trackers when you watch it." : null,
+            (user, item, _, operation) => outbound.Run(user, item.Id, request.Provider, operation));
+
+    /// <summary>D5: Sync to Jellyfin for one series, when the tracker is ahead. Only ever marks episodes played.</summary>
+    [HttpPost("sync-to-jellyfin")]
+    public ActionResult<OperationStarted> SyncToJellyfin([FromBody] SeriesSyncRequest request) =>
+        StartSync(request, OperationKind.SyncFromTrackers, _ => null,
+            (user, item, tracker, operation) => inbound.Run(item, user, tracker, ApplySavedMatches, operation));
+
+    private ActionResult<OperationStarted> StartSync(SeriesSyncRequest request, OperationKind kind,
+        Func<SeriesItem, string?> refuse, Func<Guid, SeriesItem, ITrackerProvider, OperationContext, Task> run) {
+        if (!ConfigHelper.UserPagesEnabled())
+            return NotFound();
+        if (Me() is not { } user)
+            return Unauthorized();
+        if (items.Find(request.ItemId, user) is not { } item)
+            return NotFound();
+        if (trackers.ForOwner(user, request.Provider) is not { } tracker)
+            return UnprocessableEntity($"{request.Provider} is not linked.");
+        if (refuse(item) is { } problem)
+            return UnprocessableEntity(problem);
+        if (store.FindActive(user, kind) is { } active)
+            return Conflict(new OperationStarted(active));
+        OperationRunner.Handle? handle = runner.Enqueue(user, kind, $"{item.Name} ({request.Provider})", operation => run(user, item, tracker, operation));
+        return handle == null ? StatusCode(StatusCodes.Status503ServiceUnavailable, "Nothing was synced.") : Accepted(new OperationStarted(handle.OperationId));
     }
 
     internal static bool ApplySavedMatches => Plugin.Instance?.PluginConfiguration.applySavedMatches ?? true;
