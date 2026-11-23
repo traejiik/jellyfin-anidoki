@@ -285,7 +285,7 @@ public sealed class Executor(ITrackerProvider tracker, PlanRules rules, PlanPoli
             failure.Kind != TrackerFailureKind.NotFound);
     }
 
-    private static (OutcomeKind Kind, string Step) FailureKindOutcome(TrackerFailureKind failure) => failure switch {
+    internal static (OutcomeKind Kind, string Step) FailureKindOutcome(TrackerFailureKind failure) => failure switch {
         TrackerFailureKind.NotFound => (OutcomeKind.Unresolved, "resolve"),
         TrackerFailureKind.Unauthorized => (OutcomeKind.Failed, "unauthorized"),
         TrackerFailureKind.RateLimited => (OutcomeKind.Failed, "rate-limited"),

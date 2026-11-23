@@ -46,6 +46,42 @@ internal sealed class FailingTracker(ApiName provider, TrackerFailureKind kind) 
     public Task<WriteReceipt?> Apply(EntryState current, EntryChange change, CancellationToken cancellationToken) => throw new TrackerFailureException(kind, null);
 }
 
+/// <summary>A tracker that reads from a catalogue and writes back to it, recording each write; it can fail or not confirm.</summary>
+internal sealed class WritableTracker(CatalogueFake catalogue) : ITrackerProvider {
+    public List<(EntryRef Entry, EntryChange Change)> Writes { get; } = new();
+
+    public TrackerFailureKind? WriteFailure { get; set; }
+
+    public bool Unconfirmed { get; set; }
+
+    public ApiName Name => catalogue.Name;
+
+    public ProviderCapabilities Capabilities => catalogue.Capabilities;
+
+    public Task<EntryState?> ReadEntry(EntryRef entry, CancellationToken cancellationToken) => catalogue.ReadEntry(entry, cancellationToken);
+
+    public Task<ScoreFormat?> ReadScoreFormat(CancellationToken cancellationToken) => catalogue.ReadScoreFormat(cancellationToken);
+
+    public Task<IReadOnlyList<EntryCandidate>> Search(string title, CancellationToken cancellationToken) => catalogue.Search(title, cancellationToken);
+
+    public Task<IReadOnlyList<EntryRelation>?> GetRelations(EntryRef entry, CancellationToken cancellationToken) => catalogue.GetRelations(entry, cancellationToken);
+
+    public Task<EntryRef?> FindByCrossIds(ResolvedIds ids, string title, MediaKind kind, CancellationToken cancellationToken) =>
+        catalogue.FindByCrossIds(ids, title, kind, cancellationToken);
+
+    public Task<WriteReceipt?> Apply(EntryState current, EntryChange change, CancellationToken cancellationToken) {
+        if (WriteFailure is { } failure)
+            throw new TrackerFailureException(failure, null);
+        Writes.Add((current.Entry, change));
+        if (Unconfirmed)
+            return Task.FromResult<WriteReceipt?>(null);
+        ListState before = current.List ?? new ListState(change.Status, 0, false, 0);
+        int? score = change.ClearScore ? null : change.Score ?? before.Score;
+        catalogue.Entries[current.Entry.Id] = current with { List = before with { Status = change.Status, Progress = change.Progress, Score = score } };
+        return Task.FromResult<WriteReceipt?>(new WriteReceipt(change.Progress, change.Status, false, 0, true, score));
+    }
+}
+
 /// <summary>
 /// A series of two seasons over the match API's fakes: season 1 is 48 episodes (<see cref="MatchApiFixture.Season"/>), season
 /// 2 is 12. Alice is linked to AniList, whose catalogue holds entries 101–104 of 12 episodes.

@@ -74,3 +74,50 @@ public sealed record EntryViewContract(
     [property: JsonPropertyName("score")] int? Score,
     [property: JsonPropertyName("rewatching")] bool Rewatching,
     [property: JsonPropertyName("jellyfinProgress")] int JellyfinProgress);
+
+/// <summary>What the popup showed for an entry when the edit was made; the edit is refused if the tracker no longer says this.</summary>
+/// <param name="Status">Null when the entry was not on the list.</param>
+public sealed record ShownStateContract(
+    [property: JsonPropertyName("status"), JsonConverter(typeof(JsonStringEnumConverter))] TrackerStatus? Status,
+    [property: JsonPropertyName("progress")] int? Progress,
+    [property: JsonPropertyName("score")] int? Score);
+
+/// <summary>One entry's requested state on one tracker.</summary>
+/// <param name="Score">Raw 1–100; null leaves the score as it is. Dropped for a tracker without scores.</param>
+/// <param name="ClearScore">Removes the rating; never with <paramref name="Score"/>.</param>
+public sealed record EntryEditContract(
+    [property: JsonPropertyName("provider"), JsonConverter(typeof(JsonStringEnumConverter))] ApiName Provider,
+    [property: JsonPropertyName("entryId")] int EntryId,
+    [property: JsonPropertyName("alternativeId")] string? AlternativeId,
+    [property: JsonPropertyName("shown")] ShownStateContract Shown,
+    [property: JsonPropertyName("status"), JsonConverter(typeof(JsonStringEnumConverter))] TrackerStatus Status,
+    [property: JsonPropertyName("progress")] int Progress,
+    [property: JsonPropertyName("score")] int? Score,
+    [property: JsonPropertyName("clearScore")] bool ClearScore);
+
+/// <param name="ItemId">The series, season, episode or movie the popup is showing.</param>
+public sealed record EditRequest(
+    [property: JsonPropertyName("itemId")] Guid ItemId,
+    [property: JsonPropertyName("edits")] IReadOnlyList<EntryEditContract> Edits);
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum EditResultKind { Pending, Saved, Stale, Unconfirmed, Failed, NotFound }
+
+/// <param name="Current">Stale only: the entry as the tracker now has it, to show instead.</param>
+/// <param name="Failure">Failed only: unauthorized, rate-limited, transient or rejected.</param>
+public sealed record EditResultContract(
+    [property: JsonPropertyName("provider"), JsonConverter(typeof(JsonStringEnumConverter))] ApiName Provider,
+    [property: JsonPropertyName("entryId")] string EntryId,
+    [property: JsonPropertyName("result")] EditResultKind Result,
+    [property: JsonPropertyName("current")] ShownStateContract? Current,
+    [property: JsonPropertyName("failure")] string? Failure);
+
+public sealed record EditOutcomeContract(
+    [property: JsonPropertyName("operationId")] Guid OperationId,
+    [property: JsonPropertyName("finished")] bool Finished,
+    [property: JsonPropertyName("results")] IReadOnlyList<EditResultContract> Results);
+
+/// <summary>A one-series sync in one direction, through one tracker.</summary>
+public sealed record SeriesSyncRequest(
+    [property: JsonPropertyName("itemId")] Guid ItemId,
+    [property: JsonPropertyName("provider"), JsonConverter(typeof(JsonStringEnumConverter))] ApiName Provider);

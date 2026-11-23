@@ -70,6 +70,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
         serviceCollection.AddSingleton<Progress.ISeriesItems, Progress.JellyfinSeriesItems>();
         serviceCollection.AddSingleton<Progress.ScoreFormatCache>();
         serviceCollection.AddSingleton<Progress.SeriesProgressReader>();
+        serviceCollection.AddSingleton<Progress.EntryEditor>();
         serviceCollection.AddSingleton<ManualMarks.ManualMarkStore>();
         serviceCollection.AddSingleton<ManualMarks.ManualMarkQueue>();
         serviceCollection.AddSingleton(provider => {

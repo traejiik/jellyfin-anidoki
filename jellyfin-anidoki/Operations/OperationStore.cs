@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Storage;
+using jellyfin_anidoki.Trackers;
 using Microsoft.Data.Sqlite;
 
 namespace jellyfin_anidoki.Operations;
@@ -58,6 +60,20 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
     public OperationView? Read(Guid id) {
         using var connection = database.Open();
         return Read(connection, Id(id));
+    }
+
+    /// <summary>One operation's actions in the order they were recorded, with the entry each was planned against.</summary>
+    public IReadOnlyList<RecordedAction> ReadActions(Guid id) {
+        using var connection = database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT provider, target_id, outcome, step, planned_against FROM operation_actions WHERE operation_id = $id ORDER BY seq";
+        command.Parameters.AddWithValue("$id", Id(id));
+        using var reader = command.ExecuteReader();
+        var actions = new List<RecordedAction>();
+        while (reader.Read())
+            actions.Add(new RecordedAction(Enum.Parse<ApiName>(reader.GetString(0)), reader.GetString(1), Enum.Parse<OutcomeKind>(reader.GetString(2)),
+                reader.GetString(3), reader.IsDBNull(4) ? null : ActionJson.Read<EntryState>(reader.GetString(4))));
+        return actions;
     }
 
     public IReadOnlyList<OperationView> ReadForUser(Guid userId) {
@@ -196,6 +212,10 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
 
     private static string Id(Guid id) => id.ToString("D");
 }
+
+/// <summary>One action of one operation, as <see cref="OperationStore.ReadActions"/> returns it.</summary>
+/// <param name="PlannedAgainst">The entry as read before the write; null when nothing was read.</param>
+public sealed record RecordedAction(ApiName Provider, string TargetId, OutcomeKind Outcome, string Step, EntryState? PlannedAgainst);
 
 /// <summary>One recorded action: who synced which item, on which tracker, and how it came out.</summary>
 /// <param name="Provider">The tracker's <see cref="Configuration.ApiName"/>, by name.</param>

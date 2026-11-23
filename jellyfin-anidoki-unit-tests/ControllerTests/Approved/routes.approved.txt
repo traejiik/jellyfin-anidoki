@@ -67,6 +67,8 @@ POST AniDoki/user/matches/{sourceKey}/{provider}/preview | auth=authenticated | 
 GET AniDoki/user/operations/{operationId:guid} | auth=authenticated | action=ReadOwnOperation | params=operationId:Guid | api=yes | order=- | precedence=1.112
 GET AniDoki/user/parameters | auth=authenticated | action=GetFrontendParametersUser | params=includes:ParameterInclude[] | api=yes | order=- | precedence=1.11
 POST AniDoki/user/passwordGrant | auth=authenticated | action=PasswordGrantAuthenticationUserBody | params=request[Body]:PasswordGrantRequest | api=yes | order=- | precedence=1.11
+POST AniDoki/user/progress/edit | auth=authenticated | action=Edit | params=request[Body]:EditRequest, cancellationToken:CancellationToken | api=yes | order=- | precedence=1.111
+GET AniDoki/user/progress/edit/{operationId:guid} | auth=authenticated | action=ReadEdit | params=operationId:Guid | api=yes | order=- | precedence=1.1112
 GET AniDoki/user/progress/series/{itemId:guid} | auth=authenticated | action=ReadSeries | params=itemId:Guid, cancellationToken:CancellationToken | api=yes | order=- | precedence=1.1112
 GET AniDoki/user/user | auth=authenticated | action=GetUserUser | params=apiName:ApiName, user:Guid | api=yes | order=- | precedence=1.11
 GET AniDoki/users/activity | auth=policy:RequiresElevation | action=ReadActivity | params= | api=yes | order=- | precedence=1.11
