@@ -397,3 +397,108 @@ export function planSyncDown(targets, drafts) {
     const ready = editableTargets(targets);
     return syncButtons(ready, drafts, { all: ready.length > 1 }).down.enabled ? ready[0].provider : null;
 }
+
+// --- Save results ------------------------------------------------------------------------------------------
+
+const failureHeadings = {
+    transient: name => `Couldn't reach ${name}`,
+    'rate-limited': name => `${name} is busy. Try again in a minute`,
+    unauthorized: name => `${name} needs you to sign in again`,
+    rejected: name => `${name} refused the change`
+};
+const describe = (state, target) => `${statusLabel(state.status, target.provider)}, ${state.progress ?? 0} of ${target.entry.totalEpisodes || '?'}`;
+
+/**
+ * Applies an edit's per-tracker results (EditResultContract) to the row's drafts. A saved or unconfirmed entry loses its draft;
+ * a stale or failed one keeps it, with a card that says what happened and offers the next step (canvas States board).
+ */
+export function applyEditResults(drafts, results, targetsByProvider) {
+    const next = { ...drafts }, cards = [];
+    for (const item of results) {
+        const target = targetsByProvider[item.provider], draft = drafts[item.provider];
+        if (!target)
+            continue;
+        const name = providerName(item.provider), base = { provider: item.provider, current: item.current ?? null };
+        switch (item.result) {
+            case 'Saved':
+                delete next[item.provider];
+                break;
+            case 'Unconfirmed':
+                delete next[item.provider];
+                cards.push({ ...base, kind: 'unconfirmed', heading: `${name} didn't confirm the change`, body: `Check it on ${name}.`, actions: [] });
+                break;
+            case 'Stale': {
+                if (!draft || !item.current)
+                    break;
+                const lowers = draft.progress < (item.current.progress ?? 0);
+                cards.push({
+                    ...base, kind: 'stale', heading: `${name} changed while this was open`,
+                    body: `It now shows ${describe(item.current, target)}. ${lowers ? `Saving would set it back to ${draft.progress}.` : `Saving would change it to ${describe(draft, target)}.`}`,
+                    actions: [{ id: 'load', label: `Load ${name}'s` }, { id: 'force', label: draft.progress !== (item.current.progress ?? 0) ? `Save ${draft.progress} anyway` : 'Save anyway' }]
+                });
+                break;
+            }
+            case 'Failed':
+            case 'NotFound': {
+                if (!draft)
+                    break;
+                const gone = item.result === 'NotFound';
+                cards.push({
+                    ...base, kind: 'failed',
+                    heading: gone ? `${name} no longer has this entry` : (failureHeadings[item.failure] ?? failureHeadings.rejected)(name),
+                    body: `${describe(draft, target)} isn't saved yet. ${name} still shows ${describe(savedState(target), target)}.`,
+                    actions: gone ? [{ id: 'undo', label: 'Undo' }] : [{ id: 'retry', label: 'Try again' }, { id: 'undo', label: 'Undo' }]
+                });
+                break;
+            }
+            default:
+                break;
+        }
+    }
+    return { drafts: next, cards };
+}
+
+/** "Save anyway": the same draft, made against what the tracker now shows, so the next save passes the stale check. */
+export function forceDraft(drafts, provider, current) {
+    return drafts[provider] ? { ...drafts, [provider]: { ...drafts[provider], shown: { status: current.status ?? null, progress: current.progress ?? 0, score: current.score ?? null } } } : drafts;
+}
+
+// --- Saved drafts (D12) ------------------------------------------------------------------------------------
+
+/** Drafts for one user and series in sessionStorage, by row key. Storage that throws or holds garbage reads as empty. */
+export function draftStore(storage, userId, seriesId) {
+    const key = `anidoki:drafts:${userId}:${seriesId}`;
+    const prune = drafts => Object.fromEntries(Object.entries(drafts ?? {}).filter(([, row]) => row && Object.keys(row).length));
+    return {
+        load() {
+            try {
+                const parsed = JSON.parse(storage?.getItem(key) ?? '{}');
+                return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? prune(parsed) : {};
+            } catch {
+                return {};
+            }
+        },
+        save(drafts) {
+            try {
+                const kept = prune(drafts);
+                if (Object.keys(kept).length)
+                    storage?.setItem(key, JSON.stringify(kept));
+                else
+                    storage?.removeItem(key);
+            } catch {
+                // Private windows and full storage: the drafts live for this page only.
+            }
+        },
+        clear() {
+            try {
+                storage?.removeItem(key);
+            } catch {
+                // As above.
+            }
+        }
+    };
+}
+
+export const dirtyRows = drafts => new Set(Object.entries(drafts).filter(([, row]) => row && Object.keys(row).length).map(([key]) => key));
+
+export const anyDirty = drafts => dirtyRows(drafts).size > 0;

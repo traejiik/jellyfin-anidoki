@@ -316,3 +316,98 @@ test('sync down plan', () => {
     assert.equal(planSyncDown(targets, {}), 'AniList');
     assert.equal(planSyncDown(targets, setStatus(targets, {}, 'Dropped')), null);
 });
+
+// --- Task 4: results, cards and saved drafts ---
+const { applyEditResults, forceDraft, draftStore, anyDirty, dirtyRows } = state;
+const listTarget = (extra = {}) => target('AniList', { totalEpisodes: 28, progress: 12, ...extra });
+const result = (kind, extra = {}) => ({ provider: 'AniList', entryId: '1', result: kind, current: null, failure: null, ...extra });
+
+test('saved results drop the draft', () => {
+    const targets = [listTarget()], drafts = setProgress(targets, {}, 14);
+    const outcome = applyEditResults(drafts, [result('Saved')], { AniList: targets[0] });
+    assert.deepEqual(outcome.drafts, {});
+    assert.deepEqual(outcome.cards, []);
+});
+
+test('a stale result keeps the draft and explains', () => {
+    const targets = [listTarget({ progress: 10 })], drafts = setProgress(targets, {}, 12);
+    const current = { status: 'Watching', progress: 14, score: null };
+    const outcome = applyEditResults(drafts, [result('Stale', { current })], { AniList: targets[0] });
+    assert.equal(outcome.drafts.AniList.progress, 12);
+    const [card] = outcome.cards;
+    assert.equal(card.kind, 'stale');
+    assert.equal(card.heading, 'AniList changed while this was open');
+    assert.equal(card.body, 'It now shows Watching, 14 of 28. Saving would set it back to 12.');
+    assert.deepEqual(card.actions, [{ id: 'load', label: "Load AniList's" }, { id: 'force', label: 'Save 12 anyway' }]);
+    assert.deepEqual(card.current, current);
+
+    const statusOnly = setStatus([listTarget({ progress: 14 })], {}, 'Completed');
+    statusOnly.AniList.progress = 14;
+    const second = applyEditResults(statusOnly, [result('Stale', { current })], { AniList: listTarget({ progress: 14 }) }).cards[0];
+    assert.match(second.body, /Saving would change it to Completed, 14 of 28\.$/);
+    assert.equal(second.actions[1].label, 'Save anyway');
+});
+
+test('saving anyway resends against what the tracker now shows', () => {
+    const targets = [listTarget({ progress: 10 })], drafts = setProgress(targets, {}, 12);
+    const forced = forceDraft(drafts, 'AniList', { status: 'Watching', progress: 14, score: null });
+    assert.deepEqual(forced.AniList.shown, { status: 'Watching', progress: 14, score: null });
+    assert.equal(forced.AniList.progress, 12);
+});
+
+test('a failed result keeps the draft', () => {
+    const targets = [listTarget({ progress: 27, totalEpisodes: 28 })], drafts = setStatus(targets, {}, 'Completed');
+    const failed = kind => applyEditResults(drafts, [result('Failed', { failure: kind })], { AniList: targets[0] });
+    const outcome = failed('transient'), [card] = outcome.cards;
+    assert.equal(outcome.drafts.AniList.status, 'Completed');
+    assert.equal(card.heading, "Couldn't reach AniList");
+    assert.equal(card.body, "Completed, 28 of 28 isn't saved yet. AniList still shows Watching, 27 of 28.");
+    assert.deepEqual(card.actions, [{ id: 'retry', label: 'Try again' }, { id: 'undo', label: 'Undo' }]);
+    assert.equal(failed('rate-limited').cards[0].heading, 'AniList is busy. Try again in a minute');
+    assert.equal(failed('unauthorized').cards[0].heading, 'AniList needs you to sign in again');
+    assert.equal(failed('rejected').cards[0].heading, 'AniList refused the change');
+    const gone = applyEditResults(drafts, [result('NotFound')], { AniList: targets[0] }).cards[0];
+    assert.equal(gone.heading, 'AniList no longer has this entry');
+    assert.deepEqual(gone.actions, [{ id: 'undo', label: 'Undo' }]);
+});
+
+test('unconfirmed drops the draft with a note', () => {
+    const targets = [listTarget()], drafts = setProgress(targets, {}, 14);
+    const outcome = applyEditResults(drafts, [result('Unconfirmed')], { AniList: targets[0] });
+    assert.deepEqual(outcome.drafts, {});
+    assert.deepEqual(outcome.cards.map(card => [card.kind, card.heading, card.body, card.actions.length]),
+        [['unconfirmed', "AniList didn't confirm the change", 'Check it on AniList.', 0]]);
+});
+
+const memoryStorage = () => { const items = new Map(); return { getItem: key => items.get(key) ?? null, setItem: (key, value) => items.set(key, String(value)), removeItem: key => items.delete(key), items }; };
+
+test('restored drafts keep what was shown', () => {
+    const storage = memoryStorage(), targets = [listTarget({ progress: 10 })];
+    draftStore(storage, 'user', 'series').save({ 'series:s1:1': setProgress(targets, {}, 12) });
+    const restored = draftStore(storage, 'user', 'series').load();
+    assert.deepEqual(restored['series:s1:1'].AniList.shown, { status: 'Watching', progress: 10, score: null });
+    assert.ok(storage.items.has('anidoki:drafts:user:series'));
+    assert.equal(anyDirty(restored), true);
+    assert.deepEqual([...dirtyRows(restored)], ['series:s1:1']);
+    draftStore(storage, 'user', 'series').save({ 'series:s1:1': {} });
+    assert.equal(storage.items.has('anidoki:drafts:user:series'), false);
+    assert.equal(anyDirty({ 'series:s1:1': {} }), false);
+});
+
+test('storage failures are ignored', () => {
+    const broken = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); }, removeItem() { throw new Error('denied'); } };
+    const store = draftStore(broken, 'user', 'series');
+    assert.deepEqual(store.load(), {});
+    assert.doesNotThrow(() => store.save({ row: { AniList: { status: 'Watching' } } }));
+    assert.doesNotThrow(() => store.clear());
+    assert.deepEqual(draftStore(null, 'user', 'series').load(), {});
+    const garbled = memoryStorage();
+    garbled.setItem('anidoki:drafts:user:series', '{not json');
+    assert.deepEqual(draftStore(garbled, 'user', 'series').load(), {});
+});
+
+test('drafts are per user', () => {
+    const storage = memoryStorage();
+    draftStore(storage, 'alice', 'series').save({ row: { AniList: { status: 'Watching' } } });
+    assert.deepEqual(draftStore(storage, 'bob', 'series').load(), {});
+});
