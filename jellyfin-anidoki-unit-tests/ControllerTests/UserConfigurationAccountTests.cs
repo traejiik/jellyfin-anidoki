@@ -274,6 +274,8 @@ public partial class UserConfigurationTests {
     [TestCase("common.js", "application/javascript")]
     [TestCase("config-state.js", "application/javascript")]
     [TestCase("popup-state.js", "application/javascript")]
+    [TestCase("progress-popup.js", "application/javascript")]
+    [TestCase("progress-popup.css", "text/css")]
     [TestCase("user-settings.js", "application/javascript")]
     [TestCase("match-editor.js", "application/javascript")]
     [TestCase("match-editor-state.js", "application/javascript")]

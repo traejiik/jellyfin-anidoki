@@ -254,4 +254,6 @@ export function startNotifications(win = window, doc = document) {
 if (typeof window !== 'undefined') {
     startNotifications();
     guardPluginPagesEntry();
+    // The progress popup loads on its own, so a failure there never stops the notifications.
+    import('./progress-popup.js').then(module => module.startProgressPopup()).catch(() => {});
 }

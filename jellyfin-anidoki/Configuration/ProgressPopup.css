@@ -1,0 +1,157 @@
+/*
+ * The progress popup (Phase 6, item 6.4). Colours come from the shared --doki-* tokens in styles.css; the only fixed colours are
+ * the dark scrims and chips over artwork, which stay dark in every theme so their text stays legible, and white logo tiles.
+ * Sizes, radii and motion follow docs/superpowers/specs/2026-11-17-anidoki-phase-6-progress-popup-design.md.
+ */
+
+/* --- Item-page button: Jellyfin draws the circle; this is the single-colour symbol inside it. --- */
+.doki-item-button-icon, .anidoki .doki-symbol {
+    display: inline-block; flex: 0 0 auto; background: currentColor;
+    -webkit-mask: url("anidoki-symbol.svg") center / contain no-repeat; mask: url("anidoki-symbol.svg") center / contain no-repeat;
+}
+.doki-item-button-icon { width: 1.5em; height: 1.5em; }
+
+html.doki-popup-open { overflow: hidden; }
+
+/* --- Dialog --- */
+.anidoki.doki-popup-scrim {
+    position: fixed; inset: 0; z-index: 1100; max-width: none; margin: 0; padding: 32px 56px;
+    display: grid; place-items: center; background: rgb(0 0 0 / .6);
+    animation: doki-scrim-in .34s ease both;
+}
+.anidoki .doki-popup {
+    position: relative; display: flex; flex-direction: column; width: min(1168px, 100%); height: min(736px, 100%); overflow: hidden;
+    border-radius: var(--tjk-radius-lg); background: var(--doki-solid-surface); color: var(--doki-text);
+    box-shadow: 0 24px 80px rgb(0 0 0 / .45);
+    animation: doki-popup-in .34s cubic-bezier(.2, .8, .2, 1) both;
+}
+.anidoki.doki-popup-scrim.is-closing { animation: doki-scrim-out .2s ease both; }
+.anidoki.doki-popup-scrim.is-closing .doki-popup { animation: doki-popup-out .2s ease both; }
+@keyframes doki-scrim-in { from { background: rgb(0 0 0 / 0); } }
+@keyframes doki-scrim-out { to { background: rgb(0 0 0 / 0); } }
+@keyframes doki-popup-in { from { opacity: 0; transform: translateY(16px) scale(.98); } }
+@keyframes doki-popup-out { to { opacity: 0; transform: translateY(16px) scale(.98); } }
+@keyframes doki-rise { from { opacity: 0; transform: translateY(6px); } }
+
+/* --- Header: dark chips over the artwork --- */
+.anidoki .doki-popup-header {
+    position: absolute; inset: 0 0 auto; z-index: 3; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+    padding: 16px 20px; pointer-events: none;
+}
+.anidoki .doki-popup-header > * { pointer-events: auto; }
+.anidoki .doki-popup-header-start { display: grid; gap: 6px; justify-items: start; min-width: 0; }
+.anidoki .doki-popup-crumb-row {
+    display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; padding: 6px 14px 6px 10px;
+    border-radius: var(--tjk-radius-pill); background: rgb(16 16 16 / .62); color: #fff; backdrop-filter: blur(8px);
+}
+.anidoki .doki-popup-crumb-row .doki-symbol { width: 20px; height: 20px; }
+.anidoki .doki-popup-crumbs { min-width: 0; font-size: .9375rem; }
+.anidoki .doki-popup-crumb { display: block; overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.anidoki .doki-popup-unsaved {
+    display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: var(--tjk-radius-pill);
+    background: rgb(16 16 16 / .62); color: #fff; font-size: .8125rem; animation: doki-rise .26s ease both;
+}
+.anidoki .doki-popup-unsaved::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--tjk-warning); }
+.anidoki .doki-popup-actions, .anidoki .doki-popup-open-on { display: flex; align-items: center; gap: 8px; }
+.anidoki .doki-popup-chip {
+    display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%;
+    background: rgb(16 16 16 / .62); color: #fff; cursor: pointer; backdrop-filter: blur(8px); text-decoration: none;
+}
+.anidoki .doki-popup-chip:hover { background: rgb(16 16 16 / .8); }
+.anidoki .doki-popup-chip-icon {
+    width: 20px; height: 20px; background: currentColor;
+    -webkit-mask: var(--doki-icon) center / contain no-repeat; mask: var(--doki-icon) center / contain no-repeat;
+}
+.anidoki [data-icon="gear"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="close"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="jellyfin"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='12' rx='2'/%3E%3Cpath d='M8 21h8M12 17v4M10 9l4 2-4 2z'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="external"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5'/%3E%3C/svg%3E"); }
+
+/* --- Body: backdrop, poster, title --- */
+.anidoki .doki-popup-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.anidoki .doki-popup-hero { position: relative; height: 140px; background: center 20% / cover no-repeat var(--doki-surface); }
+.anidoki .doki-popup-hero.has-backdrop { height: 300px; }
+.anidoki .doki-popup-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, rgb(0 0 0 / .25), transparent 35%, var(--doki-solid-surface)); }
+.anidoki .doki-popup-layout {
+    position: relative; z-index: 1; display: grid; grid-template-columns: 184px minmax(0, 1fr); gap: 32px;
+    margin-top: -150px; padding: 0 32px 32px;
+}
+.anidoki .doki-popup-side { display: grid; align-content: start; gap: 16px; }
+.anidoki .doki-popup-poster { width: 184px; aspect-ratio: 2 / 3; overflow: hidden; border-radius: var(--tjk-radius-md); background: var(--doki-ground); box-shadow: 0 12px 32px rgb(0 0 0 / .4); }
+.anidoki .doki-popup-poster img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.anidoki .doki-popup-main { display: flex; flex-direction: column; min-width: 0; }
+/* The title grows upward from its bottom edge, so a tall logo rises into the backdrop. */
+.anidoki .doki-popup-title { display: flex; align-items: flex-end; min-height: 150px; padding-bottom: 12px; }
+.anidoki .doki-popup-title h2 { font-size: clamp(1.6rem, 3vw, 2.25rem); line-height: 1.15; letter-spacing: -.02em; }
+.anidoki .doki-popup-title h2:focus { outline: none; }
+.anidoki .doki-popup-logo { display: block; max-width: min(420px, 100%); max-height: 120px; object-fit: contain; object-position: left bottom; }
+.anidoki .doki-popup-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-bottom: 18px; color: var(--doki-muted); }
+.anidoki .doki-popup-official { padding: 0 6px; border: 1px solid currentColor; border-radius: 4px; font-size: .8125rem; line-height: 1.5; }
+
+/* --- Details and Seasons boxes --- */
+.anidoki :is(.doki-popup-details, .doki-popup-seasons) {
+    margin: 0; padding: 14px 16px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-lg); background: var(--doki-surface); font-size: .875rem;
+}
+.anidoki .doki-popup-details { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; }
+.anidoki .doki-popup-details dt { color: var(--doki-muted); }
+.anidoki .doki-popup-details dd { margin: 0; font-weight: 600; }
+.anidoki .doki-popup-box-title { margin-bottom: 8px; font-size: .875rem; font-weight: 700; }
+.anidoki .doki-popup-seasons .doki-popup-season-list { max-height: 220px; overflow: auto; margin: 0 -8px; }
+.anidoki .doki-popup-season {
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: var(--tjk-radius-sm); cursor: pointer;
+}
+.anidoki .doki-popup-season:hover { background: var(--doki-ground); }
+.anidoki .doki-popup-season[aria-selected="true"] { background: color-mix(in srgb, var(--doki-accent) 20%, transparent); font-weight: 600; }
+.anidoki .doki-popup-season.is-split { padding-left: 20px; }
+.anidoki .doki-popup-season-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.anidoki .doki-popup-season-count { color: var(--doki-muted); font-variant-numeric: tabular-nums; }
+.anidoki .doki-popup-season-group { padding: 8px 8px 2px; color: var(--doki-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.anidoki .doki-popup-dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--tjk-warning); }
+.anidoki .doki-popup-season-menu { display: none; position: relative; }
+
+/* --- Tabs and panels --- */
+.anidoki .doki-popup-tabs { display: flex; gap: 24px; margin-bottom: 20px; border-bottom: 1px solid var(--doki-edge); }
+.anidoki .doki-popup-tab {
+    padding: 10px 2px; border: 0; background: none; color: var(--doki-muted); font-weight: 600; cursor: pointer;
+}
+.anidoki .doki-popup-tab[aria-selected="true"] { color: var(--doki-text); box-shadow: inset 0 -2px var(--doki-accent); }
+.anidoki .doki-popup-panel { display: grid; gap: 20px; animation: doki-rise .26s ease both; }
+.anidoki .doki-popup-description { max-width: 72ch; color: color-mix(in srgb, var(--doki-text) 86%, transparent); }
+.anidoki .doki-popup-status { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.anidoki .doki-popup-loading { color: var(--doki-muted); }
+.anidoki .doki-popup-error { color: var(--tjk-error); font-weight: 600; }
+
+/* --- Below 900px (D10): the whole viewport, a small poster beside the title, the boxes after the Overview. --- */
+@media (max-width: 899px) {
+    .anidoki.doki-popup-scrim { padding: 0; }
+    .anidoki .doki-popup { width: 100%; height: 100%; border-radius: 0; }
+    .anidoki .doki-popup-hero.has-backdrop { height: 220px; }
+    .anidoki .doki-popup-layout {
+        grid-template-columns: 92px minmax(0, 1fr); gap: 0 16px; margin-top: -70px; padding: 0 16px 24px;
+        grid-template-areas: "poster title" "poster meta" "tabs tabs" "status status" "overview overview" "details details";
+    }
+    .anidoki :is(.doki-popup-side, .doki-popup-main) { display: contents; }
+    .anidoki .doki-popup-poster { grid-area: poster; width: 92px; align-self: start; }
+    .anidoki .doki-popup-title { grid-area: title; min-height: 70px; }
+    .anidoki .doki-popup-meta { grid-area: meta; }
+    .anidoki .doki-popup-tabs { grid-area: tabs; margin-top: 16px; }
+    .anidoki .doki-popup-status { grid-area: status; }
+    .anidoki .doki-popup-panel { grid-area: overview; }
+    .anidoki .doki-popup-details { grid-area: details; margin-top: 20px; }
+    .anidoki .doki-popup-seasons { display: none; }
+    .anidoki .doki-popup-season-menu { display: block; }
+    .anidoki .doki-popup-season-button {
+        display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 14px;
+        border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-ground); color: var(--doki-text); cursor: pointer;
+    }
+    .anidoki .doki-popup-season-button-label { color: var(--doki-muted); }
+    .anidoki .doki-popup-season-menu .doki-popup-season-list {
+        position: absolute; inset: calc(100% + 6px) 0 auto; z-index: 4; max-height: 280px; overflow: auto; padding: 6px;
+        border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-solid-surface);
+        box-shadow: 0 12px 32px rgb(0 0 0 / .35); animation: doki-rise .26s ease both;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .anidoki.doki-popup-scrim, .anidoki.doki-popup-scrim * { animation: none !important; transition: none !important; }
+}

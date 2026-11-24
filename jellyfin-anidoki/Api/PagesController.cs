@@ -29,6 +29,8 @@ public sealed class PagesController : ControllerBase {
             "notifications.js" => "NotificationsJs.js",
             "notification-state.js" => "NotificationStateJs.js",
             "popup-state.js" => "PopupStateJs.js",
+            "progress-popup.js" => "ProgressPopupJs.js",
+            "progress-popup.css" => "ProgressPopup.css",
             "manual-mark-state.js" => "ManualMarkStateJs.js",
             "plugin-pages-guard.js" => "PluginPagesGuardJs.js",
             "outcome-lines.js" => "OutcomeLinesJs.js",
