@@ -182,7 +182,7 @@ export function startProgressPopup(win = window, doc = document) {
     }
 
     function trapFocus(current, event) {
-        const items = current.panel.querySelectorAll(focusable).filter(item => !item.hidden && !item.closest('[hidden]') && item.getAttribute('tabindex') !== '-1');
+        const items = [...current.panel.querySelectorAll(focusable)].filter(item => !item.hidden && !item.closest('[hidden]') && item.getAttribute('tabindex') !== '-1');
         if (!items.length)
             return;
         const first = items[0], last = items.at(-1), active = doc.activeElement;
@@ -332,16 +332,39 @@ export function startProgressPopup(win = window, doc = document) {
         }
     }
 
-    function receive(current, view) {
+    /** Takes a fresh view: its rows, a row that still exists, and only the drafts that still differ from the trackers. */
+    function adopt(current, view) {
         current.view = view;
+        current.rows = buildRows(view);
+        if (!current.rows.some(row => row.key === current.rowKey))
+            current.rowKey = defaultRow(view, current.rows)?.key ?? null;
+        let pruned = false;
+        for (const row of current.rows) {
+            const drafts = current.drafts[row.key];
+            if (!drafts)
+                continue;
+            const next = { ...drafts };
+            for (const target of editableTargets(rowTargets(view, row)))
+                if (next[target.provider] && !isDirty(target, next[target.provider])) {
+                    delete next[target.provider];
+                    pruned = true;
+                }
+            if (Object.keys(next).length)
+                current.drafts[row.key] = next;
+            else
+                delete current.drafts[row.key];
+        }
+        if (pruned)
+            current.store?.save(current.drafts);
+    }
+
+    function receive(current, view) {
         if (!current.store) {
             // D12: pending edits survive closing the popup and reloading the tab, per user and series.
             current.store = draftStore(storage(), api().getCurrentUserId?.() ?? '', view.id);
             current.drafts = current.store.load();
         }
-        current.rows = buildRows(view);
-        if (!current.rows.some(row => row.key === current.rowKey))
-            current.rowKey = defaultRow(view, current.rows)?.key ?? null;
+        adopt(current, view);
         current.status.replaceChildren();
         current.status.hidden = true;
         render(current);
@@ -447,7 +470,7 @@ export function startProgressPopup(win = window, doc = document) {
             list.append(seasonOption(current, row));
         }
         list.addEventListener('keydown', event => {
-            const options = list.querySelectorAll('[role=option]'), index = options.indexOf(doc.activeElement);
+            const options = [...list.querySelectorAll('[role=option]')], index = options.indexOf(doc.activeElement);
             const move = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: options.length - 1 }[event.key];
             if (move !== undefined) {
                 event.preventDefault();
@@ -625,7 +648,7 @@ export function startProgressPopup(win = window, doc = document) {
         if (key === 'all') {
             const editable = editableTargets(targets), model = editorModel(editable, drafts, { all: true }), summary = allSummary(editable, drafts);
             const progress = Math.max(0, ...editable.map(target => (drafts[target.provider] ?? savedState(target)).progress));
-            return { key, name: 'All trackers', targets: editable, editable: true, status: summary.status, statusKey: model.fields.status.value ?? 'none',
+            return { key, name: 'All trackers', targets: editable, editable: editable.length > 1, status: summary.status, statusKey: model.fields.status.value ?? 'none',
                 text: summary.text, progress, total: model.total ?? 0, dirty: model.dirty };
         }
         const target = targets.find(item => item.provider === key), summary = pillSummary(target, drafts[key]);
@@ -716,6 +739,8 @@ export function startProgressPopup(win = window, doc = document) {
 
     function openPill(current, row, info) {
         const all = info.key === 'all', drafts = rowDrafts(current, row), model = editorModel(info.targets, drafts, { all });
+        // While a sync runs the editor is locked, so an edit made meanwhile cannot be dropped by the result.
+        model.locked = model.readOnly || current.busy;
         const section = node('section', 'doki-pill-open');
         section.dataset.provider = info.key;
         const head = button('doki-pill doki-pill-head');
@@ -736,6 +761,8 @@ export function startProgressPopup(win = window, doc = document) {
             section.append(node('p', 'doki-pill-note', note));
         // Safari does not focus a clicked button, so each control names the focus key to restore after the re-render.
         const edit = (change, focusKey) => {
+            if (current.busy)
+                return;
             setRowDrafts(current, row, change(rowDrafts(current, row)));
             delete current.notes[row.key];
             refresh(current, focusKey);
@@ -751,7 +778,7 @@ export function startProgressPopup(win = window, doc = document) {
     }
 
     function fieldsRow(info, model, edit) {
-        const row = node('div', 'doki-editor-row doki-editor-fields'), disabled = model.readOnly;
+        const row = node('div', 'doki-editor-row doki-editor-fields'), disabled = model.locked;
         const select = node('select', 'doki-select');
         select.dataset.focusKey = 'status';
         select.setAttribute('aria-label', 'Status');
@@ -851,7 +878,7 @@ export function startProgressPopup(win = window, doc = document) {
         range.max = String(progress.max);
         range.step = '1';
         range.value = String(progress.value);
-        range.disabled = model.readOnly;
+        range.disabled = model.locked;
         range.setAttribute('aria-label', 'Episodes watched');
         range.style.setProperty('--doki-fill', `${percent(progress.value, progress.max)}%`);
         range.addEventListener('input', () => range.style.setProperty('--doki-fill', `${percent(Number(range.value), progress.max)}%`), { signal });
@@ -920,7 +947,7 @@ export function startProgressPopup(win = window, doc = document) {
         const notes = node('div', 'doki-editor-notes');
         if (model.lowerNote)
             notes.append(node('p', 'doki-editor-warning', model.lowerNote));
-        if (model.suggestComplete && !model.readOnly) {
+        if (model.suggestComplete && !model.locked) {
             const complete = button('doki-button doki-mark-complete', 'Mark Completed');
             complete.dataset.focusKey = 'complete';
             complete.addEventListener('click', () => edit(drafts => markCompleted(info.targets, drafts), 'status'), { signal });
@@ -1048,22 +1075,36 @@ export function startProgressPopup(win = window, doc = document) {
         await settle(current, row, [], {}, note);
     }
 
+    function resultNote(item) {
+        const name = providerName(item.provider);
+        if (item.result === 'Stale')
+            return `${name} changed while this was open. Try again`;
+        if (item.result === 'NotFound')
+            return `${name} no longer has this entry`;
+        return {
+            transient: `Couldn't reach ${name}. Try again in a moment`, 'rate-limited': `${name} is busy. Try again in a minute`,
+            unauthorized: `${name} needs you to sign in again`
+        }[item.failure] ?? `${name} refused the change`;
+    }
+
     /** After a save or sync: read the view again, apply the edit results to the drafts, and show what needs the user. */
     async function settle(current, row, results, byProvider, note) {
         if (current !== popup || current.removed)
             return;
         current.busy = false;
-        const applied = applyEditResults(rowDrafts(current, row), results, byProvider);
+        const before = rowDrafts(current, row);
+        // A result with no draft behind it (a movie raised to Jellyfin's count) has no card to explain it, so it gets a note.
+        const unexplained = results.find(item => !before[item.provider] && ['Stale', 'Failed', 'NotFound'].includes(item.result));
+        note ??= unexplained ? resultNote(unexplained) : null;
+        const applied = applyEditResults(before, results, byProvider);
         setRowDrafts(current, row, applied.drafts);
         current.cards[row.key] = [...(current.cards[row.key] ?? []), ...applied.cards];
         if (note)
             current.notes[row.key] = note;
         try {
             const fresh = await request(`AniDoki/user/progress/series/${encodeURIComponent(current.itemId)}`, { abort: current.controller.signal });
-            if (fresh.ok && fresh.data && current === popup && !current.removed) {
-                current.view = fresh.data;
-                current.rows = buildRows(fresh.data);
-            }
+            if (fresh.ok && fresh.data && current === popup && !current.removed)
+                adopt(current, fresh.data);
         } catch {
             // The view stays as it was; the next open reads it again.
         }

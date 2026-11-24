@@ -49,6 +49,12 @@ function matches(element, selector) {
     });
 }
 
+function nodeList(items) {
+    const list = { length: items.length, item: index => items[index] ?? null, forEach: callback => items.forEach(callback), [Symbol.iterator]: () => items[Symbol.iterator]() };
+    items.forEach((item, index) => { list[index] = item; });
+    return Object.freeze(list);
+}
+
 export class Element extends EventTarget {
     constructor(tag, doc) {
         super();
@@ -102,8 +108,9 @@ export class Element extends EventTarget {
     toggleAttribute(name, force) { const on = force ?? !(name in this.attributes); on ? this.setAttribute(name, '') : this.removeAttribute(name); return on; }
     contains(node) { return node === this || this.children.some(child => child.contains(node)); }
     descendants() { return this.children.flatMap(child => [child, ...child.descendants()]); }
-    querySelectorAll(selector) { return this.descendants().filter(element => matches(element, selector)); }
-    querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; }
+    // A NodeList, as in a browser: indexable and iterable, but with no array methods such as filter or indexOf.
+    querySelectorAll(selector) { return nodeList(this.descendants().filter(element => matches(element, selector))); }
+    querySelector(selector) { return this.descendants().find(element => matches(element, selector)) ?? null; }
     matches(selector) { return matches(this, selector); }
     closest(selector) { let node = this; while (node?.tagName) { if (matches(node, selector)) return node; node = node.parent; } return null; }
     focus() { this.ownerDocument.activeElement = this; }
