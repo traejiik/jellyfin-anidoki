@@ -35,6 +35,19 @@ public sealed class SeriesProgressController(SeriesProgressReader reader, EntryE
     }
 
     /// <summary>
+    /// Whether an item page may offer the progress popup: the item is an anime series, season, episode or movie the user can
+    /// see, and the user has a linked tracker. It never reads a tracker, so item pages can ask on every visit.
+    /// </summary>
+    [HttpGet("series/{itemId:guid}/available")]
+    public ActionResult Available(Guid itemId) {
+        if (!ConfigHelper.UserPagesEnabled())
+            return NotFound();
+        if (Me() is not { } user)
+            return Unauthorized();
+        return items.Find(itemId, user) != null && trackers.Links(user).Count > 0 ? NoContent() : NotFound();
+    }
+
+    /// <summary>
     /// D4: saves the popup's pending edits as one Edit operation. Every edit is checked first; nothing runs if any fails.
     /// Read the results with <see cref="ReadEdit"/>.
     /// </summary>

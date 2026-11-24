@@ -15,7 +15,8 @@ namespace jellyfin_anidoki.Progress;
 /// <param name="SourceKeys">One per numbered season in order, or the movie's own key.</param>
 /// <param name="OpenedSeason">The season the popup was opened from (a season or episode ID); null otherwise.</param>
 public sealed record SeriesItem(Guid Id, string Name, bool IsMovie, int? Year, int? EndYear, float? CommunityRating, string? OfficialRating,
-    string? Status, IReadOnlyList<string> Images, IReadOnlyList<string> SourceKeys, int? OpenedSeason);
+    string? Status, IReadOnlyList<string> Images, IReadOnlyList<string> SourceKeys, int? OpenedSeason, string? Overview = null,
+    DateTime? PremiereDate = null);
 
 /// <summary>Finds the series or movie behind any of its IDs. The boundary between the progress API and Jellyfin's items.</summary>
 public interface ISeriesItems {
@@ -37,7 +38,7 @@ public sealed class JellyfinSeriesItems(ILibraryManager library, IUserManager us
             : [MovieKey(root.Id)];
         return new SeriesItem(root.Id, root.Name, root is Movie, root.ProductionYear, root.EndDate?.Year, root.CommunityRating, root.OfficialRating,
             (root as Series)?.Status?.ToString(), Shown.Where(type => root.HasImage(type, 0)).Select(type => type.ToString()).ToList(), keys,
-            OpenedSeason(item));
+            OpenedSeason(item), root.Overview, root.PremiereDate);
     }
 
     /// <summary>The series an episode or season belongs to, the series or movie itself, or null for anything else.</summary>

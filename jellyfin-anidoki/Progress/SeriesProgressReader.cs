@@ -49,7 +49,8 @@ public sealed class SeriesProgressReader(ISeriesItems items, IMatchLibrary libra
         }
 
         return new SeriesViewContract(item.Id, item.Name, item.IsMovie, item.Year, item.EndYear, item.CommunityRating, item.OfficialRating, item.Status,
-            item.Images, sources.Sum(source => source.Episodes.Count), DefaultSeason(item, seasons), matchesLinkAvailable, accounts, seasons);
+            item.Overview, item.PremiereDate, item.Images, sources.Sum(source => source.Episodes.Count), DefaultSeason(item, seasons),
+            matchesLinkAvailable, accounts, seasons);
     }
 
     /// <summary>The seasons of the item the user syncs, in order.</summary>

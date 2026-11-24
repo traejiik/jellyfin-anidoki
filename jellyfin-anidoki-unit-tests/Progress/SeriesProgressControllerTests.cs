@@ -139,4 +139,43 @@ public class SeriesProgressControllerTests {
         Assert.That(outcome.Finished, Is.True);
         Assert.That(outcome.Results.Single().Result, Is.EqualTo(EditResultKind.Saved));
     }
+
+    [Test]
+    public async Task ReadSeriesCarriesOverviewAndPremiereDate() {
+        var premiere = new DateTime(1998, 4, 3, 0, 0, 0, DateTimeKind.Utc);
+        _fixture.Items.Add(_fixture.Series with { Overview = "Space bounty hunters", PremiereDate = premiere });
+
+        var view = (SeriesViewContract)((OkObjectResult)(await As(_fixture.Match.Alice).ReadSeries(_fixture.Series.Id, CancellationToken.None)).Result!).Value!;
+
+        Assert.That(view.Overview, Is.EqualTo("Space bounty hunters"));
+        Assert.That(view.PremiereDate, Is.EqualTo(premiere));
+    }
+
+    [Test]
+    public void AvailableIsNoContentForAnAnimeSeriesWithALinkedTracker() =>
+        Assert.That(As(_fixture.Match.Alice).Available(_fixture.Series.Id), Is.TypeOf<NoContentResult>());
+
+    [Test]
+    public void AvailableIsNotFoundWhenTheItemIsMissing() =>
+        Assert.That(As(_fixture.Match.Alice).Available(Guid.NewGuid()), Is.TypeOf<NotFoundResult>());
+
+    [Test]
+    public void AvailableIsNotFoundWithNoLinkedTracker() =>
+        Assert.That(As(_fixture.Match.Bob).Available(_fixture.Series.Id), Is.TypeOf<NotFoundResult>());
+
+    [Test]
+    public void AvailableIsNotFoundWhenUserPagesAreOff() {
+        _plugin.Configuration.enableUserPages = false;
+
+        Assert.That(As(_fixture.Match.Alice).Available(_fixture.Series.Id), Is.TypeOf<NotFoundResult>());
+    }
+
+    [Test]
+    public void AvailableNeverReadsATracker() {
+        int before = _fixture.Match.Catalogue.Reads;
+
+        As(_fixture.Match.Alice).Available(_fixture.Series.Id);
+
+        Assert.That(_fixture.Match.Catalogue.Reads, Is.EqualTo(before));
+    }
 }
