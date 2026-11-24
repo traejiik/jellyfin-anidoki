@@ -160,6 +160,13 @@ public class SeriesProgressControllerTests {
         Assert.That(As(_fixture.Match.Alice).Available(Guid.NewGuid()), Is.TypeOf<NotFoundResult>());
 
     [Test]
+    public void AvailableIsNotFoundOutsideAnimeLibraries() {
+        SeriesItem plain = _fixture.Items.Add(_fixture.Series with { Id = Guid.NewGuid(), Name = "Plain show", SourceKeys = ["series:not-in-an-anime-library:1"] });
+
+        Assert.That(As(_fixture.Match.Alice).Available(plain.Id), Is.TypeOf<NotFoundResult>());
+    }
+
+    [Test]
     public void AvailableIsNotFoundWithNoLinkedTracker() =>
         Assert.That(As(_fixture.Match.Bob).Available(_fixture.Series.Id), Is.TypeOf<NotFoundResult>());
 

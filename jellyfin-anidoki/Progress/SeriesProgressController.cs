@@ -36,7 +36,8 @@ public sealed class SeriesProgressController(SeriesProgressReader reader, EntryE
 
     /// <summary>
     /// Whether an item page may offer the progress popup: the item is an anime series, season, episode or movie the user can
-    /// see, and the user has a linked tracker. It never reads a tracker, so item pages can ask on every visit.
+    /// see in an anime library AniDōki syncs, and the user has a linked tracker. It never reads a tracker, so item pages can ask on
+    /// every visit.
     /// </summary>
     [HttpGet("series/{itemId:guid}/available")]
     public ActionResult Available(Guid itemId) {
@@ -44,7 +45,8 @@ public sealed class SeriesProgressController(SeriesProgressReader reader, EntryE
             return NotFound();
         if (Me() is not { } user)
             return Unauthorized();
-        return items.Find(itemId, user) != null && trackers.Links(user).Count > 0 ? NoContent() : NotFound();
+        // Sources holds only seasons in the anime libraries that AniDōki syncs; it reads Jellyfin, never a tracker.
+        return items.Find(itemId, user) is { } item && trackers.Links(user).Count > 0 && reader.Sources(item, user).Count > 0 ? NoContent() : NotFound();
     }
 
     /// <summary>
