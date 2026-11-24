@@ -105,7 +105,13 @@ export function startProgressPopup(win = window, doc = document) {
 
     async function scanPage() {
         const itemId = detailsItemId();
-        if (disposed || !ready || !itemId || !api()?.isLoggedIn?.())
+        if (disposed || !ready)
+            return;
+        // Jellyfin reuses a detail page for the next item, so a button left from the previous one would open the wrong series.
+        for (const stale of doc.querySelectorAll('.doki-item-button'))
+            if (stale.dataset.itemId !== itemId)
+                stale.remove();
+        if (!itemId || !api()?.isLoggedIn?.())
             return;
         if (!await available(itemId) || disposed || detailsItemId() !== itemId)
             return;

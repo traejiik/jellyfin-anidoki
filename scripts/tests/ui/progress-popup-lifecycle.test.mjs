@@ -315,3 +315,26 @@ test('the expanded pill shows the editor and sync buttons with reasons', async (
     assert.ok(env.doc.activeElement === pill(env.doc, 'AniList'), 'focus stays on the collapsed pill');
     popup.dispose();
 });
+
+test('a reused detail page drops the previous item button', async () => {
+    const env = setup();
+    const answers = { [seriesId]: 204, other: 404 };
+    const fetch = env.win.fetch;
+    env.win.fetch = async (url, init) => {
+        const match = url.match(/series\/([^/]+)\/available/);
+        if (match)
+            return { ok: answers[match[1]] < 300, status: answers[match[1]], json: async () => null };
+        return fetch(url, init);
+    };
+    const popup = startProgressPopup(env.win, env.doc);
+    await flush();
+    assert.equal(env.row.querySelectorAll('.doki-item-button').length, 1);
+    env.win.setHash('#/details?id=other');
+    env.doc.dispatchEvent(new Event('viewshow'));
+    await flush();
+    assert.equal(env.row.querySelectorAll('.doki-item-button').length, 0, 'a non-anime item has no button');
+    env.win.setHash(`#/details?id=${seriesId}`);
+    await flush();
+    assert.equal(env.row.querySelector('.doki-item-button').dataset.itemId, seriesId);
+    popup.dispose();
+});
