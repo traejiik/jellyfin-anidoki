@@ -88,12 +88,12 @@ test('open pushes history and back closes', async () => {
     assert.equal(new URL(env.win.location.href).searchParams.get('anidoki'), seriesId);
     const panel = dialog(env.doc);
     assert.equal(panel.getAttribute('aria-modal'), 'true');
-    assert.equal(env.doc.activeElement, env.doc.getElementById('dokiPopupTitle'));
+    assert.ok(env.doc.activeElement === env.doc.getElementById('dokiPopupTitle'), 'focus moves to the heading');
     assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'Cowboy Bebop');
     env.win.history.back();
     await env.win.advance(250);
     assert.equal(dialog(env.doc), null);
-    assert.equal(env.doc.activeElement, button);
+    assert.ok(env.doc.activeElement === button, 'focus returns to the opener');
     popup.dispose();
 });
 
@@ -167,4 +167,151 @@ test('dispose removes everything', async () => {
     env.win.dispatchEvent(new Event('popstate'));
     await flush();
     assert.equal(env.requests.length, before);
+});
+
+// --- Task 6: pills, editor, sync and cards ---
+const entryOf = (id, extra = {}) => ({ id, alternativeId: null, title: 'Cowboy Bebop', totalEpisodes: 26, firstEpisode: 1, lastEpisode: 26, status: 'Watching',
+    progress: 3, score: null, rewatching: false, jellyfinProgress: 3, ...extra });
+const twoTrackers = (aniList = {}, kitsu = {}) => seriesView({
+    trackers: [{ provider: 'AniList', supportsScore: true, scoreFormat: 'Point10Decimal' }, { provider: 'Kitsu', supportsScore: true, scoreFormat: 'Point10Half' }],
+    seasons: [{ sourceKey: 'bebop:1', season: 1, episodes: [1, 2, 3], watched: [1, 2, 3], lastPlayedUtc: null, trackers: [
+        { provider: 'AniList', origin: 'Automatic', unresolved: null, error: null, entries: [entryOf(1, aniList)] },
+        { provider: 'Kitsu', origin: 'Automatic', unresolved: null, error: null, entries: [entryOf(9, kitsu)] }] }]
+});
+
+async function openPopup(env) {
+    const popup = startProgressPopup(env.win, env.doc);
+    await flush();
+    popup.open(seriesId, {});
+    await flush();
+    return popup;
+}
+const pill = (doc, key) => doc.querySelector(`[data-focus-key="pill:${key}"]`);
+const posts = (env, part) => env.requests.filter(request => request.method === 'POST' && request.url.includes(part));
+const gets = (env, part) => env.requests.filter(request => request.method === 'GET' && request.url.includes(part) && !request.url.includes('/available'));
+
+test('sync to tracker saves the draft then reloads', async () => {
+    let polls = 0, saved = false;
+    const env = setup({ routes: {
+        'progress/edit/op-1': () => ++polls < 3 ? { body: { operationId: 'op-1', finished: false, results: [] } }
+            : (saved = true, { body: { operationId: 'op-1', finished: true, results: [{ provider: 'AniList', entryId: '1', result: 'Saved', current: null, failure: null }] } }),
+        'progress/edit': () => ({ status: 202, body: { operationId: 'op-1' } }),
+        'progress/series/': () => ({ body: seriesView(saved ? { seasons: [{ ...seriesView().seasons[0], trackers: [{ ...seriesView().seasons[0].trackers[0], entries: [entryOf(1, { progress: 4 })] }] }] } : {}) })
+    } });
+    const popup = await openPopup(env);
+    pill(env.doc, 'AniList').click();
+    await flush();
+    env.doc.querySelector('[aria-label="One episode more"]').click();
+    await flush();
+    assert.equal(env.doc.querySelector('.doki-popup-unsaved').hidden, false);
+    env.doc.querySelector('.doki-sync-up').click();
+    await flush();
+    const [post] = posts(env, 'progress/edit');
+    assert.deepEqual(post.body, { itemId: seriesId, edits: [{ provider: 'AniList', entryId: 1, alternativeId: null, shown: { status: 'Watching', progress: 3, score: null },
+        status: 'Watching', progress: 4, score: null, clearScore: false }] });
+    await env.win.advance(5000);
+    assert.equal(polls, 3);
+    assert.equal(gets(env, 'progress/series/').length, 2, 'the view is read again once');
+    assert.equal(env.doc.querySelector('.doki-popup-unsaved').hidden, true);
+    assert.equal(env.doc.querySelector('[data-focus-key="pill:AniList"] .doki-pill-count').textContent, '4/26');
+    popup.dispose();
+});
+
+test('a raise for a clean tracker waits for each sync', async () => {
+    const states = { 'op-a': ['Running', 'Succeeded'], 'op-k': ['Succeeded'] };
+    const env = setup({ routes: {
+        'user/operations/': ({ url }) => { const id = url.split('/').pop(); return { body: { operationId: id, state: states[id].length > 1 ? states[id].shift() : states[id][0] } }; },
+        'sync-to-trackers': ({ init }) => ({ status: 202, body: { operationId: JSON.parse(init.body).provider === 'AniList' ? 'op-a' : 'op-k' } }),
+        'progress/series/': () => ({ body: twoTrackers({ jellyfinProgress: 5 }, { jellyfinProgress: 5 }) })
+    } });
+    const popup = await openPopup(env);
+    pill(env.doc, 'all').click();
+    await flush();
+    env.doc.querySelector('.doki-sync-up').click();
+    await flush();
+    assert.deepEqual(posts(env, 'sync-to-trackers').map(request => request.body.provider), ['AniList']);
+    await env.win.advance(1000);
+    assert.deepEqual(posts(env, 'sync-to-trackers').map(request => request.body.provider), ['AniList'], 'Kitsu waits while AniList runs');
+    await env.win.advance(1000);
+    assert.deepEqual(posts(env, 'sync-to-trackers').map(request => request.body.provider), ['AniList', 'Kitsu']);
+    assert.deepEqual(posts(env, 'sync-to-trackers')[0].body, { itemId: seriesId, provider: 'AniList' });
+    popup.dispose();
+});
+
+test('a 409 waits for the running sync and retries once', async () => {
+    let attempts = 0;
+    const env = setup({ routes: {
+        'user/operations/': ({ url }) => ({ body: { operationId: url.split('/').pop(), state: 'Succeeded' } }),
+        'sync-to-trackers': () => ++attempts === 1 ? { status: 409, body: { operationId: 'busy' } } : { status: 202, body: { operationId: 'mine' } },
+        'progress/series/': () => ({ body: seriesView({ seasons: [{ ...seriesView().seasons[0], trackers: [{ ...seriesView().seasons[0].trackers[0], entries: [entryOf(1, { jellyfinProgress: 5 })] }] }] }) })
+    } });
+    const popup = await openPopup(env);
+    pill(env.doc, 'AniList').click();
+    await flush();
+    env.doc.querySelector('.doki-sync-up').click();
+    await env.win.advance(3000);
+    assert.equal(posts(env, 'sync-to-trackers').length, 2);
+    assert.ok(gets(env, 'user/operations/busy').length >= 1);
+    assert.ok(gets(env, 'user/operations/mine').length >= 1);
+    popup.dispose();
+});
+
+test('a stale result shows the card and keeps the draft', async () => {
+    const env = setup({ routes: {
+        'progress/edit/op-1': () => ({ body: { operationId: 'op-1', finished: true, results: [{ provider: 'AniList', entryId: '1', result: 'Stale',
+            current: { status: 'Watching', progress: 6, score: null }, failure: null }] } }),
+        'progress/edit': () => ({ status: 202, body: { operationId: 'op-1' } })
+    } });
+    const popup = await openPopup(env);
+    pill(env.doc, 'AniList').click();
+    await flush();
+    env.doc.querySelector('[aria-label="One episode more"]').click();
+    await flush();
+    env.doc.querySelector('.doki-sync-up').click();
+    await env.win.advance(2000);
+    const card = env.doc.querySelector('.doki-card');
+    assert.equal(card.querySelector('.doki-card-heading').textContent, 'AniList changed while this was open');
+    assert.equal(env.doc.querySelector('.doki-popup-unsaved').hidden, false);
+    card.querySelector('[data-action=load]').click();
+    await flush();
+    assert.equal(env.doc.querySelector('.doki-card'), null);
+    assert.equal(env.doc.querySelector('.doki-popup-unsaved').hidden, true);
+    popup.dispose();
+});
+
+test('polling gives up after a minute', async () => {
+    const env = setup({ routes: {
+        'progress/edit/op-1': () => ({ body: { operationId: 'op-1', finished: false, results: [] } }),
+        'progress/edit': () => ({ status: 202, body: { operationId: 'op-1' } })
+    } });
+    const popup = await openPopup(env);
+    pill(env.doc, 'AniList').click();
+    await flush();
+    env.doc.querySelector('[aria-label="One episode more"]').click();
+    await flush();
+    env.doc.querySelector('.doki-sync-up').click();
+    await env.win.advance(61000);
+    assert.equal(gets(env, 'progress/edit/op-1').length, 60);
+    assert.equal(env.doc.querySelector('.doki-editor-status').textContent, 'Still saving. Check History in AniDōki settings');
+    assert.equal(env.doc.querySelector('.doki-popup-unsaved').hidden, false);
+    popup.dispose();
+});
+
+test('the expanded pill shows the editor and sync buttons with reasons', async () => {
+    const env = setup();
+    const popup = await openPopup(env);
+    pill(env.doc, 'AniList').click();
+    await flush();
+    const open = env.doc.querySelector('.doki-pill-open');
+    assert.equal(open.querySelector('[data-focus-key="pill:AniList"]').getAttribute('aria-expanded'), 'true');
+    assert.ok(env.doc.activeElement === open.querySelector('[data-focus-key="pill:AniList"]'), 'focus moves to the open pill');
+    const up = env.doc.querySelector('.doki-sync-up');
+    assert.equal(up.getAttribute('aria-disabled'), 'true');
+    assert.equal(env.doc.getElementById(up.getAttribute('aria-describedby')).textContent, 'Up to date');
+    assert.equal(env.doc.querySelector('.doki-popup-open-tracker').getAttribute('href'), 'https://anilist.co/anime/1');
+    open.querySelector('[data-focus-key="pill:AniList"]').click();
+    await flush();
+    assert.equal(env.doc.querySelector('.doki-pill-open'), null);
+    assert.ok(env.doc.activeElement === pill(env.doc, 'AniList'), 'focus stays on the collapsed pill');
+    popup.dispose();
 });

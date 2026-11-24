@@ -1,4 +1,8 @@
-import { buildRows, defaultRow, rowTargets, editableTargets, pillSummary, allSummary, airedLabel, seriesStatusLabel } from './popup-state.js';
+import { providerName } from './outcome-lines.js';
+import {
+    buildRows, defaultRow, rowTargets, editableTargets, savedState, pillSummary, allSummary, airedLabel, seriesStatusLabel, entryUrl, faceNames, editorModel,
+    setProgress, setStatus, setScore, markCompleted, isDirty, syncButtons, planSyncUp, planSyncDown, applyEditResults, forceDraft, draftStore, anyDirty
+} from './popup-state.js';
 
 // The progress popup (Phase 6, item 6.4): an item-page button, a dialog over the page and the series level.
 //
@@ -122,7 +126,8 @@ export function startProgressPopup(win = window, doc = document) {
         if (popup)
             finish(popup, false);
         const current = { itemId, opener, fromItemPage, controller: new AbortController(), view: null, rows: [], rowKey: null, drafts: {}, openProvider: null,
-            pushed: false, closing: false, removed: false, timer: null, menuOpen: false };
+            pushed: false, closing: false, removed: false, timer: null, menuOpen: false, openOnMenu: false, motion: null, busy: false, store: null,
+            cards: {}, notes: {}, timers: new Set() };
         popup = current;
         if (push && requested() !== itemId) {
             const url = new URL(win.location.href);
@@ -157,6 +162,9 @@ export function startProgressPopup(win = window, doc = document) {
         current.removed = true;
         current.controller.abort();
         win.clearTimeout(current.timer);
+        for (const id of current.timers)
+            win.clearTimeout(id);
+        current.timers.clear();
         current.scrim.remove();
         doc.documentElement.classList?.remove('doki-popup-open');
         if (popup === current)
@@ -310,8 +318,21 @@ export function startProgressPopup(win = window, doc = document) {
         }
     }
 
+    function storage() {
+        try {
+            return win.sessionStorage ?? null;
+        } catch {
+            return null;
+        }
+    }
+
     function receive(current, view) {
         current.view = view;
+        if (!current.store) {
+            // D12: pending edits survive closing the popup and reloading the tab, per user and series.
+            current.store = draftStore(storage(), api().getCurrentUserId?.() ?? '', view.id);
+            current.drafts = current.store.load();
+        }
         current.rows = buildRows(view);
         if (!current.rows.some(row => row.key === current.rowKey))
             current.rowKey = defaultRow(view, current.rows)?.key ?? null;
@@ -337,6 +358,7 @@ export function startProgressPopup(win = window, doc = document) {
     function render(current) {
         const view = current.view;
         current.crumb.textContent = view.name;
+        current.unsaved.hidden = !anyDirty(current.drafts);
         current.title.textContent = view.name;
         const images = new Set(view.images ?? []);
         if (images.has('Backdrop'))
@@ -495,18 +517,568 @@ export function startProgressPopup(win = window, doc = document) {
         current.openOn.replaceChildren(...links, ...trackerLinks(current));
     }
 
-    // Filled in by the Overview: the Open on <tracker> chip and menu.
-    function trackerLinks() {
-        return [];
+    /** Open on <tracker>: follows the expanded pill; with none or All trackers open, a menu of the linked trackers. */
+    function trackerLinks(current) {
+        const row = selectedRow(current);
+        const targets = row ? editableTargets(rowTargets(current.view, row)) : [];
+        const linkTo = (target, element) => {
+            element.setAttribute('href', entryUrl(target.provider, target.entry));
+            element.setAttribute('target', '_blank');
+            element.setAttribute('rel', 'noopener');
+            return element;
+        };
+        const single = targets.find(target => target.provider === current.openProvider) ?? (targets.length === 1 ? targets[0] : null);
+        if (single)
+            return [linkTo(single, chip('a', 'doki-popup-open-tracker', `Open on ${providerName(single.provider)}`, 'external'))];
+        if (!targets.length)
+            return [];
+        const wrap = node('div', 'doki-popup-menu-wrap');
+        const toggle = chip('button', 'doki-popup-open-tracker', 'Open on tracker', 'external');
+        toggle.setAttribute('aria-haspopup', 'menu');
+        toggle.setAttribute('aria-expanded', String(current.openOnMenu));
+        toggle.dataset.focusKey = 'open-on';
+        toggle.addEventListener('click', () => {
+            current.openOnMenu = !current.openOnMenu;
+            refresh(current, 'open-on');
+        }, { signal });
+        const menu = node('div', 'doki-popup-menu');
+        menu.setAttribute('role', 'menu');
+        menu.hidden = !current.openOnMenu;
+        for (const target of targets) {
+            const item = linkTo(target, node('a', 'doki-popup-menu-item'));
+            item.setAttribute('role', 'menuitem');
+            item.append(providerTile(target.provider, false), node('span', '', providerName(target.provider)));
+            item.addEventListener('click', () => {
+                current.openOnMenu = false;
+                refresh(current);
+            }, { signal });
+            menu.append(item);
+        }
+        wrap.append(toggle, menu);
+        return [wrap];
     }
 
     function renderOverview(current) {
-        const view = current.view;
+        const view = current.view, row = selectedRow(current);
         current.overview.replaceChildren();
         if (view.overview)
             current.overview.append(node('p', 'doki-popup-description', view.overview));
         // D10: below 900px the Season menu sits after the description and before the pills; CSS hides it on wider screens.
         current.overview.append(current.seasonMenu);
+        if (!row) {
+            current.overview.append(node('p', 'doki-popup-loading', 'No seasons to track'));
+            return;
+        }
+        if (row.heading)
+            current.overview.append(node('p', 'doki-popup-row-heading', row.heading));
+        current.overview.append(renderPills(current, row));
+    }
+
+    // --- Overview: pills and the editor ------------------------------------------------------------------------------
+
+    const providerLogos = {
+        AniList: 'provider-anilist.svg', Mal: 'provider-mal.svg', Kitsu: 'provider-kitsu.svg', Annict: 'provider-annict.png',
+        Shikimori: 'provider-shikimori.svg', Simkl: 'provider-simkl.svg'
+    };
+    const rowDrafts = (current, row) => current.drafts[row.key] ?? {};
+    const percent = (value, total) => total > 0 ? Math.max(0, Math.min(100, value / total * 100)) : 0;
+    const pillName = key => key === 'all' ? 'All trackers' : providerName(key);
+
+    function setRowDrafts(current, row, drafts) {
+        if (Object.keys(drafts).length)
+            current.drafts[row.key] = drafts;
+        else
+            delete current.drafts[row.key];
+        current.store?.save(current.drafts);
+    }
+
+    function providerTile(provider, dirty) {
+        const element = node('span', 'doki-pill-tile');
+        if (provider === 'all') {
+            element.classList.add('is-all');
+            const symbol = node('span', 'doki-symbol');
+            symbol.setAttribute('aria-hidden', 'true');
+            element.append(symbol);
+        } else {
+            const img = node('img', '');
+            img.alt = '';
+            img.src = assetUrl(providerLogos[provider] ?? 'anidoki-symbol.svg');
+            element.append(img);
+        }
+        if (dirty) {
+            const dot = node('span', 'doki-popup-dot doki-pill-dirty');
+            dot.setAttribute('aria-label', 'Unsaved changes');
+            element.append(dot);
+        }
+        return element;
+    }
+
+    /** What a pill shows, for one tracker or for All trackers. */
+    function pillInfo(current, row, key) {
+        const targets = rowTargets(current.view, row), drafts = rowDrafts(current, row);
+        if (key === 'all') {
+            const editable = editableTargets(targets), model = editorModel(editable, drafts, { all: true }), summary = allSummary(editable, drafts);
+            const progress = Math.max(0, ...editable.map(target => (drafts[target.provider] ?? savedState(target)).progress));
+            return { key, name: 'All trackers', targets: editable, editable: true, status: summary.status, statusKey: model.fields.status.value ?? 'none',
+                text: summary.text, progress, total: model.total ?? 0, dirty: model.dirty };
+        }
+        const target = targets.find(item => item.provider === key), summary = pillSummary(target, drafts[key]);
+        return { key, name: providerName(key), targets: target.state === 'ok' ? [target] : [], editable: target.state === 'ok', status: summary.status,
+            statusKey: target.state === 'ok' ? (drafts[key] ?? savedState(target)).status ?? 'none' : target.state, text: summary.text,
+            progress: summary.progress, total: summary.total, dirty: target.state === 'ok' && isDirty(target, drafts[key]) };
+    }
+
+    function summaryLine(info) {
+        const line = node('span', 'doki-pill-line');
+        const dot = node('span', 'doki-status-dot');
+        dot.dataset.status = info.statusKey;
+        dot.setAttribute('aria-hidden', 'true');
+        line.append(dot, node('span', 'doki-pill-status', info.status));
+        if (info.text) {
+            const bar = node('span', 'doki-bar'), fill = node('span', 'doki-bar-fill');
+            bar.setAttribute('aria-hidden', 'true');
+            fill.style.width = `${percent(info.progress, info.total)}%`;
+            bar.append(fill);
+            line.append(bar, node('span', 'doki-pill-count', info.text));
+        }
+        return line;
+    }
+
+    function pillContent(info) {
+        const text = node('span', 'doki-pill-text');
+        text.append(node('strong', 'doki-pill-name', info.name), summaryLine(info));
+        return [providerTile(info.key, info.dirty), text];
+    }
+
+    function renderPills(current, row) {
+        const targets = rowTargets(current.view, row), editable = editableTargets(targets);
+        const keys = [...(editable.length > 1 ? ['all'] : []), ...targets.map(target => target.provider)];
+        if (current.openProvider && !pillInfo(current, row, current.openProvider)?.editable)
+            current.openProvider = null;
+        const wrap = node('div', 'doki-pills');
+        wrap.setAttribute('role', 'group');
+        wrap.setAttribute('aria-label', 'Trackers');
+        const motion = current.motion;
+        current.motion = null;
+        if (motion)
+            wrap.classList.add(`is-${motion}`);
+        if (!current.openProvider) {
+            for (const key of keys) {
+                const info = pillInfo(current, row, key);
+                const pill = button('doki-pill');
+                pill.dataset.focusKey = `pill:${key}`;
+                pill.dataset.provider = key;
+                pill.setAttribute('aria-expanded', 'false');
+                pill.append(...pillContent(info));
+                if (!info.editable)
+                    pill.setAttribute('aria-disabled', 'true');
+                pill.addEventListener('click', () => {
+                    if (!info.editable)
+                        return;
+                    current.openProvider = key;
+                    current.motion = 'opening';
+                    refresh(current, `pill:${key}`);
+                }, { signal });
+                wrap.append(pill);
+            }
+            return wrap;
+        }
+        wrap.classList.add('is-expanded');
+        const tiles = node('div', 'doki-pill-tiles');
+        for (const key of keys.filter(item => item !== current.openProvider)) {
+            const info = pillInfo(current, row, key);
+            const tile = button('doki-pill-icon');
+            tile.dataset.focusKey = `tile:${key}`;
+            const label = `${info.name}: ${info.status}${info.text ? `, ${info.text}` : ''}`;
+            tile.setAttribute('aria-label', label);
+            tile.title = label;
+            tile.append(providerTile(key, info.dirty));
+            if (!info.editable)
+                tile.setAttribute('aria-disabled', 'true');
+            tile.addEventListener('click', () => {
+                if (!info.editable)
+                    return;
+                current.openProvider = key;
+                current.motion = 'switching';
+                refresh(current, `pill:${key}`);
+            }, { signal });
+            tiles.append(tile);
+        }
+        wrap.append(tiles, openPill(current, row, pillInfo(current, row, current.openProvider)));
+        return wrap;
+    }
+
+    function openPill(current, row, info) {
+        const all = info.key === 'all', drafts = rowDrafts(current, row), model = editorModel(info.targets, drafts, { all });
+        const section = node('section', 'doki-pill-open');
+        section.dataset.provider = info.key;
+        const head = button('doki-pill doki-pill-head');
+        head.dataset.focusKey = `pill:${info.key}`;
+        head.setAttribute('aria-expanded', 'true');
+        head.append(...pillContent(info));
+        const chevron = node('span', 'doki-pill-chevron');
+        chevron.setAttribute('aria-hidden', 'true');
+        head.append(chevron);
+        head.addEventListener('click', () => {
+            current.openProvider = null;
+            current.motion = 'closing';
+            refresh(current, `pill:${info.key}`);
+        }, { signal });
+        section.append(head);
+        const note = model.readOnlyReason || model.mixedNote;
+        if (note)
+            section.append(node('p', 'doki-pill-note', note));
+        // Safari does not focus a clicked button, so each control names the focus key to restore after the re-render.
+        const edit = (change, focusKey) => {
+            setRowDrafts(current, row, change(rowDrafts(current, row)));
+            delete current.notes[row.key];
+            refresh(current, focusKey);
+        };
+        section.append(fieldsRow(info, model, edit), progressRow(info, model, edit), ...cardsFor(current, row, info), footer(current, row, info, model, edit));
+        return section;
+    }
+
+    function field(label, ...controls) {
+        const wrap = node('div', 'doki-field');
+        wrap.append(node('span', 'doki-field-label', label), ...controls);
+        return wrap;
+    }
+
+    function fieldsRow(info, model, edit) {
+        const row = node('div', 'doki-editor-row doki-editor-fields'), disabled = model.readOnly;
+        const select = node('select', 'doki-select');
+        select.dataset.focusKey = 'status';
+        select.setAttribute('aria-label', 'Status');
+        const value = model.fields.status.value;
+        const choices = value === null ? [['', 'Not on your list'], ...model.statuses] : model.statuses;
+        for (const [key, label] of choices) {
+            const option = node('option', '', label);
+            option.value = key;
+            if (key === (value ?? ''))
+                option.selected = true;
+            if (key === '' || key === 'Mixed')
+                option.disabled = true;
+            select.append(option);
+        }
+        select.value = value ?? '';
+        select.disabled = disabled;
+        select.addEventListener('change', () => edit(drafts => setStatus(info.targets, drafts, select.value), 'status'), { signal });
+        row.append(field('Status', select));
+        const progress = model.fields.progress;
+        if (progress) {
+            const stepper = node('div', 'doki-stepper');
+            const minus = button('doki-step', null, 'One episode fewer'), plus = button('doki-step', null, 'One episode more');
+            minus.dataset.focusKey = 'minus';
+            plus.dataset.focusKey = 'plus';
+            minus.dataset.icon = 'minus';
+            plus.dataset.icon = 'plus';
+            minus.disabled = disabled || progress.value <= 0;
+            plus.disabled = disabled || (progress.max !== null && progress.value >= progress.max);
+            minus.addEventListener('click', () => edit(drafts => setProgress(info.targets, drafts, progress.value - 1), progress.value - 1 > 0 ? 'minus' : 'plus'), { signal });
+            plus.addEventListener('click', () => edit(drafts => setProgress(info.targets, drafts, progress.value + 1), progress.max !== null && progress.value + 1 >= progress.max ? 'minus' : 'plus'), { signal });
+            const count = node('span', 'doki-step-value');
+            count.setAttribute('aria-live', 'polite');
+            count.append(node('strong', '', `${progress.value}`), node('span', 'doki-step-total', ` / ${progress.max ?? '?'}`));
+            stepper.append(minus, count, plus);
+            row.append(field('Episodes watched', stepper));
+        }
+        const rating = model.fields.rating;
+        if (rating)
+            row.append(field('Rating', ratingControl(info, rating, disabled, edit)));
+        return row;
+    }
+
+    function ratingControl(info, rating, disabled, edit) {
+        if (rating.kind === 'number') {
+            const wrap = node('span', 'doki-rating-number');
+            const input = node('input', 'doki-input');
+            input.type = 'number';
+            input.dataset.focusKey = 'rating';
+            input.setAttribute('aria-label', `Rating out of ${rating.max}`);
+            input.min = String(rating.min);
+            input.max = String(rating.max);
+            input.step = String(rating.step);
+            input.inputMode = 'decimal';
+            input.value = rating.value === 'Mixed' || rating.value === null ? '' : String(rating.value);
+            input.placeholder = rating.value === 'Mixed' ? 'Mixed' : '–';
+            input.disabled = disabled;
+            input.addEventListener('change', () => {
+                const text = input.value.trim(), parsed = text === '' ? null : Number(text);
+                if (parsed !== null && !Number.isFinite(parsed))
+                    return;
+                edit(drafts => setScore(info.targets, drafts, parsed), 'rating');
+            }, { signal });
+            wrap.append(input, node('span', 'doki-rating-scale', `/ ${rating.max}`));
+            return wrap;
+        }
+        const group = node('span', `doki-rating-choices is-${rating.kind}`);
+        group.setAttribute('role', 'group');
+        group.setAttribute('aria-label', rating.value === 'Mixed' ? 'Rating: Mixed' : 'Rating');
+        for (let value = 1; value <= rating.max; value++) {
+            const label = rating.kind === 'stars' ? `${value} of 5 stars` : faceNames[value - 1];
+            const choice = button('doki-rating-choice', null, label);
+            choice.dataset.focusKey = `rating:${value}`;
+            choice.dataset.icon = rating.kind === 'stars' ? 'star' : `face-${value}`;
+            const on = rating.kind === 'stars' ? rating.value !== 'Mixed' && rating.value >= value : rating.value === value;
+            choice.classList.toggle('is-on', Boolean(on));
+            choice.setAttribute('aria-pressed', String(rating.value === value));
+            choice.title = label;
+            choice.disabled = disabled;
+            choice.addEventListener('click', () => edit(drafts => setScore(info.targets, drafts, value, { toggle: true }), `rating:${value}`), { signal });
+            group.append(choice);
+        }
+        return group;
+    }
+
+    function progressRow(info, model, edit) {
+        const row = node('div', 'doki-editor-row doki-editor-progress');
+        const progress = model.fields.progress;
+        if (!progress?.max) {
+            row.hidden = true;
+            return row;
+        }
+        const track = node('div', 'doki-track');
+        const range = node('input', 'doki-range');
+        range.type = 'range';
+        range.dataset.focusKey = 'bar';
+        range.min = '0';
+        range.max = String(progress.max);
+        range.step = '1';
+        range.value = String(progress.value);
+        range.disabled = model.readOnly;
+        range.setAttribute('aria-label', 'Episodes watched');
+        range.style.setProperty('--doki-fill', `${percent(progress.value, progress.max)}%`);
+        range.addEventListener('input', () => range.style.setProperty('--doki-fill', `${percent(Number(range.value), progress.max)}%`), { signal });
+        range.addEventListener('change', () => edit(drafts => setProgress(info.targets, drafts, Number(range.value)), 'bar'), { signal });
+        const tick = node('span', 'doki-track-tick');
+        tick.setAttribute('aria-hidden', 'true');
+        tick.style.left = `${percent(model.jellyfin, progress.max)}%`;
+        track.append(range, tick);
+        const key = node('p', 'doki-track-key');
+        const mine = node('span', 'doki-track-key-item is-tracker', info.key === 'all' ? 'Your trackers' : info.name);
+        const jellyfin = node('span', 'doki-track-key-item is-jellyfin', `Jellyfin: ${model.jellyfin} / ${progress.max}`);
+        key.append(mine, jellyfin);
+        row.append(track, key);
+        return row;
+    }
+
+    function cardsFor(current, row, info) {
+        const providers = new Set(info.targets.map(target => target.provider));
+        return (current.cards[row.key] ?? []).filter(card => providers.has(card.provider)).map(card => {
+            const element = node('div', `doki-card is-${card.kind}`);
+            element.setAttribute('role', card.kind === 'failed' ? 'alert' : 'status');
+            element.append(node('strong', 'doki-card-heading', card.heading), node('span', 'doki-card-body', card.body));
+            if (card.actions.length) {
+                const actions = node('span', 'doki-card-actions');
+                for (const action of card.actions) {
+                    const control = button('doki-button doki-card-action', action.label);
+                    control.dataset.action = action.id;
+                    control.dataset.focusKey = `card:${card.provider}:${action.id}`;
+                    control.addEventListener('click', () => cardAction(current, row, card, action.id), { signal });
+                    actions.append(control);
+                }
+                element.append(actions);
+            }
+            return element;
+        });
+    }
+
+    function syncButton(current, className, label, state, icon, onClick) {
+        const wrap = node('span', 'doki-sync-wrap');
+        const control = button(`doki-sync ${className}`);
+        control.dataset.focusKey = className;
+        const glyph = node('span', 'doki-sync-icon');
+        glyph.dataset.icon = icon;
+        glyph.setAttribute('aria-hidden', 'true');
+        control.append(glyph, node('span', '', label));
+        const reason = current.busy ? 'Syncing…' : state.enabled ? '' : state.reason;
+        if (reason) {
+            // Disabled buttons stay focusable and say why on hover and focus.
+            control.setAttribute('aria-disabled', 'true');
+            const tip = node('span', 'doki-tooltip', reason);
+            tip.id = `dokiTip-${className}`;
+            tip.setAttribute('role', 'tooltip');
+            control.setAttribute('aria-describedby', tip.id);
+            wrap.append(control, tip);
+        } else
+            wrap.append(control);
+        control.addEventListener('click', () => {
+            if (control.getAttribute('aria-disabled') !== 'true')
+                onClick();
+        }, { signal });
+        return wrap;
+    }
+
+    function footer(current, row, info, model, edit) {
+        const wrap = node('div', 'doki-editor-row doki-editor-footer');
+        const notes = node('div', 'doki-editor-notes');
+        if (model.lowerNote)
+            notes.append(node('p', 'doki-editor-warning', model.lowerNote));
+        if (model.suggestComplete && !model.readOnly) {
+            const complete = button('doki-button doki-mark-complete', 'Mark Completed');
+            complete.dataset.focusKey = 'complete';
+            complete.addEventListener('click', () => edit(drafts => markCompleted(info.targets, drafts), 'status'), { signal });
+            notes.append(complete);
+        }
+        const status = node('p', 'doki-editor-status', current.notes[row.key] ?? (current.busy ? 'Syncing…' : ''));
+        status.setAttribute('role', 'status');
+        notes.append(status);
+        const buttons = syncButtons(info.targets, rowDrafts(current, row), { all: info.key === 'all' });
+        const actions = node('div', 'doki-sync-actions');
+        actions.append(syncButton(current, 'doki-sync-up', buttons.up.label, buttons.up, 'up', () => syncUp(current, row, info.targets)),
+            syncButton(current, 'doki-sync-down', buttons.down.label, buttons.down, 'down', () => syncDown(current, row, info.targets)));
+        wrap.append(notes, actions);
+        return wrap;
+    }
+
+    /** Re-renders the parts an edit changes, keeping focus on the same control. */
+    function refresh(current, focusKey = doc.activeElement?.dataset?.focusKey) {
+        if (current !== popup || current.removed || !current.view)
+            return;
+        current.unsaved.hidden = !anyDirty(current.drafts);
+        renderDetails(current);
+        renderSeasons(current);
+        renderHeaderLinks(current);
+        renderOverview(current);
+        if (focusKey)
+            current.panel.querySelector(`[data-focus-key="${focusKey}"]`)?.focus({ preventScroll: true });
+    }
+
+    // --- Saving and syncing ------------------------------------------------------------------------------------------
+
+    const pollEveryMs = 1000, pollLimit = 60;
+
+    function wait(current, ms) {
+        return new Promise(resolve => {
+            const id = win.setTimeout(() => {
+                current.timers.delete(id);
+                resolve();
+            }, ms);
+            current.timers.add(id);
+        });
+    }
+
+    /** Polls until done(data) or a minute passes; returns the last data, or null when it gave up. */
+    async function poll(current, path, done) {
+        for (let attempt = 0; attempt < pollLimit; attempt++) {
+            await wait(current, pollEveryMs);
+            if (current.controller.signal.aborted)
+                return null;
+            const result = await request(path, { abort: current.controller.signal });
+            if (result.ok && result.data && done(result.data))
+                return result.data;
+        }
+        return null;
+    }
+
+    const finished = operation => !['Queued', 'Running'].includes(operation.state);
+
+    async function runSync(current, kind, provider) {
+        const body = { itemId: current.view.id, provider };
+        let started = await request(`AniDoki/user/progress/${kind}`, { method: 'POST', body, abort: current.controller.signal });
+        if (started.status === 409 && started.data?.operationId) {
+            // Another sync in this direction is running: wait for it, then try once more.
+            await poll(current, `AniDoki/user/operations/${started.data.operationId}`, finished);
+            started = await request(`AniDoki/user/progress/${kind}`, { method: 'POST', body, abort: current.controller.signal });
+        }
+        if (!started.ok || !started.data?.operationId)
+            throw started;
+        return poll(current, `AniDoki/user/operations/${started.data.operationId}`, finished);
+    }
+
+    function failureNote(failure) {
+        if (typeof failure?.data === 'string' && failure.data)
+            return failure.data;
+        return "Couldn't sync. Try again in a moment";
+    }
+
+    async function syncUp(current, row, targets) {
+        if (current.busy)
+            return;
+        const plan = planSyncUp(targets, rowDrafts(current, row), { isMovie: current.view.isMovie, itemId: current.view.id });
+        const byProvider = Object.fromEntries(targets.map(target => [target.provider, target]));
+        current.busy = true;
+        delete current.notes[row.key];
+        current.cards[row.key] = (current.cards[row.key] ?? []).filter(card => !byProvider[card.provider]);
+        refresh(current);
+        let results = [], note = null;
+        try {
+            if (plan.edit) {
+                const started = await request('AniDoki/user/progress/edit', { method: 'POST', body: plan.edit, abort: current.controller.signal });
+                if (!started.ok || !started.data?.operationId)
+                    throw started;
+                const outcome = await poll(current, `AniDoki/user/progress/edit/${started.data.operationId}`, data => data.finished);
+                if (outcome)
+                    results = outcome.results;
+                else
+                    note = 'Still saving. Check History in AniDōki settings';
+            }
+            for (const provider of note ? [] : plan.syncs) {
+                if (!await runSync(current, 'sync-to-trackers', provider)) {
+                    note = 'Still syncing. Check History in AniDōki settings';
+                    break;
+                }
+            }
+        } catch (failure) {
+            note = failureNote(failure);
+        }
+        await settle(current, row, results, byProvider, note);
+    }
+
+    async function syncDown(current, row, targets) {
+        const provider = planSyncDown(targets, rowDrafts(current, row));
+        if (current.busy || !provider)
+            return;
+        current.busy = true;
+        delete current.notes[row.key];
+        refresh(current);
+        let note = null;
+        try {
+            if (!await runSync(current, 'sync-to-jellyfin', provider))
+                note = 'Still syncing. Check History in AniDōki settings';
+        } catch (failure) {
+            note = failureNote(failure);
+        }
+        await settle(current, row, [], {}, note);
+    }
+
+    /** After a save or sync: read the view again, apply the edit results to the drafts, and show what needs the user. */
+    async function settle(current, row, results, byProvider, note) {
+        if (current !== popup || current.removed)
+            return;
+        current.busy = false;
+        const applied = applyEditResults(rowDrafts(current, row), results, byProvider);
+        setRowDrafts(current, row, applied.drafts);
+        current.cards[row.key] = [...(current.cards[row.key] ?? []), ...applied.cards];
+        if (note)
+            current.notes[row.key] = note;
+        try {
+            const fresh = await request(`AniDoki/user/progress/series/${encodeURIComponent(current.itemId)}`, { abort: current.controller.signal });
+            if (fresh.ok && fresh.data && current === popup && !current.removed) {
+                current.view = fresh.data;
+                current.rows = buildRows(fresh.data);
+            }
+        } catch {
+            // The view stays as it was; the next open reads it again.
+        }
+        refresh(current);
+    }
+
+    function cardAction(current, row, card, action) {
+        current.cards[row.key] = (current.cards[row.key] ?? []).filter(item => item !== card);
+        const drafts = rowDrafts(current, row);
+        if (action === 'load' || action === 'undo') {
+            const next = { ...drafts };
+            delete next[card.provider];
+            setRowDrafts(current, row, next);
+            refresh(current, `pill:${current.openProvider}`);
+            return;
+        }
+        if (action === 'force')
+            setRowDrafts(current, row, forceDraft(drafts, card.provider, card.current ?? {}));
+        const target = editableTargets(rowTargets(current.view, row)).find(item => item.provider === card.provider);
+        if (target)
+            syncUp(current, row, [target]);
     }
 
     // --- Lifetime --------------------------------------------------------------------------------------------------

@@ -35,8 +35,8 @@ function matchesCompound(element, parts) {
 }
 
 function matches(element, selector) {
-    return selector.split(',').some(one => {
-        const chain = one.trim().split(/\s+/).map(parseCompound);
+    return (selector.match(/(?:\[[^\]]*\]|\([^)]*\)|[^,[(])+/g) ?? []).some(one => {
+        const chain = (one.trim().match(/(?:\[[^\]]*\]|\([^)]*\)|[^\s[(])+/g) ?? []).map(parseCompound);
         if (!matchesCompound(element, chain.at(-1)))
             return false;
         let index = chain.length - 2, ancestor = element.parent;
@@ -56,7 +56,14 @@ export class Element extends EventTarget {
         this.ownerDocument = doc;
         this.children = [];
         this.attributes = {};
-        this.dataset = {};
+        // As in a browser, dataset is a view of the data-* attributes.
+        const attribute = key => `data-${String(key).replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)}`;
+        this.dataset = new Proxy({}, {
+            get: (_, key) => typeof key === 'string' ? this.attributes[attribute(key)] : undefined,
+            set: (_, key, value) => { this.attributes[attribute(key)] = String(value); return true; },
+            deleteProperty: (_, key) => { delete this.attributes[attribute(key)]; return true; },
+            has: (_, key) => attribute(key) in this.attributes
+        });
         this.style = { setProperty: (name, value) => { this.style[name] = value; }, removeProperty: name => { delete this.style[name]; } };
         this.className = '';
         this.textContent = '';
@@ -135,6 +142,7 @@ export function createWindow(href) {
     win.advance = async ms => {
         const until = now + ms;
         for (;;) {
+            await flush();
             const next = [...timers].filter(([, timer]) => timer.at <= until).sort((a, b) => a[1].at - b[1].at)[0];
             if (!next) break;
             timers.delete(next[0]); now = next[1].at; await next[1].fn();
@@ -155,7 +163,7 @@ export function createWindow(href) {
     return win;
 }
 
-export const flush = async () => { for (let i = 0; i < 6; i++) await new Promise(resolve => setImmediate(resolve)); };
+export const flush = async () => { for (let i = 0; i < 12; i++) await new Promise(resolve => setImmediate(resolve)); };
 
 export function keydown(target, key, extra = {}) {
     const event = new Event('keydown', { bubbles: false, cancelable: true });
