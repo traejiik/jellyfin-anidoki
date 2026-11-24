@@ -28,6 +28,7 @@ public sealed class PagesController : ControllerBase {
             "styles.css" => "Anidoki.css",
             "notifications.js" => "NotificationsJs.js",
             "notification-state.js" => "NotificationStateJs.js",
+            "popup-state.js" => "PopupStateJs.js",
             "manual-mark-state.js" => "ManualMarkStateJs.js",
             "plugin-pages-guard.js" => "PluginPagesGuardJs.js",
             "outcome-lines.js" => "OutcomeLinesJs.js",

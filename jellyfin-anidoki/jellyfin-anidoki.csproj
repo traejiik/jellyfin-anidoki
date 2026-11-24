@@ -46,6 +46,8 @@
         <EmbeddedResource Include="Configuration\PluginPagesGuardJs.js"/>
         <None Remove="Configuration\NotificationStateJs.js"/>
         <EmbeddedResource Include="Configuration\NotificationStateJs.js"/>
+        <None Remove="Configuration\PopupStateJs.js"/>
+        <EmbeddedResource Include="Configuration\PopupStateJs.js"/>
         <None Remove="Configuration\OutcomeLinesJs.js"/>
         <EmbeddedResource Include="Configuration\OutcomeLinesJs.js"/>
         <None Remove="Configuration\Anidoki.css"/>
