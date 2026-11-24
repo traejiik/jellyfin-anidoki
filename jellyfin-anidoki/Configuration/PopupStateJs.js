@@ -193,3 +193,207 @@ const entryPages = {
 };
 
 export const entryUrl = (provider, entry) => entryPages[provider] && entry ? entryPages[provider] + encodeURIComponent(entry.id) : null;
+
+// --- Editor drafts -----------------------------------------------------------------------------------------
+// A draft is what the user wants an entry to become: { status, progress, score, clearScore, shown }. score is a raw score to
+// set, or null to leave the rating alone; clearScore removes it. shown is the saved state the draft was made against, kept
+// so that a save after the tracker changed elsewhere comes back stale instead of overwriting (D4). Drafts for one row are
+// a map of provider to draft; an edit that returns an entry to its saved state removes its draft.
+
+const rewatching = targets => targets.find(target => target.entry?.rewatching);
+
+const effectiveScore = (target, draft) => draft?.clearScore ? null : draft?.score ?? target.entry?.score ?? null;
+
+function startDraft(target, drafts) {
+    const saved = savedState(target);
+    return drafts[target.provider] ? { ...drafts[target.provider] } : { status: saved.status, progress: saved.progress, score: null, clearScore: false, shown: saved };
+}
+
+export function isDirty(target, draft) {
+    if (!draft)
+        return false;
+    const saved = savedState(target);
+    return draft.status !== saved.status || draft.progress !== saved.progress || (draft.clearScore && saved.score !== null)
+        || (draft.score !== null && draft.score !== saved.score);
+}
+
+/** Applies change to every target's draft. Nothing changes while an entry is being rewatched (D11). */
+function edit(targets, drafts, change) {
+    if (rewatching(targets))
+        return drafts;
+    const next = { ...drafts };
+    for (const target of editableTargets(targets)) {
+        const draft = change(startDraft(target, drafts), target);
+        if (!draft)
+            continue;
+        if (isDirty(target, draft))
+            next[target.provider] = draft;
+        else
+            delete next[target.provider];
+    }
+    return next;
+}
+
+const clamp = (value, total) => Math.max(0, total > 0 ? Math.min(total, value) : value);
+
+export const setProgress = (targets, drafts, value) => edit(targets, drafts, (draft, target) => {
+    draft.progress = clamp(Math.round(value), target.entry.totalEpisodes);
+    if (draft.progress > 0 && (draft.status === null || draft.status === 'PlanToWatch'))
+        draft.status = 'Watching';
+    return draft;
+});
+
+export const setStatus = (targets, drafts, status) => status === 'Mixed' || !statusOrder.includes(status) ? drafts : edit(targets, drafts, (draft, target) => {
+    draft.status = status;
+    if (status === 'Completed' && target.entry.totalEpisodes > 0)
+        draft.progress = target.entry.totalEpisodes;
+    if (status === 'PlanToWatch')
+        draft.progress = 0;
+    return draft;
+});
+
+export const markCompleted = (targets, drafts) => setStatus(targets, drafts, 'Completed');
+
+/**
+ * Sets the rating from a shown value in each tracker's own format; null clears it. With toggle (stars and faces), choosing
+ * the current value clears it. An entry not on the list joins it as Plan to watch.
+ */
+export const setScore = (targets, drafts, display, { toggle = false } = {}) => edit(targets, drafts, (draft, target) => {
+    const format = target.account.supportsScore ? target.account.scoreFormat : null;
+    if (!format)
+        return null;
+    const current = toDisplay(effectiveScore(target, draft), format);
+    const clear = display === null || (toggle && display === current);
+    const raw = clear ? null : toRaw(display, format);
+    if (!clear && raw === null)
+        return null;
+    draft.score = raw;
+    draft.clearScore = clear && target.entry.score !== null;
+    if (draft.status === null)
+        draft.status = 'PlanToWatch';
+    return draft;
+});
+
+// --- Editor model ------------------------------------------------------------------------------------------
+
+const same = values => values.every(value => value === values[0]);
+const listed = items => items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+
+function ratingField(targets, shown) {
+    const formats = targets.map(target => target.account.supportsScore ? target.account.scoreFormat : null);
+    if (!formats.length || formats.some(format => !format) || !formats.every(format => sameScale(format, formats[0])))
+        return null;
+    const used = formats.map(format => scales[format]);
+    const kind = formats[0] === 'Point5' ? 'stars' : formats[0] === 'Point3' ? 'faces' : 'number';
+    const scores = shown.map(item => item.score);
+    return {
+        kind, max: used[0].max, step: Math.max(...used.map(scale => scale.step)), min: Math.max(...used.map(scale => scale.min)),
+        value: same(scores) ? toDisplay(scores[0], formats[0]) : 'Mixed'
+    };
+}
+
+/**
+ * Everything the expanded pill shows for one tracker, or for All trackers (all: true): the fields, the notes and whether
+ * anything is unsaved. A field is null when it is not shown: progress when the trackers' totals differ, rating when their
+ * scales differ or a tracker has no ratings.
+ */
+export function editorModel(targets, drafts, { all }) {
+    const providers = targets.map(target => target.provider);
+    const shown = targets.map(target => {
+        const draft = drafts[target.provider] ?? savedState(target);
+        return { status: draft.status, progress: draft.progress, score: effectiveScore(target, drafts[target.provider]) };
+    });
+    const totals = targets.map(target => target.entry.totalEpisodes), total = same(totals) ? totals[0] : null;
+    const statusValue = same(shown.map(item => item.status)) ? shown[0]?.status ?? null : 'Mixed';
+    const progress = total === null ? null : { value: Math.max(0, ...shown.map(item => item.progress)), max: total > 0 ? total : null };
+    const rating = ratingField(targets, shown);
+    const label = status => all ? sharedStatusLabel(status, providers) : statusLabel(status, providers[0]);
+    const statuses = (statusValue === 'Mixed' ? [['Mixed', 'Mixed']] : []).concat(statusOrder.map(status => [status, label(status)]));
+    const diffs = [];
+    if (all && targets.length > 1) {
+        const each = text => targets.map((target, index) => `${providerName(target.provider)} - ${text(target, shown[index])}`).join(', ');
+        if (statusValue === 'Mixed')
+            diffs.push(['status', each((target, item) => statusLabel(item.status, target.provider))]);
+        if (!same(shown.map(item => item.progress)))
+            diffs.push(['watch progress', each((target, item) => `${item.progress} of ${target.entry.totalEpisodes || '?'}`)]);
+        if (rating?.value === 'Mixed')
+            diffs.push(['rating', each((target, item) => scoreText(item.score, target.account.scoreFormat))]);
+    }
+    const lowering = targets.filter(target => isDirty(target, drafts[target.provider]) && drafts[target.provider].progress < savedState(target).progress);
+    const rewatched = rewatching(targets);
+    return {
+        fields: { status: { value: statusValue }, progress, rating },
+        statuses, total,
+        jellyfin: Math.max(0, ...targets.map(target => target.entry.jellyfinProgress ?? 0)),
+        readOnly: Boolean(rewatched),
+        readOnlyReason: rewatched ? `This entry is being rewatched. Change it on ${providerName(rewatched.provider)} for now` : '',
+        mixedNote: diffs.length === 0 ? '' : diffs.length === 1 ? `The trackers differ in ${diffs[0][0]}: ${diffs[0][1]}`
+            : `The trackers differ in ${listed(diffs.map(diff => diff[0]))}`,
+        lowerNote: lowering.map(target => `Lowers ${providerName(target.provider)} from ${savedState(target).progress} to ${drafts[target.provider].progress}`).join('. '),
+        suggestComplete: Boolean(progress?.max) && progress.value === progress.max && statusValue !== 'Completed',
+        dirty: targets.some(target => isDirty(target, drafts[target.provider]))
+    };
+}
+
+// --- Sync buttons ------------------------------------------------------------------------------------------
+
+const jellyfinOf = target => target.entry.jellyfinProgress ?? 0;
+
+/** The two sync buttons: enabled, or disabled with the reason a tooltip gives (spec, Overview tab, item 4). */
+export function syncButtons(targets, drafts, { all }) {
+    const name = all ? null : providerName(targets[0]?.provider);
+    const saved = targets.map(target => savedState(target).progress);
+    const dirty = targets.some(target => isDirty(target, drafts[target.provider]));
+    const behind = targets.some((target, index) => saved[index] < jellyfinOf(target));
+    const ahead = targets.some((target, index) => saved[index] > jellyfinOf(target));
+    const agree = targets.length > 0 && same(saved);
+    const down = !dirty && agree && targets.every((target, index) => saved[index] > jellyfinOf(target));
+    const upName = all ? 'Sync to all trackers' : `Sync to ${name}`;
+    return {
+        up: {
+            label: upName, enabled: dirty || behind,
+            reason: dirty || behind ? '' : ahead ? `${all ? 'Your trackers are' : `${name} is`} ahead of Jellyfin. Use Sync to Jellyfin` : 'Up to date'
+        },
+        down: {
+            label: 'Sync to Jellyfin', enabled: down,
+            reason: down ? '' : dirty ? `Sync your changes to ${all ? 'your trackers' : name} first`
+                : !agree && targets.length > 0 ? 'Trackers differ. Open one tracker to sync from it'
+                    : targets.every((target, index) => saved[index] === jellyfinOf(target)) ? 'Up to date' : `Jellyfin is ahead. Use ${upName}`
+        }
+    };
+}
+
+// --- Requests ----------------------------------------------------------------------------------------------
+
+function editFrom(target, draft) {
+    return {
+        provider: target.provider, entryId: target.entry.id, alternativeId: target.entry.alternativeId ?? null, shown: draft.shown,
+        status: draft.status ?? 'PlanToWatch', progress: draft.progress, score: draft.clearScore ? null : draft.score, clearScore: draft.clearScore
+    };
+}
+
+/**
+ * What Sync to <tracker> sends (6.4 plan, decision 8): pending edits as one edit request, then a series sync for each clean
+ * tracker Jellyfin is ahead of. A movie cannot take a series sync, so a clean movie entry is raised by the edit instead.
+ */
+export function planSyncUp(targets, drafts, { isMovie, itemId }) {
+    const edits = [], syncs = [];
+    for (const target of editableTargets(targets)) {
+        const draft = drafts[target.provider], saved = savedState(target);
+        if (isDirty(target, draft))
+            edits.push(editFrom(target, draft));
+        else if (saved.progress < jellyfinOf(target)) {
+            if (isMovie)
+                edits.push(editFrom(target, { status: 'Completed', progress: jellyfinOf(target), score: null, clearScore: false, shown: saved }));
+            else
+                syncs.push(target.provider);
+        }
+    }
+    return { edit: edits.length ? { itemId, edits } : null, syncs };
+}
+
+/** The tracker Sync to Jellyfin reads from; the targets agree whenever it is enabled, so the first will do. */
+export function planSyncDown(targets, drafts) {
+    const ready = editableTargets(targets);
+    return syncButtons(ready, drafts, { all: ready.length > 1 }).down.enabled ? ready[0].provider : null;
+}

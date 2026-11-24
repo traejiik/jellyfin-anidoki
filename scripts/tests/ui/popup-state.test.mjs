@@ -140,3 +140,179 @@ test('entry urls', () => {
     assert.equal(entryUrl('Simkl', { id: 5 }), 'https://simkl.com/anime/5');
     assert.equal(entryUrl('Annict', { id: 6 }), 'https://annict.com/works/6');
 });
+
+// --- Task 3: editor drafts, notes and the sync buttons ---
+const { editorModel, setProgress, setStatus, setScore, markCompleted, isDirty, syncButtons, planSyncUp, planSyncDown } = state;
+const one = (extra = {}, format = 'Point10Decimal', provider = 'AniList') => [target(provider, extra, format)];
+
+test('raising progress from plan to watch starts watching', () => {
+    const targets = one({ status: 'PlanToWatch', progress: 0 });
+    const drafts = setProgress(targets, {}, 1);
+    assert.equal(drafts.AniList.status, 'Watching');
+    assert.equal(drafts.AniList.progress, 1);
+    assert.equal(isDirty(targets[0], drafts.AniList), true);
+});
+
+test('completed fills progress and plan to watch empties it', () => {
+    const targets = one({ progress: 5 });
+    assert.equal(setStatus(targets, {}, 'Completed').AniList.progress, 12);
+    assert.equal(setStatus(targets, {}, 'PlanToWatch').AniList.progress, 0);
+    assert.equal(markCompleted(targets, {}).AniList.status, 'Completed');
+});
+
+test('an edit back to the saved state is no longer a draft', () => {
+    const targets = one({ progress: 5 });
+    assert.deepEqual(setProgress(targets, setProgress(targets, {}, 6), 5), {});
+});
+
+test('progress is clamped to the total', () => {
+    const targets = one();
+    assert.equal(setProgress(targets, {}, 15).AniList.progress, 12);
+    assert.equal(setProgress(targets, {}, -1).AniList.progress, 0);
+});
+
+test('unknown totals accept any progress', () => {
+    const targets = one({ totalEpisodes: 0, progress: 5 });
+    const drafts = setProgress(targets, {}, 40);
+    assert.equal(drafts.AniList.progress, 40);
+    const model = editorModel(targets, drafts, { all: false });
+    assert.equal(model.suggestComplete, false);
+    assert.equal(model.fields.progress.max, null);
+    assert.equal(setStatus(targets, drafts, 'Completed').AniList.progress, 40);
+});
+
+test('an unlisted entry becomes watching when progress rises', () => {
+    const targets = one({ status: null, progress: null });
+    assert.equal(setProgress(targets, {}, 2).AniList.status, 'Watching');
+    const rated = setScore(targets, {}, 7);
+    assert.equal(rated.AniList.status, 'PlanToWatch');
+    assert.equal(rated.AniList.score, 70);
+    const plan = planSyncUp(targets, rated, { isMovie: false, itemId: 'series' });
+    assert.equal(plan.edit.edits[0].shown.status, null);
+    assert.equal(plan.edit.edits[0].status, 'PlanToWatch');
+});
+
+test('clicking the current star clears the rating', () => {
+    const stars = one({ score: 80 }, 'Point5');
+    assert.deepEqual(pick(setScore(stars, {}, 4, { toggle: true }).AniList), { score: null, clearScore: true });
+    const ten = one({ score: 70 }, 'Point10');
+    assert.deepEqual(pick(setScore(ten, {}, 8).AniList), { score: 80, clearScore: false });
+    assert.equal(setScore(ten, {}, 7).AniList, undefined, 'typing the saved value is no change');
+    assert.deepEqual(pick(setScore(ten, {}, null).AniList), { score: null, clearScore: true });
+});
+const pick = draft => ({ score: draft.score, clearScore: draft.clearScore });
+
+test('mark completed appears at the last episode', () => {
+    const targets = one({ progress: 11 });
+    assert.equal(editorModel(targets, setProgress(targets, {}, 12), { all: false }).suggestComplete, true);
+    assert.equal(editorModel(targets, setStatus(targets, {}, 'Completed'), { all: false }).suggestComplete, false);
+});
+
+test('lowering is allowed with a warning', () => {
+    const targets = [target('AniList', { progress: 8 }), target('Kitsu', { progress: 8 }, 'Point10Half')];
+    assert.equal(editorModel(targets.slice(0, 1), setProgress(targets.slice(0, 1), {}, 5), { all: false }).lowerNote, 'Lowers AniList from 8 to 5');
+    assert.equal(editorModel(targets, setProgress(targets, {}, 5), { all: true }).lowerNote, 'Lowers AniList from 8 to 5. Lowers Kitsu from 8 to 5');
+});
+
+const pair = (aniList = {}, kitsu = {}, kitsuFormat = 'Point10Half') => [target('AniList', aniList), target('Kitsu', kitsu, kitsuFormat)];
+
+test('mixed note names one differing field', () => {
+    assert.equal(editorModel(pair({}, { status: 'Completed' }), {}, { all: true }).mixedNote,
+        'The trackers differ in status: AniList - Watching, Kitsu - Completed');
+    assert.equal(editorModel(pair({ progress: 5 }, { progress: 8 }), {}, { all: true }).mixedNote,
+        'The trackers differ in watch progress: AniList - 5 of 12, Kitsu - 8 of 12');
+    assert.equal(editorModel(pair({ score: 70 }, { score: 80 }), {}, { all: true }).mixedNote,
+        'The trackers differ in rating: AniList - 7/10, Kitsu - 8/10');
+    assert.equal(editorModel(pair(), {}, { all: true }).mixedNote, '');
+});
+
+test('mixed note lists several fields', () => {
+    assert.equal(editorModel(pair({ score: 70 }, { status: 'Completed', progress: 8, score: 80 }), {}, { all: true }).mixedNote,
+        'The trackers differ in status, watch progress and rating');
+});
+
+test('all trackers hides rating when scales differ', () => {
+    const model = editorModel(pair({ score: 70 }, { score: 80 }, 'Point5'), {}, { all: true });
+    assert.equal(model.fields.rating, null);
+    assert.equal(model.mixedNote, '');
+});
+
+test('all trackers rating uses the coarsest step', () => {
+    const rating = editorModel(pair({ score: 70 }, { score: 80 }), {}, { all: true }).fields.rating;
+    assert.deepEqual({ kind: rating.kind, step: rating.step, min: rating.min, max: rating.max, value: rating.value },
+        { kind: 'number', step: 0.5, min: 1, max: 10, value: 'Mixed' });
+    assert.equal(editorModel(one({}, 'Point5'), {}, { all: false }).fields.rating.kind, 'stars');
+    assert.equal(editorModel(one({}, 'Point3'), {}, { all: false }).fields.rating.kind, 'faces');
+    assert.equal(editorModel(one({}, null, 'Annict'), {}, { all: false }).fields.rating, null);
+});
+
+test('all trackers hides progress when totals differ', () => {
+    const model = editorModel(pair({ totalEpisodes: 10 }, { totalEpisodes: 22 }), {}, { all: true });
+    assert.equal(model.fields.progress, null);
+    assert.equal(model.fields.status.value, 'Watching');
+});
+
+test('mixed status edits set every tracker', () => {
+    const targets = pair({}, { status: 'Completed' });
+    const model = editorModel(targets, {}, { all: true });
+    assert.equal(model.fields.status.value, 'Mixed');
+    assert.deepEqual(model.statuses[0], ['Mixed', 'Mixed']);
+    assert.ok(model.statuses.some(([value, label]) => value === 'OnHold' && label === 'Paused or on hold'));
+    const drafts = setStatus(targets, {}, 'Dropped');
+    assert.deepEqual([drafts.AniList.status, drafts.Kitsu.status], ['Dropped', 'Dropped']);
+    assert.deepEqual(setStatus(targets, {}, 'Mixed'), {});
+});
+
+test('a rewatching entry is read-only', () => {
+    const targets = one({ rewatching: true });
+    const model = editorModel(targets, {}, { all: false });
+    assert.equal(model.readOnly, true);
+    assert.equal(model.readOnlyReason, 'This entry is being rewatched. Change it on AniList for now');
+    assert.deepEqual(setProgress(targets, {}, 5), {});
+    assert.deepEqual(setStatus(targets, {}, 'Dropped'), {});
+    assert.deepEqual(setScore(targets, {}, 8), {});
+});
+
+test('sync buttons', () => {
+    const at = (progress, jellyfin, extra = {}) => one({ progress, jellyfinProgress: jellyfin, ...extra });
+    let buttons = syncButtons(at(5, 5), {}, { all: false });
+    assert.deepEqual([buttons.up.enabled, buttons.up.reason, buttons.down.enabled, buttons.down.reason], [false, 'Up to date', false, 'Up to date']);
+    buttons = syncButtons(at(3, 5), {}, { all: false });
+    assert.deepEqual([buttons.up.enabled, buttons.up.label, buttons.down.reason], [true, 'Sync to AniList', 'Jellyfin is ahead. Use Sync to AniList']);
+    buttons = syncButtons(at(7, 5), {}, { all: false });
+    assert.deepEqual([buttons.up.enabled, buttons.up.reason, buttons.down.enabled], [false, 'AniList is ahead of Jellyfin. Use Sync to Jellyfin', true]);
+    const behind = at(5, 5);
+    buttons = syncButtons(behind, setProgress(behind, {}, 6), { all: false });
+    assert.deepEqual([buttons.up.enabled, buttons.down.enabled, buttons.down.reason], [true, false, 'Sync your changes to AniList first']);
+    const both = pair({ progress: 5, jellyfinProgress: 3 }, { progress: 7, jellyfinProgress: 3 });
+    buttons = syncButtons(both, {}, { all: true });
+    assert.deepEqual([buttons.up.enabled, buttons.up.label, buttons.up.reason, buttons.down.reason],
+        [false, 'Sync to all trackers', 'Your trackers are ahead of Jellyfin. Use Sync to Jellyfin', 'Trackers differ. Open one tracker to sync from it']);
+    buttons = syncButtons(both, setStatus(both, {}, 'Dropped'), { all: true });
+    assert.deepEqual([buttons.up.enabled, buttons.down.reason], [true, 'Sync your changes to your trackers first']);
+    assert.equal(syncButtons(one({ progress: 7, jellyfinProgress: 5 }, 'Point10', 'Mal'), {}, { all: false }).up.reason,
+        'MyAnimeList is ahead of Jellyfin. Use Sync to Jellyfin');
+});
+
+test('sync up plan', () => {
+    const targets = pair({ score: 70 }, { progress: 3, jellyfinProgress: 5 });
+    const drafts = setProgress(targets.slice(0, 1), {}, 4);
+    const plan = planSyncUp(targets, drafts, { isMovie: false, itemId: 'series' });
+    assert.deepEqual(plan.syncs, ['Kitsu']);
+    assert.equal(plan.edit.itemId, 'series');
+    assert.deepEqual(plan.edit.edits, [{ provider: 'AniList', entryId: 1, alternativeId: null, shown: { status: 'Watching', progress: 3, score: 70 },
+        status: 'Watching', progress: 4, score: null, clearScore: false }]);
+});
+
+test('a movie raises through an edit', () => {
+    const targets = [target('Kitsu', { status: 'PlanToWatch', progress: 0, totalEpisodes: 1, jellyfinProgress: 1 }, 'Point10Half')];
+    const plan = planSyncUp(targets, {}, { isMovie: true, itemId: 'movie' });
+    assert.deepEqual(plan.syncs, []);
+    assert.deepEqual([plan.edit.edits[0].status, plan.edit.edits[0].progress], ['Completed', 1]);
+});
+
+test('sync down plan', () => {
+    const targets = pair({ progress: 7, jellyfinProgress: 3 }, { progress: 7, jellyfinProgress: 3 });
+    assert.equal(planSyncDown(targets, {}), 'AniList');
+    assert.equal(planSyncDown(targets, setStatus(targets, {}, 'Dropped')), null);
+});
