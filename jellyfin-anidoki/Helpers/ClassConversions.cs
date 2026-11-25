@@ -15,6 +15,7 @@ public class ClassConversions {
     public static Anime ConvertAniListAnime(AniListSearch.Media aniListAnime) {
         Anime anime = new Anime {
             Id = aniListAnime.Id,
+            MainPicture = aniListAnime.Cover?.Medium is { } cover ? new MainPicture { Medium = cover } : null,
             NumEpisodes = aniListAnime.Episodes ?? 0,
             Title = aniListAnime.Title?.English,
             AlternativeTitles = new AlternativeTitles {
@@ -91,6 +92,7 @@ public class ClassConversions {
         KitsuSearch.Attributes attributes = kitsuAnime.Attributes!;
         Anime anime = new Anime {
             Id = kitsuAnime.Id,
+            MainPicture = attributes.Poster?.Small is { } cover ? new MainPicture { Medium = cover } : null,
             Title = attributes.Titles?.English,
             NumEpisodes = attributes.EpisodeCount ?? 0,
             AlternativeTitles = new AlternativeTitles {

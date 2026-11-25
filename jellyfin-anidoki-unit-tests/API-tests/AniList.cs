@@ -177,6 +177,19 @@ public class AniList {
         Assert.IsNotNull(result!.Id);
     }
 
+    [Test]
+    public async Task RelatedAnimeCarriesTheCoverFromTheExistingRead() {
+        Setup([new Helpers.HttpCall {
+            RequestMethod = HttpMethod.Post, ResponseCode = HttpStatusCode.OK,
+            ResponseContent = """{"data":{"Media":{"id":1,"relations":{"edges":[{"relationType":"SEQUEL","node":{"id":2,"type":"ANIME","title":{"english":"Next"},"coverImage":{"medium":"https://example.test/anilist.jpg"}}}]}}}}"""
+        }]);
+        var tracker = new TrackerProvider(ApiName.AniList, new AniListTrackerClient(_aniListApiCalls), TimeProvider.System);
+
+        var relations = await tracker.GetRelations(new EntryRef(ApiName.AniList, 1, null), default);
+
+        Assert.That(relations!.Single().CoverUrl, Is.EqualTo("https://example.test/anilist.jpg"));
+    }
+
     [TestCase("")]
     [TestCase("{")]
     [TestCase("{}")]

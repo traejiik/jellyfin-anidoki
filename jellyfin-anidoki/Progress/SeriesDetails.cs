@@ -29,7 +29,8 @@ public sealed record RelatedEntry(
     [property: JsonPropertyName("entryId")] int EntryId,
     [property: JsonPropertyName("alternativeId")] string? AlternativeId,
     [property: JsonPropertyName("title")] string? Title,
-    [property: JsonPropertyName("libraryMatches")] IReadOnlyList<RelatedLibraryItem> LibraryMatches);
+    [property: JsonPropertyName("libraryMatches")] IReadOnlyList<RelatedLibraryItem> LibraryMatches,
+    [property: JsonPropertyName("coverUrl")] string? CoverUrl);
 public sealed record RelatedView([property: JsonPropertyName("relations")] IReadOnlyList<RelatedEntry> Relations);
 
 public sealed class SeriesDetails(ISeriesItems items, ProgressSources sources, SeriesProgressReader reader, IMatchTrackers trackers,
@@ -80,7 +81,9 @@ public sealed class SeriesDetails(ISeriesItems items, ProgressSources sources, S
                 }
             }
             return new RelatedView(related.Select((relation, index) =>
-                new RelatedEntry(relation.Kind, relation.Entry.Id, relation.Entry.AlternativeId, relation.Title, hits[index])).ToList());
+                new RelatedEntry(relation.Kind, relation.Entry.Id, relation.Entry.AlternativeId, relation.Title, hits[index],
+                    Uri.TryCreate(relation.CoverUrl, UriKind.Absolute, out Uri? cover) && cover.Scheme == Uri.UriSchemeHttps
+                        ? cover.AbsoluteUri : null)).ToList());
         } catch (Exception error) when (ProgressSources.IsUpstreamFailure(error, cancellationToken)) {
             logger.LogDebug("({Provider}) Could not read related entries: {ErrorMessage}", provider, error.Message);
             return new RelatedView([]);

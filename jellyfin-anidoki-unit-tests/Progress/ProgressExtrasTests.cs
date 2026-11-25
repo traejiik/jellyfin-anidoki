@@ -70,7 +70,7 @@ public class ProgressExtrasTests {
         var target = AddItem(fixture, fixture.SeasonTwo, false);
         AddItem(fixture, fixture.Match.Hidden, false);
         tracker.Setup(provider => provider.GetRelations(second, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([new EntryRelation(RelationKind.Sequel, related, "The Sequel")]);
+            .ReturnsAsync([new EntryRelation(RelationKind.Sequel, related, "The Sequel", "https://example.test/cover.jpg")]);
 
         var airing = new AniListAiring(new Mock<IHttpClientFactory>(MockBehavior.Strict).Object, memory, TimeProvider.System, NullLogger<AniListAiring>.Instance);
         var details = new SeriesDetails(fixture.Items, Sources(fixture), fixture.Reader, fixture.Match.Trackers, airing, NullLogger<SeriesDetails>.Instance);
@@ -80,6 +80,7 @@ public class ProgressExtrasTests {
         Assert.That(await details.Related(fixture.Match.Season, fixture.Alice, ApiName.AniList, 999, true, CancellationToken.None), Is.Null);
         var result = await details.Related(fixture.Match.Season, fixture.Alice, ApiName.AniList, second.Id, true, CancellationToken.None);
         Assert.That(result?.Relations.Single().Title, Is.EqualTo("The Sequel"));
+        Assert.That(result?.Relations.Single().CoverUrl, Is.EqualTo("https://example.test/cover.jpg"));
         Assert.That(result?.Relations.Single().LibraryMatches, Is.EqualTo(new[] { new RelatedLibraryItem(target.Id, 2) }));
         tracker.Verify(provider => provider.GetRelations(second, It.IsAny<CancellationToken>()), Times.Once);
     }

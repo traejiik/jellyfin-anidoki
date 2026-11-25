@@ -12,7 +12,12 @@ public class KitsuSearch {
         [JsonPropertyName("ja_jp")] public string? Japanese { get; set; }
     }
 
+    public class PosterImage {
+        [JsonPropertyName("small")] public string? Small { get; set; }
+    }
+
     public class Attributes {
+        [JsonPropertyName("posterImage")] public PosterImage? Poster { get; set; }
         [JsonPropertyName("slug")] public string? Slug { get; set; }
 
         [JsonPropertyName("titles")] public Titles? Titles { get; set; }

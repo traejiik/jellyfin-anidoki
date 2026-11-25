@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Trackers;
 
 namespace jellyfin_anidoki.Progress;
@@ -56,7 +57,15 @@ public sealed record SeasonTrackerContract(
     [property: JsonPropertyName("origin")] MatchOrigin Origin,
     [property: JsonPropertyName("unresolved")] string? Unresolved,
     [property: JsonPropertyName("error")] string? Error,
-    [property: JsonPropertyName("entries")] IReadOnlyList<EntryViewContract> Entries);
+    [property: JsonPropertyName("entries")] IReadOnlyList<EntryViewContract> Entries,
+    [property: JsonPropertyName("matchRanges")] IReadOnlyList<MatchRangeView> MatchRanges);
+
+public sealed record MatchRangeView(
+    [property: JsonPropertyName("sourceStart")] int SourceStart,
+    [property: JsonPropertyName("sourceEnd")] int SourceEnd,
+    [property: JsonPropertyName("targetStart")] int TargetStart,
+    [property: JsonPropertyName("targetEnd")] int TargetEnd,
+    [property: JsonPropertyName("entry")] EntryContract Entry);
 
 /// <summary>One tracker entry within a season, with the user's list state and how far Jellyfin says they are.</summary>
 /// <param name="TotalEpisodes">0 when the tracker does not know.</param>

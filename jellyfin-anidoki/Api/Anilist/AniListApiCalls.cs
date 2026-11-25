@@ -145,6 +145,7 @@ public class AniListApiCalls {
                 node {
                   id
                   type
+                  coverImage { medium }
                   title {
                     romaji
                     english

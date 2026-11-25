@@ -357,7 +357,7 @@ public class Kitsu {
               "included": [
                 {"type":"manga","id":"7","attributes":{"canonicalTitle":"Manga"}},
                 {"type":"anime","id":"8","attributes":{"canonicalTitle":"Remake"}},
-                {"type":"anime","id":"7","attributes":{"canonicalTitle":"Prequel"}}
+                {"type":"anime","id":"7","attributes":{"canonicalTitle":"Prequel","posterImage":{"small":"https://example.test/kitsu.jpg"}}}
               ]
             }
             """;
@@ -367,6 +367,8 @@ public class Kitsu {
             (7, (KitsuMediaRelationship.RelationType?)KitsuMediaRelationship.RelationType.prequel),
             (8, (KitsuMediaRelationship.RelationType?)KitsuMediaRelationship.RelationType.alternative_version)
         }));
+        Assert.That(jellyfin_anidoki.Helpers.ClassConversions.ConvertKitsuAnime(related!.First()).MainPicture?.Medium,
+            Is.EqualTo("https://example.test/kitsu.jpg"));
     }
 
     /// <summary>Kitsu leaves out "included" when an anime has no related anime; that reads as none, not as an error.</summary>
