@@ -35,6 +35,42 @@ public sealed class SeriesProgressController(SeriesProgressReader reader, EntryE
     }
 
     /// <summary>
+    /// Whether an item page may offer the progress popup: the item is an anime series, season, episode or movie the user can
+    /// see in an anime library AniDōki syncs, and the user has a linked tracker. It never reads a tracker, so item pages can ask on
+    /// every visit.
+    /// </summary>
+    [HttpGet("series/{itemId:guid}/available")]
+    public ActionResult Available(Guid itemId) {
+        if (!ConfigHelper.UserPagesEnabled())
+            return NotFound();
+        if (Me() is not { } user)
+            return Unauthorized();
+        // Sources holds only seasons in the anime libraries that AniDōki syncs; it reads Jellyfin, never a tracker.
+        return items.Find(itemId, user) is { } item && trackers.Links(user).Count > 0 && reader.Sources(item, user).Count > 0 ? NoContent() : NotFound();
+    }
+
+    /// <summary>Returns the series header from Jellyfin without waiting for any tracker reads.</summary>
+    [HttpGet("series/{itemId:guid}/summary")]
+    public ActionResult Summary(Guid itemId) {
+        if (!ConfigHelper.UserPagesEnabled())
+            return NotFound();
+        if (Me() is not { } user)
+            return Unauthorized();
+        if (items.Find(itemId, user) is not { } item || reader.Sources(item, user).Count == 0)
+            return NotFound();
+        return Ok(new {
+            id = item.Id,
+            name = item.Name,
+            images = item.Images,
+            year = item.Year,
+            endYear = item.EndYear,
+            communityRating = item.CommunityRating,
+            officialRating = item.OfficialRating,
+            status = item.Status
+        });
+    }
+
+    /// <summary>
     /// D4: saves the popup's pending edits as one Edit operation. Every edit is checked first; nothing runs if any fails.
     /// Read the results with <see cref="ReadEdit"/>.
     /// </summary>

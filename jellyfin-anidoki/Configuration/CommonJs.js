@@ -172,7 +172,40 @@ export function ensureStyles() {
     const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = assetUrl('styles.css');
     link.dataset.anidokiStyles = ''; document.head.append(link);
 }
+export function followThemeAccent(root, signal, win = window) {
+    if (!win.CSS?.supports)
+        return;
+
+    const update = () => {
+        const style = win.getComputedStyle(root);
+        // Some themes use a CSS color for --accent, while others supply RGB channels.
+        const value = (style.getPropertyValue('--accent') || style.getPropertyValue('--abyss-accent')).trim();
+        const color = win.CSS.supports('color', value) ? value : `rgb(${value})`;
+        if (win.CSS.supports('color', color))
+            root.style.setProperty('--doki-theme-accent', color);
+        else
+            root.style.removeProperty('--doki-theme-accent');
+    };
+    update();
+    const doc = root.ownerDocument;
+    let frame = null;
+    const refresh = () => {
+        if (frame === null)
+            frame = win.requestAnimationFrame(() => { frame = null; update(); });
+    };
+    doc.head.addEventListener('load', refresh, { capture: true, signal });
+    doc.addEventListener('change', refresh, { signal });
+    const observer = new win.MutationObserver(refresh);
+    observer.observe(doc.head, { childList: true, subtree: true, attributes: true, attributeFilter: ['href', 'media', 'disabled'] });
+    observer.observe(doc.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-color-scheme'] });
+    signal.addEventListener('abort', () => {
+        observer.disconnect();
+        if (frame !== null)
+            win.cancelAnimationFrame(frame);
+    }, { once: true });
+}
 export function prepareStickyShell(root, signal) {
+    followThemeAccent(root, signal);
     // Host content wrappers clip overflow without scrolling, which traps sticky
     // controls. Mark only this active plugin's content ancestors and restore on hide.
     const marked = [];

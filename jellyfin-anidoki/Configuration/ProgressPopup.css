@@ -1,0 +1,390 @@
+/*
+ * The progress popup (Phase 6, item 6.4). Colours come from the shared --doki-* tokens in styles.css; the only fixed colours are
+ * the dark scrims and chips over artwork, which stay dark in every theme so their text stays legible, and white logo tiles.
+ * Sizes, radii and motion follow docs/superpowers/specs/2026-11-17-anidoki-phase-6-progress-popup-design.md.
+ */
+
+/* --- Item-page button: Jellyfin draws the circle; this is the single-colour symbol inside it. --- */
+.doki-item-button-icon, .anidoki .doki-symbol {
+    background: currentColor;
+    -webkit-mask: url("anidoki-symbol.svg") center / contain no-repeat; mask: url("anidoki-symbol.svg") center / contain no-repeat;
+}
+.detailButton-icon.doki-item-button-icon { width: 1em; height: 1em; }
+.anidoki .doki-symbol { display: inline-block; flex: 0 0 auto; }
+
+html.doki-popup-open { overflow: hidden; }
+
+/* --- Dialog --- */
+.anidoki.doki-popup-scrim {
+    position: fixed; inset: 0; z-index: 1100; max-width: none; margin: 0; padding: 32px 56px;
+    display: grid; place-items: center; background: rgb(0 0 0 / .6);
+    animation: doki-scrim-in .34s ease both;
+}
+.anidoki .doki-popup {
+    position: relative; isolation: isolate; display: flex; flex-direction: column; width: min(1168px, 100%); height: min(736px, 100%); overflow: hidden;
+    border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-lg); background: var(--backgroundGradient, var(--doki-page)); color: var(--doki-text);
+    box-shadow: 0 20px 60px rgb(0 0 0 / .5);
+    animation: doki-popup-in .34s cubic-bezier(.2, .8, .2, 1) both;
+}
+.anidoki .doki-popup-background { position: absolute; inset: 0; z-index: -1; background: Canvas; pointer-events: none; }
+.anidoki .doki-popup-background > div { position: absolute; inset: 0; }
+.anidoki.doki-popup-scrim.is-closing { animation: doki-scrim-out .2s ease both; }
+.anidoki.doki-popup-scrim.is-closing .doki-popup { animation: doki-popup-out .2s ease both; }
+@keyframes doki-scrim-in { from { background: rgb(0 0 0 / 0); } }
+@keyframes doki-scrim-out { to { background: rgb(0 0 0 / 0); } }
+@keyframes doki-popup-in { from { opacity: 0; transform: translateY(16px) scale(.98); } }
+@keyframes doki-popup-out { to { opacity: 0; transform: translateY(16px) scale(.98); } }
+@keyframes doki-rise { from { opacity: 0; transform: translateY(6px); } }
+
+/* --- Header: dark chips over the artwork --- */
+.anidoki .doki-popup-header {
+    position: absolute; inset: 0 0 auto; z-index: 3; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+    padding: 16px; pointer-events: none;
+}
+.anidoki .doki-popup-header > * { pointer-events: auto; }
+.anidoki .doki-popup-header-start { display: grid; gap: 6px; justify-items: start; min-width: 0; }
+.anidoki .doki-popup-crumb-row {
+    display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; padding: 6px 14px 6px 10px;
+    border-radius: var(--tjk-radius-pill); background: rgb(16 16 16 / .62); color: #fff; backdrop-filter: blur(8px);
+}
+.anidoki .doki-popup-crumb-row .doki-symbol { width: 20px; height: 20px; }
+.anidoki .doki-popup-crumbs { min-width: 0; font-size: .9375rem; }
+.anidoki .doki-popup-crumb { display: block; overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.anidoki .doki-popup-unsaved {
+    display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: var(--tjk-radius-pill);
+    background: rgb(16 16 16 / .62); color: #fff; font-size: .8125rem; animation: doki-rise .26s ease both;
+}
+.anidoki .doki-popup-unsaved::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--tjk-warning); }
+.anidoki .doki-popup-actions, .anidoki .doki-popup-open-on { display: flex; align-items: center; gap: 8px; }
+.anidoki .doki-popup-actions { position: relative; }
+.anidoki .doki-popup-chip {
+    display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%;
+    background: rgb(16 16 16 / .62); color: #fff; cursor: pointer; backdrop-filter: blur(8px); text-decoration: none;
+}
+.anidoki .doki-popup-chip:hover { background: rgb(16 16 16 / .8); }
+.anidoki .doki-popup-actions .doki-popup-chip { color: #fff; }
+.anidoki .doki-popup-chip-icon {
+    width: 20px; height: 20px; background: currentColor;
+    -webkit-mask: var(--doki-icon) center / contain no-repeat; mask: var(--doki-icon) center / contain no-repeat;
+}
+.anidoki [data-icon="gear"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="close"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="jellyfin"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='12' rx='2'/%3E%3Cpath d='M8 21h8M12 17v4M10 9l4 2-4 2z'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="dropdown"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="external"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5'/%3E%3C/svg%3E"); }
+
+/* --- Body: backdrop, poster, title --- */
+.anidoki .doki-popup-body { position: relative; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.anidoki .doki-popup-hero {
+    position: absolute; inset: 0 0 auto; height: 300px; background: center 25% / cover no-repeat;
+    mask-image: linear-gradient(to bottom, black calc(100% - 200px), transparent);
+}
+.anidoki .doki-popup-hero::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgb(0 0 0 / .45), transparent 90px);
+}
+.anidoki .doki-popup-layout {
+    position: relative; z-index: 1; display: grid; grid-template-columns: 184px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 28px;
+    height: 100%; min-height: 550px; padding: 150px 36px 20px;
+}
+.anidoki .doki-popup-side { display: grid; grid-template-rows: auto auto minmax(0, 1fr); align-content: start; gap: 20px; }
+.anidoki .doki-popup-poster { width: 184px; aspect-ratio: 2 / 3; overflow: hidden; border-radius: var(--tjk-radius-md); background: var(--doki-ground); box-shadow: 0 12px 32px rgb(0 0 0 / .4); }
+.anidoki .doki-popup-poster img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.anidoki .doki-popup-main { display: flex; flex-direction: column; min-width: 0; }
+/* The title grows upward from its bottom edge, so a tall logo rises into the backdrop. */
+.anidoki .doki-popup-title { position: relative; flex: 0 0 132px; display: flex; align-items: flex-end; padding-bottom: 8px; }
+.anidoki .doki-popup-title h2 { font-size: 1.875rem; line-height: 1.15; letter-spacing: -.015em; }
+.anidoki .doki-popup-title h2:focus { outline: none; }
+.anidoki .doki-popup-logo { display: block; width: min(380px, 100%); height: auto; max-height: 180px; object-fit: contain; object-position: left bottom; filter: drop-shadow(0 2px 8px rgb(0 0 0 / .6)); }
+.anidoki .doki-popup-main .doki-popup-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; min-height: 20px; margin: 0 0 14px; color: var(--doki-muted); font-size: .875rem; line-height: 1.4; }
+.anidoki .doki-popup-official { padding: 0 6px; border: 1px solid currentColor; border-radius: var(--tjk-radius-xs); font-size: .75rem; line-height: 1.5; }
+
+/* --- Details and Seasons boxes --- */
+.anidoki :is(.doki-popup-details, .doki-popup-seasons) {
+    margin: 0; padding: 12px 14px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-ground); font-size: .8125rem;
+}
+.anidoki .doki-popup-details { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; }
+.anidoki .doki-popup-details dt { color: var(--doki-muted); }
+.anidoki .doki-popup-details dd { margin: 0; font-weight: 600; }
+.anidoki .doki-popup-details.doki-details-skeleton { grid-template-columns: 42px 64px; grid-auto-rows: 1.55em; align-items: center; }
+.anidoki .doki-details-skeleton .doki-skeleton-line:nth-child(2n) { width: 75%; }
+.anidoki .doki-popup-box-title { margin-bottom: 8px; font-size: .875rem; font-weight: 700; }
+.anidoki .doki-popup-seasons { display: flex; flex-direction: column; align-self: start; max-height: 100%; }
+.anidoki .doki-popup-seasons .doki-popup-season-list { max-height: 220px; overflow: auto; margin: 0 -8px; }
+.anidoki .doki-popup-season {
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: var(--tjk-radius-sm); cursor: pointer;
+}
+.anidoki .doki-popup-season:hover { background: var(--doki-ground); }
+.anidoki .doki-popup-season[aria-selected="true"] { background: color-mix(in srgb, var(--doki-accent) 20%, transparent); font-weight: 600; }
+.anidoki .doki-popup-season.is-split { padding-left: 20px; }
+.anidoki .doki-popup-season-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.anidoki .doki-popup-season-count { color: var(--doki-muted); font-variant-numeric: tabular-nums; }
+.anidoki .doki-popup-season-group { padding: 8px 8px 2px; color: var(--doki-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.anidoki .doki-popup-dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--tjk-warning); }
+.anidoki .doki-popup-season-menu { display: none; position: relative; }
+
+/* --- Tabs and panels --- */
+.anidoki .doki-popup-tabs { flex: none; display: flex; gap: 4px; box-shadow: inset 0 -1px var(--doki-edge); }
+.anidoki .doki-popup-tab {
+    min-height: 44px; padding: 0 14px; border: 0; background: none; color: var(--doki-muted); font-size: .875rem; font-weight: 600; cursor: pointer;
+}
+.anidoki .doki-popup-tab[aria-selected="true"] { color: var(--doki-text); box-shadow: inset 0 -2px var(--doki-accent); }
+.anidoki .doki-popup-panel {
+    flex: 1; min-height: 0; display: grid; align-content: start; gap: 14px; overflow-y: auto; overscroll-behavior: contain;
+    padding: 16px 0 4px; animation: doki-rise .26s ease both;
+}
+.anidoki .doki-popup-panel:empty { display: none; }
+.anidoki .doki-popup-description { color: var(--doki-muted); font-size: .875rem; }
+.anidoki .doki-popup-status { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 0; }
+.anidoki .doki-popup-status:has(.doki-overview-skeleton) { padding: 0; }
+.anidoki .doki-overview-skeleton { width: 100%; }
+.anidoki .doki-skeleton-tabs { align-items: center; height: 44px; padding: 0 14px; }
+.anidoki .doki-skeleton-overview { animation: none; }
+.anidoki .doki-skeleton-description { display: grid; grid-auto-rows: 1.35rem; align-items: center; }
+.anidoki .doki-skeleton-line { display: block; height: 8px; max-width: 100%; border-radius: var(--tjk-radius-pill); background: var(--doki-edge); }
+.anidoki .doki-skeleton-tabs .doki-skeleton-line { width: 60px; }
+.anidoki .doki-skeleton-description .doki-skeleton-line { width: 94%; }
+.anidoki .doki-skeleton-description .doki-skeleton-line:last-child { width: 65%; }
+.anidoki .doki-popup-loading { color: var(--doki-muted); }
+.anidoki .doki-popup-error { color: var(--tjk-error); font-weight: 600; }
+
+/* --- Header menu: Open on tracker --- */
+.anidoki .doki-popup-menu {
+    position: absolute; inset: calc(100% + 8px) 0 auto; z-index: 5; display: grid; padding: 6px;
+    border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-solid-surface);
+    box-shadow: 0 12px 32px rgb(0 0 0 / .35); animation: doki-rise .26s ease both;
+}
+.anidoki .doki-popup-menu-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--tjk-radius-sm); color: var(--doki-text); text-decoration: none;
+}
+.anidoki .doki-popup-menu-item:hover { background: var(--doki-ground); }
+.anidoki .doki-popup-menu-item .doki-pill-tile { width: 24px; height: 24px; border-radius: 6px; }
+.anidoki .doki-popup-row-heading { font-weight: 600; }
+
+/* --- Tracker pills --- */
+.anidoki .doki-pills { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; }
+.anidoki .doki-tracker-skeleton-pill {
+    display: flex; align-items: center; gap: 10px; width: 208px; max-width: 100%; height: 50px; padding: 0 7px;
+    border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-pill); background: var(--doki-surface);
+}
+.anidoki .doki-tracker-skeleton-pill::before, .anidoki .doki-tracker-skeleton-pill::after {
+    content: ''; display: block; border-radius: var(--tjk-radius-pill); background: var(--doki-edge);
+}
+.anidoki .doki-tracker-skeleton-pill::before { flex: none; width: 34px; height: 34px; }
+.anidoki .doki-tracker-skeleton-pill::after { width: 96px; height: 8px; }
+.anidoki .doki-pill {
+    display: inline-flex; align-items: center; gap: 10px; min-width: 0; min-height: 50px; padding: 0 18px 0 7px; border: 1px solid var(--doki-edge);
+    border-radius: var(--tjk-radius-pill); background: var(--doki-pill); color: var(--doki-text); text-align: left; cursor: pointer;
+}
+.anidoki .doki-pill:hover { background: var(--doki-ground); }
+.anidoki .doki-pill[aria-disabled="true"] { cursor: default; opacity: .7; }
+.anidoki .doki-pill-tile {
+    position: relative; display: grid; flex: 0 0 auto; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #fff;
+}
+.anidoki .doki-pill-tile img { width: 18px; height: 18px; object-fit: contain; }
+.anidoki .doki-pill-tile.is-all { background: #161616; color: #fff; }
+.anidoki .doki-pill-tile.is-all .doki-symbol { width: 18px; height: 18px; }
+.anidoki .doki-pill-dirty { position: absolute; top: 0; right: 0; box-shadow: 0 0 0 2px var(--doki-solid-surface); }
+.anidoki .doki-pill-text { display: grid; gap: 3px; min-width: 0; line-height: 1.2; }
+.anidoki .doki-pill-name { font-size: .875rem; }
+.anidoki .doki-pill-line { display: flex; align-items: center; gap: 8px; color: var(--doki-muted); font-size: .75rem; white-space: nowrap; }
+.anidoki .doki-pill-count { font-variant-numeric: tabular-nums; }
+.anidoki .doki-status-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--doki-muted); }
+.anidoki .doki-status-dot[data-status="Watching"] { background: var(--tjk-success); }
+.anidoki .doki-status-dot[data-status="Completed"] { background: var(--doki-accent); }
+.anidoki .doki-status-dot[data-status="OnHold"] { background: var(--tjk-warning); }
+.anidoki .doki-status-dot[data-status="Dropped"], .anidoki .doki-status-dot[data-status="error"] { background: var(--tjk-error); }
+.anidoki .doki-status-dot[data-status="Mixed"] { background: linear-gradient(90deg, var(--tjk-success) 50%, var(--doki-accent) 50%); }
+.anidoki .doki-bar { position: relative; width: 36px; height: 4px; overflow: hidden; border-radius: 2px; background: color-mix(in srgb, var(--doki-text) 20%, transparent); }
+.anidoki .doki-bar-fill { position: absolute; inset: 0 auto 0 0; background: var(--doki-accent); border-radius: inherit; }
+
+/* Expanded: the other pills shrink to a column of icon tiles on the left of the editor. */
+.anidoki .doki-pills.is-expanded { flex-wrap: nowrap; }
+.anidoki .doki-pill-tiles { display: grid; gap: 8px; }
+.anidoki .doki-pill-icon {
+    display: grid; place-items: center; width: 50px; height: 50px; padding: 0; border: 1px solid var(--doki-edge); border-radius: 50%;
+    background: var(--doki-pill); cursor: pointer;
+}
+.anidoki .doki-pill-icon:hover { background: var(--doki-ground); }
+.anidoki .doki-pill-open {
+    flex: 1; min-width: 0; display: grid; gap: 14px; padding: 7px 16px 14px 7px; border: 1px solid var(--doki-edge);
+    border-radius: 28px; background: var(--doki-surface); interpolate-size: allow-keywords;
+}
+.anidoki .doki-pill-head { width: 100%; min-height: 40px; border: 0; background: none; padding: 0 4px 0 0; }
+.anidoki .doki-pill-head:hover { background: none; }
+.anidoki .doki-pill-chevron {
+    flex: none; width: 16px; height: 16px; margin-left: auto; background: currentColor; color: var(--doki-muted);
+    -webkit-mask: var(--doki-chevron) center / contain no-repeat; mask: var(--doki-chevron) center / contain no-repeat;
+    --doki-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 15l6-6 6 6'/%3E%3C/svg%3E");
+}
+.anidoki .doki-pill-difference { margin-left: 14px; color: var(--doki-muted); font-size: .8125rem; line-height: 1.35; }
+.anidoki .doki-pill-open:has(> .doki-pill-note) { row-gap: 8px; }
+.anidoki .doki-pill-note {
+    margin-left: 44px; padding: 6px 10px; font-size: .8125rem;
+    border-color: color-mix(in srgb, var(--tjk-warning) 55%, transparent);
+    background: color-mix(in srgb, var(--tjk-warning) 10%, transparent);
+}
+.anidoki .doki-editor-row { margin-left: 44px; }
+
+/* --- Editor rows --- */
+.anidoki .doki-editor-fields { display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: flex-end; }
+.anidoki .doki-editor-field { display: grid; gap: 6px; min-width: 0; }
+.anidoki .doki-editor-field-label { color: var(--doki-muted); font-size: .8125rem; }
+.anidoki .doki-select, .anidoki .doki-input {
+    min-height: 40px; padding: 6px 12px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-ground); color: var(--doki-text);
+}
+.anidoki .doki-select { min-width: 170px; }
+.anidoki .doki-input { width: 88px; }
+.anidoki .doki-stepper { display: flex; align-items: center; gap: 12px; }
+.anidoki .doki-step {
+    display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--doki-edge); border-radius: 50%;
+    background: var(--doki-ground); color: var(--doki-text); cursor: pointer;
+}
+.anidoki .doki-step::before, .anidoki .doki-rating-choice::before, .anidoki .doki-sync-icon {
+    content: ''; width: 16px; height: 16px; background: currentColor;
+    -webkit-mask: var(--doki-icon) center / contain no-repeat; mask: var(--doki-icon) center / contain no-repeat;
+}
+.anidoki .doki-step:disabled { opacity: .4; cursor: default; }
+.anidoki .doki-step-value { min-width: 64px; text-align: center; font-variant-numeric: tabular-nums; }
+.anidoki .doki-step-value strong { font-size: 1.25rem; }
+.anidoki .doki-step-total, .anidoki .doki-rating-scale { color: var(--doki-muted); }
+.anidoki .doki-rating-number { display: inline-flex; align-items: center; gap: 8px; }
+.anidoki .doki-rating-scale { white-space: nowrap; }
+.anidoki .doki-rating-choices { display: inline-flex; gap: 4px; }
+.anidoki .doki-rating-choice {
+    display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: var(--tjk-radius-md);
+    background: none; color: var(--doki-muted); cursor: pointer;
+}
+.anidoki .doki-rating-choice::before { width: 24px; height: 24px; }
+.anidoki .doki-rating-choice:hover { background: var(--doki-ground); }
+.anidoki .is-stars .doki-rating-choice.is-on { color: var(--tjk-warning); }
+.anidoki .is-faces .doki-rating-choice.is-on { color: var(--doki-text); background: var(--doki-ground); }
+.anidoki [data-icon="minus"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="plus"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M5 12h14M12 5v14'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="star"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="face-1"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M8 16.5c2.2-2 5.8-2 8 0M9 10h.01M15 10h.01'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="face-2"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M8.5 15h7M9 10h.01M15 10h.01'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="face-3"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M8 13.5c2.2 2.4 5.8 2.4 8 0M9 10h.01M15 10h.01'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="up"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 19V5M6 11l6-6 6 6'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="down"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M6 13l6 6 6-6'/%3E%3C/svg%3E"); }
+
+/* Episode progress: the tracker's count as a draggable bar, Jellyfin's played count as a white tick on the same track. */
+.anidoki .doki-editor-progress { display: grid; gap: 8px; }
+.anidoki .doki-track { --doki-thumb-radius: 9px; position: relative; display: flex; align-items: center; height: calc(2 * var(--doki-thumb-radius) + 8px); }
+/* Native thumb centers travel from one radius inside the track to one radius before its end. */
+.anidoki :is(.doki-range, .doki-track-tick) {
+    --doki-progress-position: calc(var(--doki-thumb-radius) + (100% - 2 * var(--doki-thumb-radius)) * var(--doki-progress));
+}
+.anidoki .doki-range {
+    width: 100%; height: 6px; margin: 0; padding: 0; border: 0; border-radius: 3px; appearance: none; -webkit-appearance: none; cursor: pointer;
+    background: linear-gradient(to right, var(--doki-accent) var(--doki-progress-position), var(--doki-pill) var(--doki-progress-position));
+}
+.anidoki .doki-range::-webkit-slider-thumb { width: calc(2 * var(--doki-thumb-radius)); height: calc(2 * var(--doki-thumb-radius)); border: 0; border-radius: 50%; background: var(--doki-accent); -webkit-appearance: none; }
+.anidoki .doki-range::-moz-range-thumb { width: calc(2 * var(--doki-thumb-radius)); height: calc(2 * var(--doki-thumb-radius)); border: 0; border-radius: 50%; background: var(--doki-accent); }
+.anidoki .doki-range:disabled { cursor: default; opacity: 1; }
+.anidoki .doki-track-tick { position: absolute; inset-block: 1px; left: var(--doki-progress-position); width: 3px; margin-left: -1.5px; border-radius: 2px; background: #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .35); pointer-events: none; }
+.anidoki .doki-track-key { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--doki-muted); font-size: .8125rem; }
+.anidoki .doki-track-key-item { display: inline-flex; align-items: center; gap: 8px; }
+.anidoki .doki-track-key-item.is-tracker::before { content: ''; width: 10px; height: 10px; border-radius: 2px; background: var(--doki-accent); }
+.anidoki .doki-track-key-item.is-jellyfin::before { content: ''; width: 3px; height: 12px; border-radius: 2px; background: #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .35); }
+
+/* --- Cards: changed on the tracker, could not save --- */
+.anidoki .doki-card {
+    display: grid; gap: 6px; margin-left: 52px; padding: 12px 14px; border: 1px solid var(--doki-edge); border-left: 3px solid var(--tjk-warning);
+    border-radius: var(--tjk-radius-md); background: color-mix(in srgb, var(--tjk-warning) 8%, transparent);
+}
+.anidoki .doki-card.is-failed { border-left-color: var(--tjk-error); background: color-mix(in srgb, var(--tjk-error) 8%, transparent); }
+.anidoki .doki-card.is-unconfirmed { border-left-color: var(--doki-muted); background: var(--doki-surface); }
+.anidoki .doki-card-body { color: var(--doki-muted); font-size: .875rem; }
+.anidoki .doki-card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.anidoki .doki-card-action { min-height: 36px; padding: 6px 14px; }
+
+/* --- Footer: notes and the two sync buttons --- */
+.anidoki .doki-editor-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-left: 0; padding: 12px 0 0 9px; border-top: 1px solid var(--doki-edge); }
+.anidoki .doki-editor-notes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; min-width: 0; }
+.anidoki .doki-editor-warning { color: color-mix(in srgb, var(--tjk-warning) 80%, var(--doki-text)); font-size: .875rem; }
+.anidoki .doki-editor-status { color: var(--doki-muted); font-size: .875rem; }
+.anidoki .doki-editor-status:empty { display: none; }
+.anidoki .doki-mark-complete { min-height: 36px; padding: 6px 14px; }
+.anidoki .doki-sync-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; }
+.anidoki .doki-sync-wrap { position: relative; }
+/* The editor board uses outlined rectangular buttons for both sync directions. */
+.anidoki .doki-sync {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px 0 12px; border: 1px solid var(--doki-edge);
+    border-radius: var(--tjk-radius-md); background: var(--doki-solid-surface); color: var(--doki-text);
+    font-size: .8125rem; font-weight: 700; white-space: nowrap; cursor: pointer;
+}
+.anidoki .doki-sync:not([aria-disabled="true"]):hover { background: var(--doki-pill); }
+.anidoki .doki-sync[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+.anidoki .doki-tooltip {
+    position: absolute; inset: auto 0 calc(100% + 8px) auto; z-index: 5; width: max-content; max-width: 280px; padding: 6px 10px;
+    border-radius: var(--tjk-radius-sm); background: #161616; color: #fff; font-size: .8125rem; line-height: 1.4; pointer-events: none;
+    opacity: 0; transform: translateY(4px); transition: opacity .16s ease, transform .16s ease;
+}
+.anidoki .doki-sync-wrap:hover .doki-tooltip, .anidoki .doki-sync-wrap:focus-within .doki-tooltip { opacity: 1; transform: none; }
+
+/* --- Pill motion: real sizes grow from the closed pill, rows fade in after (no scaling, so text never stretches). --- */
+@keyframes doki-pill-grow { from { height: 50px; } }
+@keyframes doki-pill-shrink-in { from { opacity: 0; transform: scale(.6); } }
+@keyframes doki-pill-slide-in { from { opacity: 0; transform: translateX(-12px); } }
+@keyframes doki-row-in { from { opacity: 0; transform: translateY(6px); } }
+.anidoki .doki-pills.is-opening .doki-pill-open { overflow: hidden; animation: doki-pill-grow .66s cubic-bezier(.2, .8, .2, 1) both; }
+.anidoki .doki-pills.is-opening .doki-pill-open > :nth-child(n + 2) { animation: doki-row-in .3s ease both; }
+.anidoki .doki-pills.is-opening .doki-pill-open > :nth-child(2) { animation-delay: .18s; }
+.anidoki .doki-pills.is-opening .doki-pill-open > :nth-child(3) { animation-delay: .26s; }
+.anidoki .doki-pills.is-opening .doki-pill-open > :nth-child(n + 4) { animation-delay: .34s; }
+.anidoki .doki-pills:is(.is-opening, .is-switching) .doki-pill-icon { animation: doki-pill-shrink-in .42s cubic-bezier(.2, .8, .2, 1) both; }
+.anidoki .doki-pills.is-switching .doki-pill-open > :nth-child(n + 2) { animation: doki-row-in .26s ease both; }
+.anidoki .doki-pills.is-closing .doki-pill { animation: doki-pill-slide-in .32s ease both; }
+
+/* --- Below 900px (D10): the whole viewport, a small poster beside the title, the boxes after the Overview. --- */
+@media (max-width: 899px) {
+    .anidoki.doki-popup-scrim { padding: 0; }
+    .anidoki .doki-popup { width: 100%; height: 100%; border: 0; border-radius: 0; }
+    .anidoki .doki-popup-hero { height: 220px; }
+    .anidoki .doki-popup-layout {
+        grid-template-columns: 92px minmax(0, 1fr); grid-template-rows: auto; gap: 0 16px;
+        height: auto; min-height: 0; padding: 150px 16px 24px;
+        grid-template-areas: "poster title" "poster meta" "tabs tabs" "status status" "overview overview" "details details";
+    }
+    .anidoki :is(.doki-popup-side, .doki-popup-main) { display: contents; }
+    .anidoki .doki-popup-poster { grid-area: poster; width: 92px; align-self: start; }
+    .anidoki .doki-popup-title { grid-area: title; min-height: 70px; }
+    .anidoki .doki-popup-logo { max-height: 110px; }
+    .anidoki .doki-popup-main .doki-popup-meta { grid-area: meta; margin-bottom: 0; }
+    .anidoki .doki-popup-tabs { grid-area: tabs; margin-top: 14px; }
+    .anidoki .doki-popup-status { grid-area: status; }
+    .anidoki .doki-popup-panel { grid-area: overview; overflow: visible; }
+    .anidoki .doki-popup-details { grid-area: details; margin-top: 20px; }
+    .anidoki .doki-popup-seasons { display: none; }
+    .anidoki .doki-popup-season-menu { display: block; }
+    .anidoki .doki-pills { display: grid; }
+    .anidoki :is(.doki-pill, .doki-tracker-skeleton-pill) { width: 100%; }
+    .anidoki .doki-pills.is-expanded { display: grid; }
+    .anidoki .doki-pill-tiles { display: flex; flex-wrap: wrap; }
+    .anidoki .doki-pill-icon { width: 48px; height: 48px; }
+    .anidoki :is(.doki-editor-row, .doki-card, .doki-pill-note) { margin-left: 0; }
+    .anidoki .doki-pill-open { padding: 8px 16px 16px; border-radius: 22px; }
+    .anidoki .doki-sync-actions { width: 100%; margin-left: 0; }
+    .anidoki .doki-sync-wrap { flex: 1; }
+    .anidoki .doki-sync { width: 100%; justify-content: center; }
+    .anidoki .doki-popup-season-button {
+        display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 14px;
+        border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-ground); color: var(--doki-text); cursor: pointer;
+    }
+    .anidoki .doki-popup-season-button-label { color: var(--doki-muted); }
+    .anidoki .doki-popup-season-menu .doki-popup-season-list {
+        position: absolute; inset: calc(100% + 6px) 0 auto; z-index: 4; max-height: 280px; overflow: auto; padding: 6px;
+        border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-solid-surface);
+        box-shadow: 0 12px 32px rgb(0 0 0 / .35); animation: doki-rise .26s ease both;
+    }
+}
+
+@media (max-width: 540px) {
+    .anidoki .doki-pill-head { flex-wrap: wrap; }
+    .anidoki .doki-pill-difference { order: 1; width: 100%; margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .anidoki.doki-popup-scrim, .anidoki.doki-popup-scrim * { animation: none !important; transition: none !important; }
+}

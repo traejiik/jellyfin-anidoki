@@ -23,6 +23,8 @@ public sealed record SeriesViewContract(
     [property: JsonPropertyName("communityRating")] float? CommunityRating,
     [property: JsonPropertyName("officialRating")] string? OfficialRating,
     [property: JsonPropertyName("status")] string? Status,
+    [property: JsonPropertyName("overview")] string? Overview,
+    [property: JsonPropertyName("premiereDate")] DateTime? PremiereDate,
     [property: JsonPropertyName("images")] IReadOnlyList<string> Images,
     [property: JsonPropertyName("episodeCount")] int EpisodeCount,
     [property: JsonPropertyName("defaultSeason")] string? DefaultSeason,

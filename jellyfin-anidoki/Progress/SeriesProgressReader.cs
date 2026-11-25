@@ -29,27 +29,37 @@ public sealed class SeriesProgressReader(ISeriesItems items, IMatchLibrary libra
             return null;
 
         IReadOnlyDictionary<ApiName, Guid> links = trackers.Links(userId);
-        var accounts = new List<TrackerAccountContract>();
-        var owned = new List<ITrackerProvider>();
+        var watchedBySeason = sources.Select(source => watchState.Watched(source.Last, userId)).ToArray();
+        var reads = new List<Task<(TrackerAccountContract Account, List<SeasonTrackerContract> Rows)>>();
         foreach (var (provider, generation) in links.OrderBy(link => link.Key)) {
-            if (trackers.ForOwner(userId, provider) is not { } tracker)
-                continue;
-            owned.Add(tracker);
-            accounts.Add(new TrackerAccountContract(provider, tracker.Capabilities.SupportsScore, await Format(userId, generation, tracker, cancellationToken)));
+            if (trackers.ForOwner(userId, provider) is { } tracker)
+                reads.Add(ReadTracker(tracker, generation));
         }
 
+        // Overlap independent trackers while keeping one request at a time per tracker.
+        var results = await Task.WhenAll(reads);
         var seasons = new List<SeasonViewContract>();
-        foreach (LibrarySource source in sources) {
-            IReadOnlyList<WatchedEpisode> watched = watchState.Watched(source.Last, userId);
-            var rows = new List<SeasonTrackerContract>();
-            foreach (ITrackerProvider tracker in owned)
-                rows.Add(await Row(item, source, watched, userId, tracker, applySavedMatches, cancellationToken));
+        for (int index = 0; index < sources.Count; index++) {
+            LibrarySource source = sources[index];
+            IReadOnlyList<WatchedEpisode> watched = watchedBySeason[index];
             seasons.Add(new SeasonViewContract(source.Info.SourceKey, SourceKeys.Parse(source.Info.SourceKey)?.SeasonNumber, source.Episodes,
-                watched.Select(episode => episode.Number).Distinct().Order().ToList(), watched.Max(episode => episode.LastPlayed), rows));
+                watched.Select(episode => episode.Number).Distinct().Order().ToList(), watched.Max(episode => episode.LastPlayed),
+                results.Select(result => result.Rows[index]).ToList()));
         }
 
         return new SeriesViewContract(item.Id, item.Name, item.IsMovie, item.Year, item.EndYear, item.CommunityRating, item.OfficialRating, item.Status,
-            item.Images, sources.Sum(source => source.Episodes.Count), DefaultSeason(item, seasons), matchesLinkAvailable, accounts, seasons);
+            item.Overview, item.PremiereDate, item.Images, sources.Sum(source => source.Episodes.Count), DefaultSeason(item, seasons),
+            matchesLinkAvailable, results.Select(result => result.Account).ToList(), seasons);
+
+        async Task<(TrackerAccountContract, List<SeasonTrackerContract>)> ReadTracker(ITrackerProvider tracker, Guid generation) {
+            var account = new TrackerAccountContract(tracker.Name, tracker.Capabilities.SupportsScore, await Format(userId, generation, tracker, cancellationToken));
+            var rows = new List<SeasonTrackerContract>(sources.Count);
+            for (int index = 0; index < sources.Count; index++) {
+                cancellationToken.ThrowIfCancellationRequested();
+                rows.Add(await Row(item, sources[index], watchedBySeason[index], userId, tracker, applySavedMatches, cancellationToken));
+            }
+            return (account, rows);
+        }
     }
 
     /// <summary>The seasons of the item the user syncs, in order.</summary>
