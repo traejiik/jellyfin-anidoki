@@ -54,6 +54,24 @@ function setup({ href = `http://jf/web/index.html#/details?id=${seriesId}`, avai
 
 const dialog = doc => doc.querySelector('[role=dialog]');
 
+test('the popup uses the host theme layers without the item backdrop', async () => {
+    const env = setup();
+    const backdrop = env.doc.createElement('div');
+    backdrop.className = 'backgroundContainer withBackdrop';
+    env.doc.body.append(backdrop);
+    env.win.getComputedStyle = element => ({
+        background: element === env.doc.documentElement ? 'rgb(16, 16, 16)' :
+            element === backdrop ? 'url(item-art.jpg)' : element.className === 'backgroundContainer' ? 'rgba(17, 14, 30, 0.74)' : 'transparent',
+        opacity: '1'
+    });
+
+    const popup = await openPopup(env);
+    const background = dialog(env.doc).querySelector('.doki-popup-background');
+    assert.deepEqual(Array.from(background.children, layer => layer.style.background), ['rgb(16, 16, 16)', 'transparent', 'rgba(17, 14, 30, 0.74)']);
+    assert.equal(env.doc.querySelectorAll('.backgroundContainer').length, 1);
+    popup.dispose();
+});
+
 test('button appears once on an anime item page', async () => {
     const env = setup();
     const popup = startProgressPopup(env.win, env.doc);

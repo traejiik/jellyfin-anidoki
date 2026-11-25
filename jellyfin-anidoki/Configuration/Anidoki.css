@@ -38,8 +38,8 @@
 }
 .doki-content-shell { overflow: visible !important; }
 .anidoki {
-    --doki-text: var(--tjk-text);
-    --doki-muted: var(--tjk-muted);
+    --doki-text: var(--textColor, var(--main-text, var(--tjk-text)));
+    --doki-muted: var(--dimTextColor, var(--dimmer-text, var(--tjk-muted)));
     /* Quieter than muted, for counts and hints beside headings. */
     --doki-faint: color-mix(in srgb, var(--doki-muted) 78%, transparent);
     --doki-ground: color-mix(in srgb, var(--doki-text) 7%, transparent);
@@ -47,8 +47,8 @@
     --doki-pill: color-mix(in srgb, var(--doki-text) 11%, transparent);
     --doki-solid-surface: var(--selectorBackgroundColor, color-mix(in srgb, var(--jf-palette-background-paper, #202020), var(--doki-text) 8%));
     --doki-edge: var(--tjk-edge);
-    --doki-accent: var(--tjk-accent);
-    --doki-action: var(--tjk-action);
+    --doki-accent: var(--accentColor, var(--uiAccentColor, var(--primary-accent-color, var(--accent100, var(--blue-color, var(--doki-theme-accent, var(--tjk-accent)))))));
+    --doki-action: var(--btnSubmitColor, color-mix(in srgb, var(--doki-accent) 75%, #000));
     --doki-selection: color-mix(in srgb, var(--accentHoverColor, var(--doki-action)) 92%, #000);
     --doki-on-accent: var(--tjk-on-accent);
     --doki-page: var(--jf-palette-background-default, #101010);

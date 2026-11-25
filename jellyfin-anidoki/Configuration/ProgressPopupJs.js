@@ -1,3 +1,4 @@
+import { followThemeAccent } from './common.js';
 import { providerName } from './outcome-lines.js';
 import {
     buildRows, defaultRow, rowTargets, editableTargets, savedState, pillSummary, allSummary, airedLabel, seriesStatusLabel, entryUrl, faceNames, editorModel,
@@ -214,6 +215,28 @@ export function startProgressPopup(win = window, doc = document) {
         return element;
     }
 
+    function popupBackground() {
+        const host = doc.querySelector('.backgroundContainer')?.parentElement;
+        if (!host || !win.getComputedStyle)
+            return null;
+
+        // Sample Jellyfin's settings-page background without the item page's withBackdrop class or inline styles.
+        const probe = node('div', 'backgroundContainer');
+        probe.style.display = 'none';
+        host.append(probe);
+        const background = node('div', 'doki-popup-background');
+        background.setAttribute('aria-hidden', 'true');
+        for (const source of [doc.documentElement, doc.body, probe]) {
+            const style = win.getComputedStyle(source);
+            const layer = node('div', '');
+            layer.style.background = style.background;
+            layer.style.opacity = style.opacity;
+            background.append(layer);
+        }
+        probe.remove();
+        return background;
+    }
+
     function build(current) {
         const scrim = node('div', 'anidoki doki-popup-scrim');
         const panel = node('section', 'doki-popup');
@@ -290,6 +313,9 @@ export function startProgressPopup(win = window, doc = document) {
         main.append(titleBlock, meta, tabs, status, overview);
         layout.append(side, main);
         body.append(hero, layout);
+        const background = popupBackground();
+        if (background)
+            panel.append(background);
         panel.append(header, body);
         scrim.append(panel);
 
@@ -311,6 +337,7 @@ export function startProgressPopup(win = window, doc = document) {
         Object.assign(current, { scrim, panel, crumb, unsaved, openOn, hero, poster, details, detailsSkeleton, seasons, logo, title, meta, seasonMenu, tabs, overview, status });
         doc.documentElement.classList?.add('doki-popup-open');
         doc.body.append(scrim);
+        followThemeAccent(scrim, current.controller.signal, win);
         title.focus({ preventScroll: true });
     }
 

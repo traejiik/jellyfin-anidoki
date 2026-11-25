@@ -21,11 +21,13 @@ html.doki-popup-open { overflow: hidden; }
     animation: doki-scrim-in .34s ease both;
 }
 .anidoki .doki-popup {
-    position: relative; display: flex; flex-direction: column; width: min(1168px, 100%); height: min(736px, 100%); overflow: hidden;
-    border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-lg); background: var(--doki-solid-surface); color: var(--doki-text);
+    position: relative; isolation: isolate; display: flex; flex-direction: column; width: min(1168px, 100%); height: min(736px, 100%); overflow: hidden;
+    border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-lg); background: var(--backgroundGradient, var(--doki-page)); color: var(--doki-text);
     box-shadow: 0 20px 60px rgb(0 0 0 / .5);
     animation: doki-popup-in .34s cubic-bezier(.2, .8, .2, 1) both;
 }
+.anidoki .doki-popup-background { position: absolute; inset: 0; z-index: -1; background: Canvas; pointer-events: none; }
+.anidoki .doki-popup-background > div { position: absolute; inset: 0; }
 .anidoki.doki-popup-scrim.is-closing { animation: doki-scrim-out .2s ease both; }
 .anidoki.doki-popup-scrim.is-closing .doki-popup { animation: doki-popup-out .2s ease both; }
 @keyframes doki-scrim-in { from { background: rgb(0 0 0 / 0); } }
@@ -73,11 +75,13 @@ html.doki-popup-open { overflow: hidden; }
 
 /* --- Body: backdrop, poster, title --- */
 .anidoki .doki-popup-body { position: relative; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
-.anidoki .doki-popup-hero { position: absolute; inset: 0 0 auto; height: 300px; background: center 25% / cover no-repeat var(--doki-solid-surface); }
+.anidoki .doki-popup-hero {
+    position: absolute; inset: 0 0 auto; height: 300px; background: center 25% / cover no-repeat;
+    mask-image: linear-gradient(to bottom, black calc(100% - 200px), transparent);
+}
 .anidoki .doki-popup-hero::after {
     content: ''; position: absolute; inset: 0;
-    background: linear-gradient(to bottom, rgb(0 0 0 / .45), transparent 90px),
-        linear-gradient(to bottom, transparent calc(100% - 200px), var(--doki-solid-surface));
+    background: linear-gradient(to bottom, rgb(0 0 0 / .45), transparent 90px);
 }
 .anidoki .doki-popup-layout {
     position: relative; z-index: 1; display: grid; grid-template-columns: 184px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 28px;
