@@ -49,6 +49,27 @@ public sealed class SeriesProgressController(SeriesProgressReader reader, EntryE
         return items.Find(itemId, user) is { } item && trackers.Links(user).Count > 0 && reader.Sources(item, user).Count > 0 ? NoContent() : NotFound();
     }
 
+    /// <summary>Returns the series header from Jellyfin without waiting for any tracker reads.</summary>
+    [HttpGet("series/{itemId:guid}/summary")]
+    public ActionResult Summary(Guid itemId) {
+        if (!ConfigHelper.UserPagesEnabled())
+            return NotFound();
+        if (Me() is not { } user)
+            return Unauthorized();
+        if (items.Find(itemId, user) is not { } item || reader.Sources(item, user).Count == 0)
+            return NotFound();
+        return Ok(new {
+            id = item.Id,
+            name = item.Name,
+            images = item.Images,
+            year = item.Year,
+            endYear = item.EndYear,
+            communityRating = item.CommunityRating,
+            officialRating = item.OfficialRating,
+            status = item.Status
+        });
+    }
+
     /// <summary>
     /// D4: saves the popup's pending edits as one Edit operation. Every edit is checked first; nothing runs if any fails.
     /// Read the results with <see cref="ReadEdit"/>.

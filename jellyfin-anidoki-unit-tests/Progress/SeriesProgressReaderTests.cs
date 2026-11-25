@@ -1,11 +1,13 @@
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Progress;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki_unit_tests.Matching;
+using Moq;
 using NUnit.Framework;
 using static jellyfin_anidoki_unit_tests.Matching.MatchTestSupport;
 
@@ -91,6 +93,30 @@ public class SeriesProgressReaderTests {
 
         Assert.That(account.SupportsScore, Is.False);
         Assert.That(account.ScoreFormat, Is.Null);
+    }
+
+    [Test]
+    public async Task ASlowTrackerDoesNotDelayReadingAnotherTracker() {
+        _fixture.Match.Automatic.Answer = new(null, "no-ids");
+        var pending = new TaskCompletionSource<ScoreFormat?>();
+        var aniList = new Mock<ITrackerProvider>();
+        aniList.SetupGet(tracker => tracker.Name).Returns(ApiName.AniList);
+        aniList.SetupGet(tracker => tracker.Capabilities).Returns(ProviderCapabilities.For(ApiName.AniList));
+        aniList.Setup(tracker => tracker.ReadScoreFormat(It.IsAny<CancellationToken>())).Returns(pending.Task);
+        var kitsu = new Mock<ITrackerProvider>();
+        kitsu.SetupGet(tracker => tracker.Name).Returns(ApiName.Kitsu);
+        kitsu.SetupGet(tracker => tracker.Capabilities).Returns(ProviderCapabilities.For(ApiName.Kitsu));
+        kitsu.Setup(tracker => tracker.ReadScoreFormat(It.IsAny<CancellationToken>())).ReturnsAsync((ScoreFormat?)null);
+        _fixture.Match.Trackers.Link(_fixture.Alice, aniList.Object);
+        _fixture.Match.Trackers.Link(_fixture.Alice, kitsu.Object);
+
+        Task<SeriesViewContract?> read = _fixture.Read();
+        try {
+            kitsu.Verify(tracker => tracker.ReadScoreFormat(It.IsAny<CancellationToken>()), Times.Once);
+        } finally {
+            pending.SetResult(null);
+            await read;
+        }
     }
 
     [Test]

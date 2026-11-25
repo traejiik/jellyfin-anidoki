@@ -94,8 +94,10 @@ export function startProgressPopup(win = window, doc = document) {
 
     function itemButton() {
         const element = button('button-flat detailButton emby-button doki-item-button', null, 'AniDōki: this series on your trackers');
+        element.setAttribute('is', 'emby-button');
+        element.setAttribute('aria-haspopup', 'dialog');
         element.title = 'AniDōki';
-        const content = node('div', 'detailButton-content'), icon = node('span', 'detailButton-icon doki-item-button-icon');
+        const content = node('div', 'detailButton-content'), icon = node('span', 'material-icons detailButton-icon doki-item-button-icon');
         icon.setAttribute('aria-hidden', 'true');
         content.append(icon);
         element.append(content);
@@ -142,6 +144,7 @@ export function startProgressPopup(win = window, doc = document) {
             current.pushed = true;
         }
         build(current);
+        loadSummary(current);
         load(current);
     }
 
@@ -223,7 +226,7 @@ export function startProgressPopup(win = window, doc = document) {
         symbol.setAttribute('aria-hidden', 'true');
         const crumbs = node('nav', 'doki-popup-crumbs');
         crumbs.setAttribute('aria-label', 'Breadcrumb');
-        const crumb = node('span', 'doki-popup-crumb', '');
+        const crumb = node('span', 'doki-popup-crumb', 'AniDōki');
         crumb.setAttribute('aria-current', 'page');
         crumbs.append(crumb);
         const unsaved = node('p', 'doki-popup-unsaved', 'Unsaved changes');
@@ -249,9 +252,14 @@ export function startProgressPopup(win = window, doc = document) {
         const details = node('dl', 'doki-popup-details');
         details.setAttribute('aria-label', 'Series details');
         details.hidden = true;
+        const detailsSkeleton = node('div', 'doki-popup-details doki-details-skeleton');
+        detailsSkeleton.setAttribute('aria-hidden', 'true');
+        detailsSkeleton.hidden = true;
+        for (let row = 0; row < 4; row++)
+            detailsSkeleton.append(node('span', 'doki-skeleton-line'), node('span', 'doki-skeleton-line'));
         const seasons = node('div', 'doki-popup-seasons');
         seasons.hidden = true;
-        side.append(poster, details, seasons);
+        side.append(poster, details, detailsSkeleton, seasons);
         const main = node('div', 'doki-popup-main');
         const titleBlock = node('div', 'doki-popup-title');
         const logo = node('img', 'doki-popup-logo');
@@ -267,6 +275,7 @@ export function startProgressPopup(win = window, doc = document) {
         const tabs = node('div', 'doki-popup-tabs');
         tabs.setAttribute('role', 'tablist');
         tabs.setAttribute('aria-label', 'Sections');
+        tabs.hidden = true;
         const overviewTab = button('doki-popup-tab', 'Overview');
         overviewTab.setAttribute('role', 'tab');
         overviewTab.setAttribute('aria-selected', 'true');
@@ -299,15 +308,37 @@ export function startProgressPopup(win = window, doc = document) {
                 finish(current, true);
         }, { signal });
 
-        Object.assign(current, { scrim, panel, crumb, unsaved, openOn, hero, poster, details, seasons, logo, title, meta, seasonMenu, tabs, overview, status });
+        Object.assign(current, { scrim, panel, crumb, unsaved, openOn, hero, poster, details, detailsSkeleton, seasons, logo, title, meta, seasonMenu, tabs, overview, status });
         doc.documentElement.classList?.add('doki-popup-open');
         doc.body.append(scrim);
         title.focus({ preventScroll: true });
     }
 
+    async function loadSummary(current) {
+        try {
+            const result = await request(`AniDoki/user/progress/series/${encodeURIComponent(current.itemId)}/summary`, { abort: current.controller.signal });
+            if (result.ok && result.data?.name && current === popup && !current.closing && !current.view)
+                renderSeriesHeader(current, result.data);
+        } catch {
+            // The full view also carries the artwork and title.
+        }
+    }
+
     async function load(current) {
-        current.status.replaceChildren(node('p', 'doki-popup-loading', 'Loading…'));
+        const skeleton = node('div', 'doki-overview-skeleton');
+        skeleton.setAttribute('aria-hidden', 'true');
+        const tabs = node('div', 'doki-popup-tabs doki-skeleton-tabs');
+        tabs.append(node('span', 'doki-skeleton-line'));
+        const overview = node('div', 'doki-popup-panel doki-skeleton-overview');
+        const description = node('div', 'doki-skeleton-description');
+        description.append(node('span', 'doki-skeleton-line'), node('span', 'doki-skeleton-line'));
+        const pills = node('div', 'doki-pills');
+        pills.append(node('span', 'doki-tracker-skeleton-pill'), node('span', 'doki-tracker-skeleton-pill'));
+        overview.append(description, pills);
+        skeleton.append(tabs, overview);
+        current.status.replaceChildren(node('p', 'doki-sr-only', 'Loading tracker progress…'), skeleton);
         current.status.hidden = false;
+        current.detailsSkeleton.hidden = false;
         try {
             const result = await request(`AniDoki/user/progress/series/${encodeURIComponent(current.itemId)}`, { abort: current.controller.signal });
             if (current !== popup || current.closing)
@@ -321,6 +352,8 @@ export function startProgressPopup(win = window, doc = document) {
             const retry = button('doki-button doki-popup-retry', 'Try again');
             retry.addEventListener('click', () => load(current), { signal });
             current.status.replaceChildren(node('p', 'doki-popup-error', "Couldn't load this series"), retry);
+        } finally {
+            current.detailsSkeleton.hidden = true;
         }
     }
 
@@ -367,6 +400,7 @@ export function startProgressPopup(win = window, doc = document) {
         adopt(current, view);
         current.status.replaceChildren();
         current.status.hidden = true;
+        current.tabs.hidden = false;
         render(current);
     }
 
@@ -386,13 +420,28 @@ export function startProgressPopup(win = window, doc = document) {
 
     function render(current) {
         const view = current.view;
-        current.crumb.textContent = view.name;
         current.unsaved.hidden = !anyDirty(current.drafts);
+        renderSeriesHeader(current, view);
+        renderDetails(current);
+        renderSeasons(current);
+        renderHeaderLinks(current);
+        renderOverview(current);
+    }
+
+    function renderSeriesHeader(current, view) {
+        renderArtwork(current, view);
+        renderMeta(current, view);
+    }
+
+    function renderArtwork(current, view) {
+        current.crumb.textContent = view.name;
         current.title.textContent = view.name;
+        if (current.artworkId === view.id)
+            return;
+        current.artworkId = view.id;
         const images = new Set(view.images ?? []);
-        if (images.has('Backdrop'))
-            current.hero.style.backgroundImage = `url("${imageUrl(view.id, 'Backdrop', { maxWidth: 1600 })}")`;
-        current.hero.classList.toggle('has-backdrop', images.has('Backdrop'));
+        current.hero.style.backgroundImage = images.has('Backdrop')
+            ? `url("${imageUrl(view.id, 'Backdrop', { maxWidth: 1600 })}")` : '';
         current.poster.replaceChildren();
         if (images.has('Primary')) {
             const img = node('img', '');
@@ -400,19 +449,19 @@ export function startProgressPopup(win = window, doc = document) {
             img.src = imageUrl(view.id, 'Primary', { maxHeight: 552 });
             current.poster.append(img);
         }
-        current.logo.hidden = !images.has('Logo');
-        if (images.has('Logo'))
+        current.logo.hidden = true;
+        current.title.classList.remove('doki-sr-only');
+        if (images.has('Logo')) {
+            current.logo.addEventListener('load', () => {
+                current.logo.hidden = false;
+                current.title.classList.add('doki-sr-only');
+            }, { once: true, signal: current.controller.signal });
             current.logo.src = imageUrl(view.id, 'Logo', { maxWidth: 720 });
-        current.title.classList.toggle('doki-sr-only', images.has('Logo'));
-        renderMeta(current);
-        renderDetails(current);
-        renderSeasons(current);
-        renderHeaderLinks(current);
-        renderOverview(current);
+        }
     }
 
-    function renderMeta(current) {
-        const view = current.view, items = [];
+    function renderMeta(current, view) {
+        const items = [];
         if (view.year)
             items.push(node('span', 'doki-popup-meta-item', view.endYear && view.endYear !== view.year ? `${view.year}–${view.endYear}` : `${view.year}`));
         if (view.communityRating) {
@@ -536,14 +585,14 @@ export function startProgressPopup(win = window, doc = document) {
 
     function renderHeaderLinks(current) {
         const view = current.view, fromSeriesPage = current.fromItemPage && current.itemId === view.id;
-        const links = [];
+        const links = trackerLinks(current);
         if (!fromSeriesPage) {
             const jellyfin = chip('a', 'doki-popup-open-jellyfin', 'Open in Jellyfin', 'jellyfin');
             jellyfin.setAttribute('href', `#/details?id=${encodeURIComponent(view.id)}`);
             jellyfin.addEventListener('click', () => close({ replace: true }), { signal });
             links.push(jellyfin);
         }
-        current.openOn.replaceChildren(...links, ...trackerLinks(current));
+        current.openOn.replaceChildren(...links);
     }
 
     /** Open on <tracker>: follows the expanded pill; with none or All trackers open, a menu of the linked trackers. */
@@ -562,7 +611,7 @@ export function startProgressPopup(win = window, doc = document) {
         if (!targets.length)
             return [];
         const wrap = node('div', 'doki-popup-menu-wrap');
-        const toggle = chip('button', 'doki-popup-open-tracker', 'Open on tracker', 'external');
+        const toggle = chip('button', 'doki-popup-open-tracker', 'Open on tracker', 'dropdown');
         toggle.setAttribute('aria-haspopup', 'menu');
         toggle.setAttribute('aria-expanded', String(current.openOnMenu));
         toggle.dataset.focusKey = 'open-on';
@@ -747,6 +796,8 @@ export function startProgressPopup(win = window, doc = document) {
         head.dataset.focusKey = `pill:${info.key}`;
         head.setAttribute('aria-expanded', 'true');
         head.append(...pillContent(info));
+        if (model.mixedNote)
+            head.append(node('span', 'doki-pill-difference', model.mixedNote));
         const chevron = node('span', 'doki-pill-chevron');
         chevron.setAttribute('aria-hidden', 'true');
         head.append(chevron);
@@ -756,9 +807,11 @@ export function startProgressPopup(win = window, doc = document) {
             refresh(current, `pill:${info.key}`);
         }, { signal });
         section.append(head);
-        const note = model.readOnlyReason || model.mixedNote;
-        if (note)
-            section.append(node('p', 'doki-pill-note', note));
+        if (model.readOnlyReason) {
+            const warning = node('div', 'doki-banner doki-pill-note', model.readOnlyReason);
+            warning.dataset.icon = 'triangle';
+            section.append(warning);
+        }
         // Safari does not focus a clicked button, so each control names the focus key to restore after the re-render.
         const edit = (change, focusKey) => {
             if (current.busy)
@@ -772,8 +825,8 @@ export function startProgressPopup(win = window, doc = document) {
     }
 
     function field(label, ...controls) {
-        const wrap = node('div', 'doki-field');
-        wrap.append(node('span', 'doki-field-label', label), ...controls);
+        const wrap = node('div', 'doki-editor-field');
+        wrap.append(node('span', 'doki-editor-field-label', label), ...controls);
         return wrap;
     }
 
@@ -880,12 +933,13 @@ export function startProgressPopup(win = window, doc = document) {
         range.value = String(progress.value);
         range.disabled = model.locked;
         range.setAttribute('aria-label', 'Episodes watched');
-        range.style.setProperty('--doki-fill', `${percent(progress.value, progress.max)}%`);
-        range.addEventListener('input', () => range.style.setProperty('--doki-fill', `${percent(Number(range.value), progress.max)}%`), { signal });
+        const updateFill = () => range.style.setProperty('--doki-progress', String(percent(Number(range.value), progress.max) / 100));
+        updateFill();
+        range.addEventListener('input', updateFill, { signal });
         range.addEventListener('change', () => edit(drafts => setProgress(info.targets, drafts, Number(range.value)), 'bar'), { signal });
         const tick = node('span', 'doki-track-tick');
         tick.setAttribute('aria-hidden', 'true');
-        tick.style.left = `${percent(model.jellyfin, progress.max)}%`;
+        tick.style.setProperty('--doki-progress', String(percent(model.jellyfin, progress.max) / 100));
         track.append(range, tick);
         const key = node('p', 'doki-track-key');
         const mine = node('span', 'doki-track-key-item is-tracker', info.key === 'all' ? 'Your trackers' : info.name);

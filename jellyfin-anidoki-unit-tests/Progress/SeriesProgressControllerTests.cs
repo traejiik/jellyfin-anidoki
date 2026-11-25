@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Security.Claims;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Enums;
@@ -75,6 +76,7 @@ public class SeriesProgressControllerTests {
         var controller = As(_fixture.Match.Alice);
 
         Assert.That((await controller.ReadSeries(_fixture.Series.Id, CancellationToken.None)).Result, Is.TypeOf<NotFoundResult>());
+        Assert.That(controller.Summary(_fixture.Series.Id), Is.TypeOf<NotFoundResult>());
         Assert.That((await controller.Edit(Request(A), CancellationToken.None)).Result, Is.TypeOf<NotFoundResult>());
         Assert.That(controller.ReadEdit(Guid.NewGuid()).Result, Is.TypeOf<NotFoundResult>());
     }
@@ -183,6 +185,22 @@ public class SeriesProgressControllerTests {
 
         As(_fixture.Match.Alice).Available(_fixture.Series.Id);
 
+        Assert.That(_fixture.Match.Catalogue.Reads, Is.EqualTo(before));
+    }
+
+    [Test]
+    public void SummaryNeedsItemAccessAndDoesNotReadTrackers() {
+        _fixture.Items.Add(_fixture.Series, _fixture.Alice);
+        int before = _fixture.Match.Catalogue.Reads;
+
+        var result = (OkObjectResult)As(_fixture.Match.Alice).Summary(_fixture.Series.Id);
+        JsonElement summary = JsonSerializer.SerializeToElement(result.Value);
+        Assert.That(summary.GetProperty("year").GetInt32(), Is.EqualTo(2020));
+        Assert.That(summary.GetProperty("endYear").GetInt32(), Is.EqualTo(2021));
+        Assert.That(summary.GetProperty("communityRating").GetSingle(), Is.EqualTo(8.5f));
+        Assert.That(summary.GetProperty("officialRating").GetString(), Is.EqualTo("TV-14"));
+        Assert.That(summary.GetProperty("status").GetString(), Is.EqualTo("Ended"));
+        Assert.That(As(_fixture.Match.Bob).Summary(_fixture.Series.Id), Is.TypeOf<NotFoundResult>());
         Assert.That(_fixture.Match.Catalogue.Reads, Is.EqualTo(before));
     }
 }

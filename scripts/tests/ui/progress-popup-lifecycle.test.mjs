@@ -33,7 +33,7 @@ function setup({ href = `http://jf/web/index.html#/details?id=${seriesId}`, avai
     const requests = [];
     win.fetch = async (url, init = {}) => {
         requests.push({ url, method: init.method ?? 'GET', body: init.body ? JSON.parse(init.body) : null });
-        const route = Object.entries(routes).find(([pattern]) => url.includes(pattern));
+        const route = Object.entries(routes).find(([pattern]) => url.includes(pattern) && (!url.endsWith('/summary') || pattern.endsWith('/summary')));
         if (url.includes('/available'))
             return { ok: available < 300, status: available, json: async () => null };
         if (route) {
@@ -117,6 +117,9 @@ test('a deep link opens on start', async () => {
     assert.ok(dialog(env.doc));
     assert.ok(env.requests.some(request => request.url.includes(`AniDoki/user/progress/series/${seriesId}`) && !request.url.includes('available')));
     assert.ok(dialog(env.doc).querySelector('.doki-popup-open-jellyfin'), 'opened elsewhere, so Open in Jellyfin shows');
+    const links = dialog(env.doc).querySelector('.doki-popup-open-on');
+    assert.equal(links.children[0].getAttribute('aria-label'), 'Open on AniList');
+    assert.equal(links.children[1].getAttribute('aria-label'), 'Open in Jellyfin');
     dialog(env.doc).querySelector('[aria-label=Close]').click();
     await env.win.advance(250);
     assert.equal(env.win.location.href, 'http://jf/web/index.html#/home', 'the deep link is replaced, not stepped back from');
@@ -145,9 +148,44 @@ test('a series that cannot load offers to try again', async () => {
     await flush();
     const retry = dialog(env.doc).querySelector('.doki-popup-retry');
     assert.ok(retry);
+    assert.equal(dialog(env.doc).querySelector('.doki-overview-skeleton'), null);
+    assert.equal(dialog(env.doc).querySelector('.doki-details-skeleton').hidden, true);
     retry.click();
+    assert.ok(dialog(env.doc).querySelector('.doki-overview-skeleton'));
+    assert.equal(dialog(env.doc).querySelector('.doki-details-skeleton').hidden, false);
     await flush();
     assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'Cowboy Bebop');
+    popup.dispose();
+});
+
+test('the series title, artwork and metadata appear while tracker progress is still loading', async () => {
+    let finishRead;
+    const pending = new Promise(resolve => { finishRead = resolve; });
+    const env = setup({ routes: { 'progress/series/': () => pending } });
+    const popup = await openPopup(env);
+    const panel = dialog(env.doc);
+    assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'Cowboy Bebop');
+    assert.ok(panel.querySelector('.doki-popup-poster img'));
+    assert.deepEqual(Array.from(panel.querySelectorAll('.doki-popup-meta-item'), item => item.textContent),
+        ['1998–1999', '★ 8.4', 'TV-14', 'Finished']);
+    assert.equal(panel.querySelector('.doki-popup-status .doki-sr-only').textContent, 'Loading tracker progress…');
+    const skeleton = panel.querySelector('.doki-overview-skeleton');
+    assert.equal(skeleton.getAttribute('aria-hidden'), 'true');
+    assert.ok(skeleton.querySelector('.doki-skeleton-tabs'));
+    assert.ok(skeleton.querySelector('.doki-skeleton-description'));
+    assert.ok(skeleton.querySelector('.doki-tracker-skeleton-pill'));
+    const detailsSkeleton = panel.querySelector('.doki-details-skeleton');
+    assert.equal(detailsSkeleton.hidden, false);
+    assert.equal(detailsSkeleton.getAttribute('aria-hidden'), 'true');
+    assert.equal(detailsSkeleton.querySelectorAll('.doki-skeleton-line').length, 8);
+    assert.equal(panel.querySelector('.doki-popup-tabs').hidden, true);
+    finishRead({ body: seriesView() });
+    await flush();
+    assert.equal(panel.querySelector('.doki-popup-status').hidden, true);
+    assert.equal(panel.querySelector('.doki-overview-skeleton'), null);
+    assert.equal(detailsSkeleton.hidden, true);
+    assert.equal(panel.querySelector('dl.doki-popup-details').hidden, false);
+    assert.ok(pill(env.doc, 'AniList'));
     popup.dispose();
 });
 
@@ -188,7 +226,7 @@ async function openPopup(env) {
 }
 const pill = (doc, key) => doc.querySelector(`[data-focus-key="pill:${key}"]`);
 const posts = (env, part) => env.requests.filter(request => request.method === 'POST' && request.url.includes(part));
-const gets = (env, part) => env.requests.filter(request => request.method === 'GET' && request.url.includes(part) && !request.url.includes('/available'));
+const gets = (env, part) => env.requests.filter(request => request.method === 'GET' && request.url.includes(part) && !request.url.endsWith('/available') && !request.url.endsWith('/summary'));
 
 test('sync to tracker saves the draft then reloads', async () => {
     let polls = 0, saved = false;
