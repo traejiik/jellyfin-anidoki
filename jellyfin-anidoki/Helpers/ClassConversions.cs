@@ -59,7 +59,7 @@ public class ClassConversions {
         anime.RelatedAnime = new List<RelatedAnime>();
         if (aniListAnime.Relations != null)
             foreach (AniListSearch.MediaEdge relation in aniListAnime.Relations.Media ?? []) {
-                if (relation.Media is not { } relatedMedia)
+                if (relation.Media is not { } relatedMedia || relatedMedia.Type == "MANGA")
                     continue;
                 RelatedAnime relatedAnime = new RelatedAnime {
                     Anime = ConvertAniListAnime(relatedMedia)
@@ -68,6 +68,9 @@ public class ClassConversions {
                 switch (relation.RelationType) {
                     case AniListSearch.MediaRelation.Sequel:
                         relatedAnime.RelationType = RelationType.Sequel;
+                        break;
+                    case AniListSearch.MediaRelation.Prequel:
+                        relatedAnime.RelationType = RelationType.Prequel;
                         break;
                     case AniListSearch.MediaRelation.Side_Story:
                         relatedAnime.RelationType = RelationType.Side_Story;
@@ -114,14 +117,19 @@ public class ClassConversions {
                     case KitsuMediaRelationship.RelationType.sequel:
                         convertedRelatedAnime.RelationType = RelationType.Sequel;
                         break;
+                    case KitsuMediaRelationship.RelationType.prequel:
+                        convertedRelatedAnime.RelationType = RelationType.Prequel;
+                        break;
                     case KitsuMediaRelationship.RelationType.side_story:
                     case KitsuMediaRelationship.RelationType.full_story:
                     case KitsuMediaRelationship.RelationType.parent_story:
                         convertedRelatedAnime.RelationType = RelationType.Side_Story;
                         break;
                     case KitsuMediaRelationship.RelationType.alternative_setting:
-                    case KitsuMediaRelationship.RelationType.alternative_version:
                         convertedRelatedAnime.RelationType = RelationType.Alternative_Setting;
+                        break;
+                    case KitsuMediaRelationship.RelationType.alternative_version:
+                        convertedRelatedAnime.RelationType = RelationType.Alternative_Version;
                         break;
                     case KitsuMediaRelationship.RelationType.spinoff:
                     case KitsuMediaRelationship.RelationType.adaptation:

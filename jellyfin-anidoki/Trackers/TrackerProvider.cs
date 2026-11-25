@@ -13,10 +13,27 @@ namespace jellyfin_anidoki.Trackers;
 /// Adapts one provider's <see cref="ITrackerClient"/> to <see cref="ITrackerProvider"/>. Differences in list state and
 /// write sequences live here, and the client holds the provider's own calls and conversions.
 /// </summary>
-public sealed class TrackerProvider(ApiName name, ITrackerClient client, TimeProvider clock) : ITrackerProvider {
+public sealed class TrackerProvider(ApiName name, ITrackerClient client, TimeProvider clock) : ITrackerProvider, ITrackerLibraryList {
     public ApiName Name => name;
 
     public ProviderCapabilities Capabilities { get; } = ProviderCapabilities.For(name);
+
+    public async Task<IReadOnlyList<TrackerLibraryEntry>?> ReadLibraryList(CancellationToken cancellationToken) {
+        if (client is not ITrackerLibraryClient library)
+            return null;
+        cancellationToken.ThrowIfCancellationRequested();
+        var entries = await Reading(() => library.ReadWholeList(cancellationToken), cancellationToken);
+        if (entries == null)
+            return null;
+        var result = new List<TrackerLibraryEntry>(entries.Count);
+        foreach (Anime anime in entries) {
+            if (anime.Id <= 0 || ToListState(anime.MyListStatus) is not { } list)
+                return null;
+            result.Add(new TrackerLibraryEntry(new EntryRef(name, anime.Id, anime.AlternativeId), list, anime.NumEpisodes,
+                anime.LibraryIsAiring, anime.NextAiringAtUtc));
+        }
+        return result;
+    }
 
     public async Task<EntryState?> ReadEntry(EntryRef entry, CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
@@ -45,7 +62,8 @@ public sealed class TrackerProvider(ApiName name, ITrackerClient client, TimePro
             return null;
         return (anime.RelatedAnime ?? [])
             .Where(related => related.Anime != null)
-            .Select(related => new EntryRelation(ToRelationKind(related.RelationType), new EntryRef(name, related.Anime!.Id, related.Anime.AlternativeId)))
+            .Select(related => new EntryRelation(ToRelationKind(related.RelationType), new EntryRef(name, related.Anime!.Id, related.Anime.AlternativeId),
+                related.Anime.Title ?? related.Anime.AlternativeTitles?.En ?? related.Anime.AlternativeTitles?.Synonyms?.FirstOrDefault()))
             .ToArray();
     }
 

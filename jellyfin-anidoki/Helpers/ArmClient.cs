@@ -30,7 +30,7 @@ public sealed class ArmClient(IHttpClientFactory httpClientFactory, ILogger<ArmC
 
     internal int CachedCount => _cache.Count;
 
-    public async Task<OfflineDatabaseResponse?> GetIds(int metadataId, Source source) {
+    public async Task<OfflineDatabaseResponse?> GetIds(int metadataId, Source source, bool cachedOnly = false) {
         // See https://arm.haglund.dev/docs#tag/v2/operation/v2-getIds
         string baseUrl = "https://arm.haglund.dev"; // fallback value, the public API
         string? customArmServerBaseUrl = configuration()?.armServerBaseUrl;
@@ -47,6 +47,9 @@ public sealed class ArmClient(IHttpClientFactory httpClientFactory, ILogger<ArmC
             logger.LogDebug("ARM IDs for {Source} ID {MetadataId} came from the cache", source, metadataId);
             return Copy(cached.Ids);
         }
+
+        if (cachedOnly)
+            return null;
 
         HttpClient httpClient = httpClientFactory.CreateClient(NamedClient.Default);
         HttpResponseMessage response;

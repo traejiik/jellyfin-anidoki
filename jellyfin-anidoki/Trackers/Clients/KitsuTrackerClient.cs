@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Api.Kitsu;
@@ -9,7 +10,7 @@ using jellyfin_anidoki.Models.Mal;
 
 namespace jellyfin_anidoki.Trackers;
 
-public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITrackerListSource {
+public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITrackerListSource, ITrackerLibraryClient {
     public async Task<List<Anime>?> SearchAnime(string query) => ConvertSearchResults(await api.SearchAnime(query));
 
     internal static List<Anime> ConvertSearchResults(List<KitsuSearch.KitsuAnime>? animeList) {
@@ -117,6 +118,48 @@ public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITra
         if (animeList == null)
             return null;
         return ConvertList(animeList, status);
+    }
+
+    async Task<List<Anime>?> ITrackerLibraryClient.ReadWholeList(CancellationToken cancellationToken) {
+        if (await api.GetUserId() is not { } userId)
+            return null;
+        cancellationToken.ThrowIfCancellationRequested();
+        var list = await api.GetUserAnimeList(userId, status: null);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (list?.Data == null)
+            return null;
+
+        var media = new Dictionary<int, KitsuSearch.Attributes>();
+        foreach (var anime in list.Included ?? []) {
+            if (anime.Attributes != null)
+                media[anime.Id] = anime.Attributes;
+        }
+
+        var result = new List<Anime>(list.Data.Count);
+        foreach (var row in list.Data) {
+            if (row.Relationships?.AnimeData?.Anime is not { } reference || row.Attributes is not { Status: { } status } attributes)
+                return null;
+            var details = media.GetValueOrDefault(reference.Id);
+            result.Add(new Anime {
+                Id = reference.Id,
+                NumEpisodes = details?.EpisodeCount ?? 0,
+                LibraryIsAiring = details?.Status == null ? null : details.Status == "current",
+                MyListStatus = new MyListStatus {
+                    Status = status switch {
+                        KitsuUpdate.Status.completed => Status.Completed,
+                        KitsuUpdate.Status.dropped => Status.Dropped,
+                        KitsuUpdate.Status.on_hold => Status.On_hold,
+                        KitsuUpdate.Status.planned => Status.Plan_to_watch,
+                        _ => Status.Watching
+                    },
+                    NumEpisodesWatched = attributes.Progress ?? 0,
+                    IsRewatching = attributes.Reconsuming ?? false,
+                    RewatchCount = attributes.ReconsumeCount ?? 0,
+                    ScoreRaw = attributes.RatingTwenty is > 0 and <= 20 ? attributes.RatingTwenty * 5 : null
+                }
+            });
+        }
+        return result;
     }
 
     /// <summary>

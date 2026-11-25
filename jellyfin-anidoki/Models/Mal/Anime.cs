@@ -116,7 +116,24 @@ public class Anime {
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
     [JsonPropertyName("status")]
-    public AiringStatus Status { get; set; }
+    public AiringStatus Status {
+        get => _status ?? AiringStatus.finished_airing;
+        set => _status = value;
+    }
+
+    private AiringStatus? _status;
+
+    [JsonIgnore]
+    public bool? LibraryIsAiring {
+        get => _status == null ? null : _status == AiringStatus.currently_airing;
+        set => _status = value switch {
+            true => AiringStatus.currently_airing,
+            false => AiringStatus.finished_airing,
+            null => null
+        };
+    }
+
+    [JsonIgnore] public DateTimeOffset? NextAiringAtUtc { get; set; }
 
     [JsonPropertyName("genres")] public List<Genre>? Genres { get; set; }
     [JsonPropertyName("my_list_status")] public MyListStatus? MyListStatus { get; set; }

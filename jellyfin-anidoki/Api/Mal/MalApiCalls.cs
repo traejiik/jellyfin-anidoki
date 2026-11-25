@@ -146,12 +146,12 @@ public class MalApiCalls {
         Anime_id
     }
 
-    public async Task<List<UserAnimeListData>?> GetUserAnimeList(Status? status = null, Sort? sort = null, int? idSearch = null) {
+    public async Task<List<UserAnimeListData>?> GetUserAnimeList(Status? status = null, Sort? sort = null, int? idSearch = null, bool wholeList = false) {
         UrlBuilder url = new UrlBuilder {
             Base = $"{ApiUrl}/users/@me/animelist"
         };
 
-        url.Parameters.Add(new KeyValuePair<string, string>("fields", "list_status,num_episodes"));
+        url.Parameters.Add(new KeyValuePair<string, string>("fields", wholeList ? "list_status,num_episodes,status" : "list_status,num_episodes"));
 
         if (status != null) {
             url.Parameters.Add(new KeyValuePair<string, string>("status", status.Value.ToString().ToLower()));
@@ -163,7 +163,12 @@ public class MalApiCalls {
 
         string? builtUrl = url.Build();
         List<UserAnimeListData> entries = new List<UserAnimeListData>();
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var endpoint = new Uri(url.Base);
         while (builtUrl != null) {
+            if (wholeList && (!Uri.TryCreate(builtUrl, UriKind.Absolute, out var pageUri)
+                || pageUri.GetLeftPart(UriPartial.Path) != endpoint.GetLeftPart(UriPartial.Path) || !visited.Add(builtUrl)))
+                return null;
             _logger.LogDebug("({Provider}) Reading the user's anime list (GET {Url})", ApiName.Mal, builtUrl);
             var apiCall = await _authApiCall.AuthenticatedApiCall(ApiName.Mal, AuthApiCall.CallType.GET, builtUrl);
             if (apiCall != null) {
@@ -172,6 +177,9 @@ public class MalApiCalls {
                 options.Converters.Add(new JsonStringEnumConverter());
                 UserAnimeList? userAnimeListPage = JsonSerializer.Deserialize<UserAnimeList>(await streamReader.ReadToEndAsync(), options);
 
+                if (wholeList && (userAnimeListPage?.Data == null
+                    || userAnimeListPage.Data.Count == 0 && userAnimeListPage.Paging?.Next != null))
+                    return null;
                 if (userAnimeListPage?.Data != null && userAnimeListPage.Data.Count > 0) {
                     if (idSearch != null) {
                         var foundAnime = userAnimeListPage.Data.FirstOrDefault(anime => anime.Anime!.Id == idSearch);
@@ -182,7 +190,7 @@ public class MalApiCalls {
                         entries = entries.Concat(userAnimeListPage.Data).ToList();
                     }
 
-                    if (userAnimeListPage.Paging!.Next != null) {
+                    if (userAnimeListPage.Paging?.Next != null) {
                         builtUrl = userAnimeListPage.Paging.Next;
                         _logger.LogDebug("({Provider}) More list pages to read; waiting 2 seconds", ApiName.Mal);
                         await _delayer.Delay(TimeSpan.FromSeconds(2));

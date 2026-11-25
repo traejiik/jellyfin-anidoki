@@ -22,6 +22,8 @@ public class KitsuSearch {
         [JsonPropertyName("abbreviatedTitles")]
         public List<string>? AbbreviatedTitles { get; set; }
 
+        [JsonPropertyName("status")] public string? Status { get; set; }
+
         [JsonPropertyName("episodeCount")] public int? EpisodeCount { get; set; }
     }
 

@@ -40,7 +40,7 @@ public sealed record EntryTitles(string? Main, string? English, string? Japanese
 
 public sealed record EntryCandidate(EntryRef Entry, EntryTitles Titles, int TotalEpisodes);
 
-public sealed record EntryRelation(RelationKind Kind, EntryRef Entry);
+public sealed record EntryRelation(RelationKind Kind, EntryRef Entry, string? Title = null);
 
 /// <summary>
 /// What should be true after a write. A rewatch change (<see cref="Rewatch"/> other than None) must target

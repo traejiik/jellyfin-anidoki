@@ -52,11 +52,13 @@ public sealed class AnimeListSource {
 
     /// <summary>The whole list, downloaded first if the file is missing.</summary>
     /// <returns>Null when the file cannot be downloaded or read.</returns>
-    public async Task<AnimeListHelpers.AnimeListXml?> Read() {
+    public async Task<AnimeListHelpers.AnimeListXml?> Read(bool cachedOnly = false) {
         string path = Path;
         try {
             FileInfo animeListXml = new FileInfo(path);
             if (!animeListXml.Exists) {
+                if (cachedOnly)
+                    return null;
                 _logger.LogInformation("The anime list was not found at {Path}; downloading it", path);
                 if (await Update()) {
                     _logger.LogInformation("Downloaded the anime list to {Path}", path);

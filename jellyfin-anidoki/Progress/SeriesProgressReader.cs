@@ -68,14 +68,18 @@ public sealed class SeriesProgressReader(ISeriesItems items, IMatchLibrary libra
 
     /// <summary>The match that applies to the user (saved, else automatic) and the entries it points at.</summary>
     internal async Task<SeasonMatch> Resolve(LibrarySource source, Guid userId, ITrackerProvider tracker, bool applySavedMatches, CancellationToken cancellationToken) {
+        var (match, origin, unresolved) = await ResolveMatch(source, userId, tracker, applySavedMatches, cancellationToken);
+        return new SeasonMatch(source, match, origin, unresolved,
+            match == null ? new Dictionary<EntryRef, EntryState>() : await MatchResolver.ReadTargets(match, tracker, cancellationToken));
+    }
+
+    internal async Task<(Match? Match, MatchOrigin Origin, string? Unresolved)> ResolveMatch(LibrarySource source, Guid userId,
+        ITrackerProvider tracker, bool applySavedMatches, CancellationToken cancellationToken) {
         Match? saved = applySavedMatches ? matches.GetEffective(userId, tracker.Name, source.Info.SourceKey, true) : null;
         if (saved != null)
-            return new SeasonMatch(source, saved, saved.Scope.Owner == null ? MatchOrigin.Shared : MatchOrigin.Personal, null,
-                await MatchResolver.ReadTargets(saved, tracker, cancellationToken));
+            return (saved, saved.Scope.Owner == null ? MatchOrigin.Shared : MatchOrigin.Personal, null);
         DerivedSegmentation derived = await automatic.Derive(source, tracker, cancellationToken);
-        return derived.Match is { } match
-            ? new SeasonMatch(source, match, MatchOrigin.Automatic, null, await MatchResolver.ReadTargets(match, tracker, cancellationToken))
-            : new SeasonMatch(source, null, MatchOrigin.Automatic, derived.FailureReason ?? "not-found", new Dictionary<EntryRef, EntryState>());
+        return (derived.Match, MatchOrigin.Automatic, derived.Match == null ? derived.FailureReason ?? "not-found" : null);
     }
 
     private async Task<SeasonTrackerContract> Row(SeriesItem item, LibrarySource source, IReadOnlyList<WatchedEpisode> watched, Guid userId,
@@ -120,7 +124,5 @@ public sealed class SeriesProgressReader(ISeriesItems items, IMatchLibrary libra
     }
 
     private static string? DefaultSeason(SeriesItem item, IReadOnlyList<SeasonViewContract> seasons) =>
-        seasons.FirstOrDefault(season => item.OpenedSeason != null && season.Season == item.OpenedSeason)?.SourceKey
-        ?? seasons.Where(season => season.LastPlayedUtc != null).MaxBy(season => season.LastPlayedUtc)?.SourceKey
-        ?? seasons.FirstOrDefault()?.SourceKey;
+        ProgressSources.ChooseDefault(item.OpenedSeason, seasons.Select(season => (season.SourceKey, season.LastPlayedUtc)));
 }

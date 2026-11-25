@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -45,7 +46,9 @@ public sealed record SourceIds(ArmClient.OfflineDatabaseResponse Ids, int? AniDb
 
 /// <summary>Looks up a source's tracker IDs through the ARM server and the anime list. Logs as its caller.</summary>
 public sealed class SourceIdResolver(ArmClient arm, AnimeListSource animeList, ILogger logger) {
-    public async Task<SourceIds> Resolve(SyncSource source) {
+    public Task<SourceIds> Resolve(SyncSource source) => Resolve(source, cachedOnly: false);
+
+    internal async Task<SourceIds> Resolve(SyncSource source, bool cachedOnly, Lazy<Task<AnimeListHelpers.AnimeListXml?>>? localList = null) {
         var episode = source.Item as Episode;
         // Diagnostics: prints exactly which provider IDs Jellyfin holds at
         // each level, plus the season count that drives the absolute-episode path.
@@ -74,7 +77,7 @@ public sealed class SourceIdResolver(ArmClient arm, AnimeListSource animeList, I
         (int? aniDbId, int? episodeOffset) aniDbId = (null, null);
         if (source.Item.ProviderIds != null && source.FallbackAniListId is int retrievedAniListId) {
             logger.LogDebug("Looking up tracker IDs for AniList ID {AniListId}", retrievedAniListId);
-            ids = await arm.GetIds(retrievedAniListId, ArmClient.Source.Anilist);
+            ids = await arm.GetIds(retrievedAniListId, ArmClient.Source.Anilist, cachedOnly);
             if (ids is null) {
                 ids = new ArmClient.OfflineDatabaseResponse {
                     Anilist = retrievedAniListId
@@ -89,7 +92,7 @@ public sealed class SourceIdResolver(ArmClient arm, AnimeListSource animeList, I
                 logger.LogInformation("The anime list gives {ItemName}'s TMDB ID AniDB ID {ListAniDbId}, not the {AniDbId} Jellyfin holds; using the anime list's",
                     source.Item.Name, checkedAniDbId, heldAniDbId);
             }
-            ids = await LookUpAniDb(checkedAniDbId);
+            ids = await LookUpAniDb(checkedAniDbId, cachedOnly);
         } else if (movieCheck is { Verdict: MovieAniDbVerdict.Conflicts }) {
             AnimeListHelpers.TryGetProviderId(source.Item.ProviderIds, "AniDB", out string? heldAniDbId);
             logger.LogWarning("AniDB ID {AniDbId} on {ItemName} belongs to another title in the anime list; not syncing by it until the movie's metadata is fixed",
@@ -103,11 +106,11 @@ public sealed class SourceIdResolver(ArmClient arm, AnimeListSource animeList, I
                           AnimeListHelpers.HasProviderId(series.ProviderIds, "Anidb"))
                        : source.Item.ProviderIds != null &&
                          AnimeListHelpers.HasProviderId(source.Item.ProviderIds, "Anidb")) {
-            AnimeListHelpers.AnimeListXml? animeListXml = await animeList.Read();
+            AnimeListHelpers.AnimeListXml? animeListXml = await (localList?.Value ?? animeList.Read(cachedOnly));
             aniDbId = await AnimeListHelpers.GetAniDbId(logger, source.Item, source.EpisodeNumber, source.SeasonNumber, animeListXml);
             if (aniDbId.aniDbId != null) {
                 logger.LogDebug("Looking up tracker IDs for AniDB ID {AniDbId}", aniDbId.aniDbId.Value);
-                ids = await arm.GetIds(aniDbId.aniDbId.Value, ArmClient.Source.Anidb);
+                ids = await arm.GetIds(aniDbId.aniDbId.Value, ArmClient.Source.Anidb, cachedOnly);
                 if (ids is null) {
                     ids = new ArmClient.OfflineDatabaseResponse {
                         AniDb = aniDbId.aniDbId
@@ -131,14 +134,14 @@ public sealed class SourceIdResolver(ArmClient arm, AnimeListSource animeList, I
             // A Mixed library's movie known only by TMDB: the anime list, which the library filter also checked,
             // maps it to AniDB. Other libraries keep resolving such movies by title, as before.
             logger.LogDebug("TMDB ID {TmdbId} maps to AniDB ID {AniDbId} in the anime list; looking up tracker IDs", tmdbId, movieAniDbId);
-            ids = await LookUpAniDb(movieAniDbId);
+            ids = await LookUpAniDb(movieAniDbId, cachedOnly);
         }
 
         return new SourceIds(ids ?? new ArmClient.OfflineDatabaseResponse(), aniDbId.episodeOffset);
     }
 
     /// <summary>A movie's tracker IDs by its AniDB ID; the AniDB ID alone when ARM has none.</summary>
-    private async Task<ArmClient.OfflineDatabaseResponse> LookUpAniDb(int aniDbId) =>
-        await arm.GetIds(aniDbId, ArmClient.Source.Anidb)
+    private async Task<ArmClient.OfflineDatabaseResponse> LookUpAniDb(int aniDbId, bool cachedOnly) =>
+        await arm.GetIds(aniDbId, ArmClient.Source.Anidb, cachedOnly)
         ?? new ArmClient.OfflineDatabaseResponse { AniDb = aniDbId };
 }
