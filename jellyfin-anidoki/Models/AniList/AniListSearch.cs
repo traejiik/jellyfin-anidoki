@@ -70,7 +70,12 @@ public class AniListSearch {
         [JsonPropertyName("airingAt")] public long AiringAt { get; set; }
     }
 
+    public class CoverImage {
+        [JsonPropertyName("medium")] public string? Medium { get; set; }
+    }
+
     public class Media {
+        [JsonPropertyName("coverImage")] public CoverImage? Cover { get; set; }
         [JsonPropertyName("type")] public string? Type { get; set; }
         [JsonPropertyName("nextAiringEpisode")] public AiringSchedule? NextAiringEpisode { get; set; }
         [JsonPropertyName("id")] public int Id { get; set; }

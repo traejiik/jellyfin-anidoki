@@ -82,7 +82,7 @@ export function sharedStatusLabel(status, providers) {
 // --- Seasons rows (D6) -------------------------------------------------------------------------------------
 
 const range = (first, last) => first === last ? `${first}` : `${first}–${last}`;
-const seasonName = number => number === null || number === undefined ? 'Movie' : number === 0 ? 'Specials' : `Season ${number}`;
+export const seasonName = number => number === null || number === undefined ? 'Movie' : number === 0 ? 'Specials' : `Season ${number}`;
 const first = entry => entry.firstEpisode ?? 1;
 
 /** The tracker whose entries split the season most finely; the view's tracker order breaks ties. */

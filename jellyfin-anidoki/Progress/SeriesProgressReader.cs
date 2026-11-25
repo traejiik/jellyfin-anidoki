@@ -89,9 +89,35 @@ public sealed class SeriesProgressReader(ISeriesItems items, IMatchLibrary libra
             resolved = await Resolve(source, userId, tracker, applySavedMatches, cancellationToken);
         } catch (TrackerFailureException e) {
             logger.LogWarning("({Provider}) Could not read {SeriesName} for the progress view: {ErrorMessage}", tracker.Name, item.Name, e.Message);
-            return new SeasonTrackerContract(tracker.Name, MatchOrigin.Automatic, null, e.Kind.ToString(), []);
+            return new SeasonTrackerContract(tracker.Name, MatchOrigin.Automatic, null, e.Kind.ToString(), [], []);
         }
-        return new SeasonTrackerContract(tracker.Name, resolved.Origin, resolved.Unresolved, null, Entries(resolved, watched));
+        return new SeasonTrackerContract(tracker.Name, resolved.Origin, resolved.Unresolved, null, Entries(resolved, watched), MatchRanges(resolved));
+    }
+
+    internal static IReadOnlyList<MatchRangeView> MatchRanges(SeasonMatch resolved) {
+        if (resolved.Match is not { } match)
+            return [];
+
+        var ranges = new List<MatchRangeView>();
+        EntryRef? previous = null;
+        foreach (int episode in resolved.Source.Episodes.Order()) {
+            if (RangeResolver.Map(match, episode) is not MappedEpisode mapped)
+                continue;
+
+            MatchTarget target = mapped.Target;
+            int targetEpisode = mapped.TargetEpisode;
+            if (ranges.Count > 0 && previous == target.Entry && ranges[^1] is { } last &&
+                episode - 1 == last.SourceEnd && targetEpisode - 1 == last.TargetEnd) {
+                ranges[^1] = last with { SourceEnd = episode, TargetEnd = targetEpisode };
+                continue;
+            }
+
+            string title = resolved.Entries.GetValueOrDefault(target.Entry)?.Titles?.Main ?? target.Title;
+            ranges.Add(new MatchRangeView(episode, episode, targetEpisode, targetEpisode, EntryContract.From(target.Entry, title)));
+            previous = target.Entry;
+        }
+
+        return ranges;
     }
 
     internal static IReadOnlyList<EntryViewContract> Entries(SeasonMatch resolved, IReadOnlyList<WatchedEpisode> watched) {

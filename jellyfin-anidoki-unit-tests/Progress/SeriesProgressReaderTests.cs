@@ -64,13 +64,16 @@ public class SeriesProgressReaderTests {
     [Test]
     public async Task WithSavedMatchesOffTheAutomaticAnswerIsShown() {
         _fixture.Shared(_fixture.Match.Season, Range(1, 48, A));
-        _fixture.Match.Automatic.Answer = new(new jellyfin_anidoki.Matching.Match(new MatchScope(ApiName.AniList, _fixture.Match.Key), [Range(1, 48, C)], []), null);
+        _fixture.Match.Automatic.Answer = new(new jellyfin_anidoki.Matching.Match(new MatchScope(ApiName.AniList, _fixture.Match.Key), [Range(1, 48, C, 13)], []), null);
 
         var view = await _fixture.Reader.Read(_fixture.Series.Id, _fixture.Alice, false, true, default);
 
         SeasonTrackerContract row = view!.Seasons[0].Trackers.Single();
         Assert.That(row.Origin, Is.EqualTo(MatchOrigin.Automatic));
         Assert.That(row.Entries.Single().Id, Is.EqualTo(C));
+        var range = row.MatchRanges.Single();
+        Assert.That((range.SourceStart, range.SourceEnd, range.TargetStart, range.TargetEnd, range.Entry.Id),
+            Is.EqualTo((1, 48, 13, 60, C)));
     }
 
     [Test]

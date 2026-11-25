@@ -172,8 +172,43 @@ export function ensureStyles() {
     const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = assetUrl('styles.css');
     link.dataset.anidokiStyles = ''; document.head.append(link);
 }
+export function popupBackground(doc, win) {
+    const host = doc.querySelector('.backgroundContainer')?.parentElement;
+    if (!host || !win?.getComputedStyle)
+        return null;
+
+    // Sample Jellyfin's background without the item page's backdrop or inline art.
+    const probe = doc.createElement('div');
+    probe.className = 'backgroundContainer';
+    probe.style.display = 'none';
+    host.append(probe);
+    const background = doc.createElement('div');
+    background.className = 'doki-popup-background';
+    background.setAttribute('aria-hidden', 'true');
+    for (const source of [doc.documentElement, doc.body, probe]) {
+        const style = win.getComputedStyle(source);
+        const layer = doc.createElement('div');
+        layer.style.background = style.background;
+        layer.style.opacity = style.opacity;
+        background.append(layer);
+    }
+    probe.remove();
+    return background;
+}
+
+export function showThemedDialog(dialog) {
+    if (dialog.open)
+        return;
+    const doc = dialog.ownerDocument;
+    const background = popupBackground(doc, doc.defaultView);
+    dialog.querySelector('.doki-popup-background')?.remove();
+    if (background)
+        dialog.prepend(background);
+    dialog.showModal();
+}
+
 export function followThemeAccent(root, signal, win = window) {
-    if (!win.CSS?.supports)
+    if (!root || !win.CSS?.supports)
         return;
 
     const update = () => {
@@ -237,6 +272,8 @@ export function observeSaveBar(root, signal) {
     const observer = new ResizeObserver(() => root.style.setProperty('--doki-save-height', `${bar.offsetHeight + 48}px`));
     observer.observe(bar); signal.addEventListener('abort', () => observer.disconnect(), { once: true });
 }
+export const matchesSettingsRequest = 'anidoki.openTrackerMatches';
+
 export function bindNavigation(root, signal) {
     const links = [...root.querySelectorAll('.doki-section-nav a')];
     const revealPill = link => {

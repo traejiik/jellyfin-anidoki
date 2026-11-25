@@ -34,6 +34,18 @@ test('ordinary polls retain cursor; reset/disabled remove owned toasts',async()=
  const runtime=startNotifications(env.win,env.doc);await new Promise(resolve=>setImmediate(resolve));await env.tick();assert.match(urls[1],/cursor=epoch:0/);
  assert.equal(env.doc.body.children.length,1);await env.tick();assert.equal(env.doc.body.children.length,0);assert.equal([...env.win.timeouts.values()][0].delay,5000);runtime.dispose();
 });
+test('only confirmed tracker changes invalidate the progress popup cache', async () => {
+    const unchanged = { ...event, outcomes: [{ ...event.outcomes[0], kind: 'NoChange', meaningfulChange: false }] };
+    let calls = 0, invalidations = 0;
+    const env = setup(async () => response({ events: [++calls === 1 ? unchanged : event] }));
+    env.doc.addEventListener('anidoki:progress-changed', () => { invalidations += 1; });
+    const runtime = startNotifications(env.win, env.doc);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(invalidations, 0);
+    await env.tick();
+    assert.equal(invalidations, 1);
+    runtime.dispose();
+});
 test('fullscreen mounts rich overlay in container and suppresses video-only overlay',async()=>{
  let calls=0;const env=setup(async()=>response({events:++calls===1?[]:[event]}));const runtime=startNotifications(env.win,env.doc);await new Promise(resolve=>setImmediate(resolve));await env.tick();
  const full=new Element('section');env.doc.fullscreenElement=full;env.doc.dispatchEvent(new Event('fullscreenchange'));assert.equal(full.children.length,1);

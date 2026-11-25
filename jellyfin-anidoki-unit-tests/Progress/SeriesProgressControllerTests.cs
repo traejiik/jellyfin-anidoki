@@ -71,6 +71,25 @@ public class SeriesProgressControllerTests {
     }
 
     [Test]
+    public async Task MatchRangesKeepTrackerOffsetsAndEpisodeExceptions() {
+        _fixture.Match.Catalogue.Add(B, 48);
+        _fixture.Personal(_fixture.Match.Season, [Range(1, 4, A, 13)], [SendTo(2, B, 4), Skip(3)]);
+
+        var result = await As(_fixture.Match.Alice).ReadSeries(_fixture.Series.Id, CancellationToken.None);
+        var view = (SeriesViewContract)((OkObjectResult)result.Result!).Value!;
+        var tracker = view.Seasons[0].Trackers.Single();
+        var json = JsonSerializer.SerializeToElement(tracker);
+
+        Assert.That(tracker.Origin, Is.EqualTo(MatchOrigin.Personal));
+        Assert.That(json.TryGetProperty("matchRanges", out var ranges), Is.True);
+        Assert.That(ranges.EnumerateArray().Select(row => (
+            row.GetProperty("sourceStart").GetInt32(), row.GetProperty("sourceEnd").GetInt32(),
+            row.GetProperty("targetStart").GetInt32(), row.GetProperty("targetEnd").GetInt32(),
+            row.GetProperty("entry").GetProperty("id").GetInt32())),
+            Is.EqualTo(new[] { (1, 1, 13, 13, A), (2, 2, 4, 4, B), (4, 4, 16, 16, A) }));
+    }
+
+    [Test]
     public async Task EveryRouteIsNotFoundWhileTheUserPagesAreOff() {
         _plugin.Configuration.enableUserPages = false;
         var controller = As(_fixture.Match.Alice);

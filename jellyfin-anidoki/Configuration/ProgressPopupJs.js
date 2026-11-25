@@ -1,7 +1,7 @@
-import { followThemeAccent } from './common.js';
+import { followThemeAccent, matchesSettingsRequest, popupBackground } from './common.js';
 import { providerName } from './outcome-lines.js';
 import {
-    buildRows, defaultRow, rowTargets, editableTargets, savedState, pillSummary, allSummary, airedLabel, seriesStatusLabel, entryUrl, faceNames, editorModel,
+    buildRows, defaultRow, rowTargets, editableTargets, savedState, pillSummary, allSummary, seasonName, airedLabel, seriesStatusLabel, entryUrl, faceNames, editorModel,
     setProgress, setStatus, setScore, markCompleted, isDirty, syncButtons, planSyncUp, planSyncDown, applyEditResults, forceDraft, draftStore, anyDirty
 } from './popup-state.js';
 
@@ -16,12 +16,16 @@ import {
 const runtimeKey = '__anidokiProgressPopup';
 const parameter = 'anidoki';
 const closeFallbackMs = 250;
-const focusable = 'button, a[href], input, select, textarea, [tabindex="0"]';
+const readCacheMs = 24 * 60 * 60_000;
+const unsettledReadMs = 30_000;
+const readCacheLimit = 64;
+const focusable = 'button, a[href], input, select, textarea, summary, [tabindex="0"]';
 
 export function startProgressPopup(win = window, doc = document) {
     win[runtimeKey]?.dispose();
     const lifetime = new AbortController(), signal = lifetime.signal;
     const availability = new Map(), links = [];
+    let readCache = null;
     let popup = null, disposed = false, ready = false, bootTimer = null, bootAttempts = 0;
 
     const api = () => win.ApiClient;
@@ -59,6 +63,89 @@ export function startProgressPopup(win = window, doc = document) {
             }
         }
         return { ok: response.ok, status: response.status, data };
+    }
+
+    function currentReadCache() {
+        const client = api();
+        const user = client?.isLoggedIn?.() && client.getCurrentUserId?.();
+        const server = user && client.getUrl('AniDoki/user/progress');
+        if (user && readCache?.user === user && readCache.server === server && readCache.client === client)
+            return readCache;
+
+        readCache = null;
+        if (!user)
+            return null;
+
+        const cache = { user, server, client, entries: new Map(), writer: null, skipUntil: 0 };
+        readCache = cache;
+        return cache;
+    }
+
+    const seriesPath = current => `AniDoki/user/progress/series/${encodeURIComponent(current.itemId)}`;
+    const cacheAvailable = cache => cache && !cache.writer && cache.skipUntil <= Date.now();
+
+    function cachedEntry(cache, path) {
+        if (!cacheAvailable(cache))
+            return null;
+        const entry = cache.entries.get(path);
+        if (entry && entry.expires <= Date.now()) {
+            cache.entries.delete(path);
+            return null;
+        }
+        return entry;
+    }
+
+    function rememberRead(cache, path, entry) {
+        const entries = cache.entries;
+        entries.delete(path);
+        entries.set(path, entry);
+        if (entries.size > readCacheLimit)
+            entries.delete(entries.keys().next().value);
+    }
+
+    // Pending reads belong to the signed-in browsing session so a quick reopen can join them.
+    function readPopupData(current, path) {
+        const cache = current.cache;
+        if (!cacheAvailable(cache) || cache !== currentReadCache())
+            return request(path, { abort: current.controller.signal });
+        const previous = cachedEntry(cache, path);
+        if (previous)
+            return previous.pending ?? Promise.resolve(previous.result);
+        const entry = { expires: Date.now() + unsettledReadMs };
+        entry.pending = request(path, { abort: signal }).then(result => {
+            if (cache.entries.get(path) === entry) {
+                if (result.ok && result.data) {
+                    entry.result = result;
+                    entry.expires = Date.now() + readCacheMs;
+                    delete entry.pending;
+                } else {
+                    cache.entries.delete(path);
+                }
+            }
+            return result;
+        }, error => {
+            if (cache.entries.get(path) === entry)
+                cache.entries.delete(path);
+            throw error;
+        });
+        rememberRead(cache, path, entry);
+        return entry.pending;
+    }
+
+    function beginWrite(current) {
+        if (!current.cache)
+            return;
+        current.cache.entries.clear();
+        current.cache.writer = current;
+    }
+
+    function endWrite(current, settled) {
+        const cache = current.cache;
+        if (cache?.writer !== current)
+            return;
+        cache.writer = null;
+        // A queued operation can still run on the server after this popup stops polling.
+        cache.skipUntil = settled ? 0 : Date.now() + unsettledReadMs;
     }
 
     // --- Location ----------------------------------------------------------------------------------------------
@@ -136,7 +223,7 @@ export function startProgressPopup(win = window, doc = document) {
             finish(popup, false);
         const current = { itemId, opener, fromItemPage, controller: new AbortController(), view: null, rows: [], rowKey: null, drafts: {}, openProvider: null,
             pushed: false, closing: false, removed: false, timer: null, menuOpen: false, openOnMenu: false, motion: null, busy: false, store: null,
-            cards: {}, notes: {}, timers: new Set() };
+            cards: {}, notes: {}, timers: new Set(), detailReads: {}, matchView: null, cache: currentReadCache() };
         popup = current;
         if (push && requested() !== itemId) {
             const url = new URL(win.location.href);
@@ -145,8 +232,13 @@ export function startProgressPopup(win = window, doc = document) {
             current.pushed = true;
         }
         build(current);
-        loadSummary(current);
-        load(current);
+        const cached = cachedEntry(current.cache, seriesPath(current))?.result;
+        if (cached)
+            receive(current, cached.data);
+        else {
+            loadSummary(current);
+            load(current);
+        }
     }
 
     /** Closes the popup. From the close button or Esc, it steps back over its own history entry, or drops a deep link's parameter. */
@@ -170,12 +262,14 @@ export function startProgressPopup(win = window, doc = document) {
         if (current.removed)
             return;
         current.removed = true;
+        endWrite(current, false);
         current.controller.abort();
         win.clearTimeout(current.timer);
         for (const id of current.timers)
             win.clearTimeout(id);
         current.timers.clear();
         current.scrim.remove();
+        current.inertRoot?.removeAttribute('inert');
         doc.documentElement.classList?.remove('doki-popup-open');
         if (popup === current)
             popup = null;
@@ -199,9 +293,49 @@ export function startProgressPopup(win = window, doc = document) {
         }
     }
 
-    function settingsHref() {
-        const entry = doc.querySelector('.pluginMenuOptions a[href], [data-plugin-pages] a[href]');
-        return entry?.getAttribute('href') ?? api().getUrl('AniDoki/settings');
+    function settingsHref(sourceKey) {
+        const settings = new URL(api().getUrl('AniDoki/settings'), win.location.href);
+        const links = doc.querySelectorAll('.pluginMenuOptions a[href], a[data-plugin-pages][href]');
+        const menuUrl = [...links].map(link => new URL(link.getAttribute('href'), win.location.href)).find(url => {
+            const pageUrl = new URLSearchParams(url.hash.split('?')[1]).get('pageUrl');
+            return url.origin === settings.origin && pageUrl &&
+                (pageUrl.toLowerCase() === settings.pathname.toLowerCase() || pageUrl.toLowerCase() === '/anidoki/settings');
+        });
+        const url = menuUrl ?? new URL(win.location.href);
+        url.searchParams.delete(parameter);
+        if (!sourceKey && menuUrl)
+            return url.href;
+
+        const [route = '#/userpluginsettings.html', query] = menuUrl ? url.hash.split('?') : [];
+        const params = new URLSearchParams(query ?? { pageUrl: '/AniDoki/settings' });
+        if (sourceKey) {
+            params.set('dokiSection', 'trackerMatchesTitle');
+            params.set('dokiSource', sourceKey);
+        }
+        url.hash = `${route}?${params}`;
+        return url.href;
+    }
+
+    function bindSettingsLink(current, link, sourceKey) {
+        link.setAttribute('href', settingsHref(sourceKey));
+        link.addEventListener('click', event => {
+            if (event.defaultPrevented || (event.button ?? 0) !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
+                return;
+            event.preventDefault();
+            const destination = settingsHref(sourceKey);
+            try {
+                const session = storage();
+                if (sourceKey)
+                    session?.setItem(matchesSettingsRequest, JSON.stringify({ sourceKey, expires: Date.now() + 60_000 }));
+                else
+                    session?.removeItem(matchesSettingsRequest);
+            } catch {
+                // The route also carries the destination when storage is unavailable.
+            }
+            win.history.replaceState(win.history.state ?? null, '', withoutParameter());
+            finish(current, false);
+            win.location.assign(destination);
+        }, { signal: current.controller.signal });
     }
 
     function chip(tag, className, label, icon) {
@@ -213,28 +347,6 @@ export function startProgressPopup(win = window, doc = document) {
         glyph.setAttribute('aria-hidden', 'true');
         element.append(glyph);
         return element;
-    }
-
-    function popupBackground() {
-        const host = doc.querySelector('.backgroundContainer')?.parentElement;
-        if (!host || !win.getComputedStyle)
-            return null;
-
-        // Sample Jellyfin's settings-page background without the item page's withBackdrop class or inline styles.
-        const probe = node('div', 'backgroundContainer');
-        probe.style.display = 'none';
-        host.append(probe);
-        const background = node('div', 'doki-popup-background');
-        background.setAttribute('aria-hidden', 'true');
-        for (const source of [doc.documentElement, doc.body, probe]) {
-            const style = win.getComputedStyle(source);
-            const layer = node('div', '');
-            layer.style.background = style.background;
-            layer.style.opacity = style.opacity;
-            background.append(layer);
-        }
-        probe.remove();
-        return background;
     }
 
     function build(current) {
@@ -260,8 +372,7 @@ export function startProgressPopup(win = window, doc = document) {
         const actions = node('div', 'doki-popup-actions');
         const openOn = node('div', 'doki-popup-open-on');
         const settings = chip('a', 'doki-popup-settings', 'AniDōki settings', 'gear');
-        settings.setAttribute('href', settingsHref());
-        settings.addEventListener('click', () => close({ replace: true }), { signal });
+        bindSettingsLink(current, settings);
         const closeButton = chip('button', 'doki-popup-close', 'Close', 'close');
         closeButton.addEventListener('click', () => close(), { signal });
         actions.append(openOn, settings, closeButton);
@@ -298,22 +409,50 @@ export function startProgressPopup(win = window, doc = document) {
         const tabs = node('div', 'doki-popup-tabs');
         tabs.setAttribute('role', 'tablist');
         tabs.setAttribute('aria-label', 'Sections');
-        tabs.hidden = true;
         const overviewTab = button('doki-popup-tab', 'Overview');
-        overviewTab.setAttribute('role', 'tab');
-        overviewTab.setAttribute('aria-selected', 'true');
-        overviewTab.setAttribute('aria-controls', 'dokiPopupOverview');
-        tabs.append(overviewTab);
+        const matchesTab = button('doki-popup-tab', 'Matches');
         const overview = node('div', 'doki-popup-panel');
-        overview.id = 'dokiPopupOverview';
-        overview.setAttribute('role', 'tabpanel');
+        const matches = node('div', 'doki-popup-panel');
+        const related = node('section', 'doki-popup-related');
+        related.hidden = true;
         overview.dataset.region = 'overview';
+        const panels = [[overviewTab, overview, 'dokiPopupOverview'], [matchesTab, matches, 'dokiPopupMatches']];
+        function selectTab(next, focus = false) {
+            for (const [tab, content] of panels) {
+                const active = tab === next;
+                tab.setAttribute('aria-selected', String(active));
+                tab.setAttribute('tabindex', active ? '0' : '-1');
+                content.hidden = !active;
+            }
+            if (focus)
+                next.focus();
+        }
+        for (const [tab, content, id] of panels) {
+            tab.id = `${id}Tab`;
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-controls', id);
+            content.id = id;
+            content.setAttribute('role', 'tabpanel');
+            content.setAttribute('aria-labelledby', tab.id);
+            content.setAttribute('tabindex', '0');
+            tab.addEventListener('click', () => selectTab(tab, true), { signal });
+            tab.addEventListener('keydown', event => {
+                const next = { ArrowLeft: tab === overviewTab ? matchesTab : overviewTab,
+                    ArrowRight: tab === overviewTab ? matchesTab : overviewTab, Home: overviewTab, End: matchesTab }[event.key];
+                if (next) {
+                    event.preventDefault();
+                    selectTab(next, true);
+                }
+            }, { signal });
+            tabs.append(tab);
+        }
+        selectTab(overviewTab);
         const status = node('div', 'doki-popup-status');
         status.setAttribute('role', 'status');
-        main.append(titleBlock, meta, tabs, status, overview);
+        main.append(titleBlock, meta, tabs, status, overview, matches);
         layout.append(side, main);
         body.append(hero, layout);
-        const background = popupBackground();
+        const background = popupBackground(doc, win);
         if (background)
             panel.append(background);
         panel.append(header, body);
@@ -334,8 +473,18 @@ export function startProgressPopup(win = window, doc = document) {
                 finish(current, true);
         }, { signal });
 
-        Object.assign(current, { scrim, panel, crumb, unsaved, openOn, hero, poster, details, detailsSkeleton, seasons, logo, title, meta, seasonMenu, tabs, overview, status });
+        Object.assign(current, { scrim, panel, crumb, unsaved, openOn, hero, poster, details, detailsSkeleton, seasons, logo, title, meta, seasonMenu, overview, matches, related, status });
         doc.documentElement.classList?.add('doki-popup-open');
+        const backgroundRoot = doc.getElementById('reactRoot');
+        if (backgroundRoot && !backgroundRoot.hasAttribute('inert')) {
+            backgroundRoot.setAttribute('inert', '');
+            current.inertRoot = backgroundRoot;
+        }
+        for (const type of ['wheel', 'touchmove'])
+            scrim.addEventListener(type, event => {
+                if (!body.contains(event.target))
+                    event.preventDefault();
+            }, { passive: false, signal });
         doc.body.append(scrim);
         followThemeAccent(scrim, current.controller.signal, win);
         title.focus({ preventScroll: true });
@@ -343,7 +492,7 @@ export function startProgressPopup(win = window, doc = document) {
 
     async function loadSummary(current) {
         try {
-            const result = await request(`AniDoki/user/progress/series/${encodeURIComponent(current.itemId)}/summary`, { abort: current.controller.signal });
+            const result = await readPopupData(current, `${seriesPath(current)}/summary`);
             if (result.ok && result.data?.name && current === popup && !current.closing && !current.view)
                 renderSeriesHeader(current, result.data);
         } catch {
@@ -354,20 +503,20 @@ export function startProgressPopup(win = window, doc = document) {
     async function load(current) {
         const skeleton = node('div', 'doki-overview-skeleton');
         skeleton.setAttribute('aria-hidden', 'true');
-        const tabs = node('div', 'doki-popup-tabs doki-skeleton-tabs');
-        tabs.append(node('span', 'doki-skeleton-line'));
-        const overview = node('div', 'doki-popup-panel doki-skeleton-overview');
         const description = node('div', 'doki-skeleton-description');
         description.append(node('span', 'doki-skeleton-line'), node('span', 'doki-skeleton-line'));
         const pills = node('div', 'doki-pills');
         pills.append(node('span', 'doki-tracker-skeleton-pill'), node('span', 'doki-tracker-skeleton-pill'));
-        overview.append(description, pills);
-        skeleton.append(tabs, overview);
-        current.status.replaceChildren(node('p', 'doki-sr-only', 'Loading tracker progress…'), skeleton);
+        skeleton.append(description, pills);
+        current.overview.replaceChildren(skeleton);
+        current.matches.replaceChildren(matchesSkeleton());
+        for (const panel of [current.overview, current.matches])
+            panel.setAttribute('aria-busy', 'true');
+        current.status.replaceChildren(node('p', 'doki-sr-only', 'Loading tracker progress…'));
         current.status.hidden = false;
         current.detailsSkeleton.hidden = false;
         try {
-            const result = await request(`AniDoki/user/progress/series/${encodeURIComponent(current.itemId)}`, { abort: current.controller.signal });
+            const result = await readPopupData(current, seriesPath(current));
             if (current !== popup || current.closing)
                 return;
             if (!result.ok || !result.data)
@@ -376,12 +525,36 @@ export function startProgressPopup(win = window, doc = document) {
         } catch {
             if (current !== popup || current.closing)
                 return;
+            current.overview.replaceChildren();
+            current.matches.replaceChildren();
             const retry = button('doki-button doki-popup-retry', 'Try again');
             retry.addEventListener('click', () => load(current), { signal });
             current.status.replaceChildren(node('p', 'doki-popup-error', "Couldn't load this series"), retry);
         } finally {
+            for (const panel of [current.overview, current.matches])
+                panel.removeAttribute('aria-busy');
             current.detailsSkeleton.hidden = true;
         }
+    }
+
+    function matchesSkeleton() {
+        const skeleton = node('div', 'doki-matches-skeleton');
+        skeleton.setAttribute('aria-hidden', 'true');
+        const intro = node('div', 'doki-skeleton-description');
+        intro.append(node('span', 'doki-skeleton-line'));
+        skeleton.append(intro);
+        for (let index = 0; index < 2; index++) {
+            const group = node('div', 'doki-popup-match-group');
+            const header = node('div', 'doki-popup-match-summary');
+            header.append(node('span', 'doki-popup-match-chevron'), node('span', 'doki-skeleton-line doki-match-skeleton-logo'),
+                node('span', 'doki-skeleton-line doki-match-skeleton-name'));
+            const row = node('div', 'doki-popup-match-row');
+            for (let cell = 0; cell < 4; cell++)
+                row.append(node('span', 'doki-skeleton-line'));
+            group.append(header, row);
+            skeleton.append(group);
+        }
+        return skeleton;
     }
 
     function storage() {
@@ -427,7 +600,6 @@ export function startProgressPopup(win = window, doc = document) {
         adopt(current, view);
         current.status.replaceChildren();
         current.status.hidden = true;
-        current.tabs.hidden = false;
         render(current);
     }
 
@@ -453,6 +625,8 @@ export function startProgressPopup(win = window, doc = document) {
         renderSeasons(current);
         renderHeaderLinks(current);
         renderOverview(current);
+        renderMatches(current);
+        loadSeriesDetails(current);
     }
 
     function renderSeriesHeader(current, view) {
@@ -510,7 +684,16 @@ export function startProgressPopup(win = window, doc = document) {
         const known = current.rows.length === 1 ? targets.find(target => target.entry.totalEpisodes > 0)?.entry.totalEpisodes : null;
         const facts = [['Format', view.isMovie ? 'Movie' : 'TV'], ['Episodes', `${known ?? view.episodeCount}`], ['Aired', airedLabel(view.premiereDate)],
             ['Status', seriesStatusLabel(view.status)]].filter(([, value]) => value);
-        current.details.replaceChildren(...facts.flatMap(([name, value]) => [node('dt', '', name), node('dd', '', value)]));
+        const items = facts.flatMap(([name, value]) => [node('dt', '', name), node('dd', '', value)]);
+        const airing = current.detailReads.airing?.data;
+        const date = new Date(airing?.airsAtUtc ?? NaN);
+        if (airing?.episode > 0 && date.getTime() > Date.now()) {
+            const day = new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(date);
+            const next = node('dd', '', `Episode ${airing.episode}`);
+            next.append(node('span', 'doki-popup-airing-date', new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date)));
+            items.push(node('dt', '', 'Airs'), node('dd', '', day), node('dt', '', 'Next'), next);
+        }
+        current.details.replaceChildren(...items);
         current.details.hidden = false;
     }
 
@@ -676,7 +859,172 @@ export function startProgressPopup(win = window, doc = document) {
         }
         if (row.heading)
             current.overview.append(node('p', 'doki-popup-row-heading', row.heading));
-        current.overview.append(renderPills(current, row));
+        current.overview.append(renderPills(current, row), current.related);
+    }
+
+    function loadSeriesDetails(current) {
+        const row = selectedRow(current);
+        const season = row?.split ? current.view.seasons.find(item => item.sourceKey === row.sourceKey) : null;
+        const targets = row ? editableTargets(rowTargets(current.view, row)).flatMap(target => {
+            const tracker = season?.trackers.find(item => item.provider === target.provider);
+            if (!tracker?.matchRanges)
+                return [target];
+            const range = tracker.matchRanges.find(item => item.sourceStart <= row.firstEpisode && item.sourceEnd >= row.firstEpisode);
+            return range ? [{ ...target, entry: range.entry }] : [];
+        }) : [];
+        const preferred = targets.find(target => target.provider === current.openProvider) ?? targets[0];
+        const aniList = targets.find(target => target.provider === 'AniList');
+        const path = `AniDoki/user/progress/series/${encodeURIComponent(current.view.id)}`;
+        const sourceKey = row?.sourceKey;
+        const related = preferred ? { provider: preferred.provider, sourceKey, entryId: preferred.entry.id } : null;
+        const firstPart = row && current.rows.find(item => item.sourceKey === sourceKey) === row;
+        const airing = row && (aniList || firstPart) ? { sourceKey, ...(aniList && { aniListEntryId: aniList.entry.id }) } : null;
+        readSeriesDetail(current, 'related', related && `${path}/related?${new URLSearchParams(related)}`, 'relations', renderRelated, related?.provider);
+        readSeriesDetail(current, 'airing', airing && `${path}/airing?${new URLSearchParams(airing)}`, 'airing', renderDetails);
+    }
+
+    async function readSeriesDetail(current, kind, path, field, renderDetail, provider) {
+        const previous = current.detailReads[kind];
+        if ((previous?.path ?? null) === (path ?? null) && previous?.view === current.view)
+            return;
+        const cached = path && cachedEntry(current.cache, path)?.result;
+        const read = { view: current.view, path, provider, data: cached?.data?.[field] ?? null };
+        current.detailReads[kind] = read;
+        renderDetail(current);
+        if (!path || cached)
+            return;
+
+        try {
+            const result = await readPopupData(current, path);
+            if (result.ok && current === popup && !current.closing && !current.removed && current.detailReads[kind] === read) {
+                read.data = result.data?.[field] ?? null;
+                renderDetail(current);
+            }
+        } catch {
+            // Supplemental reads leave the editor usable on failure.
+        }
+    }
+
+    const relationLabels = {
+        Sequel: 'Sequel', Prequel: 'Prequel', SideStory: 'Side story',
+        AlternativeVersion: 'Alternative version', AlternativeSetting: 'Alternative setting', Other: 'Related'
+    };
+
+    function renderRelated(current) {
+        const relations = current.detailReads.related?.data;
+        if (!Array.isArray(relations) || !relations.length) {
+            current.related.hidden = true;
+            current.related.replaceChildren();
+            return;
+        }
+        const list = node('ul', 'doki-popup-relations');
+        for (const relation of relations) {
+            const provider = current.detailReads.related.provider;
+            const href = relation.entryId ? entryUrl(provider, { id: relation.entryId }) : null;
+            const item = node('li', 'doki-popup-relation');
+            const card = node(href ? 'a' : 'div', 'doki-popup-relation-card');
+            const art = node('span', 'doki-popup-relation-art');
+            if (relation.coverUrl?.startsWith('https://')) {
+                const image = node('img');
+                image.src = relation.coverUrl;
+                image.alt = '';
+                image.loading = 'lazy';
+                image.referrerPolicy = 'no-referrer';
+                art.append(image);
+            }
+            const text = node('div', 'doki-popup-relation-text');
+            const title = node('span', 'doki-popup-relation-title', relation.title || 'Untitled entry');
+            if (href) {
+                card.setAttribute('href', href);
+                card.setAttribute('target', '_blank');
+                card.setAttribute('rel', 'noopener noreferrer');
+                title.id = `dokiRelatedTitle${list.children.length}`;
+                card.setAttribute('aria-labelledby', title.id);
+                const logo = node('span', 'doki-popup-relation-logo');
+                logo.setAttribute('aria-hidden', 'true');
+                logo.style.setProperty('--doki-relation-logo', `url("${assetUrl(providerLogos[provider] ?? 'anidoki-symbol.svg')}")`);
+                art.append(logo);
+            }
+            text.append(node('span', 'doki-popup-secondary', relationLabels[relation.kind] ?? 'Related'), title);
+            const seasons = [...new Set((relation.libraryMatches ?? []).map(match => match.season))];
+            for (const season of seasons.length ? seasons : [undefined]) {
+                const label = season === undefined ? 'Not in your library' : season === null ? 'In your library'
+                    : `In your library (${seasonName(season)})`;
+                text.append(node('span', 'doki-popup-secondary', label));
+            }
+            card.append(art, text);
+            item.append(card);
+            list.append(item);
+        }
+        current.related.replaceChildren(node('h3', '', 'Related'), list);
+        current.related.hidden = false;
+    }
+
+    const matchOrigins = { Automatic: 'Automatic', Shared: 'Shared default', Personal: 'Your override' };
+    const matchEpisodes = (first, last) => first === last ? `Episode ${first}` : `Episodes ${first}–${last}`;
+
+    function renderMatches(current) {
+        const sourceKey = selectedRow(current)?.sourceKey;
+        if (current.matchView === current.view && current.matchSourceKey === sourceKey)
+            return;
+        current.matchView = current.view;
+        current.matchSourceKey = sourceKey;
+        const { view, matches } = current;
+        const expanded = new Map([...matches.querySelectorAll('details')].map(group => [group.dataset.provider, group.open]));
+        const intro = node('p', 'doki-popup-match-intro', 'Which entry each linked tracker uses for this series, and how your library’s episodes map to it. ');
+        if (view.matchesLinkAvailable && sourceKey) {
+            const link = node('a', 'doki-popup-link', 'Your matches in AniDōki settings');
+            link.dataset.focusKey = 'matches:settings';
+            bindSettingsLink(current, link, sourceKey);
+            intro.append(node('span', '', 'To create or change your own matches, go to '), link);
+        } else {
+            intro.append(node('span', '', 'Your server admin manages these matches.'));
+        }
+        const groups = view.trackers.map(({ provider }) => {
+            const sources = view.seasons.map(season => ({ season, tracker: season.trackers.find(item => item.provider === provider) }));
+            const matched = sources.filter(({ tracker }) => tracker?.matchRanges?.length);
+            const unavailable = sources.some(({ tracker }) => tracker?.error);
+            const group = node('details', 'doki-popup-match-group');
+            group.dataset.provider = provider;
+            group.open = expanded.get(provider) ?? (matched.length > 0);
+            const header = node('summary', 'doki-popup-match-summary');
+            header.dataset.focusKey = `matches:${provider}`;
+            const type = view.isMovie ? 'movie' : 'season';
+            const count = `${matched.length} ${type}${matched.length === 1 ? '' : 's'}`;
+            const chevron = node('span', 'doki-popup-match-chevron');
+            chevron.setAttribute('aria-hidden', 'true');
+            header.append(chevron, providerTile(provider, false), node('strong', '', providerName(provider)), node('span', 'doki-popup-secondary', count));
+            group.append(header);
+            const rows = node('ul', 'doki-popup-match-rows');
+            for (const { season, tracker } of matched)
+                for (const match of tracker.matchRanges)
+                    rows.append(renderMatchRow(view, season, tracker, match));
+            if (unavailable || !matched.length)
+                rows.append(node('li', 'doki-popup-match-message doki-popup-secondary',
+                    unavailable ? 'Some matches could not be read.' : 'No matches for this tracker.'));
+            group.append(rows);
+            return group;
+        });
+        const focused = doc.activeElement;
+        const focusKey = matches.contains(focused) ? focused.dataset.focusKey : null;
+        matches.replaceChildren(intro, ...groups);
+        if (focusKey)
+            (matches.querySelector(`[data-focus-key="${focusKey}"]`) ?? matches).focus({ preventScroll: true });
+    }
+
+    function renderMatchRow(view, season, tracker, match) {
+        const row = node('li', 'doki-popup-match-row');
+        const source = node('div', 'doki-popup-match-cell');
+        source.append(node('strong', '', view.isMovie ? 'Movie' : seasonName(season.season)),
+            node('span', 'doki-popup-secondary', matchEpisodes(match.sourceStart, match.sourceEnd)));
+        const direction = node('span', 'doki-popup-secondary', '→');
+        direction.setAttribute('aria-hidden', 'true');
+        const target = node('div', 'doki-popup-match-cell');
+        target.append(node('span', '', match.entry.title), node('span', 'doki-popup-secondary', matchEpisodes(match.targetStart, match.targetEnd)));
+        const origin = node('span', 'doki-popup-match-origin', matchOrigins[tracker.origin]);
+        origin.dataset.origin = tracker.origin;
+        row.append(source, direction, target, origin);
+        return row;
     }
 
     // --- Overview: pills and the editor ------------------------------------------------------------------------------
@@ -1009,7 +1357,7 @@ export function startProgressPopup(win = window, doc = document) {
         if (reason) {
             // Disabled buttons stay focusable and say why on hover and focus.
             control.setAttribute('aria-disabled', 'true');
-            const tip = node('span', 'doki-tooltip', reason);
+            const tip = node('span', 'doki-sync-tooltip', reason);
             tip.id = `dokiTip-${className}`;
             tip.setAttribute('role', 'tooltip');
             control.setAttribute('aria-describedby', tip.id);
@@ -1034,8 +1382,15 @@ export function startProgressPopup(win = window, doc = document) {
             complete.addEventListener('click', () => edit(drafts => markCompleted(info.targets, drafts), 'status'), { signal });
             notes.append(complete);
         }
-        const status = node('p', 'doki-editor-status', current.notes[row.key] ?? (current.busy ? 'Syncing…' : ''));
+        const status = node('p', 'doki-editor-status');
         status.setAttribute('role', 'status');
+        if (current.busy) {
+            const icon = node('span', 'doki-popup-sync-spinner');
+            icon.setAttribute('aria-hidden', 'true');
+            status.append(icon, node('span', '', 'Syncing…'));
+        } else {
+            status.textContent = current.notes[row.key] ?? '';
+        }
         notes.append(status);
         const buttons = syncButtons(info.targets, rowDrafts(current, row), { all: info.key === 'all' });
         const actions = node('div', 'doki-sync-actions');
@@ -1054,6 +1409,8 @@ export function startProgressPopup(win = window, doc = document) {
         renderSeasons(current);
         renderHeaderLinks(current);
         renderOverview(current);
+        renderMatches(current);
+        loadSeriesDetails(current);
         if (focusKey)
             current.panel.querySelector(`[data-focus-key="${focusKey}"]`)?.focus({ preventScroll: true });
     }
@@ -1112,10 +1469,11 @@ export function startProgressPopup(win = window, doc = document) {
         const plan = planSyncUp(targets, rowDrafts(current, row), { isMovie: current.view.isMovie, itemId: current.view.id });
         const byProvider = Object.fromEntries(targets.map(target => [target.provider, target]));
         current.busy = true;
+        beginWrite(current);
         delete current.notes[row.key];
         current.cards[row.key] = (current.cards[row.key] ?? []).filter(card => !byProvider[card.provider]);
         refresh(current);
-        let results = [], note = null;
+        let results = [], note = null, settled = true;
         try {
             if (plan.edit) {
                 const started = await request('AniDoki/user/progress/edit', { method: 'POST', body: plan.edit, abort: current.controller.signal });
@@ -1124,19 +1482,23 @@ export function startProgressPopup(win = window, doc = document) {
                 const outcome = await poll(current, `AniDoki/user/progress/edit/${started.data.operationId}`, data => data.finished);
                 if (outcome)
                     results = outcome.results;
-                else
+                else {
+                    settled = false;
                     note = 'Still saving. Check History in AniDōki settings';
+                }
             }
             for (const provider of note ? [] : plan.syncs) {
                 if (!await runSync(current, 'sync-to-trackers', provider)) {
+                    settled = false;
                     note = 'Still syncing. Check History in AniDōki settings';
                     break;
                 }
             }
         } catch (failure) {
+            settled = false;
             note = failureNote(failure);
         }
-        await settle(current, row, results, byProvider, note);
+        await settle(current, row, results, byProvider, note, settled);
     }
 
     async function syncDown(current, row, targets) {
@@ -1144,16 +1506,20 @@ export function startProgressPopup(win = window, doc = document) {
         if (current.busy || !provider)
             return;
         current.busy = true;
+        beginWrite(current);
         delete current.notes[row.key];
         refresh(current);
-        let note = null;
+        let note = null, settled = true;
         try {
-            if (!await runSync(current, 'sync-to-jellyfin', provider))
+            if (!await runSync(current, 'sync-to-jellyfin', provider)) {
+                settled = false;
                 note = 'Still syncing. Check History in AniDōki settings';
+            }
         } catch (failure) {
+            settled = false;
             note = failureNote(failure);
         }
-        await settle(current, row, [], {}, note);
+        await settle(current, row, [], {}, note, settled);
     }
 
     function resultNote(item) {
@@ -1169,9 +1535,10 @@ export function startProgressPopup(win = window, doc = document) {
     }
 
     /** After a save or sync: read the view again, apply the edit results to the drafts, and show what needs the user. */
-    async function settle(current, row, results, byProvider, note) {
-        if (current !== popup || current.removed)
+    async function settle(current, row, results, byProvider, note, settled) {
+        if (current !== popup || current.closing || current.removed)
             return;
+        endWrite(current, settled);
         current.busy = false;
         const before = rowDrafts(current, row);
         // A result with no draft behind it (a movie raised to Jellyfin's count) has no card to explain it, so it gets a note.
@@ -1183,7 +1550,7 @@ export function startProgressPopup(win = window, doc = document) {
         if (note)
             current.notes[row.key] = note;
         try {
-            const fresh = await request(`AniDoki/user/progress/series/${encodeURIComponent(current.itemId)}`, { abort: current.controller.signal });
+            const fresh = await readPopupData(current, seriesPath(current));
             if (fresh.ok && fresh.data && current === popup && !current.removed)
                 adopt(current, fresh.data);
         } catch {
@@ -1252,6 +1619,7 @@ export function startProgressPopup(win = window, doc = document) {
             return;
         disposed = true;
         lifetime.abort();
+        readCache = null;
         win.clearTimeout(bootTimer);
         if (popup)
             finish(popup, false);
@@ -1263,6 +1631,8 @@ export function startProgressPopup(win = window, doc = document) {
             delete win[runtimeKey];
     }
 
+    // The other AniDōki views report saved changes through this event.
+    doc.addEventListener('anidoki:progress-changed', () => readCache?.entries.clear(), { signal });
     doc.addEventListener('viewshow', () => scanPage(), { signal });
     win.addEventListener('hashchange', () => scanPage(), { signal });
     win.addEventListener('popstate', () => {

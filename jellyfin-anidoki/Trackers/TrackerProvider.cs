@@ -63,7 +63,8 @@ public sealed class TrackerProvider(ApiName name, ITrackerClient client, TimePro
         return (anime.RelatedAnime ?? [])
             .Where(related => related.Anime != null)
             .Select(related => new EntryRelation(ToRelationKind(related.RelationType), new EntryRef(name, related.Anime!.Id, related.Anime.AlternativeId),
-                related.Anime.Title ?? related.Anime.AlternativeTitles?.En ?? related.Anime.AlternativeTitles?.Synonyms?.FirstOrDefault()))
+                related.Anime.Title ?? related.Anime.AlternativeTitles?.En ?? related.Anime.AlternativeTitles?.Synonyms?.FirstOrDefault(),
+                related.Anime.MainPicture?.Medium ?? related.Anime.MainPicture?.Large))
             .ToArray();
     }
 

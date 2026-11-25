@@ -218,6 +218,7 @@
 .anidoki .doki-user-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .anidoki .doki-user-panel-header h3 { font-size: 1.25rem; font-weight: 700; overflow-wrap: anywhere; min-width: 0; }
 .anidoki .doki-user-panel-header > button { flex: 0 0 auto; }
+.anidoki #trackerMatchesTitle { scroll-margin-top: 168px; }
 .anidoki .doki-user-section h4 { margin: 0 0 16px; font-size: 1rem; font-weight: 700; }
 /* A description belongs to its heading: close under it, then the usual gap before what it describes. */
 .anidoki .doki-user-section h4:has(+ .doki-help) { margin-bottom: 0; }
@@ -471,6 +472,11 @@
 /* Mixed with the text colour so the theme's warning stays readable on light and dark panels. */
 .anidoki .doki-setting-alert { color: color-mix(in srgb, var(--tjk-warning) 70%, var(--doki-text)); font-size: .875rem; font-weight: 600; }
 .anidoki .doki-dialog { width: min(56rem, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 0; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-lg); background: var(--doki-solid-surface); color: var(--doki-text); font: inherit; }
+.anidoki .doki-popup-background { position: absolute; inset: 0; z-index: -1; background: Canvas; pointer-events: none; }
+.anidoki .doki-popup-background > div { position: absolute; inset: 0; }
+.anidoki :is(.doki-dialog, .doki-confirm):has(> .doki-popup-background) {
+    isolation: isolate; background: var(--backgroundGradient, var(--doki-page));
+}
 .anidoki .doki-dialog[open] { display: flex; flex-direction: column; }
 /* One height for every level, so moving between list, season and editor keeps the header and Close in place. */
 .anidoki .doki-dialog { height: min(44rem, calc(100dvh - 32px)); }
@@ -500,6 +506,20 @@ body:has(.anidoki :is(.doki-dialog, .doki-confirm):modal) { overflow: hidden; }
 .anidoki .doki-dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
 .anidoki .doki-dialog-body > * { margin: 0; }
 .anidoki .doki-dialog-body > .doki-provider-tabs { margin: 0; }
+.anidoki #userMatchDialog .doki-dialog-body[data-view="list"] > :is([role="search"], .doki-list-filters, .doki-pager) { flex: none; }
+.anidoki #userMatchDialog .doki-source-scroll {
+    min-block-size: min(7rem, 20dvh); overflow: auto; overscroll-behavior: contain;
+}
+.anidoki #userMatchDialog .doki-source-scroll:focus-visible { outline: 2px solid var(--doki-accent); outline-offset: 2px; }
+@media (width > 35rem) {
+    .anidoki #userMatchDialog .doki-source-scroll { scroll-padding-block-start: 2.75rem; }
+    .anidoki #userMatchDialog .doki-source-scroll thead {
+        position: sticky; inset-block-start: 0; z-index: 1;
+        background-color: var(--doki-solid-surface);
+        background-color: rgb(from var(--doki-solid-surface) r g b / 1);
+    }
+}
+.anidoki #userMatchDialog .doki-dialog-body[data-view="detail"] { padding-block-start: 6px; gap: 12px; }
 .anidoki .doki-dialog-preview { padding-top: 20px; border-top: 1px solid var(--doki-edge); }
 .anidoki .doki-dialog-preview .doki-field-preview { margin: 0 0 12px; }
 .anidoki .doki-dialog-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--doki-edge); }

@@ -63,6 +63,7 @@ export function runProgress(state, done, total) {
 const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidokiAssetVersion ??= Date.now().toString(36)}/${name}`);
 
 export default function (view) {
+    const viewDocument = view.ownerDocument;
     // lastRun: the latest run of any kind. previewRun: the preview the dialog shows, until a sync from the page replaces it;
     // previewRun.apply is the apply of its rows, once there is one.
     let lifetime, common, previewState, users = [], config, busy = false, lastRun, previewRun;
@@ -84,7 +85,7 @@ export default function (view) {
     });
     async function start(signal) {
         [common, previewState] = await Promise.all([import(assetUrl('common.js')), import(assetUrl('preview-state.js'))]); if (signal.aborted) return;
-        common.ensureStyles(); common.setTabs(common.TabManualSync, common.getTabs, view);
+        common.ensureStyles(); common.followThemeAccent(find('.anidoki'), signal); common.setTabs(common.TabManualSync, common.getTabs, view);
         find('#previousPreviewPage').replaceChildren(common.icon('chevron-left'));
         find('#nextPreviewPage').replaceChildren(common.icon('chevron-right'));
         common.selectPluginSidebar('AniDoki_ManualSync', signal, view.ownerDocument);
@@ -227,7 +228,7 @@ export default function (view) {
     }
     function openDialog(signal) {
         if (!previewRun) return;
-        if (!dialog().open) dialog().showModal();
+        common.showThemedDialog(dialog());
         render();
         find('#previewTitle').focus();
         // Coming back to the page keeps the run but not necessarily its rows or whether it can still be applied; read them again.
@@ -262,9 +263,15 @@ export default function (view) {
                 if (signal.aborted) return;
                 Object.assign(run, describeOperation(view), { state: view.state, done: view.done, total: view.total });
                 render();
+                const finished = isFinished(view.state);
+                if (finished && run.mode !== 'preview') {
+                    const normalizeId = id => id?.replaceAll('-', '').toLowerCase();
+                    if (normalizeId(run.request.userId) === normalizeId(globalThis.ApiClient?.getCurrentUserId?.()))
+                        viewDocument.dispatchEvent(new Event('anidoki:progress-changed'));
+                }
                 // An apply's rows fill in their results as it goes.
                 if (run.mode === 'apply' && run === previewRun?.apply) await loadRows(signal);
-                if (isFinished(view.state)) break;
+                if (finished) break;
             } catch (error) {
                 if (signal.aborted) return;
                 Object.assign(run, { message: `Could not read progress: ${await common.errorMessage(error)}`, tone: 'error' });
@@ -538,7 +545,7 @@ export default function (view) {
         find('#confirmApplyButton').textContent = summary.button;
         const list = find('#confirmList');
         list.replaceChildren(common.element('li', 'doki-help', 'Loading…'));
-        find('#confirmApply').showModal();
+        common.showThemedDialog(find('#confirmApply'));
         find('#confirmApply').querySelector('[data-action="close-confirm"]').focus();
         try {
             const page = await common.json(previewState.rowsPath(previewRun.operationId, 'reductions', 0), { signal });
