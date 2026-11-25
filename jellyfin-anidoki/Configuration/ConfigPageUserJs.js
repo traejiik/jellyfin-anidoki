@@ -4,6 +4,34 @@ const cachedViews = new WeakMap();
 // Same URL as common.assetUrl, which cannot be used before common.js loads.
 const assetUrl = name => ApiClient.getUrl(`AniDoki/assets/v/${globalThis.anidokiAssetVersion ??= Date.now().toString(36)}/${name}`);
 
+export function openMatchesFromSettingsLink(view, requestKey, openMatches, win = window) {
+    const url = new URL(win.location.href);
+    const [route, query] = url.hash.split('?');
+    const params = new URLSearchParams(query);
+    const hasMarker = params.get('dokiSection') === 'trackerMatchesTitle';
+    let request = null;
+    try {
+        const session = win.sessionStorage;
+        const pending = session?.getItem(requestKey);
+        session?.removeItem(requestKey);
+        request = JSON.parse(pending ?? 'null');
+    } catch {
+        // Direct links carry the marker in the route.
+    }
+    const sourceKey = (hasMarker && params.get('dokiSource')) ||
+        (request?.expires > Date.now() && typeof request.sourceKey === 'string' ? request.sourceKey : null);
+    if (!hasMarker && !sourceKey)
+        return;
+    if (hasMarker) {
+        params.delete('dokiSection');
+        params.delete('dokiSource');
+        url.hash = `${route}?${params}`;
+        win.history.replaceState(win.history.state ?? null, '', url.href);
+    }
+    view.querySelector('[data-section="#doki-advanced"]')?.click();
+    return openMatches(sourceKey || null);
+}
+
 export default function (view, host = view) {
     const cache = cachedViews.get(host) ?? { saved: null, baseline: null, draft: null, busy: false };
     cachedViews.set(host, cache); cache.lifecycle?.abort(); cache.active?.abort();
@@ -44,6 +72,7 @@ export default function (view, host = view) {
         [common, state, history] = await Promise.all([import(assetUrl('common.js')), import(assetUrl('config-state.js')), import(assetUrl('history-state.js'))]);
         if (signal.aborted) return;
         common.ensureStyles(); common.prepareStickyShell(root, signal);
+        common.followThemeAccent(root, signal);
         const userId = ApiClient.getCurrentUserId();
         if (cache.userId && cache.userId !== userId) { cache.activity = null; cache.saved = null; cache.baseline = null; cache.draft = null; cache.discordDraft = null; cache.discordDirty = null; cache.matches = null; cache.matchesDirty = null; }
         cache.userId = userId;
@@ -80,7 +109,12 @@ export default function (view, host = view) {
         // A match draft warns on leaving (above) but not through the Save changes bar, which would not save it.
         // A failure here leaves the rest of the page working and says so in the section.
         if (!signal.aborted) await import(common.assetUrl('user-matches.js'))
-            .then(matches => signal.aborted ? undefined : matches.default(find('#doki-advanced'), common, cache, signal))
+            .then(async matches => {
+                if (signal.aborted) return;
+                const openMatches = await matches.default(find('#doki-advanced'), common, cache, signal);
+                if (!signal.aborted)
+                    await openMatchesFromSettingsLink(view, common.matchesSettingsRequest, openMatches);
+            })
             .catch(async error => { if (!signal.aborted) common.status(find('#matchesStatus'), await common.errorMessage(error), 'error'); });
     }
     function render(signal) {

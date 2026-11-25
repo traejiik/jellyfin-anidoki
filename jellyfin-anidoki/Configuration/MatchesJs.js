@@ -27,6 +27,7 @@ export default function (view) {
         [editor, state] = await Promise.all([import(common.assetUrl('match-editor.js')), import(common.assetUrl('match-editor-state.js'))]);
         if (signal.aborted) return;
         common.ensureStyles();
+        common.followThemeAccent(find('.anidoki'), signal);
         common.setTabs(common.TabMatches, common.getTabs, view);
         common.selectPluginSidebar('AniDoki_Matches', signal, view.ownerDocument);
         list ??= state.createList();
@@ -208,7 +209,7 @@ export default function (view) {
         if (signal.aborted) return;
         detail = loaded;
         showSourceHeading();
-        if (!find('#matchDialog').open) find('#matchDialog').showModal();
+        common.showThemedDialog(find('#matchDialog'));
         find('#sourceRows').querySelectorAll('tr[data-source]').forEach(row => row.toggleAttribute('aria-current', row.dataset.source === sourceKey));
         // Trackers in the order Settings lists them; open the one asked for, else one with a saved match, else one somebody linked.
         const order = common.providers.map(entry => entry.key);

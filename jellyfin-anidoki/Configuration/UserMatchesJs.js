@@ -21,6 +21,8 @@ export default async function (section, common, cache, signal) {
     const find = selector => section.querySelector(selector);
     const memory = cache.matches ??= { list: null };
     let page, detail, provider, match = null, automatic, showIncomplete = false, fixPending = false;
+    let sourceRead = 0, providerRead = 0;
+    const mapReads = new WeakMap();
     // shown: the popup is open. problems: how many seasons need a match. The openers get focus back.
     let shown = false, problems = 0, listOpener = null, sourceOpener = null;
     const editing = () => match != null;
@@ -44,15 +46,6 @@ export default async function (section, common, cache, signal) {
         if (cache.matchesDirty === edited) { cache.matchesDirty = null; cache.matchesRefresh = null; }
     }, { once: true });
 
-    guardSettingsForm(section, signal);
-    bind();
-    // A modal dialog would stay on top of the next page, and its draft would outlive it.
-    signal.addEventListener('abort', () => { shown = false; match = null; if (find('#userMatchDialog').open) find('#userMatchDialog').close(); }, { once: true });
-    await countProblems();
-    if (signal.aborted) return;
-    common.status(find('#matchesStatus'), '');
-    find('[data-action="open-matches"]').disabled = false;
-
     // The row says when seasons need a match, so problems show without opening the list.
     async function countProblems() {
         try {
@@ -67,15 +60,19 @@ export default async function (section, common, cache, signal) {
     }
 
     // Problems first: the list opens on Needs a match while there are any, else as it was left.
-    function openMatches(button) {
+    function openMatches(button, sourceKey = null) {
         listOpener = button;
         memory.list = problems ? state.setFilter(state.createList(), 'needs-match', state.userFilters) : memory.list ?? state.createList();
         find('#userSourceSearch').value = memory.list.search;
         renderFilters();
         showList();
         shown = true;
-        find('#userMatchDialog').showModal();
+        common.showThemedDialog(find('#userMatchDialog'));
         find('#userSourceSearch').focus();
+        if (sourceKey) {
+            common.status(find('#userPageStatus'), 'Loading…');
+            return openSource(sourceKey, null, { force: true, fromShortcut: true });
+        }
         loadList();
     }
 
@@ -89,6 +86,7 @@ export default async function (section, common, cache, signal) {
     function backToList({ force = false } = {}) {
         if (!force && !confirmLeave()) return false;
         leaveEditor();
+        sourceRead++;
         detail = null;
         showList();
         find('#userSourceRows').querySelectorAll('tr[aria-current]').forEach(row => row.removeAttribute('aria-current'));
@@ -184,7 +182,7 @@ export default async function (section, common, cache, signal) {
             'use-shared': useShared,
             preview: previewDraft,
             save,
-            'open-matches': openMatches,
+            'open-matches': button => openMatches(button),
             back: () => (editing() ? cancelCorrection() : backToList()),
             'back-to-season': cancelCorrection,
             'back-to-list': () => backToList(),
@@ -237,21 +235,28 @@ export default async function (section, common, cache, signal) {
         find('[data-action="next-page"]').disabled = memory.list.page >= count;
     }
 
-    async function openSource(sourceKey, selected, { force = false } = {}) {
+    async function openSource(sourceKey, selected, { force = false, fromShortcut = false } = {}) {
+        const reading = ++sourceRead;
+        const stillReading = () => !signal.aborted && shown && sourceRead === reading;
         let loaded;
         try {
             loaded = await common.json(state.routePath(base, sourceKey), { signal });
         } catch (error) {
-            if (signal.aborted) return;
+            if (!stillReading()) return;
             const failure = await editor.problem(error);
             const text = failure.status === 404 ? 'That season or movie is no longer in your libraries.' : await common.errorMessage(error);
-            common.status(find(detail ? '#userEditorStatus' : '#userPageStatus'), text, 'error');
+            if (fromShortcut && stillReading())
+                await loadList();
+            if (stillReading())
+                common.status(find(detail ? '#userEditorStatus' : '#userPageStatus'), text, 'error');
             return;
         }
-        if (signal.aborted || !shown) return;
+        if (!stillReading()) return;
         detail = loaded;
         showView('detail');
         showSourceHeading();
+        if (fromShortcut)
+            find('#userDialogTitle').focus();
         find('#userSourceRows').querySelectorAll('tr[data-source]').forEach(row => row.toggleAttribute('aria-current', row.dataset.source === sourceKey));
         // Trackers in the order Settings lists them; open the one asked for, else one with a correction, else the first.
         const order = common.providers.map(entry => entry.key);
@@ -262,6 +267,9 @@ export default async function (section, common, cache, signal) {
 
     async function selectProvider(name, { force = false } = {}) {
         const changed = force || name !== provider;
+        const reading = ++providerRead;
+        const source = detail;
+        const stillReading = () => !signal.aborted && shown && detail === source && providerRead === reading;
         provider = name;
         find('#userProviderTabs').replaceChildren(...(detail.providers ?? []).map(entry => {
             const tab = common.element('button', 'doki-provider-tab', common.providerName(entry.provider));
@@ -290,21 +298,24 @@ export default async function (section, common, cache, signal) {
         back.hidden = !entry.personal;
         back.textContent = entry.shared ? 'Use the shared match' : 'Go back to automatic matching';
         say('');
-        const reading = provider;
-        if (!entry.personal && !entry.shared) await loadAutomatic();
-        if (provider === reading) await previewPage();
-    }
-
-    async function loadAutomatic() {
-        const reading = provider;
-        try {
-            automatic = await common.json(state.routePath(base, detail.sourceKey, provider, 'automatic'), { signal });
-        } catch (error) {
-            if (signal.aborted) return;
-            automatic = { reason: await common.errorMessage(error) };
+        const correct = find('[data-action="correct"]');
+        correct.disabled = !entry.personal && !entry.shared;
+        hideMap(pageMap(), 'Loading episode map…');
+        if (correct.disabled) {
+            try {
+                const result = await common.json(state.routePath(base, source.sourceKey, name, 'automatic'), { signal });
+                if (!stillReading()) return;
+                automatic = result;
+            } catch (error) {
+                const reason = await common.errorMessage(error);
+                if (!stillReading()) return;
+                automatic = { reason };
+            }
+            if (!automatic?.mapping)
+                find('#userResolutionNote').textContent = `No episode map: ${state.automaticReason(automatic?.reason, { own: true })}.`;
+            correct.disabled = false;
         }
-        if (signal.aborted || provider !== reading || automatic?.mapping) return;
-        find('#userResolutionNote').textContent = `No episode map: ${state.automaticReason(automatic?.reason, { own: true })}.`;
+        await previewPage();
     }
 
     // A correction starts from what applies now: the user's own, else the shared match, else what automatic matching finds.
@@ -366,6 +377,7 @@ export default async function (section, common, cache, signal) {
     function closeDialog({ force = false } = {}) {
         if (!shown || (!force && !confirmLeave())) return;
         shown = false;
+        sourceRead++;
         leaveEditor();
         detail = null;
         sourceOpener = null;
@@ -403,6 +415,7 @@ export default async function (section, common, cache, signal) {
     const draftMap = () => ({ rows: find('#userDraftRows'), note: find('#userDraftMapNote'), table: find('#userDraftRows').closest('.doki-table-shell'), progress: find('#userDraftProgress') });
 
     function hideMap(map, text) {
+        mapReads.delete(map.rows);
         map.note.textContent = text;
         map.rows.replaceChildren();
         map.table.hidden = true;
@@ -412,16 +425,21 @@ export default async function (section, common, cache, signal) {
     // Asks the server where each episode goes under mapping, and draws it with the user's progress. Returns the preview, or null.
     async function drawMap(map, mapping, label) {
         map.note.textContent = 'Loading…';
-        const reading = provider;
+        const request = {};
+        mapReads.set(map.rows, request);
+        const source = detail, reading = providerRead, draft = map.rows === find('#userDraftRows') ? match : null;
+        const stillReading = () => !signal.aborted && shown && detail === source && providerRead === reading &&
+            mapReads.get(map.rows) === request && (!draft || draft === match);
         let result;
         try {
             result = await common.json(state.routePath(base, detail.sourceKey, provider, 'preview'),
                 { method: 'POST', body: { ranges: mapping.ranges, exceptions: mapping.exceptions }, signal });
         } catch (error) {
-            if (!signal.aborted) hideMap(map, await common.errorMessage(error));
+            const message = await common.errorMessage(error);
+            if (stillReading()) hideMap(map, message);
             return null;
         }
-        if (signal.aborted || provider !== reading) return null;
+        if (!stillReading()) return null;
         map.table.hidden = false;
         map.note.textContent = label;
         editor.renderEpisodeMap(map.rows, result.rows ?? [], { runs: state.episodeRuns, describe: state.describeRun, provider: common.providerName(provider), icon: common.icon });
@@ -488,6 +506,7 @@ export default async function (section, common, cache, signal) {
             return;
         }
         if (signal.aborted) return;
+        section.ownerDocument.dispatchEvent(new Event('anidoki:progress-changed'));
         const warnings = (saved?.warnings ?? []).map(issue => issue.message);
         leaveEditor();
         await openSource(detail.sourceKey, provider, { force: true });
@@ -512,6 +531,7 @@ export default async function (section, common, cache, signal) {
             return;
         }
         if (signal.aborted) return;
+        section.ownerDocument.dispatchEvent(new Event('anidoki:progress-changed'));
         await openSource(detail.sourceKey, provider, { force: true });
         say(`Deleted your correction. This season now uses ${back}.`, 'success');
         loadList();
@@ -521,4 +541,15 @@ export default async function (section, common, cache, signal) {
         const target = [...match.draft.ranges, ...match.draft.exceptions].find(item => item.key === row)?.target;
         entryPicker.open(row, target?.title ?? detail.title.replace(/ · season \d+$/, ''));
     }
+
+    guardSettingsForm(section, signal);
+    bind();
+    // A modal dialog would stay on top of the next page, and its draft would outlive it.
+    signal.addEventListener('abort', () => { shown = false; match = null; if (find('#userMatchDialog').open) find('#userMatchDialog').close(); }, { once: true });
+    await countProblems();
+    if (signal.aborted) return;
+    common.status(find('#matchesStatus'), '');
+    const opener = find('[data-action="open-matches"]');
+    opener.disabled = false;
+    return sourceKey => openMatches(opener, sourceKey);
 }

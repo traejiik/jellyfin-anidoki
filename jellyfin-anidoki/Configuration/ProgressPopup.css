@@ -12,12 +12,12 @@
 .detailButton-icon.doki-item-button-icon { width: 1em; height: 1em; }
 .anidoki .doki-symbol { display: inline-block; flex: 0 0 auto; }
 
-html.doki-popup-open { overflow: hidden; }
+html.doki-popup-open, html.doki-popup-open body { overflow: hidden; overscroll-behavior: none; }
 
 /* --- Dialog --- */
 .anidoki.doki-popup-scrim {
     position: fixed; inset: 0; z-index: 1100; max-width: none; margin: 0; padding: 32px 56px;
-    display: grid; place-items: center; background: rgb(0 0 0 / .6);
+    display: grid; place-items: center; overflow: hidden; overscroll-behavior: none; background: rgb(0 0 0 / .6);
     animation: doki-scrim-in .34s ease both;
 }
 .anidoki .doki-popup {
@@ -26,8 +26,6 @@ html.doki-popup-open { overflow: hidden; }
     box-shadow: 0 20px 60px rgb(0 0 0 / .5);
     animation: doki-popup-in .34s cubic-bezier(.2, .8, .2, 1) both;
 }
-.anidoki .doki-popup-background { position: absolute; inset: 0; z-index: -1; background: Canvas; pointer-events: none; }
-.anidoki .doki-popup-background > div { position: absolute; inset: 0; }
 .anidoki.doki-popup-scrim.is-closing { animation: doki-scrim-out .2s ease both; }
 .anidoki.doki-popup-scrim.is-closing .doki-popup { animation: doki-popup-out .2s ease both; }
 @keyframes doki-scrim-in { from { background: rgb(0 0 0 / 0); } }
@@ -136,13 +134,10 @@ html.doki-popup-open { overflow: hidden; }
 .anidoki .doki-popup-panel:empty { display: none; }
 .anidoki .doki-popup-description { color: var(--doki-muted); font-size: .875rem; }
 .anidoki .doki-popup-status { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 0; }
-.anidoki .doki-popup-status:has(.doki-overview-skeleton) { padding: 0; }
-.anidoki .doki-overview-skeleton { width: 100%; }
-.anidoki .doki-skeleton-tabs { align-items: center; height: 44px; padding: 0 14px; }
-.anidoki .doki-skeleton-overview { animation: none; }
+.anidoki .doki-popup-status:has(> .doki-sr-only) { padding: 0; }
+.anidoki .doki-overview-skeleton { display: grid; gap: 14px; width: 100%; }
 .anidoki .doki-skeleton-description { display: grid; grid-auto-rows: 1.35rem; align-items: center; }
 .anidoki .doki-skeleton-line { display: block; height: 8px; max-width: 100%; border-radius: var(--tjk-radius-pill); background: var(--doki-edge); }
-.anidoki .doki-skeleton-tabs .doki-skeleton-line { width: 60px; }
 .anidoki .doki-skeleton-description .doki-skeleton-line { width: 94%; }
 .anidoki .doki-skeleton-description .doki-skeleton-line:last-child { width: 65%; }
 .anidoki .doki-popup-loading { color: var(--doki-muted); }
@@ -316,12 +311,18 @@ html.doki-popup-open { overflow: hidden; }
 }
 .anidoki .doki-sync:not([aria-disabled="true"]):hover { background: var(--doki-pill); }
 .anidoki .doki-sync[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
-.anidoki .doki-tooltip {
-    position: absolute; inset: auto 0 calc(100% + 8px) auto; z-index: 5; width: max-content; max-width: 280px; padding: 6px 10px;
-    border-radius: var(--tjk-radius-sm); background: #161616; color: #fff; font-size: .8125rem; line-height: 1.4; pointer-events: none;
+.anidoki .doki-sync-tooltip {
+    position: absolute; inset-block-end: calc(100% + 8px); inset-inline-end: 0; z-index: 5;
+    width: max-content; max-width: min(16rem, calc(100vw - 48px)); box-sizing: border-box; padding: 6px 10px;
+    border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-sm); background: var(--doki-solid-surface);
+    color: var(--doki-text); font-size: .8125rem; line-height: 1.4; pointer-events: none;
     opacity: 0; transform: translateY(4px); transition: opacity .16s ease, transform .16s ease;
 }
-.anidoki .doki-sync-wrap:hover .doki-tooltip, .anidoki .doki-sync-wrap:focus-within .doki-tooltip { opacity: 1; transform: none; }
+.anidoki .doki-sync-tooltip::after {
+    content: ''; position: absolute; inset-block-end: -4px; inset-inline-end: min(50%, 3.5rem);
+    width: 6px; height: 6px; background: inherit; border: solid var(--doki-edge); border-width: 0 1px 1px 0; transform: rotate(45deg);
+}
+.anidoki .doki-sync-wrap:is(:hover, :focus-within) .doki-sync-tooltip { opacity: 1; transform: none; }
 
 /* --- Pill motion: real sizes grow from the closed pill, rows fade in after (no scaling, so text never stretches). --- */
 @keyframes doki-pill-grow { from { height: 50px; } }
@@ -368,6 +369,7 @@ html.doki-popup-open { overflow: hidden; }
     .anidoki .doki-sync-actions { width: 100%; margin-left: 0; }
     .anidoki .doki-sync-wrap { flex: 1; }
     .anidoki .doki-sync { width: 100%; justify-content: center; }
+    .anidoki .doki-sync-tooltip { max-width: 100%; }
     .anidoki .doki-popup-season-button {
         display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 14px;
         border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-ground); color: var(--doki-text); cursor: pointer;
@@ -387,4 +389,108 @@ html.doki-popup-open { overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
     .anidoki.doki-popup-scrim, .anidoki.doki-popup-scrim * { animation: none !important; transition: none !important; }
+}
+
+/* --- Related entries and effective matches --- */
+.anidoki :is(.doki-popup-panel, .doki-popup-related)[hidden] { display: none; }
+.anidoki .doki-popup-airing-date,
+.anidoki .doki-popup-secondary { display: block; color: var(--doki-muted); font-size: .8125rem; font-weight: 400; }
+.anidoki .doki-popup-related {
+    display: grid; gap: 12px; padding: 16px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md);
+}
+.anidoki .doki-popup-related h3 { margin: 0; font-size: .9375rem; font-weight: 700; }
+.anidoki :is(.doki-popup-relations, .doki-popup-match-rows) { display: grid; margin: 0; padding: 0; list-style: none; }
+.anidoki .doki-popup-relations { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.anidoki .doki-popup-relation-card {
+    display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 10px;
+    box-sizing: border-box; min-width: 0; height: 100%; padding: 8px;
+    border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-ground);
+}
+.anidoki a.doki-popup-relation-card:focus-visible {
+    outline-offset: 2px; border-color: var(--doki-accent); background: var(--doki-pill);
+}
+.anidoki .doki-popup-relation-art {
+    position: relative; display: block; width: 44px; height: 62px; border-radius: 6px; overflow: hidden;
+    background: color-mix(in srgb, var(--doki-text) 12%, var(--doki-surface));
+}
+.anidoki .doki-popup-relation-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.anidoki :is(.doki-popup-relation-text, .doki-popup-match-cell) { display: grid; min-width: 0; line-height: 1.35; overflow-wrap: anywhere; }
+.anidoki :is(.doki-popup-relation-text, .doki-popup-match-cell, .doki-popup-match-summary) .doki-popup-secondary { font-size: .75rem; }
+.anidoki .doki-popup-match-cell .doki-popup-secondary { font-variant-numeric: tabular-nums; }
+.anidoki #dokiPopupMatches { grid-auto-rows: max-content; }
+.anidoki .doki-popup-match-intro { margin: 0; color: var(--doki-muted); font-size: .875rem; }
+.anidoki .doki-popup-match-group { border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); overflow: hidden; min-width: 0; }
+.anidoki .doki-popup-match-summary {
+    display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 14px; list-style: none;
+    background: var(--doki-ground); color: var(--doki-text); font-size: .875rem; cursor: pointer;
+}
+.anidoki .doki-popup-match-summary::-webkit-details-marker { display: none; }
+.anidoki .doki-popup-match-summary:focus-visible { outline-offset: -3px; }
+.anidoki .doki-popup-match-chevron {
+    display: grid; place-items: center; flex: none; width: 16px; height: 16px; color: var(--doki-muted);
+}
+.anidoki .doki-popup-match-chevron::before {
+    content: ''; width: 6px; height: 6px; border: solid currentColor; border-width: 2px 2px 0 0; transform: rotate(45deg);
+}
+.anidoki .doki-popup-match-group[open] .doki-popup-match-chevron::before { transform: rotate(135deg); }
+.anidoki .doki-popup-match-summary > .doki-pill-tile { width: 24px; height: 24px; border-radius: 6px; }
+.anidoki .doki-popup-match-summary > .doki-pill-tile img { width: 16px; height: 16px; object-fit: contain; }
+.anidoki :is(.doki-popup-match-row, .doki-popup-match-message) { padding: 10px 14px; border-top: 1px solid var(--doki-edge); }
+.anidoki .doki-popup-match-row {
+    display: grid; grid-template-columns: minmax(0, 150px) 20px minmax(0, 1fr) minmax(0, 132px);
+    align-items: center; gap: 12px; font-size: .875rem;
+}
+.anidoki .doki-popup-match-origin {
+    justify-self: end; padding: 2px 10px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-pill);
+    background: var(--doki-pill); color: var(--doki-muted); font-size: .75rem; white-space: nowrap;
+}
+.anidoki .doki-popup-match-origin[data-origin="Personal"] { color: color-mix(in srgb, var(--doki-accent) 55%, var(--doki-text)); }
+.anidoki .doki-matches-skeleton { display: grid; gap: 14px; }
+.anidoki .doki-matches-skeleton .doki-popup-match-summary { cursor: default; }
+.anidoki .doki-matches-skeleton .doki-popup-match-row { min-height: 54px; }
+.anidoki .doki-match-skeleton-logo { width: 24px; height: 24px; border-radius: 6px; }
+.anidoki .doki-match-skeleton-name { width: 74px; }
+.anidoki .doki-matches-skeleton .doki-popup-match-row .doki-skeleton-line:last-child { justify-self: end; width: 68px; }
+
+@media (max-width: 899px) {
+    .anidoki .doki-popup-related { padding: 14px; }
+    .anidoki .doki-popup-relations { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+}
+@media (max-width: 600px) {
+    .anidoki .doki-popup-match-row { grid-template-columns: minmax(0, .75fr) 16px minmax(0, 1.25fr); }
+    .anidoki .doki-popup-match-origin,
+    .anidoki .doki-matches-skeleton .doki-popup-match-row .doki-skeleton-line:last-child { grid-column: 3; justify-self: start; }
+}
+.anidoki :is(.doki-popup-link, a.doki-popup-relation-card) { color: color-mix(in srgb, var(--doki-accent) 55%, var(--doki-text)); }
+.anidoki .doki-popup-link { text-decoration: underline; }
+.anidoki .doki-popup-relation-title { font-size: .875rem; }
+/* Some host themes add a tracker badge in front of external links. The poster carries this card's badge. */
+.anidoki a.doki-popup-relation-card { text-decoration: none; }
+.anidoki a.doki-popup-relation-card::before,
+.anidoki a.doki-popup-relation-card::after { content: none !important; }
+.anidoki a.doki-popup-relation-card:focus-visible .doki-popup-relation-title { text-decoration: underline; }
+.anidoki .doki-popup-relation-logo { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; background: rgb(0 0 0 / .36); }
+.anidoki .doki-popup-relation-logo::before {
+    content: ''; width: 22px; height: 22px; background: white; mask: var(--doki-relation-logo) center / contain no-repeat;
+}
+.anidoki a.doki-popup-relation-card:focus-visible .doki-popup-relation-logo { opacity: 1; }
+.anidoki a.doki-popup-relation-card:focus-visible .doki-popup-relation-art img { filter: blur(2px); transform: scale(1.06); }
+@media (hover: hover) and (pointer: fine) {
+    .anidoki a.doki-popup-relation-card:hover {
+        border-color: color-mix(in srgb, var(--doki-accent) 50%, var(--doki-edge)); background: var(--doki-pill);
+    }
+    .anidoki a.doki-popup-relation-card:hover .doki-popup-relation-title { text-decoration: underline; }
+    .anidoki a.doki-popup-relation-card:hover .doki-popup-relation-logo { opacity: 1; }
+    .anidoki a.doki-popup-relation-card:hover .doki-popup-relation-art img { filter: blur(2px); transform: scale(1.06); }
+}
+.anidoki .doki-editor-status { display: inline-flex; align-items: center; gap: 6px; }
+.anidoki .doki-popup-sync-spinner {
+    display: block; flex: none; width: 1em; height: 1em; background: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 7v5h-5M4 17v-5h5M5 9a8 8 0 0 1 13-3l2 3M4 15l2 3a8 8 0 0 0 13-3'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+@media (prefers-reduced-motion: no-preference) {
+    .anidoki a.doki-popup-relation-card { transition: border-color 150ms ease, background-color 150ms ease; }
+    .anidoki .doki-popup-relation-logo { transition: opacity 150ms ease; }
+    .anidoki .doki-popup-relation-art img { transition: filter 150ms ease, transform 150ms ease; }
+    .anidoki .doki-popup-sync-spinner { animation: doki-tracker-spin 900ms linear infinite; }
 }

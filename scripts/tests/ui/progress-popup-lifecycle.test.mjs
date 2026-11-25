@@ -189,18 +189,25 @@ test('the series title, artwork and metadata appear while tracker progress is st
     assert.equal(panel.querySelector('.doki-popup-status .doki-sr-only').textContent, 'Loading tracker progress…');
     const skeleton = panel.querySelector('.doki-overview-skeleton');
     assert.equal(skeleton.getAttribute('aria-hidden'), 'true');
-    assert.ok(skeleton.querySelector('.doki-skeleton-tabs'));
     assert.ok(skeleton.querySelector('.doki-skeleton-description'));
     assert.ok(skeleton.querySelector('.doki-tracker-skeleton-pill'));
     const detailsSkeleton = panel.querySelector('.doki-details-skeleton');
     assert.equal(detailsSkeleton.hidden, false);
     assert.equal(detailsSkeleton.getAttribute('aria-hidden'), 'true');
     assert.equal(detailsSkeleton.querySelectorAll('.doki-skeleton-line').length, 8);
-    assert.equal(panel.querySelector('.doki-popup-tabs').hidden, true);
+    assert.equal(panel.querySelector('.doki-popup-tabs').hidden, false);
+    panel.querySelector('#dokiPopupMatchesTab').click();
+    assert.equal(panel.querySelector('#dokiPopupMatches').getAttribute('aria-busy'), 'true');
+    assert.equal(panel.querySelector('#dokiPopupMatches').hidden, false);
+    assert.equal(panel.querySelector('#dokiPopupOverview').hidden, true);
+    assert.equal(panel.querySelectorAll('.doki-matches-skeleton .doki-popup-match-group').length, 2);
     finishRead({ body: seriesView() });
     await flush();
     assert.equal(panel.querySelector('.doki-popup-status').hidden, true);
     assert.equal(panel.querySelector('.doki-overview-skeleton'), null);
+    assert.equal(panel.querySelector('.doki-matches-skeleton'), null);
+    assert.equal(panel.querySelector('#dokiPopupMatches').getAttribute('aria-busy'), null);
+    assert.equal(panel.querySelector('#dokiPopupMatches').hidden, false);
     assert.equal(detailsSkeleton.hidden, true);
     assert.equal(panel.querySelector('dl.doki-popup-details').hidden, false);
     assert.ok(pill(env.doc, 'AniList'));
@@ -244,7 +251,7 @@ async function openPopup(env) {
 }
 const pill = (doc, key) => doc.querySelector(`[data-focus-key="pill:${key}"]`);
 const posts = (env, part) => env.requests.filter(request => request.method === 'POST' && request.url.includes(part));
-const gets = (env, part) => env.requests.filter(request => request.method === 'GET' && request.url.includes(part) && !request.url.endsWith('/available') && !request.url.endsWith('/summary'));
+const gets = (env, part) => env.requests.filter(request => request.method === 'GET' && request.url.includes(part) && !request.url.endsWith('/available') && !request.url.endsWith('/summary') && !request.url.includes('/related?') && !request.url.includes('/airing?'));
 
 test('sync to tracker saves the draft then reloads', async () => {
     let polls = 0, saved = false;
@@ -262,14 +269,26 @@ test('sync to tracker saves the draft then reloads', async () => {
     assert.equal(env.doc.querySelector('.doki-popup-unsaved').hidden, false);
     env.doc.querySelector('.doki-sync-up').click();
     await flush();
+    assert.ok(env.doc.querySelector('.doki-editor-status .doki-popup-sync-spinner'));
     const [post] = posts(env, 'progress/edit');
     assert.deepEqual(post.body, { itemId: seriesId, edits: [{ provider: 'AniList', entryId: 1, alternativeId: null, shown: { status: 'Watching', progress: 3, score: null },
         status: 'Watching', progress: 4, score: null, clearScore: false }] });
+    env.doc.querySelector('#dokiPopupMatchesTab').click();
+    const disclosure = env.doc.querySelector('#dokiPopupMatches summary');
+    disclosure.focus();
     await env.win.advance(5000);
+    const refreshedDisclosure = env.doc.querySelector('#dokiPopupMatches summary');
+    assert.notEqual(refreshedDisclosure, disclosure);
+    assert.equal(env.doc.activeElement, refreshedDisclosure);
+    env.doc.querySelector('#dokiPopupOverviewTab').click();
     assert.equal(polls, 3);
     assert.equal(gets(env, 'progress/series/').length, 2, 'the view is read again once');
     assert.equal(env.doc.querySelector('.doki-popup-unsaved').hidden, true);
     assert.equal(env.doc.querySelector('[data-focus-key="pill:AniList"] .doki-pill-count').textContent, '4/26');
+    popup.close({ replace: true });
+    popup.open(seriesId);
+    assert.equal(env.doc.querySelector('[data-focus-key="pill:AniList"] .doki-pill-count').textContent, '4/26');
+    assert.equal(gets(env, 'progress/series/').length, 2);
     popup.dispose();
 });
 
@@ -403,7 +422,8 @@ const memoryStorage = (items = {}) => ({ getItem: key => items[key] ?? null, set
 test('tab from the last control wraps to the first', async () => {
     const env = setup();
     const popup = await openPopup(env);
-    const panel = dialog(env.doc), items = [...panel.querySelectorAll('button, a[href], input, select, textarea, [tabindex="0"]')];
+    const panel = dialog(env.doc), items = [...panel.querySelectorAll('button, a[href], input, select, textarea, summary, [tabindex="0"]')]
+        .filter(item => !item.hidden && !item.closest('[hidden]') && item.getAttribute('tabindex') !== '-1');
     items.at(-1).focus();
     const forward = keydown(panel, 'Tab');
     assert.equal(forward.defaultPrevented, true);
@@ -513,5 +533,305 @@ test('a failed movie raise says so', async () => {
     env.doc.querySelector('.doki-sync-up').click();
     await env.win.advance(2000);
     assert.equal(env.doc.querySelector('.doki-editor-status').textContent, "Couldn't reach AniList. Try again in a moment");
+    popup.dispose();
+});
+
+const textTree = element => element.textContent + element.children.map(textTree).join(' ');
+
+test('Related and airing are independent of the progress editor', async () => {
+    let finishRelated;
+    const pending = new Promise(resolve => { finishRelated = resolve; });
+    const env = setup({ routes: {
+        '/related?': () => pending,
+        '/airing?': () => ({ body: { airing: { episode: 8, airsAtUtc: '2099-01-07T12:00:00Z' } } })
+    } });
+    const popup = await openPopup(env);
+    const panel = dialog(env.doc);
+    const pill = panel.querySelector('[data-provider=AniList]');
+    pill.focus();
+    assert.ok(pill);
+    assert.match(textTree(panel.querySelector('.doki-popup-details')), /Episode 8/);
+    assert.equal(panel.querySelector('.doki-popup-related').hidden, true);
+    finishRelated({ body: { relations: [
+        { kind: 'Sequel', entryId: 2, title: 'Next season', coverUrl: 'https://example.test/cover.jpg', libraryMatches: [{ season: 2 }] },
+        { kind: 'SideStory', title: 'Movie', libraryMatches: [{ season: null }] },
+        { kind: 'Other', title: null, libraryMatches: [] }
+    ] } });
+    await flush();
+    assert.match(textTree(panel.querySelector('.doki-popup-related')), /Next season.*In your library \(Season 2\)/s);
+    const card = panel.querySelector('a.doki-popup-relation-card');
+    assert.equal(card.getAttribute('href'), 'https://anilist.co/anime/2');
+    assert.ok(card.querySelector('.doki-popup-relation-art .doki-popup-relation-logo'));
+    assert.equal(card.querySelector('.doki-popup-relation-title').tagName, 'SPAN');
+    assert.match(textTree(panel.querySelector('.doki-popup-related')), /Untitled entry.*Not in your library/s);
+    assert.equal(env.doc.activeElement, pill);
+    popup.dispose();
+});
+
+test('Matches renders source and target ranges and keeps the inactive tab out of focus', async () => {
+    const view = seriesView();
+    view.seasons[0].trackers[0].matchRanges = [{ sourceStart: 1, sourceEnd: 3, targetStart: 13, targetEnd: 15, entry: { title: 'Cowboy Bebop' } }];
+    const env = setup({ routes: { 'progress/series/': () => ({ body: view }) } });
+    const popup = await openPopup(env);
+    const panel = dialog(env.doc);
+    const overview = panel.querySelector('#dokiPopupOverviewTab');
+    const matches = panel.querySelector('#dokiPopupMatchesTab');
+    overview.focus();
+    keydown(overview, 'ArrowRight');
+    assert.equal(env.doc.activeElement, matches);
+    assert.equal(overview.getAttribute('tabindex'), '-1');
+    assert.equal(matches.getAttribute('aria-selected'), 'true');
+    assert.equal(panel.querySelector('#dokiPopupOverview').hidden, true);
+    assert.match(textTree(panel.querySelector('#dokiPopupMatches')), /Season 1.*Episodes 1–3.*Cowboy Bebop.*Episodes 13–15.*Automatic/s);
+    const href = new URL(panel.querySelector('#dokiPopupMatches a').getAttribute('href'));
+    const route = new URLSearchParams(href.hash.split('?')[1]);
+    assert.equal(route.get('pageUrl'), '/AniDoki/settings');
+    assert.equal(route.get('dokiSection'), 'trackerMatchesTitle');
+    assert.equal(route.get('dokiSource'), 'bebop:1');
+    assert.equal(href.searchParams.has('anidoki'), false);
+    keydown(matches, 'Home');
+    assert.equal(env.doc.activeElement, overview);
+    assert.equal(panel.querySelector('#dokiPopupMatches').hidden, true);
+    popup.dispose();
+});
+
+test('a late Related result cannot replace the selected season or trigger duplicate reads', async () => {
+    let finishFirst;
+    const first = new Promise(resolve => { finishFirst = resolve; });
+    const view = seriesView({ seasons: [seasonOf(1, entryOf(1)), seasonOf(2, entryOf(2))] });
+    const env = setup({ routes: {
+        '/related?': ({ url }) => url.includes('entryId=1') ? first : { body: { relations: [{ title: 'Second season relation' }] } },
+        '/airing?': () => ({ body: { airing: { episode: 5, airsAtUtc: '2000-01-01T00:00:00Z' } } }),
+        'progress/series/': () => ({ body: view })
+    } });
+    const popup = await openPopup(env);
+    const panel = dialog(env.doc);
+    const list = panel.querySelector('.doki-popup-seasons [role=listbox]');
+    list.querySelector('[aria-selected=true]').focus();
+    keydown(list, 'ArrowDown');
+    keydown(list, 'Enter');
+    await flush();
+    panel.querySelector('#dokiPopupMatchesTab').click();
+    panel.querySelector('#dokiPopupOverviewTab').click();
+    finishFirst({ body: { relations: [{ title: 'Stale first season relation' }] } });
+    await flush();
+    assert.match(textTree(panel.querySelector('.doki-popup-related')), /Second season relation/);
+    assert.doesNotMatch(textTree(panel.querySelector('.doki-popup-related')), /Stale first season relation/);
+    assert.doesNotMatch(textTree(panel.querySelector('.doki-popup-details')), /Episode 5/);
+    assert.equal(env.requests.filter(request => request.url.includes('/related?')).length, 2);
+    popup.dispose();
+});
+
+test('Related uses the exact entry of a split row with an episode exception', async () => {
+    const view = seriesView();
+    const tracker = view.seasons[0].trackers[0];
+    tracker.entries = [entryOf(1, { firstEpisode: 1, lastEpisode: 3 }), entryOf(2, { firstEpisode: 2, lastEpisode: 2 })];
+    tracker.matchRanges = [
+        { sourceStart: 1, sourceEnd: 1, entry: { id: 1, title: 'Main' } },
+        { sourceStart: 2, sourceEnd: 2, entry: { id: 2, title: 'Exception' } },
+        { sourceStart: 3, sourceEnd: 3, entry: { id: 1, title: 'Main' } }
+    ];
+    const env = setup({ routes: {
+        '/related?': () => ({ body: { relations: [] } }),
+        '/airing?': () => ({ body: { airing: null } }),
+        'progress/series/': () => ({ body: view })
+    } });
+    const popup = await openPopup(env);
+    const list = dialog(env.doc).querySelector('.doki-popup-seasons [role=listbox]');
+    list.querySelector('[aria-selected=true]').focus();
+    keydown(list, 'ArrowDown');
+    keydown(list, 'Enter');
+    await flush();
+    assert.match(env.requests.filter(request => request.url.includes('/related?')).at(-1).url, /entryId=2/);
+    assert.match(env.requests.filter(request => request.url.includes('/airing?')).at(-1).url, /aniListEntryId=2/);
+    popup.dispose();
+});
+
+test('the Matches Settings link keeps the AniDōki menu route among other plugin pages', async () => {
+    const env = setup();
+    for (const pageUrl of ['/TaskTimeline/settings', '/jf/AniDoki/settings']) {
+        const link = env.doc.createElement('a');
+        link.dataset.pluginPages = 'true';
+        link.setAttribute('href', '#/userpluginsettings.html?pageUrl=' + pageUrl);
+        env.doc.body.append(link);
+    }
+    const popup = await openPopup(env);
+    const href = new URL(dialog(env.doc).querySelector('#dokiPopupMatches a').getAttribute('href'));
+    assert.match(href.hash, /^#\/userpluginsettings\.html\?/);
+    const route = new URLSearchParams(href.hash.split('?')[1]);
+    assert.equal(route.get('pageUrl'), '/jf/AniDoki/settings');
+    assert.equal(route.get('dokiSection'), 'trackerMatchesTitle');
+    assert.equal(route.get('dokiSource'), 'bebop:1');
+    popup.dispose();
+});
+
+test('Matches shows shared and personal origins when the Settings link is unavailable', async () => {
+    const shared = seasonOf(0, entryOf(1)), personal = seasonOf(2, entryOf(2));
+    for (const [season, origin] of [[shared, 'Shared'], [personal, 'Personal']]) {
+        const tracker = season.trackers[0];
+        tracker.origin = origin;
+        tracker.matchRanges = [{ sourceStart: 1, sourceEnd: 1, targetStart: 1, targetEnd: 1, entry: tracker.entries[0] }];
+    }
+    const env = setup({ routes: { 'progress/series/': () => ({ body: seriesView({ matchesLinkAvailable: false, seasons: [shared, personal] }) }) } });
+    const popup = await openPopup(env);
+    const matches = dialog(env.doc).querySelector('#dokiPopupMatches');
+    assert.equal(matches.querySelector('a'), null);
+    assert.match(textTree(matches), /Your server admin manages these matches.*2 seasons.*Specials.*Shared default.*Season 2.*Your override/s);
+    popup.dispose();
+});
+
+test('the Settings gear removes the popup parameter before navigating', async () => {
+    const env = setup();
+    const menu = env.doc.createElement('a');
+    menu.dataset.pluginPages = 'true';
+    menu.setAttribute('href', '#/userpluginsettings.html?pageUrl=/AniDoki/settings');
+    env.doc.body.append(menu);
+    const popup = await openPopup(env);
+    let destination;
+    env.win.location.assign = href => { destination = new URL(href); };
+    dialog(env.doc).querySelector('.doki-popup-settings').click();
+    assert.equal(dialog(env.doc), null);
+    assert.equal(new URL(env.win.location.href).searchParams.has('anidoki'), false);
+    assert.equal(destination.searchParams.has('anidoki'), false);
+    assert.match(destination.hash, /^#\/userpluginsettings\.html\?/);
+    popup.dispose();
+});
+
+test('the popup makes the Jellyfin background inert until it closes', async () => {
+    const env = setup();
+    const root = env.doc.createElement('div');
+    root.id = 'reactRoot';
+    env.doc.body.append(root);
+    const popup = await openPopup(env);
+    assert.equal(root.hasAttribute('inert'), true);
+    const wheel = new Event('wheel', { cancelable: true });
+    dialog(env.doc).parentElement.dispatchEvent(wheel);
+    assert.equal(wheel.defaultPrevented, true);
+    popup.close({ replace: true });
+    await env.win.advance(250);
+    assert.equal(root.hasAttribute('inert'), false);
+    popup.dispose();
+});
+
+test('the Matches shortcut follows the selected season and carries its key through a stripped route', async () => {
+    const view = seriesView({ seasons: [seasonOf(1, entryOf(1)), seasonOf(2, entryOf(2))] });
+    const env = setup({ routes: { 'progress/series/': () => ({ body: view }) } });
+    env.win.sessionStorage = memoryStorage();
+    const popup = await openPopup(env);
+    const panel = dialog(env.doc);
+    const list = panel.querySelector('.doki-popup-seasons [role=listbox]');
+    list.querySelector('[aria-selected=true]').focus();
+    keydown(list, 'ArrowDown');
+    keydown(list, 'Enter');
+    panel.querySelector('#dokiPopupMatchesTab').click();
+    const link = panel.querySelector('#dokiPopupMatches a');
+    const url = new URL(link.getAttribute('href'));
+    assert.equal(new URLSearchParams(url.hash.split('?')[1]).get('dokiSource'), 'bebop:2');
+    env.win.location.assign = () => {};
+    link.click();
+    const pending = JSON.parse(env.win.sessionStorage.items['anidoki.openTrackerMatches']);
+    assert.equal(pending.sourceKey, 'bebop:2');
+    assert.equal(dialog(env.doc), null);
+    popup.dispose();
+});
+
+test('an immediate reopen shows the series and its supplemental reads without another request', async () => {
+    const env = setup({ routes: {
+        '/related?': () => ({ body: { relations: [{ title: 'A cached sequel' }] } }),
+        '/airing?': () => ({ body: { airing: null } })
+    } });
+    const popup = await openPopup(env);
+    const requests = env.requests.length;
+    popup.close({ replace: true });
+    popup.open(seriesId);
+    assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'Cowboy Bebop');
+    assert.ok(pill(env.doc, 'AniList'));
+    assert.match(textTree(dialog(env.doc).querySelector('.doki-popup-related')), /A cached sequel/);
+    assert.equal(dialog(env.doc).querySelector('.doki-overview-skeleton'), null);
+    await flush();
+    assert.equal(env.requests.length, requests);
+    popup.dispose();
+});
+
+test('reopening before the initial read completes joins the same request', async () => {
+    let finishRead;
+    const pending = new Promise(resolve => { finishRead = resolve; });
+    const env = setup({ routes: { 'progress/series/': () => pending } });
+    const popup = await openPopup(env);
+    popup.close({ replace: true });
+    popup.open(seriesId);
+    assert.equal(gets(env, 'progress/series/').length, 1);
+    finishRead({ body: seriesView() });
+    await flush();
+    assert.ok(pill(env.doc, 'AniList'));
+    popup.dispose();
+});
+
+test('expired progress and progress loaded by another user are read again', async t => {
+    t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-25T12:00:00Z') });
+    let user = 'first';
+    const env = setup({ routes: { 'progress/series/': () => ({ body: seriesView({ name: user }) }) } });
+    env.win.ApiClient.getCurrentUserId = () => user;
+    const popup = await openPopup(env);
+    popup.close({ replace: true });
+    t.mock.timers.tick(24 * 60 * 60_000 - 1);
+    popup.open(seriesId);
+    assert.equal(gets(env, 'progress/series/').length, 1);
+    popup.close({ replace: true });
+    t.mock.timers.tick(1);
+    popup.open(seriesId);
+    await flush();
+    assert.equal(gets(env, 'progress/series/').length, 2);
+
+    popup.close({ replace: true });
+    user = 'second';
+    popup.open(seriesId);
+    assert.ok(dialog(env.doc).querySelector('.doki-overview-skeleton'));
+    await flush();
+    assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'second');
+    assert.equal(gets(env, 'progress/series/').length, 3);
+    popup.dispose();
+});
+
+test('a reopen during a queued edit reads again instead of showing a cached view', async () => {
+    const env = setup({ routes: { 'progress/edit': () => ({ status: 202, body: { operationId: 'op-1' } }) } });
+    const popup = await openPopup(env);
+    pill(env.doc, 'AniList').click();
+    env.doc.querySelector('[aria-label="One episode more"]').click();
+    env.doc.querySelector('.doki-sync-up').click();
+    await flush();
+    assert.equal(posts(env, 'progress/edit').length, 1);
+    popup.close({ replace: true });
+    popup.open(seriesId);
+    await flush();
+    assert.equal(gets(env, 'progress/series/').length, 2);
+    popup.close({ replace: true });
+    popup.open(seriesId);
+    await flush();
+    assert.equal(gets(env, 'progress/series/').length, 3);
+    popup.dispose();
+});
+
+test('ordinary playback reuses cached progress, while a confirmed change invalidates it', async () => {
+    const env = setup();
+    env.win.ApiClient.subscribe = () => {
+        assert.fail('The popup should not listen to general Jellyfin user-data updates');
+    };
+    const popup = await openPopup(env);
+    popup.close({ replace: true });
+    const video = env.doc.createElement('video');
+    for (const type of ['playing', 'pause', 'ended']) {
+        const event = new Event(type);
+        Object.defineProperty(event, 'target', { value: video });
+        env.doc.dispatchEvent(event);
+    }
+    popup.open(seriesId);
+    await flush();
+    assert.equal(gets(env, 'progress/series/').length, 1);
+    popup.close({ replace: true });
+    env.doc.dispatchEvent(new Event('anidoki:progress-changed'));
+    popup.open(seriesId);
+    await flush();
+    assert.equal(gets(env, 'progress/series/').length, 2);
     popup.dispose();
 });

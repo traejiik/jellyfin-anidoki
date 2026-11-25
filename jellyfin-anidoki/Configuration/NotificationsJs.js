@@ -199,6 +199,8 @@ export function startNotifications(win = window, doc = document) {
             const response = await result.json();
             if (stopped || controller.signal.aborted || identity(win.ApiClient) !== key) return;
             state.receive(response); failures = 0;
+            if (response.events?.some(event => event.outcomes?.some(outcome => outcome.kind === 'Confirmed' && outcome.meaningfulChange)))
+                doc.dispatchEvent(new Event('anidoki:progress-changed'));
             if (!response.enabled || response.reset) clearToasts();
             if (response.enabled) render();
             await manualPoll(api, controller, key);
