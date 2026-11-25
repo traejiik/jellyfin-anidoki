@@ -140,14 +140,19 @@ public class TrackerClientConversionTests {
                     case KitsuMediaRelationship.RelationType.sequel:
                         Assert.AreEqual(RelationType.Sequel, relatedAnime.RelationType, $"Kitsu relation {matchingRelated.RelationType}");
                         break;
+                    case KitsuMediaRelationship.RelationType.prequel:
+                        Assert.AreEqual(RelationType.Prequel, relatedAnime.RelationType, $"Kitsu relation {matchingRelated.RelationType}");
+                        break;
                     case KitsuMediaRelationship.RelationType.side_story:
                     case KitsuMediaRelationship.RelationType.full_story:
                     case KitsuMediaRelationship.RelationType.parent_story:
                         Assert.AreEqual(RelationType.Side_Story, relatedAnime.RelationType, $"Kitsu relation {matchingRelated.RelationType}");
                         break;
                     case KitsuMediaRelationship.RelationType.alternative_setting:
-                    case KitsuMediaRelationship.RelationType.alternative_version:
                         Assert.AreEqual(RelationType.Alternative_Setting, relatedAnime.RelationType, $"Kitsu relation {matchingRelated.RelationType}");
+                        break;
+                    case KitsuMediaRelationship.RelationType.alternative_version:
+                        Assert.AreEqual(RelationType.Alternative_Version, relatedAnime.RelationType, $"Kitsu relation {matchingRelated.RelationType}");
                         break;
                     case KitsuMediaRelationship.RelationType.spinoff:
                     case KitsuMediaRelationship.RelationType.adaptation:

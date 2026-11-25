@@ -25,7 +25,9 @@ public sealed record LibrarySourceEntry(string SourceKey, MatchSourceKind Kind, 
 /// <summary>A season or movie found in the library, with what a match is checked against.</summary>
 /// <param name="Last">Its highest-numbered episode, or the movie: what automatic resolution and the watch state read.</param>
 /// <param name="Episodes">The episode numbers the library holds, in order; <c>[1]</c> for a movie.</param>
-public sealed record LibrarySource(MatchSource Info, SyncSource Last, IReadOnlyList<int> Episodes);
+public sealed record LibrarySource(MatchSource Info, SyncSource Last, IReadOnlyList<int> Episodes) {
+    internal IReadOnlyDictionary<int, Episode>? VisibleEpisodes { get; init; }
+}
 
 /// <summary>Which seasons and movies exist, and which a user may see. The boundary between the match API and Jellyfin.</summary>
 public interface IMatchLibrary {
@@ -66,17 +68,19 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
         var query = new InternalItemsQuery(user) { IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series], IsVirtualItem = false };
         var sources = new List<LibrarySourceEntry>();
         foreach (BaseItem item in library.GetItemList(query)) {
-            if (SyncHelper.MediaShouldBeIgnored(item) || (viewer is Guid owner ? !Syncs(owner, item) : !InAnimeLibrary(item)))
+            if (SyncHelper.MediaShouldBeIgnored(item))
                 continue;
-            if (item is Movie movie) {
+            if (item is Movie movie && Eligible(movie)) {
                 sources.Add(new LibrarySourceEntry($"movie:{movie.Id:N}", MatchSourceKind.Movie, movie.Name, movie.Name));
             } else if (item is Series series) {
-                foreach (Season season in series.Children.OfType<Season>().Where(season => season.IndexNumber != null))
+                foreach (Season season in series.Children.OfType<Season>().Where(season => season.IndexNumber != null && Eligible(season)))
                     sources.Add(new LibrarySourceEntry($"season:{series.Id:N}:{season.IndexNumber}", MatchSourceKind.Season,
                         $"{series.Name} · season {season.IndexNumber}", series.Name, season.IndexNumber));
             }
         }
         return sources;
+
+        bool Eligible(BaseItem item) => viewer.HasValue ? Scope(item) != LibraryScope.Excluded : InAnimeLibrary(item);
     }
 
     public LibrarySource? Find(string sourceKey, Guid? viewer) {
@@ -86,12 +90,22 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
         if (viewer is Guid id && (user = users.GetUserById(id)) == null)
             return null;
         BaseItem? item = library.GetItemById(itemId);
-        if (item == null || SyncHelper.MediaShouldBeIgnored(item) || user != null && (!item.IsVisibleStandalone(user) || !Syncs(user.Id, item)))
+        if (item == null || SyncHelper.MediaShouldBeIgnored(item) || user != null && !item.IsVisibleStandalone(user))
             return null;
 
-        if (seasonNumber == null)
-            return item is Movie movie && SyncSource.From(movie) is { } source ? new LibrarySource(MatchSource.From(source), source, [SyncSource.MovieProgress]) : null;
+        if (seasonNumber == null) {
+            if (item is not Movie movie || SyncSource.From(movie) is not { } source)
+                return null;
+            LibraryScope scope = Scope(movie);
+            if (user != null && scope == LibraryScope.Excluded)
+                return null;
+            source = source with { IdsOnly = scope == LibraryScope.IdsOnly };
+            return new LibrarySource(MatchSource.From(source), source, [SyncSource.MovieProgress]);
+        }
         if (item is not Series series || series.Children.OfType<Season>().FirstOrDefault(season => season.IndexNumber == seasonNumber) is not { } found)
+            return null;
+        LibraryScope seasonScope = Scope(found);
+        if (user != null && seasonScope == LibraryScope.Excluded)
             return null;
         var episodes = found.GetEpisodes(user, new DtoOptions(false), false).OfType<Episode>()
             .Where(episode => episode.IndexNumber != null && !SyncHelper.MediaShouldBeIgnored(episode))
@@ -99,7 +113,9 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
             .ToList();
         if (episodes.Count == 0 || SyncSource.From(episodes[^1]) is not { } last)
             return null;
-        return new LibrarySource(MatchSource.From(last), last, episodes.Select(episode => episode.IndexNumber!.Value).Distinct().ToList());
+        last = last with { IdsOnly = seasonScope == LibraryScope.IdsOnly };
+        var byNumber = episodes.GroupBy(episode => episode.IndexNumber!.Value).ToDictionary(group => group.Key, group => group.First());
+        return new LibrarySource(MatchSource.From(last), last, byNumber.Keys.Order().ToList()) { VisibleEpisodes = byNumber };
     }
 
     public IReadOnlyList<LibrarySourceEntry> Candidates(MatchSource orphan, int? seasonNumber) {
@@ -131,9 +147,6 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
         }
     }
 
-    /// <summary>A user's library filter applies; a user who never saved AniDoki settings has none.</summary>
-    private bool Syncs(Guid userId, BaseItem item) {
-        var config = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(entry => entry.UserId == userId);
-        return config == null || LibraryFilter.Includes(library, animeList, logger, item);
-    }
+    /// <summary>The admin's anime library scope applies to all users.</summary>
+    private LibraryScope Scope(BaseItem item) => LibraryFilter.Scope(library, animeList, logger, item);
 }

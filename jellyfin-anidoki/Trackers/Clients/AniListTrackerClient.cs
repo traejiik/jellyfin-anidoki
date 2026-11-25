@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Api.Anilist;
@@ -10,7 +11,7 @@ using jellyfin_anidoki.Models.Mal;
 
 namespace jellyfin_anidoki.Trackers;
 
-public sealed class AniListTrackerClient(AniListApiCalls api) : ITrackerClient, ITrackerListSource, IScoreFormatSource {
+public sealed class AniListTrackerClient(AniListApiCalls api) : ITrackerClient, ITrackerListSource, ITrackerLibraryClient, IScoreFormatSource {
     public async Task<List<Anime>?> SearchAnime(string query) {
         bool updateNsfw = Plugin.Instance?.PluginConfiguration?.updateNsfw == true;
         return ConvertSearchResults(await api.SearchAnime(query), updateNsfw);
@@ -99,6 +100,12 @@ public sealed class AniListTrackerClient(AniListApiCalls api) : ITrackerClient, 
             _ => AniListSearch.MediaListStatus.Current
         };
         return ConvertList(await api.GetAnimeList(userId.Value, aniListStatus), status);
+    }
+
+    async Task<List<Anime>?> ITrackerLibraryClient.ReadWholeList(CancellationToken cancellationToken) {
+        if (await api.GetCurrentUser() is not { Id: > 0 } user)
+            return null;
+        return await api.GetWholeAnimeList(user.Id, cancellationToken);
     }
 
     /// <summary>The list as read for one status: each entry carries that status, since the list query filters by it.</summary>

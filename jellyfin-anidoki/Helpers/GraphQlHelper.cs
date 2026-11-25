@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Configuration;
@@ -19,11 +20,11 @@ using Microsoft.Extensions.Logging;
 namespace jellyfin_anidoki.Helpers;
 
 public class GraphQlHelper {
-    public static async Task<HttpResponseMessage?> Request(HttpClient httpClient, ILogger logger, ApiName provider, IMemoryCache memoryCache, IAsyncDelayer delayer, string query, Dictionary<string, object>? variables = null) {
+    public static async Task<HttpResponseMessage?> Request(HttpClient httpClient, ILogger logger, ApiName provider, IMemoryCache memoryCache, IAsyncDelayer delayer, string query, Dictionary<string, object>? variables = null, CancellationToken cancellationToken = default) {
         await MemoryCacheHelper.CheckRateLimiting(provider, logger, memoryCache, delayer);
         HttpResponseMessage call;
         try {
-            call = await httpClient.PostAsync("https://graphql.anilist.co", new StringContent(JsonSerializer.Serialize(new GraphQl { Query = query, Variables = variables }), Encoding.UTF8, "application/json"));
+            call = await httpClient.PostAsync("https://graphql.anilist.co", new StringContent(JsonSerializer.Serialize(new GraphQl { Query = query, Variables = variables }), Encoding.UTF8, "application/json"), cancellationToken);
         } catch (Exception error) when (error is HttpRequestException or TaskCanceledException) {
             TrackerCallScope.Report(TrackerFailureKind.Transient, responseReceived: false);
             throw;
@@ -51,11 +52,12 @@ public class GraphQlHelper {
         return call is { IsSuccessStatusCode: true } ? call : null;
     }
 
-    public static async Task<T?> DeserializeRequest<T>(HttpClient httpClient, ILogger logger, ApiName provider, IMemoryCache memoryCache, IAsyncDelayer delayer, string query, Dictionary<string, object>? variables) {
-        using var response = await Request(httpClient, logger, provider, memoryCache, delayer, query, variables);
+    public static async Task<T?> DeserializeRequest<T>(HttpClient httpClient, ILogger logger, ApiName provider, IMemoryCache memoryCache, IAsyncDelayer delayer, string query, Dictionary<string, object>? variables,
+        CancellationToken cancellationToken = default) {
+        using var response = await Request(httpClient, logger, provider, memoryCache, delayer, query, variables, cancellationToken);
         if (response != null) {
-            using var streamReader = new StreamReader(await response.Content.ReadAsStreamAsync());
-            return JsonSerializer.Deserialize<T>(await streamReader.ReadToEndAsync());
+            using var streamReader = new StreamReader(await response.Content.ReadAsStreamAsync(cancellationToken));
+            return JsonSerializer.Deserialize<T>(await streamReader.ReadToEndAsync(cancellationToken));
         }
 
         return default;

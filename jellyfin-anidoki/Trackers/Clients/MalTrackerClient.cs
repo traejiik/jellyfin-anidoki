@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Helpers;
@@ -8,7 +9,7 @@ using jellyfin_anidoki.Models.Mal;
 
 namespace jellyfin_anidoki.Trackers;
 
-public sealed class MalTrackerClient(MalApiCalls api) : ITrackerClient, ITrackerListSource {
+public sealed class MalTrackerClient(MalApiCalls api) : ITrackerClient, ITrackerListSource, ITrackerLibraryClient {
     public async Task<List<Anime>?> SearchAnime(string query) {
         bool updateNsfw = Plugin.Instance?.PluginConfiguration?.updateNsfw == true;
         return await api.SearchAnime(query, ["id", "title", "alternative_titles", "num_episodes", "status"], updateNsfw);
@@ -31,6 +32,22 @@ public sealed class MalTrackerClient(MalApiCalls api) : ITrackerClient, ITracker
     public async Task<List<Anime>?> GetAnimeList(Status status, int? userId = null) {
         var list = await api.GetUserAnimeList(status);
         return list?.Select(entry => WithScore(entry.Anime)).OfType<Anime>().ToList();
+    }
+
+    async Task<List<Anime>?> ITrackerLibraryClient.ReadWholeList(CancellationToken cancellationToken) {
+        var list = await api.GetUserAnimeList(wholeList: true);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (list == null)
+            return null;
+        var result = new List<Anime>(list.Count);
+        foreach (var row in list) {
+            if (row.Anime is not { } anime || row.ListStatus == null)
+                return null;
+            anime.MyListStatus = row.ListStatus;
+            WithScore(anime);
+            result.Add(anime);
+        }
+        return result;
     }
 
     /// <summary>MAL scores 1–10, with 0 for unrated; the contracts carry 10–100 and null.</summary>

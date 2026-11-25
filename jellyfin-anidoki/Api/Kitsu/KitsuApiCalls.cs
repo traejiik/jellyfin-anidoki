@@ -15,6 +15,7 @@ using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Models.Kitsu;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
@@ -136,25 +137,24 @@ public class KitsuApiCalls {
                 StreamReader streamReader = new StreamReader(await apiCall.Content.ReadAsStreamAsync());
                 var mediaRelationships = JsonSerializer.Deserialize<KitsuMediaRelationship.MediaRelationship>(await streamReader.ReadToEndAsync());
 
-                List<int> listOfRelatedAnimeIds = new List<int>();
-                if (mediaRelationships != null) {
-                    foreach (KitsuMediaRelationship.RelationshipData relationshipData in mediaRelationships.Data!) {
-                        KitsuMediaRelationship.RelationshipData destination = relationshipData.Relationships!.Destination!.RelationshipData!;
-                        if (destination.Type == "anime") {
-                            listOfRelatedAnimeIds.Add(int.Parse(destination.Id!));
-                        }
-                    }
-
-                    // Kitsu leaves out "included" when the anime has no related entries.
-                    if (mediaRelationships.Included == null)
-                        return [];
-
-                    for (var i = 0; i < mediaRelationships.Included.Count; i++) {
-                        mediaRelationships.Included[i].RelationType = mediaRelationships.Data[i].Attributes!.RelationType;
-                    }
-
-                    return mediaRelationships.Included.Where(anime => listOfRelatedAnimeIds.Any(ids => anime.Id == ids)).ToList();
+                if (mediaRelationships?.Data == null)
+                    return null;
+                var included = (mediaRelationships.Included ?? []).Where(item => item.Type == "anime").ToLookup(item => item.Id);
+                var related = new List<KitsuSearch.KitsuAnime>();
+                foreach (var relationship in mediaRelationships.Data) {
+                    var destination = relationship.Relationships?.Destination?.RelationshipData;
+                    if (destination?.Type != "anime" || !int.TryParse(destination.Id, out int id))
+                        continue;
+                    if (included[id].FirstOrDefault() is not { } item)
+                        continue;
+                    related.Add(new KitsuSearch.KitsuAnime {
+                        Id = item.Id,
+                        Type = item.Type,
+                        Attributes = item.Attributes,
+                        RelationType = relationship.Attributes?.RelationType
+                    });
                 }
+                return related;
             }
         } catch (Exception e) {
             _logger.LogError(e, "({Provider}) Could not read the anime related to {AnimeId}", ApiName.Kitsu, animeId);
@@ -311,27 +311,40 @@ public class KitsuApiCalls {
     /// <see cref="MaxListPages"/> pages of <see cref="ListPageSize"/>). Null when any page cannot be read, so a sync
     /// never works from part of the list.
     /// </summary>
-    public async Task<KitsuUpdate.KitsuLibraryEntryListRoot?> GetUserAnimeList(int userId, KitsuUpdate.Status status) {
+    public async Task<KitsuUpdate.KitsuLibraryEntryListRoot?> GetUserAnimeList(int userId, KitsuUpdate.Status? status) {
         var all = new KitsuUpdate.KitsuLibraryEntryListRoot { Data = new List<KitsuUpdate.KitsuLibraryEntry>(), Included = new List<KitsuSearch.KitsuAnime>() };
+        int offset = 0;
         for (int page = 0; page < MaxListPages; page++) {
-            KitsuUpdate.KitsuLibraryEntryListRoot? animeList = await LibraryEntriesCall(new List<KeyValuePair<string, string>> {
+            var parameters = new List<KeyValuePair<string, string>> {
                 new("filter[userId]", userId.ToString()),
                 new("filter[kind]", "anime"),
-                new("filter[status]", status.ToString()),
                 new("include", "anime"),
                 new("page[limit]", ListPageSize.ToString()),
-                new("page[offset]", (page * ListPageSize).ToString()),
-            });
-            if (animeList?.Data == null)
+                new("page[offset]", offset.ToString()),
+            };
+            if (status is { } filtered)
+                parameters.Insert(2, new("filter[status]", filtered.ToString()));
+            var animeList = await LibraryEntriesCall(parameters);
+            if (animeList?.Data == null || status == null && animeList.Data.Count == 0 && !string.IsNullOrEmpty(animeList.Links?.Next))
                 return null;
             all.Data.AddRange(animeList.Data);
             all.Included.AddRange(animeList.Included ?? []);
             if (string.IsNullOrEmpty(animeList.Links?.Next) || animeList.Data.Count == 0)
                 return all;
+            if (status != null) {
+                offset += ListPageSize;
+            } else {
+                // Kitsu can return fewer entries than requested. Continue at its advertised offset.
+                if (!Uri.TryCreate(animeList.Links.Next, UriKind.Absolute, out var next)
+                    || !QueryHelpers.ParseQuery(next.Query).TryGetValue("page[offset]", out var nextOffset)
+                    || !int.TryParse(nextOffset.ToString(), out int advertised) || advertised <= offset)
+                    return null;
+                offset = advertised;
+            }
         }
 
         _logger.LogWarning("({Provider}) Read the first {Count} anime list entries; the rest were not read", ApiName.Kitsu, MaxListPages * ListPageSize);
-        return all;
+        return status == null ? null : all;
     }
 
     // Kitsu allows library entries up to 500 a page.

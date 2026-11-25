@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace jellyfin_anidoki.Models;
@@ -9,6 +10,10 @@ public class AniListMediaList {
     }
 
     public class Entries {
+        [JsonPropertyName("status"), JsonConverter(typeof(JsonStringEnumConverter))]
+        public AniListSearch.MediaListStatus? ListStatus { get; set; }
+        [JsonPropertyName("score")] public double? Score { get; set; }
+        [JsonPropertyName("repeat")] public int? Repeat { get; set; }
         [JsonPropertyName("media")] public AniListSearch.Media? Media { get; set; }
         [JsonPropertyName("completedAt")] public AniListSearch.FuzzyDate? CompletedAt { get; set; }
         [JsonPropertyName("progress")] public int? Progress { get; set; }
@@ -21,10 +26,11 @@ public class AniListMediaList {
     public class MediaListCollection {
         [JsonPropertyName("lists")] public List<EntriesContainer>? MediaList { get; set; }
 
-        [JsonPropertyName("hasNextChunk")] public bool HasNextChunk { get; set; }
+        [JsonPropertyName("hasNextChunk")] public bool? HasNextChunk { get; set; }
     }
 
     public class AniListUserMediaList {
         [JsonPropertyName("data")] public Data? Data { get; set; }
+        [JsonPropertyName("errors")] public List<JsonElement>? Errors { get; set; }
     }
 }

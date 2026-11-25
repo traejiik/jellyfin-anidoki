@@ -66,7 +66,13 @@ public class AniListSearch {
         [JsonPropertyName("year")] public int? Year { get; set; }
     }
 
+    public class AiringSchedule {
+        [JsonPropertyName("airingAt")] public long AiringAt { get; set; }
+    }
+
     public class Media {
+        [JsonPropertyName("type")] public string? Type { get; set; }
+        [JsonPropertyName("nextAiringEpisode")] public AiringSchedule? NextAiringEpisode { get; set; }
         [JsonPropertyName("id")] public int Id { get; set; }
 
         [JsonPropertyName("title")] public Title? Title { get; set; }

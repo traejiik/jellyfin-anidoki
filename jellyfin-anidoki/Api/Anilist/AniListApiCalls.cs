@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
@@ -143,6 +144,7 @@ public class AniListApiCalls {
                 relationType
                 node {
                   id
+                  type
                   title {
                     romaji
                     english
@@ -361,7 +363,7 @@ public class AniListApiCalls {
 
         if (result?.Data?.MediaListCollection?.MediaList != null) {
             var entriesList = result.Data.MediaListCollection.MediaList.SelectMany(entries => entries.Entries!);
-            if (result.Data.MediaListCollection.HasNextChunk) {
+            if (result.Data.MediaListCollection.HasNextChunk == true) {
                 // impose a hard limit of 10 pages
                 while (page < 10) {
                     page++;
@@ -374,7 +376,7 @@ public class AniListApiCalls {
 
                     AniListMediaList.MediaListCollection next = nextPageResult.Data!.MediaListCollection!;
                     entriesList = entriesList.Concat(next.MediaList!.SelectMany(entries => entries.Entries!));
-                    if (!next.HasNextChunk) {
+                    if (next.HasNextChunk != true) {
                         break;
                     }
 
@@ -388,4 +390,69 @@ public class AniListApiCalls {
 
         return null;
     }
+    internal async Task<List<Anime>?> GetWholeAnimeList(int userId, CancellationToken cancellationToken) {
+        const string query = """
+            query ($userId: Int!, $chunk: Int!, $chunkSize: Int!) {
+              MediaListCollection(userId: $userId, chunk: $chunk, perChunk: $chunkSize, type: ANIME) {
+                hasNextChunk
+                lists {
+                  entries {
+                    status
+                    progress
+                    repeat
+                    score(format: POINT_100)
+                    media { id episodes status nextAiringEpisode { airingAt } }
+                  }
+                }
+              }
+            }
+            """;
+        var entries = new List<Anime>();
+        for (int chunk = 1; ; chunk++) {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var response = await GraphQlHelper.AuthenticatedRequest(_httpClientFactory, _loggerFactory, _serverApplicationHost,
+                _httpContextAccessor, _memoryCache, _delayer, _userConfig, query, ApiName.AniList,
+                new Dictionary<string, object> { ["userId"] = userId, ["chunk"] = chunk, ["chunkSize"] = ChunkSize });
+            if (response == null)
+                return null;
+            using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var page = await JsonSerializer.DeserializeAsync<AniListMediaList.AniListUserMediaList>(body, cancellationToken: cancellationToken);
+            if (page?.Data?.MediaListCollection is not { MediaList: { } lists, HasNextChunk: { } hasNext } || page.Errors is { Count: > 0 })
+                return null;
+            int before = entries.Count;
+            foreach (var list in lists) {
+                if (list.Entries == null)
+                    return null;
+                foreach (var row in list.Entries) {
+                    if (row.Media is not { } media || row.ListStatus is not { } status)
+                        return null;
+                    entries.Add(new Anime {
+                        Id = media.Id,
+                        NumEpisodes = media.Episodes ?? 0,
+                        LibraryIsAiring = media.Status == AniListSearch.AiringStatus.RELEASING,
+                        NextAiringAtUtc = media.NextAiringEpisode?.AiringAt is > 0 and <= 253402300799 and var timestamp
+                            ? DateTimeOffset.FromUnixTimeSeconds(timestamp) : null,
+                        MyListStatus = new MyListStatus {
+                            Status = status switch {
+                                AniListSearch.MediaListStatus.Completed => Status.Completed,
+                                AniListSearch.MediaListStatus.Repeating => Status.Rewatching,
+                                AniListSearch.MediaListStatus.Dropped => Status.Dropped,
+                                AniListSearch.MediaListStatus.Paused => Status.On_hold,
+                                AniListSearch.MediaListStatus.Planning => Status.Plan_to_watch,
+                                _ => Status.Watching
+                            },
+                            NumEpisodesWatched = row.Progress ?? 0,
+                            RewatchCount = row.Repeat,
+                            ScoreRaw = row.Score is >= 1 and <= 100 and var score ? (int)Math.Round(score, MidpointRounding.AwayFromZero) : null
+                        }
+                    });
+                }
+            }
+            if (!hasNext)
+                return entries;
+            if (before == entries.Count || chunk == 100)
+                return null;
+        }
+    }
+
 }

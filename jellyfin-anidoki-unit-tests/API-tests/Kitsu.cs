@@ -345,6 +345,30 @@ public class Kitsu {
         Assert.That(await api.GetUserId(), Is.EqualTo(42));
     }
 
+    [Test]
+    public async Task RelationsUseDestinationIdentityWhenIncludedResourcesAreReordered() {
+        const string payload = """
+            {
+              "data": [
+                {"attributes":{"role":"prequel"},"relationships":{"destination":{"data":{"type":"anime","id":"7"}}}},
+                {"attributes":{"role":"alternative_version"},"relationships":{"destination":{"data":{"type":"anime","id":"8"}}}},
+                {"attributes":{"role":"adaptation"},"relationships":{"destination":{"data":{"type":"manga","id":"7"}}}}
+              ],
+              "included": [
+                {"type":"manga","id":"7","attributes":{"canonicalTitle":"Manga"}},
+                {"type":"anime","id":"8","attributes":{"canonicalTitle":"Remake"}},
+                {"type":"anime","id":"7","attributes":{"canonicalTitle":"Prequel"}}
+              ]
+            }
+            """;
+        var api = Api(Helpers.Sequence((HttpStatusCode.OK, payload)), keyPairs: []);
+        var related = await api.GetRelatedAnime(1);
+        Assert.That(related?.Select(item => (item.Id, item.RelationType)), Is.EqualTo(new[] {
+            (7, (KitsuMediaRelationship.RelationType?)KitsuMediaRelationship.RelationType.prequel),
+            (8, (KitsuMediaRelationship.RelationType?)KitsuMediaRelationship.RelationType.alternative_version)
+        }));
+    }
+
     /// <summary>Kitsu leaves out "included" when an anime has no related anime; that reads as none, not as an error.</summary>
     [Test]
     public async Task AnAnimeWithNoRelationsReadsAsNone() {
