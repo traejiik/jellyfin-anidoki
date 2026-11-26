@@ -17,6 +17,7 @@ import {
 const runtimeKey = '__anidokiProgressPopup';
 const parameter = 'anidoki';
 const libraryLevel = 'library';
+const pluginPagesLinks = '.pluginMenuOptions a[href], a[data-plugin-pages][href]';
 const libraryCacheMs = 10 * 60_000;
 const closeFallbackMs = 250;
 const readCacheMs = 24 * 60 * 60_000;
@@ -228,6 +229,33 @@ export function startProgressPopup(win = window, doc = document) {
 
     // --- Dialog --------------------------------------------------------------------------------------------------
 
+    function pushPopupRoute(itemId, viaLibrary, libraryRootPushed) {
+        const url = new URL(win.location.href);
+        url.searchParams.set(parameter, itemId);
+        win.history.pushState({ ...win.history.state, anidoki: itemId, pushed: true, viaLibrary, libraryRootPushed },
+            '', url.pathname + url.search + url.hash);
+    }
+
+    function openDiscordLink() {
+        const url = new URL(win.location.href);
+        const [route, query] = url.hash.split('?');
+        if (route !== '#/details')
+            return false;
+        const params = new URLSearchParams(query);
+        const itemId = params.get(parameter);
+        if (!itemId || !/^[0-9a-f]{32}$/i.test(itemId) || itemId !== params.get('id'))
+            return false;
+
+        params.delete(parameter);
+        url.hash = `${route}?${params}`;
+        win.history.replaceState(win.history.state, '', url.pathname + url.search + url.hash);
+        // The Discord URL is a Jellyfin details page with both popup levels above it.
+        pushPopupRoute(libraryLevel, false, false);
+        pushPopupRoute(itemId, true, true);
+        open(itemId, { opener: null, push: false });
+        return true;
+    }
+
     function open(itemId, { opener = doc.activeElement, fromItemPage = false, push = true } = {}) {
         if (!itemId || disposed || !ready || (popup?.itemId === itemId && !popup.closing))
             return;
@@ -250,10 +278,7 @@ export function startProgressPopup(win = window, doc = document) {
             cards: {}, notes: {}, timers: new Set(), detailReads: {}, matchView: null, cache };
         popup = current;
         if (push && requested() !== itemId) {
-            const url = new URL(win.location.href);
-            url.searchParams.set(parameter, itemId);
-            win.history.pushState({ ...historyState, anidoki: itemId, pushed: true, viaLibrary, libraryRootPushed },
-                '', url.pathname + url.search + url.hash);
+            pushPopupRoute(itemId, viaLibrary, libraryRootPushed);
             current.pushed = true;
         }
         if (itemId === libraryLevel) {
@@ -363,14 +388,47 @@ export function startProgressPopup(win = window, doc = document) {
         }
     }
 
+    function pluginPagesSettingsUrl(link, settings) {
+        const url = new URL(link.getAttribute('href'), win.location.href);
+        const [route, query] = url.hash.split('?');
+        if (url.origin !== settings.origin || route !== '#/userpluginsettings.html')
+            return null;
+        const pageUrl = new URLSearchParams(query).get('pageUrl')?.toLowerCase();
+        return pageUrl === settings.pathname.toLowerCase() || pageUrl === '/anidoki/settings' ? url : null;
+    }
+
+    async function openFromPluginPages(event) {
+        if (!ready || !api()?.isLoggedIn?.() || event.defaultPrevented || (event.button ?? 0) !== 0 ||
+            event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
+            return;
+        const link = event.target?.closest?.(pluginPagesLinks);
+        const target = link?.getAttribute('target');
+        if (!link || (target && target !== '_self'))
+            return;
+        const settings = new URL(api().getUrl('AniDoki/settings'), win.location.href);
+        if (!pluginPagesSettingsUrl(link, settings))
+            return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        const href = win.location.href;
+        const itemId = detailsItemId();
+        let opener = link;
+        if (link.closest('#app-user-menu')) {
+            opener = doc.querySelector('[aria-controls="app-user-menu"]') ?? link;
+            // Jellyfin's account menu traps focus until its Escape handler dismisses it.
+            link.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            await new Promise(resolve => win.requestAnimationFrame(resolve));
+        }
+        const eligible = itemId && await available(itemId);
+        if (!disposed && href === win.location.href)
+            open(eligible ? itemId : libraryLevel, { opener, fromItemPage: Boolean(eligible) });
+    }
+
     function settingsHref(sourceKey) {
         const settings = new URL(api().getUrl('AniDoki/settings'), win.location.href);
-        const links = doc.querySelectorAll('.pluginMenuOptions a[href], a[data-plugin-pages][href]');
-        const menuUrl = [...links].map(link => new URL(link.getAttribute('href'), win.location.href)).find(url => {
-            const pageUrl = new URLSearchParams(url.hash.split('?')[1]).get('pageUrl');
-            return url.origin === settings.origin && pageUrl &&
-                (pageUrl.toLowerCase() === settings.pathname.toLowerCase() || pageUrl.toLowerCase() === '/anidoki/settings');
-        });
+        const links = doc.querySelectorAll(pluginPagesLinks);
+        const menuUrl = [...links].map(link => pluginPagesSettingsUrl(link, settings)).find(Boolean);
         const url = menuUrl ?? new URL(win.location.href);
         url.searchParams.delete(parameter);
         if (!sourceKey && menuUrl)
@@ -1859,6 +1917,8 @@ export function startProgressPopup(win = window, doc = document) {
         const deepLink = requested();
         if (deepLink)
             open(deepLink, { opener: null, push: false });
+        else
+            openDiscordLink();
         scanPage();
     }
 
@@ -1886,6 +1946,7 @@ export function startProgressPopup(win = window, doc = document) {
         if (popup?.libraryUi && popup.cache === readCache)
             loadLibrary(popup, popup.libraryState.provider);
     }, { signal });
+    doc.addEventListener('click', openFromPluginPages, { capture: true, signal });
     doc.addEventListener('viewshow', () => scanPage(), { signal });
     win.addEventListener('hashchange', () => scanPage(), { signal });
     win.addEventListener('popstate', () => {
