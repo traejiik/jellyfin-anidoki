@@ -19,14 +19,14 @@ namespace jellyfin_anidoki.Progress;
 public sealed class LibraryProgressController(IUserManager users, LibraryProgress library) : ControllerBase {
     [HttpGet("library")]
     public async Task<ActionResult<LibraryProgressView>> ReadLibrary([FromQuery] ApiName? provider, [FromQuery] bool refresh,
-        CancellationToken cancellationToken) {
+        CancellationToken cancellationToken, [FromQuery] bool afterChange = false) {
         if (!ConfigHelper.UserPagesEnabled())
             return NotFound();
         if (users.GetUser(User, null)?.Id is not { } userId)
             return Unauthorized();
         if (provider is { } selected && !Enum.IsDefined(selected))
             return BadRequest();
-        var view = await library.Read(userId, provider, refresh, SeriesProgressController.ApplySavedMatches, cancellationToken);
+        var view = await library.Read(userId, provider, refresh, SeriesProgressController.ApplySavedMatches, cancellationToken, afterChange);
         return view == null ? StatusCode(StatusCodes.Status503ServiceUnavailable, "Could not read the tracker list. Try refreshing again.") : Ok(view);
     }
 }

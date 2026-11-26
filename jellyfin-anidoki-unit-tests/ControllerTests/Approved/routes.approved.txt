@@ -69,7 +69,7 @@ GET AniDoki/user/parameters | auth=authenticated | action=GetFrontendParametersU
 POST AniDoki/user/passwordGrant | auth=authenticated | action=PasswordGrantAuthenticationUserBody | params=request[Body]:PasswordGrantRequest | api=yes | order=- | precedence=1.11
 POST AniDoki/user/progress/edit | auth=authenticated | action=Edit | params=request[Body]:EditRequest, cancellationToken:CancellationToken | api=yes | order=- | precedence=1.111
 GET AniDoki/user/progress/edit/{operationId:guid} | auth=authenticated | action=ReadEdit | params=operationId:Guid | api=yes | order=- | precedence=1.1112
-GET AniDoki/user/progress/library | auth=authenticated | action=ReadLibrary | params=provider[Query]:ApiName?, refresh[Query]:Boolean, cancellationToken:CancellationToken | api=yes | order=- | precedence=1.111
+GET AniDoki/user/progress/library | auth=authenticated | action=ReadLibrary | params=provider[Query]:ApiName?, refresh[Query]:Boolean, cancellationToken:CancellationToken, afterChange[Query]:Boolean | api=yes | order=- | precedence=1.111
 GET AniDoki/user/progress/series/{itemId:guid} | auth=authenticated | action=ReadSeries | params=itemId:Guid, cancellationToken:CancellationToken | api=yes | order=- | precedence=1.1112
 GET AniDoki/user/progress/series/{itemId:guid}/airing | auth=authenticated | action=ReadAiring | params=itemId:Guid, sourceKey[Query]:String, aniListEntryId[Query]:Int32?, cancellationToken:CancellationToken | api=yes | order=- | precedence=1.11121
 GET AniDoki/user/progress/series/{itemId:guid}/available | auth=authenticated | action=Available | params=itemId:Guid | api=yes | order=- | precedence=1.11121

@@ -48,6 +48,10 @@
         <EmbeddedResource Include="Configuration\NotificationStateJs.js"/>
         <None Remove="Configuration\PopupStateJs.js"/>
         <EmbeddedResource Include="Configuration\PopupStateJs.js"/>
+        <None Remove="Configuration\PopupLibraryJs.js"/>
+        <EmbeddedResource Include="Configuration\PopupLibraryJs.js"/>
+        <None Remove="Configuration\PopupLibraryStateJs.js"/>
+        <EmbeddedResource Include="Configuration\PopupLibraryStateJs.js"/>
         <None Remove="Configuration\ProgressPopupJs.js"/>
         <EmbeddedResource Include="Configuration\ProgressPopupJs.js"/>
         <None Remove="Configuration\ProgressPopup.css"/>
