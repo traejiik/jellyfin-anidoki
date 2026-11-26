@@ -24,8 +24,8 @@ public class DiscordFormattingTests {
     [Test]
     public void ShowLinkPreservesBasePathAndUsesShowIdWithoutCredentials() {
         var show = Guid.NewGuid();
-        var link = JellyfinShowLink.Build("https://jf.example/jellyfin/", show, "server");
-        Assert.That(link, Is.EqualTo($"https://jf.example/jellyfin/web/index.html#/details?id={show:N}&serverId=server"));
+        var link = JellyfinShowLink.Build("https://jf.example/jellyfin/", show, "server+a");
+        Assert.That(link, Is.EqualTo($"https://jf.example/jellyfin/web/index.html#/details?id={show:N}&serverId=server%2Ba&anidoki={show:N}"));
         Assert.Throws<ArgumentException>(() => JellyfinShowLink.Build("https://x:secret@jf.example", show, "server"));
     }
     [Test]
@@ -37,7 +37,8 @@ public class DiscordFormattingTests {
         var root = document.RootElement;
         Assert.That(root.GetProperty("username").GetString(), Is.EqualTo("AniDoki"));
         var embed = root.GetProperty("embeds")[0];
-        Assert.That(embed.GetProperty("url").GetString(), Does.Contain(summary.ShowItemId.ToString("N")));
+        Assert.That(embed.GetProperty("url").GetString(),
+            Is.EqualTo($"https://jf.example/web/index.html#/details?id={summary.ShowItemId:N}&serverId=server&anidoki={summary.ShowItemId:N}"));
         Assert.That(embed.GetProperty("description").GetString(), Does.Contain("Episode 12").And.Contain("Required episode"));
         Assert.That(embed.GetProperty("thumbnail").GetProperty("url").GetString(), Is.EqualTo("attachment://poster.jpg"));
         Assert.That(root.GetProperty("allowed_mentions").GetProperty("parse").GetArrayLength(), Is.Zero);

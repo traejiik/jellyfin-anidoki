@@ -54,6 +54,161 @@ function setup({ href = `http://jf/web/index.html#/details?id=${seriesId}`, avai
 
 const dialog = doc => doc.querySelector('[role=dialog]');
 
+function pluginPagesLink(doc, href = '#/userpluginsettings.html?pageUrl=%2Fjf%2FAniDoki%2Fsettings') {
+    const menu = doc.createElement('div');
+    menu.className = 'pluginMenuOptions';
+    const link = doc.createElement('a');
+    const label = doc.createElement('span');
+    link.setAttribute('href', href);
+    link.append(label);
+    menu.append(link);
+    doc.body.append(menu);
+    return { menu, link, label };
+}
+
+function activateMenuLink(doc, target, options = {}) {
+    const event = new Event('click', { cancelable: true });
+    Object.defineProperty(event, 'target', { value: target });
+    Object.assign(event, options);
+    doc.dispatchEvent(event);
+    return event.defaultPrevented;
+}
+
+test('the Plugin Pages entry opens the library and still works after a menu rebuild', async () => {
+    const env = setup({ href: 'http://jf/jf/web/#/home', routes: { '/library': () => ({ body: libraryView() }) } });
+    const { menu, label } = pluginPagesLink(env.doc);
+    assert.equal(activateMenuLink(env.doc, label), false);
+    const runtime = startProgressPopup(env.win, env.doc);
+    assert.equal(activateMenuLink(env.doc, label), true);
+    await flush();
+    assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'Your anime');
+    assert.equal(env.win.location.hash, '#/home');
+    assert.equal(env.win.history.length, 2);
+    dialog(env.doc).querySelector('[aria-label=Close]').click();
+    await env.win.advance(250);
+    menu.remove();
+    const rebuilt = pluginPagesLink(env.doc, '#/userpluginsettings.html?pageUrl=/AniDoki/settings');
+    assert.equal(activateMenuLink(env.doc, rebuilt.label), true);
+    await flush();
+    assert.ok(dialog(env.doc).querySelector('.doki-library-card'));
+    runtime.dispose();
+    assert.equal(activateMenuLink(env.doc, rebuilt.label), false);
+});
+
+test('the Plugin Pages entry uses the item popup only for eligible details', async () => {
+    for (const available of [204, 404]) {
+        const env = setup({ available, routes: { '/library': () => ({ body: libraryView() }) } });
+        const { label } = pluginPagesLink(env.doc);
+        const runtime = startProgressPopup(env.win, env.doc);
+        assert.equal(activateMenuLink(env.doc, label), true);
+        await flush();
+        assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, available === 204 ? 'Cowboy Bebop' : 'Your anime');
+        assert.equal(Boolean(dialog(env.doc).querySelector('.doki-popup-open-jellyfin')), false);
+        assert.equal(env.requests.filter(request => request.url.endsWith('/available')).length, 1);
+        runtime.dispose();
+    }
+});
+
+test('the account menu closes before the popup opens and gets focus back from Close', async () => {
+    const env = setup({ href: 'http://jf/web/#/home', routes: { '/library': () => ({ body: libraryView() }) } });
+    const { menu, link, label } = pluginPagesLink(env.doc);
+    menu.id = 'app-user-menu';
+    const trigger = env.doc.createElement('button');
+    trigger.setAttribute('aria-controls', menu.id);
+    env.doc.body.append(trigger);
+    env.win.KeyboardEvent = class extends Event {
+        constructor(type, options) {
+            super(type, options);
+            this.key = options.key;
+        }
+    };
+    let escaped = false;
+    link.addEventListener('keydown', event => {
+        escaped = event.key === 'Escape' && event.bubbles;
+        menu.remove();
+    });
+    const runtime = startProgressPopup(env.win, env.doc);
+    assert.equal(activateMenuLink(env.doc, label), true);
+    assert.equal(escaped, true);
+    assert.equal(dialog(env.doc), null);
+    await env.win.advance(16);
+    dialog(env.doc).querySelector('[aria-label=Close]').click();
+    await env.win.advance(250);
+    assert.equal(env.doc.activeElement, trigger);
+    runtime.dispose();
+});
+
+test('the Plugin Pages takeover leaves other settings links and modified activations alone', async () => {
+    const env = setup({ href: 'http://jf/web/#/home' });
+    const { label, link } = pluginPagesLink(env.doc);
+    const { label: otherPlugin } = pluginPagesLink(env.doc, '#/userpluginsettings.html?pageUrl=/Other/settings');
+    const { label: wrongRoute } = pluginPagesLink(env.doc, '#/home?pageUrl=/AniDoki/settings');
+    const { label: wrongOrigin } = pluginPagesLink(env.doc, 'http://other/web/#/userpluginsettings.html?pageUrl=/AniDoki/settings');
+    const ordinary = env.doc.createElement('a');
+    ordinary.setAttribute('href', link.getAttribute('href'));
+    env.doc.body.append(ordinary);
+    const runtime = startProgressPopup(env.win, env.doc);
+    for (const target of [otherPlugin, wrongRoute, wrongOrigin, ordinary])
+        assert.equal(activateMenuLink(env.doc, target), false);
+    for (const options of [{ button: 1 }, { ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { altKey: true }])
+        assert.equal(activateMenuLink(env.doc, label, options), false);
+    link.setAttribute('target', '_blank');
+    assert.equal(activateMenuLink(env.doc, label), false);
+    link.removeAttribute('target');
+    env.win.ApiClient.isLoggedIn = () => false;
+    assert.equal(activateMenuLink(env.doc, label), false);
+    assert.equal(dialog(env.doc), null);
+    runtime.dispose();
+});
+
+test('a cold Discord link steps back to the library then Jellyfin details and supports Forward and reload', async () => {
+    const details = `http://jf/jf/web/index.html?extra=1#/details?id=${seriesId}&serverId=server&context=tvshows`;
+    const env = setup({ href: `${details}&anidoki=${seriesId}`, routes: { '/library': () => ({ body: libraryView() }) } });
+    const runtime = startProgressPopup(env.win, env.doc);
+    await flush();
+    assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'Cowboy Bebop');
+    assert.equal(env.win.history.length, 3);
+    assert.equal(new URL(env.win.location.href).searchParams.get('anidoki'), seriesId);
+    assert.equal(env.win.location.hash, new URL(details).hash);
+    assert.equal(new URL(env.win.location.href).searchParams.get('extra'), '1');
+    assert.equal(env.requests.filter(request => request.url.includes('/library')).length, 0);
+    runtime.dispose();
+    const restarted = startProgressPopup(env.win, env.doc);
+    await flush();
+    env.win.history.back();
+    await flush();
+    assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'Your anime');
+    env.win.history.back();
+    await env.win.advance(250);
+    assert.equal(env.win.location.href, details);
+    assert.equal(dialog(env.doc), null);
+    env.win.history.forward();
+    env.win.history.forward();
+    await flush();
+    assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'Cowboy Bebop');
+    keydown(dialog(env.doc), 'Escape');
+    await flush();
+    assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'Your anime');
+    env.win.history.forward();
+    await flush();
+    dialog(env.doc).querySelector('[aria-label=Close]').click();
+    await env.win.advance(250);
+    assert.equal(env.win.location.href, details);
+    assert.equal(dialog(env.doc), null);
+    restarted.dispose();
+});
+
+test('a Discord marker can only open its Jellyfin detail item', async () => {
+    for (const route of [`#/home?id=${seriesId}&anidoki=${seriesId}`, `#/details?id=other&anidoki=${seriesId}`]) {
+        const env = setup({ href: `http://jf/web/${route}` });
+        const runtime = startProgressPopup(env.win, env.doc);
+        await flush();
+        assert.equal(dialog(env.doc), null);
+        assert.equal(env.win.history.length, 1);
+        runtime.dispose();
+    }
+});
+
 test('the popup uses the host theme layers without the item backdrop', async () => {
     const env = setup();
     const backdrop = env.doc.createElement('div');

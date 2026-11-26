@@ -7,6 +7,7 @@ public static class JellyfinShowLink {
         CallbackUrlHelper.Build(baseAddress);
         if (showItemId == Guid.Empty || string.IsNullOrWhiteSpace(serverId))
             throw new ArgumentException("Show link metadata unavailable.");
-        return baseAddress.TrimEnd('/') + "/web/index.html#/details?id=" + showItemId.ToString("N") + "&serverId=" + Uri.EscapeDataString(serverId);
+        var id = showItemId.ToString("N");
+        return $"{baseAddress.TrimEnd('/')}/web/index.html#/details?id={id}&serverId={Uri.EscapeDataString(serverId)}&anidoki={id}";
     }
 }
