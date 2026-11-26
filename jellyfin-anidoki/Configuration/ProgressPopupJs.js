@@ -1,5 +1,6 @@
 import { followThemeAccent, matchesSettingsRequest, popupBackground } from './common.js';
 import { providerName } from './outcome-lines.js';
+import { createPopupLibrary } from './popup-library.js';
 import {
     buildRows, defaultRow, rowTargets, editableTargets, savedState, pillSummary, allSummary, seasonName, airedLabel, seriesStatusLabel, entryUrl, faceNames, editorModel,
     setProgress, setStatus, setScore, markCompleted, isDirty, syncButtons, planSyncUp, planSyncDown, applyEditResults, forceDraft, draftStore, anyDirty
@@ -15,6 +16,8 @@ import {
 
 const runtimeKey = '__anidokiProgressPopup';
 const parameter = 'anidoki';
+const libraryLevel = 'library';
+const libraryCacheMs = 10 * 60_000;
 const closeFallbackMs = 250;
 const readCacheMs = 24 * 60 * 60_000;
 const unsettledReadMs = 30_000;
@@ -25,7 +28,7 @@ export function startProgressPopup(win = window, doc = document) {
     win[runtimeKey]?.dispose();
     const lifetime = new AbortController(), signal = lifetime.signal;
     const availability = new Map(), links = [];
-    let readCache = null;
+    let readCache = null, libraryJourney = null;
     let popup = null, disposed = false, ready = false, bootTimer = null, bootAttempts = 0;
 
     const api = () => win.ApiClient;
@@ -76,7 +79,8 @@ export function startProgressPopup(win = window, doc = document) {
         if (!user)
             return null;
 
-        const cache = { user, server, client, entries: new Map(), writer: null, skipUntil: 0 };
+        const cache = { user, server, client, entries: new Map(), writer: null, skipUntil: 0,
+            library: { results: new Map(), fresh: new Set(), revision: 0 } };
         readCache = cache;
         return cache;
     }
@@ -132,11 +136,20 @@ export function startProgressPopup(win = window, doc = document) {
         return entry.pending;
     }
 
+    function invalidateLibrary(cache) {
+        if (!cache)
+            return;
+        cache.library.results.clear();
+        cache.library.fresh.clear();
+        cache.library.revision++;
+    }
+
     function beginWrite(current) {
         if (!current.cache)
             return;
         current.cache.entries.clear();
         current.cache.writer = current;
+        invalidateLibrary(current.cache);
     }
 
     function endWrite(current, settled) {
@@ -146,6 +159,7 @@ export function startProgressPopup(win = window, doc = document) {
         cache.writer = null;
         // A queued operation can still run on the server after this popup stops polling.
         cache.skipUntil = settled ? 0 : Date.now() + unsettledReadMs;
+        invalidateLibrary(cache);
     }
 
     // --- Location ----------------------------------------------------------------------------------------------
@@ -215,23 +229,38 @@ export function startProgressPopup(win = window, doc = document) {
     // --- Dialog --------------------------------------------------------------------------------------------------
 
     function open(itemId, { opener = doc.activeElement, fromItemPage = false, push = true } = {}) {
-        if (!itemId || disposed || !ready)
+        if (!itemId || disposed || !ready || (popup?.itemId === itemId && !popup.closing))
             return;
-        if (popup && !popup.closing && popup.itemId === itemId)
-            return;
-        if (popup)
-            finish(popup, false);
-        const current = { itemId, opener, fromItemPage, controller: new AbortController(), view: null, rows: [], rowKey: null, drafts: {}, openProvider: null,
-            pushed: false, closing: false, removed: false, timer: null, menuOpen: false, openOnMenu: false, motion: null, busy: false, store: null,
-            cards: {}, notes: {}, timers: new Set(), detailReads: {}, matchView: null, cache: currentReadCache() };
+        const previous = popup;
+        const insideLibrary = previous?.itemId === libraryLevel && !previous.closing && itemId !== libraryLevel;
+        const historyState = win.history.state;
+        const ownsEntry = !push && historyState?.anidoki === itemId && historyState.pushed === true;
+        const viaLibrary = insideLibrary || (!push && itemId !== libraryLevel && historyState?.anidoki === itemId && historyState.viaLibrary === true);
+        const libraryRootPushed = insideLibrary ? previous.pushed : viaLibrary && historyState.libraryRootPushed;
+        const cache = currentReadCache();
+        if ((itemId === libraryLevel && push && !previous?.viaLibrary) || libraryJourney?.cache !== cache)
+            libraryJourney = null;
+        const keepShell = previous && !previous.closing && (insideLibrary || itemId === libraryLevel);
+        if (previous)
+            finish(previous, false, keepShell);
+        const current = { itemId, opener: keepShell ? previous.opener : opener, fromItemPage,
+            controller: new AbortController(), view: null, rows: [], rowKey: null, drafts: {}, openProvider: null,
+            pushed: ownsEntry, viaLibrary, libraryRootPushed, closing: false, removed: false, timer: null, menuOpen: false,
+            openOnMenu: false, motion: null, busy: false, store: null, shell: keepShell ? previous.shell : null,
+            cards: {}, notes: {}, timers: new Set(), detailReads: {}, matchView: null, cache };
         popup = current;
         if (push && requested() !== itemId) {
             const url = new URL(win.location.href);
             url.searchParams.set(parameter, itemId);
-            win.history.pushState({ anidoki: itemId }, '', url.pathname + url.search + url.hash);
+            win.history.pushState({ ...historyState, anidoki: itemId, pushed: true, viaLibrary, libraryRootPushed },
+                '', url.pathname + url.search + url.hash);
             current.pushed = true;
         }
-        build(current);
+        if (itemId === libraryLevel) {
+            buildLibrary(current, Boolean(keepShell));
+            return;
+        }
+        build(current, Boolean(keepShell));
         const cached = cachedEntry(current.cache, seriesPath(current))?.result;
         if (cached)
             receive(current, cached.data);
@@ -241,7 +270,34 @@ export function startProgressPopup(win = window, doc = document) {
         }
     }
 
-    /** Closes the popup. From the close button or Esc, it steps back over its own history entry, or drops a deep link's parameter. */
+    function stepBack(current) {
+        if (current.viaLibrary)
+            win.history.back();
+        else
+            close();
+    }
+
+    function showLibrary(current) {
+        if (current.viaLibrary) {
+            stepBack(current);
+            return;
+        }
+        const url = new URL(win.location.href);
+        url.searchParams.set(parameter, libraryLevel);
+        win.history.replaceState({ ...win.history.state, anidoki: libraryLevel, pushed: current.pushed,
+            viaLibrary: false, libraryRootPushed: false }, '', url.pathname + url.search + url.hash);
+        open(libraryLevel, { push: false });
+    }
+
+    function clearRoute() {
+        const state = { ...win.history.state };
+        delete state.anidoki;
+        delete state.pushed;
+        delete state.viaLibrary;
+        delete state.libraryRootPushed;
+        win.history.replaceState(state, '', withoutParameter());
+    }
+
     function close({ fromHistory = false, replace = false } = {}) {
         const current = popup;
         if (!current || current.closing)
@@ -249,16 +305,26 @@ export function startProgressPopup(win = window, doc = document) {
         current.closing = true;
         current.controller.abort();
         if (!fromHistory && requested()) {
-            if (current.pushed && !replace)
+            if (current.viaLibrary && !replace) {
+                if (current.libraryRootPushed)
+                    win.history.go(-2);
+                else {
+                    // Close strips the deep-linked library entry. Forward now reopens a standalone series.
+                    win.history.replaceState({ ...win.history.state, viaLibrary: false, libraryRootPushed: false }, '', win.location.href);
+                    current.clearLibraryOnBack = true;
+                    win.history.back();
+                }
+            } else if (current.pushed && !replace) {
                 win.history.back();
-            else
-                win.history.replaceState(win.history.state ?? null, '', withoutParameter());
+            } else {
+                clearRoute();
+            }
         }
         current.scrim.classList.add('is-closing');
         current.timer = win.setTimeout(() => finish(current, true), closeFallbackMs);
     }
 
-    function finish(current, restoreFocus) {
+    function finish(current, restoreFocus, keepShell = false) {
         if (current.removed)
             return;
         current.removed = true;
@@ -268,9 +334,13 @@ export function startProgressPopup(win = window, doc = document) {
         for (const id of current.timers)
             win.clearTimeout(id);
         current.timers.clear();
-        current.scrim.remove();
-        current.inertRoot?.removeAttribute('inert');
-        doc.documentElement.classList?.remove('doki-popup-open');
+        if (!keepShell) {
+            current.shell.exit?.cancel();
+            current.shell.controller.abort();
+            current.scrim.remove();
+            current.shell.inertRoot?.removeAttribute('inert');
+            doc.documentElement.classList?.remove('doki-popup-open');
+        }
         if (popup === current)
             popup = null;
         if (restoreFocus) {
@@ -349,20 +419,22 @@ export function startProgressPopup(win = window, doc = document) {
         return element;
     }
 
-    function build(current) {
-        const scrim = node('div', 'anidoki doki-popup-scrim');
-        const panel = node('section', 'doki-popup');
-        panel.setAttribute('role', 'dialog');
-        panel.setAttribute('aria-modal', 'true');
-        panel.setAttribute('aria-labelledby', 'dokiPopupTitle');
-
+    function popupHeader(current, isLibrary = false) {
+        const signal = current.controller.signal;
         const header = node('header', 'doki-popup-header'), start = node('div', 'doki-popup-header-start');
         const symbol = node('span', 'doki-symbol');
         symbol.setAttribute('aria-hidden', 'true');
         const crumbs = node('nav', 'doki-popup-crumbs');
         crumbs.setAttribute('aria-label', 'Breadcrumb');
-        const crumb = node('span', 'doki-popup-crumb', 'AniDōki');
+        const crumb = node(isLibrary ? 'h2' : 'span', 'doki-popup-crumb', isLibrary ? 'Your anime' : 'AniDōki');
         crumb.setAttribute('aria-current', 'page');
+        if (!isLibrary) {
+            const back = button('doki-popup-library-back', 'Your anime');
+            back.addEventListener('click', () => showLibrary(current), { signal });
+            const separator = node('span', 'doki-popup-crumb-divider', '/');
+            separator.setAttribute('aria-hidden', 'true');
+            crumbs.append(back, separator);
+        }
         crumbs.append(crumb);
         const unsaved = node('p', 'doki-popup-unsaved', 'Unsaved changes');
         unsaved.hidden = true;
@@ -378,6 +450,12 @@ export function startProgressPopup(win = window, doc = document) {
         actions.append(openOn, settings, closeButton);
         header.append(start, actions);
 
+        return { header, crumb, unsaved, openOn };
+    }
+
+    function build(current, transition = false) {
+        const signal = current.controller.signal;
+        const { header, crumb, unsaved, openOn } = popupHeader(current);
         const body = node('div', 'doki-popup-body');
         const hero = node('div', 'doki-popup-hero');
         const layout = node('div', 'doki-popup-layout');
@@ -452,42 +530,212 @@ export function startProgressPopup(win = window, doc = document) {
         main.append(titleBlock, meta, tabs, status, overview, matches);
         layout.append(side, main);
         body.append(hero, layout);
-        const background = popupBackground(doc, win);
-        if (background)
-            panel.append(background);
-        panel.append(header, body);
-        scrim.append(panel);
+        Object.assign(current, { crumb, unsaved, openOn, hero, poster, details, detailsSkeleton, seasons, logo, title, meta, seasonMenu, overview, matches, related, status });
+        mountLevel(current, header, body, title, transition);
+    }
 
-        panel.addEventListener('keydown', event => {
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                if (current.menuOpen)
-                    closeSeasonMenu(current, true);
-                else
-                    close();
-            } else if (event.key === 'Tab')
-                trapFocus(current, event);
-        }, { signal });
-        panel.addEventListener('animationend', event => {
-            if (event.target === panel && current.closing)
-                finish(current, true);
-        }, { signal });
-
-        Object.assign(current, { scrim, panel, crumb, unsaved, openOn, hero, poster, details, detailsSkeleton, seasons, logo, title, meta, seasonMenu, overview, matches, related, status });
-        doc.documentElement.classList?.add('doki-popup-open');
-        const backgroundRoot = doc.getElementById('reactRoot');
-        if (backgroundRoot && !backgroundRoot.hasAttribute('inert')) {
-            backgroundRoot.setAttribute('inert', '');
-            current.inertRoot = backgroundRoot;
-        }
-        for (const type of ['wheel', 'touchmove'])
-            scrim.addEventListener(type, event => {
-                if (!body.contains(event.target))
+    function mountLevel(current, header, body, title, transition) {
+        if (!current.shell) {
+            const scrim = node('div', 'anidoki doki-popup-scrim');
+            const panel = node('section', 'doki-popup');
+            const controller = new AbortController();
+            const signal = controller.signal;
+            panel.setAttribute('role', 'dialog');
+            panel.setAttribute('aria-modal', 'true');
+            panel.setAttribute('aria-labelledby', 'dokiPopupTitle');
+            const background = popupBackground(doc, win);
+            const backgroundRoot = doc.getElementById('reactRoot');
+            const inertRoot = backgroundRoot && !backgroundRoot.hasAttribute('inert') ? backgroundRoot : null;
+            inertRoot?.setAttribute('inert', '');
+            current.shell = { scrim, panel, background, inertRoot, controller, body };
+            const shell = current.shell;
+            panel.addEventListener('keydown', event => {
+                const active = popup;
+                if (!active || active.closing)
+                    return;
+                if (event.key === 'Escape') {
                     event.preventDefault();
-            }, { passive: false, signal });
-        doc.body.append(scrim);
-        followThemeAccent(scrim, current.controller.signal, win);
-        title.focus({ preventScroll: true });
+                    if (active.libraryUi?.closeMenu(true))
+                        return;
+                    if (active.menuOpen)
+                        closeSeasonMenu(active, true);
+                    else if (active.openOnMenu) {
+                        active.openOnMenu = false;
+                        refresh(active, 'open-on');
+                    } else
+                        stepBack(active);
+                } else if (event.key === 'Tab') {
+                    trapFocus(active, event);
+                }
+            }, { signal });
+            panel.addEventListener('animationend', event => {
+                if (event.target === panel && popup?.closing)
+                    finish(popup, true);
+            }, { signal });
+            for (const type of ['wheel', 'touchmove'])
+                scrim.addEventListener(type, event => {
+                    if (!shell.body.contains(event.target))
+                        event.preventDefault();
+                }, { passive: false, signal });
+            doc.documentElement.classList?.add('doki-popup-open');
+            scrim.append(panel);
+            doc.body.append(scrim);
+            followThemeAccent(scrim, signal, win);
+        }
+        const shell = current.shell;
+        const { scrim, panel, background } = shell;
+        Object.assign(current, { scrim, panel });
+        shell.exit?.cancel();
+        shell.exit = null;
+        const show = () => {
+            if (current !== popup || current.closing)
+                return;
+            shell.body = body;
+            panel.classList.toggle('is-library', current.itemId === libraryLevel);
+            if (transition)
+                body.classList.add('doki-popup-level-enter');
+            panel.replaceChildren(...[background, header, body].filter(Boolean));
+            if (transition && current.libraryUi)
+                current.libraryUi.restoreFocus();
+            else
+                title.focus({ preventScroll: true });
+        };
+        if (transition && shell.body.animate && win.matchMedia?.('(prefers-reduced-motion: no-preference)').matches) {
+            shell.body.setAttribute('inert', '');
+            const exit = shell.exit = shell.body.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: 'ease', fill: 'forwards' });
+            exit.finished.then(show, () => {});
+        } else {
+            show();
+        }
+    }
+
+    function buildLibrary(current, transition) {
+        const { header, crumb } = popupHeader(current, true);
+        crumb.id = 'dokiPopupTitle';
+        crumb.setAttribute('tabindex', '-1');
+        const body = node('div', 'doki-popup-body doki-popup-library');
+        const state = libraryJourney ??= {
+            cache: current.cache, type: 'all', status: 'all', provider: null, query: '', layout: 'posters',
+            searchOpen: false, view: null, busy: false, error: null
+        };
+        current.libraryState = state;
+        current.libraryUi = createPopupLibrary({
+            root: body, state, title: crumb, node, button, chip, imageUrl, providerMark: key => providerTile(key),
+            openSeries: id => open(id), selectProvider: key => {
+                if (key !== state.provider)
+                    loadLibrary(current, key);
+            },
+            refresh: () => loadLibrary(current, state.provider, true),
+            signal: current.controller.signal
+        });
+        mountLevel(current, header, body, crumb, transition);
+        loadLibrary(current, state.provider, false, transition);
+    }
+
+    async function loadLibrary(current, provider, refresh = false, restore = false) {
+        if (current.removed || current.closing)
+            return;
+        const state = current.libraryState, ui = current.libraryUi;
+        const cache = currentReadCache();
+        if (current.identityTimer != null) {
+            win.clearTimeout(current.identityTimer);
+            current.timers.delete(current.identityTimer);
+            current.identityTimer = null;
+        }
+        if (!current.cache && cache)
+            current.cache = state.cache = cache;
+        const library = cache === current.cache ? cache?.library : null;
+        if (!library) {
+            // On a fresh web load ApiClient is present before Jellyfin restores its user session.
+            if (!cache && !current.cache && !refresh && (current.identityChecks ?? 0) < 8) {
+                current.identityChecks = (current.identityChecks ?? 0) + 1;
+                state.busy = true;
+                ui.render();
+                current.identityTimer = win.setTimeout(() => loadLibrary(current, provider, false, restore), 250);
+                current.timers.add(current.identityTimer);
+                return;
+            }
+            Object.assign(state, { provider: null, view: null, busy: false, error: 'Sign in to see your anime.' });
+            ui.render();
+            return;
+        }
+        current.libraryRequest?.abort();
+        const key = provider ?? '';
+        const snapshot = library.results.get(key);
+        const reuse = !refresh && cacheAvailable(cache) && snapshot?.expires > Date.now();
+        const revision = library.revision;
+        if (reuse) {
+            Object.assign(state, { view: snapshot.view, provider: snapshot.view.selectedProvider, busy: false, refreshing: false, error: null });
+            ui.render();
+            if (restore)
+                ui.restoreFocus();
+            return;
+        }
+
+        const controller = new AbortController(), requestSignal = controller.signal;
+        current.libraryRequest = controller;
+        const levelSignal = current.controller.signal;
+        const abort = () => controller.abort();
+        levelSignal.addEventListener('abort', abort, { once: true });
+        const previousView = state.view;
+        const sameProvider = previousView?.selectedProvider === provider;
+        Object.assign(state, { provider, busy: true, refreshing: refresh, error: null,
+            view: sameProvider ? previousView : previousView && { ...previousView, selectedProvider: null, rows: [] } });
+        ui.render();
+        const params = new URLSearchParams();
+        if (provider)
+            params.set('provider', provider);
+        const afterChange = revision > 0 && !library.fresh.has(key);
+        if (refresh || afterChange)
+            params.set('refresh', 'true');
+        if (afterChange)
+            params.set('afterChange', 'true');
+        const query = params.size ? '?' + params : '';
+        const isCurrent = () => current === popup && !current.closing && !requestSignal.aborted &&
+            current.libraryRequest === controller && library.revision === revision && currentReadCache() === cache;
+        try {
+            const result = await request('AniDoki/user/progress/library' + query, { abort: requestSignal });
+            if (!isCurrent())
+                return;
+            if (!result.ok || !result.data)
+                throw result;
+            const view = result.data;
+            const selected = view.selectedProvider;
+            if (cacheAvailable(cache) && (selected || !provider)) {
+                const entry = { view, expires: Date.now() + libraryCacheMs };
+                library.results.set(key, entry);
+                library.fresh.add(key);
+                if (selected) {
+                    library.results.set(selected, entry);
+                    library.fresh.add(selected);
+                }
+                if (library.results.get('')?.view.selectedProvider === selected)
+                    library.results.set('', entry);
+            }
+            Object.assign(state, { view, provider: selected });
+        } catch (error) {
+            if (!isCurrent())
+                return;
+            if (error?.status === 401 || error?.status === 404) {
+                // Access failures are authoritative, even for a previously successful tracker.
+                library.results.clear();
+                library.fresh.clear();
+                if (error.status === 401)
+                    cache.entries.clear();
+                state.view = null;
+            }
+            state.error = error?.status === 401 ? 'Sign in to see your anime.'
+                : error?.status === 404 ? 'Your anime is unavailable on this server.'
+                : 'Could not read the tracker list.';
+        } finally {
+            levelSignal.removeEventListener('abort', abort);
+            if (isCurrent()) {
+                Object.assign(state, { busy: false, refreshing: false });
+                ui.render();
+                if (restore)
+                    ui.restoreFocus();
+            }
+        }
     }
 
     async function loadSummary(current) {
@@ -1632,15 +1880,24 @@ export function startProgressPopup(win = window, doc = document) {
     }
 
     // The other AniDōki views report saved changes through this event.
-    doc.addEventListener('anidoki:progress-changed', () => readCache?.entries.clear(), { signal });
+    doc.addEventListener('anidoki:progress-changed', () => {
+        readCache?.entries.clear();
+        invalidateLibrary(readCache);
+        if (popup?.libraryUi && popup.cache === readCache)
+            loadLibrary(popup, popup.libraryState.provider);
+    }, { signal });
     doc.addEventListener('viewshow', () => scanPage(), { signal });
     win.addEventListener('hashchange', () => scanPage(), { signal });
     win.addEventListener('popstate', () => {
         const wanted = requested();
-        if (popup && !popup.closing && wanted !== popup.itemId)
+        if (popup?.closing && popup.clearLibraryOnBack && wanted === libraryLevel) {
+            clearRoute();
+            return;
+        }
+        if (wanted && (wanted !== popup?.itemId || popup.closing))
+            open(wanted, { opener: popup?.opener ?? null, push: false });
+        else if (!wanted && popup && !popup.closing)
             close({ fromHistory: true });
-        if ((!popup || popup.closing) && wanted)
-            open(wanted, { push: false });
     }, { signal });
 
     win[runtimeKey] = { open, close, dispose };

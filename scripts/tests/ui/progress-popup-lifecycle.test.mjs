@@ -835,3 +835,259 @@ test('ordinary playback reuses cached progress, while a confirmed change invalid
     assert.equal(gets(env, 'progress/series/').length, 2);
     popup.dispose();
 });
+
+const libraryView = (selectedProvider = 'AniList', title = 'Cowboy Bebop') => ({
+    selectedProvider,
+    providers: [{ provider: 'AniList', available: true }, { provider: 'Kitsu', available: true }, { provider: 'Simkl', available: false }],
+    rows: selectedProvider ? [{ itemId: seriesId, title, isMovie: false, year: 1998, hasPoster: true,
+        matchState: 'OnList', status: 'Watching', progress: 3, totalEpisodes: 26, episodeCount: 6, unloggedLibraryCount: 3 }] : []
+});
+
+test('library deep link opens a card in the same dialog and Back restores its view and focus', async () => {
+    const env = setup({ href: 'http://jf/web/index.html?anidoki=library#/home', routes: {
+        '/library': () => ({ body: libraryView() })
+    } });
+    const popup = startProgressPopup(env.win, env.doc);
+    await flush();
+    const panel = dialog(env.doc);
+    assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'Your anime');
+    assert.equal(gets(env, 'progress/series/').length, 0);
+    panel.querySelector('.doki-library-layout-toggle').click();
+    panel.querySelector('.doki-library-card').click();
+    await flush();
+    assert.equal(dialog(env.doc), panel);
+    assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'Cowboy Bebop');
+    assert.equal(panel.querySelector('.doki-popup-library-back').textContent, 'Your anime');
+    env.win.history.back();
+    await flush();
+    assert.equal(dialog(env.doc), panel);
+    assert.ok(panel.querySelector('.doki-library-results.is-list'));
+    assert.equal(env.doc.activeElement, panel.querySelector('.doki-library-card'));
+    assert.equal(gets(env, '/library').length, 1);
+    keydown(panel, 'Escape');
+    await env.win.advance(250);
+    assert.equal(dialog(env.doc), null);
+    assert.equal(env.win.location.hash, '#/home');
+    popup.dispose();
+});
+
+test('the library keeps the active provider after a late response and retries a failed refresh', async () => {
+    let finishKitsu, refreshes = 0;
+    const kitsuPending = new Promise(resolve => { finishKitsu = resolve; });
+    const env = setup({ href: 'http://jf/web/?anidoki=library#/home', routes: {
+        '/library': ({ url }) => {
+            const params = new URL(url, 'http://jf').searchParams;
+            if (params.get('provider') === 'Kitsu')
+                return kitsuPending;
+            if (params.has('refresh') && ++refreshes === 1)
+                return { status: 503, body: null };
+            return { body: libraryView('AniList', refreshes ? 'Updated Bebop' : 'Cowboy Bebop') };
+        }
+    } });
+    const popup = startProgressPopup(env.win, env.doc);
+    await flush();
+    const panel = dialog(env.doc);
+    const menu = () => panel.querySelector('[role="menu"][aria-label="Tracker"]');
+    const select = index => {
+        if (menu().hidden)
+            panel.querySelector('button[aria-label="Tracker"]').click();
+        menu().querySelectorAll('[role="menuitemradio"]')[index].click();
+    };
+    select(2);
+    assert.equal(gets(env, '/library').length, 1, 'unavailable trackers do not make requests');
+    select(1);
+    assert.equal(gets(env, '/library').length, 2);
+    select(0);
+    finishKitsu({ body: libraryView('Kitsu', 'Stale Kitsu row') });
+    await flush();
+    assert.match(panel.querySelector('.doki-library-card').getAttribute('aria-label'), /^Cowboy Bebop/);
+    panel.querySelector('.doki-library-refresh').click();
+    await flush();
+    assert.match(textTree(panel.querySelector('.doki-library-notice')), /Could not read the tracker list/);
+    assert.ok(panel.querySelector('.doki-library-card'), 'retain previous rows on refresh failure');
+    panel.querySelector('.doki-library-notice button').click();
+    await flush();
+    assert.match(panel.querySelector('.doki-library-card').getAttribute('aria-label'), /^Updated Bebop/);
+    assert.equal(refreshes, 2);
+    popup.dispose();
+});
+
+test('returning from a synced series refreshes the selected tracker list once', async () => {
+    const env = setup({ href: 'http://jf/web/?anidoki=library#/home', routes: {
+        '/library': ({ url }) => ({ body: libraryView('AniList', url.includes('refresh=true') ? 'Updated Bebop' : 'Cowboy Bebop') }),
+        'progress/edit/op-1': () => ({ body: { operationId: 'op-1', finished: true, results: [
+            { provider: 'AniList', entryId: '1', result: 'Saved', current: null }
+        ] } }),
+        'progress/edit': () => ({ status: 202, body: { operationId: 'op-1' } })
+    } });
+    const popup = startProgressPopup(env.win, env.doc);
+    await flush();
+    const panel = dialog(env.doc);
+    panel.querySelector('.doki-library-card').click();
+    await flush();
+    pill(env.doc, 'AniList').click();
+    env.doc.querySelector('[aria-label="One episode more"]').click();
+    env.doc.querySelector('.doki-sync-up').click();
+    await env.win.advance(1500);
+    panel.querySelector('.doki-popup-library-back').click();
+    await flush();
+    assert.match(panel.querySelector('.doki-library-card').getAttribute('aria-label'), /^Updated Bebop/);
+    assert.equal(gets(env, '/library').length, 2);
+    assert.match(gets(env, '/library')[1].url, /provider=AniList&refresh=true/);
+    env.win.history.forward();
+    await flush();
+    assert.ok(panel.querySelector('.doki-popup-library-back'));
+    keydown(panel, 'Escape');
+    await flush();
+    assert.equal(gets(env, '/library').length, 2);
+    popup.dispose();
+});
+
+test('search and view changes render 200 library titles without requesting series or tracker data', async () => {
+    const view = libraryView();
+    view.rows = Array.from({ length: 200 }, (_, index) => ({
+        ...view.rows[0], itemId: 'test-item-' + index, title: 'Library title ' + String(index).padStart(3, '0')
+    }));
+    const env = setup({ href: 'http://jf/web/?anidoki=library#/home', routes: { '/library': () => ({ body: view }) } });
+    const popup = startProgressPopup(env.win, env.doc);
+    await flush();
+    const panel = dialog(env.doc);
+    assert.equal(panel.querySelectorAll('.doki-library-card').length, 200);
+    panel.querySelector('.doki-library-layout-toggle').click();
+    assert.equal(panel.querySelectorAll('.doki-library-card').length, 200);
+    panel.querySelector('.doki-library-search-toggle').click();
+    const input = panel.querySelector('input');
+    input.value = 'Library title 010';
+    input.dispatchEvent(new Event('input'));
+    assert.equal(panel.querySelectorAll('.doki-library-card').length, 1);
+    assert.equal(gets(env, '/library').length, 1);
+    assert.equal(gets(env, 'progress/series/').length, 0);
+    popup.dispose();
+});
+
+test('immediate browser Forward reopens the library during the close animation', async () => {
+    const env = setup({ routes: { '/library': () => ({ body: libraryView() }) } });
+    const popup = startProgressPopup(env.win, env.doc);
+    popup.open('library');
+    await flush();
+    env.win.history.back();
+    env.win.history.forward();
+    await env.win.advance(250);
+    assert.equal(env.doc.getElementById('dokiPopupTitle')?.textContent, 'Your anime');
+    assert.ok(dialog(env.doc).querySelector('.doki-library-card'));
+    popup.dispose();
+});
+
+test('a refresh that loses access hides previously loaded library titles', async () => {
+    const env = setup({ href: 'http://jf/web/?anidoki=library#/home', routes: {
+        '/library': ({ url }) => url.includes('refresh=true') ? { status: 401, body: null } : { body: libraryView() }
+    } });
+    const popup = startProgressPopup(env.win, env.doc);
+    await flush();
+    const panel = dialog(env.doc);
+    panel.querySelector('.doki-library-refresh').click();
+    await flush();
+    assert.match(textTree(panel.querySelector('.doki-library-notice')), /Sign in to see your anime/);
+    assert.equal(panel.querySelector('.doki-library-card'), null);
+    popup.dispose();
+});
+
+test('Escape dismisses the tracker-links menu before returning to the library', async () => {
+    const env = setup({ href: 'http://jf/web/?anidoki=library#/home', routes: {
+        '/library': () => ({ body: libraryView() }),
+        'progress/series/': () => ({ body: twoTrackers() })
+    } });
+    const popup = startProgressPopup(env.win, env.doc);
+    await flush();
+    const panel = dialog(env.doc);
+    panel.querySelector('.doki-library-card').click();
+    await flush();
+    panel.querySelector('button.doki-popup-open-tracker').click();
+    keydown(panel, 'Escape');
+    assert.equal(panel.querySelector('button.doki-popup-open-tracker').getAttribute('aria-expanded'), 'false');
+    assert.equal(env.doc.activeElement, panel.querySelector('button.doki-popup-open-tracker'));
+    assert.ok(panel.querySelector('.doki-popup-library-back'));
+    keydown(panel, 'Escape');
+    await flush();
+    assert.ok(panel.querySelector('.doki-library-card'));
+    popup.dispose();
+});
+
+test('Forward after closing a deep-linked library journey restores a standalone series', async () => {
+    const env = setup({ href: 'http://jf/web/?anidoki=library#/home', routes: { '/library': () => ({ body: libraryView() }) } });
+    const popup = startProgressPopup(env.win, env.doc);
+    await flush();
+    const panel = dialog(env.doc);
+    panel.querySelector('.doki-library-card').click();
+    await flush();
+    panel.querySelector('button.doki-popup-close').click();
+    await env.win.advance(250);
+    assert.equal(dialog(env.doc), null);
+    assert.equal(env.win.location.search, '');
+    env.win.history.forward();
+    await flush();
+    assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'Cowboy Bebop');
+    keydown(dialog(env.doc), 'Escape');
+    await env.win.advance(250);
+    assert.equal(dialog(env.doc), null);
+    popup.dispose();
+});
+
+test('the item-page popup breadcrumb opens Your anime without adding a history entry', async () => {
+    const env = setup({ routes: { '/library': () => ({ body: libraryView() }) } });
+    const popup = await openPopup(env);
+    const panel = dialog(env.doc);
+    const route = env.win.location.hash;
+    const historyLength = env.win.history.length;
+    panel.querySelector('.doki-popup-library-back').click();
+    await flush();
+    assert.equal(dialog(env.doc), panel);
+    assert.equal(env.doc.getElementById('dokiPopupTitle').textContent, 'Your anime');
+    assert.equal(env.win.history.length, historyLength);
+    assert.equal(env.win.location.hash, route);
+    env.win.history.back();
+    await env.win.advance(250);
+    assert.equal(dialog(env.doc), null);
+    assert.equal(env.win.location.hash, route);
+    popup.dispose();
+});
+
+test('a library deep link waits for Jellyfin to restore the signed-in user', async () => {
+    const env = setup({ href: 'http://jf/web/?anidoki=library#/home', routes: { '/library': () => ({ body: libraryView() }) } });
+    let signedIn = false;
+    env.win.ApiClient.isLoggedIn = () => signedIn;
+    const popup = startProgressPopup(env.win, env.doc);
+    await flush();
+    assert.equal(gets(env, '/library').length, 0);
+    signedIn = true;
+    await env.win.advance(500);
+    assert.ok(dialog(env.doc).querySelector('.doki-library-card'));
+    assert.equal(gets(env, '/library').length, 1);
+    popup.dispose();
+});
+
+test('unavailable matches sort last and show one short list label with the full tooltip', async () => {
+    const view = libraryView();
+    view.rows.unshift({ ...view.rows[0], itemId: 'missing', title: 'A missing series', matchState: 'Unresolved',
+        status: null, progress: null, totalEpisodes: null, unloggedLibraryCount: null });
+    const env = setup({ href: 'http://jf/web/?anidoki=library#/home', routes: { '/library': () => ({ body: view }) } });
+    const popup = startProgressPopup(env.win, env.doc);
+    await flush();
+    const panel = dialog(env.doc);
+    const [matched, unavailable] = panel.querySelectorAll('.doki-library-card');
+    assert.equal(matched.dataset.itemId, seriesId);
+    assert.equal(matched.querySelector('.doki-library-watched').textContent, '3');
+    assert.equal(matched.querySelector('.doki-library-total').textContent, '/26');
+    assert.equal(unavailable.dataset.itemId, 'missing');
+    assert.ok(unavailable.classList.contains('is-unavailable'));
+    assert.equal(unavailable.querySelector('.doki-library-progress'), null);
+    assert.equal(unavailable.querySelector('.doki-library-match-tooltip').textContent, 'Match unavailable');
+    const toggle = panel.querySelector('.doki-library-layout-toggle');
+    assert.equal(toggle.querySelector('.doki-popup-chip-icon').dataset.icon, 'posters');
+    toggle.click();
+    assert.equal(toggle.querySelector('.doki-popup-chip-icon').dataset.icon, 'list');
+    const unavailableRow = panel.querySelector('.doki-library-card.is-unavailable');
+    assert.match(textTree(unavailableRow.querySelector('.doki-library-card-meta')).trim(), /^Unavailable/);
+    assert.equal(unavailableRow.querySelector('.doki-library-progress'), null);
+    popup.dispose();
+});

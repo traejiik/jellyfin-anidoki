@@ -158,13 +158,30 @@ export function createWindow(href) {
         now = until;
     };
     const entries = [href];
+    const states = [null];
     let index = 0;
     win.location = { get href() { return entries[index]; }, get search() { return new URL(entries[index]).search; }, get hash() { return new URL(entries[index]).hash; }, get pathname() { return new URL(entries[index]).pathname; } };
     win.history = {
         get length() { return entries.length; },
-        pushState(state, title, url) { entries.splice(index + 1); entries.push(new URL(url, entries[index]).href); index++; },
-        replaceState(state, title, url) { entries[index] = new URL(url, entries[index]).href; },
-        back() { if (index > 0) { index--; win.dispatchEvent(new Event('popstate')); } }
+        get state() { return states[index]; },
+        pushState(state, title, url) {
+            entries.splice(index + 1, Infinity, new URL(url, entries[index]).href);
+            states.splice(index + 1, Infinity, state);
+            index++;
+        },
+        replaceState(state, title, url) {
+            entries[index] = new URL(url, entries[index]).href;
+            states[index] = state;
+        },
+        go(amount) {
+            const next = index + amount;
+            if (next >= 0 && next < entries.length && next !== index) {
+                index = next;
+                win.dispatchEvent(new Event('popstate'));
+            }
+        },
+        back() { this.go(-1); },
+        forward() { this.go(1); }
     };
     win.setHash = hash => { entries[index] = new URL(hash, entries[index]).href; win.dispatchEvent(new Event('hashchange')); };
     return win;

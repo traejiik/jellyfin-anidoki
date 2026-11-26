@@ -484,9 +484,10 @@ html.doki-popup-open, html.doki-popup-open body { overflow: hidden; overscroll-b
     .anidoki a.doki-popup-relation-card:hover .doki-popup-relation-art img { filter: blur(2px); transform: scale(1.06); }
 }
 .anidoki .doki-editor-status { display: inline-flex; align-items: center; gap: 6px; }
+.anidoki .doki-popup-sync-spinner { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 7v5h-5M4 17v-5h5M5 9a8 8 0 0 1 13-3l2 3M4 15l2 3a8 8 0 0 0 13-3'/%3E%3C/svg%3E"); }
 .anidoki .doki-popup-sync-spinner {
     display: block; flex: none; width: 1em; height: 1em; background: currentColor;
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 7v5h-5M4 17v-5h5M5 9a8 8 0 0 1 13-3l2 3M4 15l2 3a8 8 0 0 0 13-3'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: var(--doki-icon) center / contain no-repeat;
 }
 @media (prefers-reduced-motion: no-preference) {
     .anidoki a.doki-popup-relation-card { transition: border-color 150ms ease, background-color 150ms ease; }
@@ -494,3 +495,234 @@ html.doki-popup-open, html.doki-popup-open body { overflow: hidden; overscroll-b
     .anidoki .doki-popup-relation-art img { transition: filter 150ms ease, transform 150ms ease; }
     .anidoki .doki-popup-sync-spinner { animation: doki-tracker-spin 900ms linear infinite; }
 }
+
+/* --- Your anime --- */
+.anidoki .doki-popup-crumbs:has(.doki-popup-library-back) { display: flex; align-items: center; gap: 8px; }
+.anidoki .doki-popup-library-back {
+    flex: none; padding: 0; border: 0; background: transparent; color: rgb(255 255 255 / .75); cursor: pointer;
+}
+.anidoki .doki-popup-library-back:hover { text-decoration: underline; }
+.anidoki .doki-popup-crumb-divider { color: rgb(255 255 255 / .5); }
+.anidoki .doki-popup.is-library .doki-popup-crumb-row {
+    padding-inline: 0; background: none; color: var(--doki-text); backdrop-filter: none;
+}
+.anidoki .doki-popup.is-library .doki-popup-header { padding-inline: 36px; }
+.anidoki .doki-popup.is-library h2.doki-popup-crumb { margin: 0; font: inherit; font-weight: 700; }
+.anidoki .doki-popup.is-library .doki-popup-open-on { display: none; }
+.anidoki .doki-popup.is-library .doki-popup-chip {
+    background: transparent; color: var(--doki-muted); backdrop-filter: none;
+}
+.anidoki .doki-popup.is-library .doki-popup-chip:not(:disabled):hover { background: var(--doki-ground); color: var(--doki-text); }
+
+.anidoki .doki-popup-library {
+    display: flex; flex-direction: column; padding: 76px 36px 0; overflow: hidden;
+}
+.anidoki .doki-library-toolbar {
+    position: relative; z-index: 1; display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 10px; padding-bottom: 14px;
+}
+.anidoki .doki-library-spacer { flex: 1; }
+.anidoki .doki-library-types {
+    display: flex; padding: 3px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-ground);
+}
+.anidoki .doki-library-segment {
+    min-height: 34px; padding: 0 16px; border: 0; border-radius: var(--tjk-radius-sm); background: transparent;
+    color: var(--doki-muted); font-size: .875rem; cursor: pointer;
+}
+.anidoki .doki-library-segment:hover { color: var(--doki-text); }
+.anidoki .doki-library-segment[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--doki-accent) 24%, transparent); color: var(--doki-text); font-weight: 700;
+}
+.anidoki .doki-library-menu { position: relative; }
+.anidoki .doki-library-menu-button {
+    display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 1px solid var(--doki-edge);
+    border-radius: var(--tjk-radius-md); background: var(--doki-ground); color: var(--doki-text); font-size: .875rem; cursor: pointer;
+}
+.anidoki .doki-library-menu-button:disabled, .anidoki .doki-library-refresh:disabled { opacity: .6; cursor: default; }
+.anidoki .doki-library-menu-button:not(:disabled):hover { background: var(--doki-pill); }
+.anidoki .doki-library-chevron { width: 14px; height: 14px; color: var(--doki-muted); }
+.anidoki .doki-library-menu .doki-pill-tile { width: 24px; height: 24px; }
+.anidoki .doki-library-menu .doki-pill-tile img { width: 16px; height: 16px; }
+.anidoki .doki-library-menu-options {
+    position: absolute; inset-block-start: calc(100% + 6px); inset-inline-start: 0; z-index: 2; display: grid; min-width: 220px;
+    padding: 6px; border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md); background: var(--doki-solid-surface);
+    box-shadow: 0 8px 24px rgb(0 0 0 / .25); translate: var(--doki-library-menu-shift, 0px);
+}
+.anidoki .doki-library-option {
+    display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 6px 10px; border: 0; border-radius: var(--tjk-radius-sm);
+    background: transparent; color: var(--doki-text); font-size: .875rem; text-align: start; cursor: pointer;
+}
+.anidoki .doki-library-option:hover, .anidoki .doki-library-option:focus-visible { background: var(--doki-ground); }
+.anidoki .doki-library-option[aria-checked="true"] { background: color-mix(in srgb, var(--doki-accent) 20%, transparent); }
+.anidoki .doki-library-option[aria-disabled="true"] { color: var(--doki-muted); cursor: default; }
+.anidoki .doki-library-option-label { flex: 1; }
+.anidoki .doki-library-option-label small { display: block; font-size: .75rem; }
+.anidoki .doki-library-option-count { color: var(--doki-muted); font-variant-numeric: tabular-nums; }
+.anidoki .doki-library-dot { width: 10px; height: 10px; flex: none; border-radius: 50%; background: var(--doki-muted); }
+.anidoki .doki-library-dot[data-status="Watching"] { background: var(--tjk-success); }
+.anidoki .doki-library-dot[data-status="Completed"] { background: var(--doki-accent); }
+.anidoki .doki-library-dot[data-status="OnHold"] { background: var(--tjk-warning); }
+.anidoki .doki-library-dot[data-status="Dropped"] { background: var(--tjk-error); }
+.anidoki .doki-popup.is-library .doki-library-refresh { border: 1px solid var(--doki-edge); background: var(--doki-ground); }
+.anidoki .doki-library-refresh .doki-popup-chip-icon { width: 18px; height: 18px; }
+.anidoki .doki-popup.is-library :is(.doki-library-search-toggle, .doki-library-layout-toggle) { border-radius: var(--tjk-radius-md); color: var(--doki-text); }
+.anidoki .doki-library-search {
+    display: flex; flex: none; align-items: center; gap: 8px; padding-inline: 14px; margin-bottom: 14px;
+    border: 1px solid var(--doki-edge); border-radius: var(--tjk-radius-md);
+    background: var(--doki-ground);
+}
+.anidoki .doki-library-search > .doki-popup-chip-icon { flex: 0 0 16px; height: 16px; color: var(--doki-muted); }
+.anidoki .doki-library-search input {
+    width: 100%; min-width: 0; min-height: 40px; padding: 0; border: 0; border-radius: inherit; background: transparent; color: var(--doki-text);
+}
+.anidoki .doki-library-search input:focus { outline: none; box-shadow: none; }
+.anidoki .doki-library-search:focus-within { background: var(--doki-pill); }
+.anidoki .doki-library-notice {
+    display: grid; justify-items: center; gap: 6px; padding: 24px 0; text-align: center;
+}
+.anidoki .doki-library-notice p { margin: 0; font-size: .875rem; }
+.anidoki .doki-library-notice:not(:has(button, .doki-sr-only)) { padding-top: 64px; }
+.anidoki .doki-library-notice:not(:has(button)) p { color: var(--doki-muted); }
+.anidoki .doki-library-notice:has(.doki-sr-only) { padding: 0; }
+.anidoki .doki-popup-library [hidden] { display: none; }
+.anidoki .doki-library-scroll { flex: 1; min-height: 0; padding: 4px 2px 24px; overflow: auto; overscroll-behavior: contain; }
+.anidoki .doki-library-results {
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 18px; margin: 0; padding: 0; list-style: none;
+}
+.anidoki .doki-library-results.is-list { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.anidoki .doki-library-results > li { min-width: 0; }
+.anidoki .doki-library-card {
+    position: relative; display: block; width: 100%; aspect-ratio: 2 / 3; padding: 0; border: 0;
+    border-radius: var(--tjk-radius-lg); overflow: hidden; background: var(--doki-ground); color: var(--doki-text); text-align: start; cursor: pointer;
+}
+.anidoki .doki-library-card:focus-visible { outline: 2px solid var(--doki-accent); outline-offset: -2px; }
+.anidoki .doki-library-art { display: block; overflow: hidden; background: var(--doki-ground); }
+.anidoki .doki-library-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.anidoki .doki-library-art:not(:has(img)) {
+    background: var(--doki-ground) url("anidoki-symbol.svg") center / 38% auto no-repeat;
+}
+.anidoki .doki-library-results:not(.is-list) .doki-library-art { position: absolute; inset: 0; }
+.anidoki .doki-library-card-text { display: grid; min-width: 0; gap: 6px; }
+.anidoki .doki-library-results:not(.is-list) .doki-library-card-text {
+    position: absolute; inset: auto 0 0; gap: 10px; padding: 34px 14px 14px; color: #fff;
+    background: linear-gradient(transparent, rgb(0 0 0 / .88));
+}
+.anidoki .doki-library-card-title { overflow-wrap: anywhere; }
+.anidoki .doki-library-results:not(.is-list) .doki-library-card-title {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: .9375rem; line-height: 1.3;
+}
+.anidoki .doki-library-card-meta { display: inline-flex; align-items: center; gap: 8px; color: var(--doki-muted); font-size: .8125rem; }
+.anidoki .doki-library-results:not(.is-list) .doki-library-card-meta { display: none; }
+.anidoki .doki-library-bar {
+    display: flex; width: 100%; max-width: 560px; height: 6px; border-radius: var(--tjk-radius-pill); overflow: hidden; background: var(--doki-edge);
+}
+.anidoki .doki-library-results:not(.is-list) .doki-library-bar { background: rgb(255 255 255 / .22); }
+.anidoki .doki-library-bar-solid { width: var(--doki-library-solid); background: var(--doki-accent); }
+.anidoki .doki-library-bar-tint { width: var(--doki-library-tint); background: color-mix(in srgb, var(--doki-accent) 40%, #fff); }
+.anidoki .doki-library-card-stats {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font-size: .8125rem; font-variant-numeric: tabular-nums;
+}
+.anidoki .doki-library-stats-line { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; }
+.anidoki .doki-library-results:not(.is-list) .doki-library-card-stats {
+    position: absolute; inset: 10px 10px auto 10px; color: #fff;
+}
+.anidoki .doki-library-progress, .anidoki .doki-library-score, .anidoki .doki-library-airing {
+    display: inline-flex; box-sizing: border-box; align-items: center; gap: 7px; min-height: 30px; padding: 0 11px;
+    border-radius: var(--tjk-radius-pill); font-size: .875rem; line-height: 1; white-space: nowrap;
+}
+.anidoki .doki-library-progress, .anidoki .doki-library-airing { background: rgb(16 16 22 / .72); backdrop-filter: blur(6px); }
+.anidoki .doki-library-progress { padding-inline: 11px 5px; font-weight: 600; }
+.anidoki .doki-library-untracked { padding-inline: 12px; font-size: .8125rem; }
+.anidoki .doki-library-watched { font-weight: inherit; }
+.anidoki .doki-library-score { gap: 5px; background: var(--tjk-success); color: #101010; font-weight: 700; }
+.anidoki .doki-library-score .doki-popup-chip-icon { width: 13px; height: 13px; }
+.anidoki .doki-library-badge {
+    display: inline-grid; box-sizing: border-box; place-items: center; min-width: 22px; height: 22px; padding-inline: 5px;
+    border-radius: var(--tjk-radius-sm); background: rgb(255 255 255 / .2); font-size: .8125rem; font-weight: 700;
+}
+.anidoki .doki-library-badge.has-unlogged { background: color-mix(in srgb, var(--doki-accent) 40%, #fff); color: #101010; }
+.anidoki .doki-library-results.is-list .doki-library-card {
+    display: grid; grid-template-columns: 68px minmax(0, 1fr) minmax(142px, 224px); align-items: center; gap: 20px; min-height: 96px;
+    padding: 8px 12px 8px 8px; aspect-ratio: auto; background: transparent;
+}
+.anidoki .doki-library-results.is-list .doki-library-card:hover,
+.anidoki .doki-library-results.is-list .doki-library-card:focus-visible { background: var(--doki-ground); }
+.anidoki .doki-library-results.is-list .doki-library-art { width: 68px; height: 96px; border-radius: var(--tjk-radius-md); }
+.anidoki .doki-library-results.is-list .doki-library-card-title { font-size: 1.125rem; line-height: 1.25; }
+.anidoki .doki-library-results.is-list .doki-library-stats-line { width: 100%; justify-content: space-between; }
+.anidoki .doki-library-results.is-list .doki-library-progress {
+    order: -1; gap: 8px; padding: 0; background: transparent; backdrop-filter: none; font-size: .9375rem; font-weight: 400;
+}
+.anidoki .doki-library-results.is-list .doki-library-watched { font-weight: 700; }
+.anidoki .doki-library-results.is-list :is(.doki-library-total, .doki-library-progress.doki-library-untracked) { color: var(--doki-muted); }
+.anidoki .doki-library-results.is-list .doki-library-progress.doki-library-untracked { font-size: .8125rem; }
+.anidoki .doki-library-results.is-list .doki-library-score {
+    margin-inline-start: auto; padding: 0; background: transparent; color: var(--doki-muted); font-size: .9375rem; font-weight: 400;
+}
+.anidoki .doki-library-results.is-list .doki-library-score .doki-popup-chip-icon { color: var(--tjk-success); }
+.anidoki .doki-library-results.is-list .doki-library-airing { background: var(--doki-ground); color: var(--doki-text); }
+.anidoki .doki-library-results.is-list .doki-library-badge:not(.has-unlogged) { background: var(--doki-ground); }
+.anidoki .doki-library-skeleton { min-height: 72px; aspect-ratio: 2 / 3; border-radius: var(--tjk-radius-lg); background: var(--doki-ground); }
+.anidoki .doki-library-results.is-list .doki-library-skeleton { aspect-ratio: auto; height: 96px; }
+.anidoki .doki-library-card.is-unavailable .doki-library-art { filter: grayscale(1) brightness(.62); }
+.anidoki .doki-library-card.is-unavailable:focus-visible .doki-library-art {
+    filter: grayscale(1) brightness(.62) blur(2px); transform: scale(1.06);
+}
+.anidoki .doki-library-results:not(.is-list) .doki-library-card.is-unavailable .doki-library-card-title { color: rgb(255 255 255 / .82); }
+.anidoki .doki-library-results.is-list .doki-library-card.is-unavailable .doki-library-card-title { color: var(--doki-muted); }
+.anidoki .doki-library-match-tooltip {
+    position: absolute; z-index: 1; inset: 50% auto auto 50%; translate: -50% -50%; pointer-events: none;
+    color: var(--doki-text); font-size: .8125rem; font-weight: 600; white-space: nowrap;
+    opacity: 0; transform: translateY(4px);
+}
+.anidoki .doki-library-results:not(.is-list) .doki-library-match-tooltip {
+    color: #fff; text-shadow: 0 1px 4px rgb(0 0 0 / .85);
+}
+.anidoki .doki-library-results.is-list .doki-library-match-tooltip { inset-inline: auto 12px; translate: 0 -50%; }
+.anidoki .doki-library-card.is-unavailable:focus-visible .doki-library-match-tooltip { opacity: 1; transform: none; }
+@media (hover: hover) {
+    .anidoki .doki-library-card.is-unavailable:hover .doki-library-art {
+        filter: grayscale(1) brightness(.62) blur(2px); transform: scale(1.06);
+    }
+    .anidoki .doki-library-card.is-unavailable:hover .doki-library-match-tooltip { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+    .anidoki .doki-library-card.is-unavailable .doki-library-art { transition: filter 150ms ease, transform 150ms ease; }
+    .anidoki .doki-library-match-tooltip { transition: opacity 150ms ease, transform 150ms ease; }
+}
+
+.anidoki [data-icon="library-refresh"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="search"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="list"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3' y='4' width='18' height='4' rx='1.5'/%3E%3Crect x='3' y='10' width='18' height='4' rx='1.5'/%3E%3Crect x='3' y='16' width='18' height='4' rx='1.5'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="posters"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3' y='3' width='8' height='8' rx='1.5'/%3E%3Crect x='13' y='3' width='8' height='8' rx='1.5'/%3E%3Crect x='3' y='13' width='8' height='8' rx='1.5'/%3E%3Crect x='13' y='13' width='8' height='8' rx='1.5'/%3E%3C/svg%3E"); }
+.anidoki [data-icon="library-star"] { --doki-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z'/%3E%3C/svg%3E"); }
+
+@media (max-width: 899px) {
+    .anidoki .doki-popup.is-library .doki-popup-header { padding-inline: 16px; }
+    .anidoki .doki-popup-library { padding-inline: 16px; }
+    .anidoki .doki-library-results { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .anidoki .doki-library-card-year { display: none; }
+}
+@media (max-width: 599px) {
+    .anidoki .doki-library-results { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .anidoki .doki-library-toolbar { gap: 6px; }
+    .anidoki .doki-library-segment { padding-inline: 12px; }
+    .anidoki .doki-library-results.is-list .doki-library-card {
+        grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: auto auto; gap: 6px 12px; align-items: end;
+    }
+    .anidoki .doki-library-results.is-list .doki-library-art { grid-row: span 2; align-self: center; width: 56px; height: 80px; }
+    .anidoki .doki-library-results.is-list .doki-library-card-stats { align-items: flex-start; align-self: start; }
+    .anidoki .doki-library-results.is-list .doki-library-stats-line { justify-content: flex-start; }
+    .anidoki .doki-library-results.is-list .doki-library-card-title { font-size: 1rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+    .anidoki .doki-popup-level-enter { --doki-level-offset: 16px; animation: doki-level-in .34s cubic-bezier(.2, .8, .2, 1) both; }
+    .anidoki .doki-popup-library.doki-popup-level-enter { --doki-level-offset: -16px; }
+    .anidoki .doki-library-card { animation: doki-rise .26s ease backwards; animation-delay: var(--doki-library-delay, 0ms); }
+    .anidoki .doki-library-menu-options:not([hidden]), .anidoki .doki-library-search:not([hidden]) { animation: doki-rise .26s ease both; }
+    .anidoki .doki-library-refresh.is-refreshing .doki-popup-chip-icon { animation: doki-tracker-spin 900ms linear infinite; }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .anidoki .doki-library-results:not(.is-list) .doki-library-card { transition: transform .15s ease; }
+    .anidoki .doki-library-results:not(.is-list) .doki-library-card:hover { transform: translateY(-3px); }
+}
+@keyframes doki-level-in { from { opacity: 0; transform: translateX(var(--doki-level-offset)); } }
