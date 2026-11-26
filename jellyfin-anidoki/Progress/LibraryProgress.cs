@@ -32,6 +32,7 @@ public sealed record LibraryProgressRow(
     [property: JsonPropertyName("entryId")] int? EntryId,
     [property: JsonPropertyName("status"), JsonConverter(typeof(JsonStringEnumConverter))] TrackerStatus? Status,
     [property: JsonPropertyName("progress")] int? Progress,
+    [property: JsonPropertyName("unloggedLibraryCount")] int? UnloggedLibraryCount,
     [property: JsonPropertyName("score")] int? Score,
     [property: JsonPropertyName("totalEpisodes")] int? TotalEpisodes,
     [property: JsonPropertyName("isAiring")] bool? IsAiring,
@@ -48,7 +49,8 @@ public sealed record LibraryProgressView(
 
 public sealed class LibraryProgress(ProgressSources sources, IMatchTrackers trackers, TrackerLibraryCache lists,
     TimeProvider clock, ILogger<LibraryProgress> logger) {
-    internal async Task<LibraryProgressView?> Read(Guid userId, ApiName? requested, bool refresh, bool applySaved, CancellationToken cancellationToken) {
+    internal async Task<LibraryProgressView?> Read(Guid userId, ApiName? requested, bool refresh, bool applySaved, CancellationToken cancellationToken,
+        bool afterChange = false) {
         var links = trackers.Links(userId);
         var providers = links.Keys.Order().Select(provider => new LibraryProvider(provider, Supports(provider))).ToList();
         ApiName? selected = requested ?? providers.FirstOrDefault(provider => provider.Available)?.Provider;
@@ -59,7 +61,7 @@ public sealed class LibraryProgress(ProgressSources sources, IMatchTrackers trac
             return null;
         IReadOnlyList<TrackerLibraryEntry>? entries;
         try {
-            entries = await lists.Read(userId, provider, generation, tracker, refresh, cancellationToken);
+            entries = await lists.Read(userId, provider, generation, tracker, refresh, cancellationToken, afterChange);
         } catch (Exception error) when (ProgressSources.IsUpstreamFailure(error, cancellationToken)) {
             logger.LogDebug("({Provider}) Could not read the library list: {ErrorMessage}", provider, error.Message);
             return null;
@@ -69,7 +71,7 @@ public sealed class LibraryProgress(ProgressSources sources, IMatchTrackers trac
         // An account may have one entry in several custom lists. They have the same media ID.
         var byId = entries.ToLookup(entry => entry.Entry.Id);
         var rows = new List<LibraryProgressRow>();
-        var localIds = sources.LocalIds();
+        var localTargets = sources.LocalTargets();
         var now = clock.GetUtcNow();
         foreach (var item in sources.Items(userId)) {
             cancellationToken.ThrowIfCancellationRequested();
@@ -77,32 +79,37 @@ public sealed class LibraryProgress(ProgressSources sources, IMatchTrackers trac
                 continue;
 
             Match? saved = sources.Saved(source, userId, provider, applySaved);
-            EntryRef? target;
-            IReadOnlyList<int> episodeNumbers = source.Episodes;
+            EntryRef? target = null;
+            var mappedEpisodes = new List<(int Source, int Target)>();
             if (saved == null) {
-                target = await localIds(source, provider, source.Episodes[0]);
-                if (target != null && !item.IsMovie) {
-                    var verified = new List<int> { source.Episodes[0] };
+                int first = source.Episodes[0];
+                if (await localTargets(source, provider, first) is { } firstTarget) {
+                    target = firstTarget.Entry;
+                    mappedEpisodes.Add((first, firstTarget.Episode));
                     foreach (int episode in source.Episodes.Skip(1)) {
                         cancellationToken.ThrowIfCancellationRequested();
-                        if (await localIds(source, provider, episode) is { } match && ProgressSources.SameEntry(target, match))
-                            verified.Add(episode);
+                        if (await localTargets(source, provider, episode) is { } mapped && ProgressSources.SameEntry(target, mapped.Entry))
+                            mappedEpisodes.Add((episode, mapped.Episode));
                     }
-                    episodeNumbers = verified;
                 }
             } else {
-                target = ProgressSources.MappedEntries(source, saved).FirstOrDefault();
-                if (target != null) {
-                    episodeNumbers = source.Episodes.Where(number => RangeResolver.Map(saved, number) is MappedEpisode mapped
-                        && ProgressSources.SameEntry(target, mapped.Target.Entry)).ToList();
+                foreach (int episode in source.Episodes) {
+                    if (RangeResolver.Map(saved, episode) is not MappedEpisode mapped)
+                        continue;
+                    target ??= mapped.Target.Entry;
+                    if (ProgressSources.SameEntry(target, mapped.Target.Entry))
+                        mappedEpisodes.Add((episode, mapped.TargetEpisode));
                 }
             }
+            var episodeNumbers = target == null ? source.Episodes : mappedEpisodes.Select(episode => episode.Source).ToList();
             var entry = target == null ? null : byId[target.Id].FirstOrDefault();
             LibraryMatchState state = target == null ? LibraryMatchState.Unresolved
                 : entry == null ? LibraryMatchState.NotOnList : LibraryMatchState.OnList;
+            int? unlogged = entry == null ? null : item.IsMovie ? Math.Clamp(1 - entry.List.Progress, 0, 1)
+                : mappedEpisodes.Count(episode => episode.Target > entry.List.Progress);
             rows.Add(new LibraryProgressRow(item.Id, item.Name, item.IsMovie, item.Year, item.Images.Contains("Primary"),
                 source.Info.SourceKey, episodeNumbers.Count, watched.Select(episode => episode.Number).Distinct().Count(episodeNumbers.Contains),
-                state, target?.Id, entry?.List.Status, entry?.List.Progress, entry?.List.Score,
+                state, target?.Id, entry?.List.Status, entry?.List.Progress, unlogged, entry?.List.Score,
                 item.IsMovie ? 1 : entry?.TotalEpisodes, entry?.IsAiring, entry?.NextAiringAtUtc > now ? entry.NextAiringAtUtc : null));
         }
 
@@ -122,15 +129,26 @@ public sealed class TrackerLibraryCache(IMemoryCache cache, TimeProvider clock) 
     private readonly ConcurrentDictionary<Key, Lazy<Task<IReadOnlyList<TrackerLibraryEntry>?>>> _pending = new();
 
     internal Task<IReadOnlyList<TrackerLibraryEntry>?> Read(Guid userId, ApiName provider, Guid generation, ITrackerLibraryList tracker,
-        bool refresh, CancellationToken cancellationToken) {
+        bool refresh, CancellationToken cancellationToken, bool afterChange = false) {
         cancellationToken.ThrowIfCancellationRequested();
         var key = new Key(userId, provider, generation);
         if (_pending.TryGetValue(key, out var pending))
-            return pending.Value.WaitAsync(cancellationToken);
+            return afterChange ? RefreshAfter(pending.Value) : pending.Value.WaitAsync(cancellationToken);
+        refresh |= afterChange;
         if (!refresh && cache.TryGetValue(key, out Snapshot? snapshot) && snapshot != null && snapshot.Expires > clock.GetUtcNow())
             return Task.FromResult<IReadOnlyList<TrackerLibraryEntry>?>(snapshot.Entries);
 
         return _pending.GetOrAdd(key, _ => new Lazy<Task<IReadOnlyList<TrackerLibraryEntry>?>>(Load)).Value.WaitAsync(cancellationToken);
+
+        async Task<IReadOnlyList<TrackerLibraryEntry>?> RefreshAfter(Task<IReadOnlyList<TrackerLibraryEntry>?> previous) {
+            // A refresh started before the write may have fetched an older list.
+            try {
+                await previous.WaitAsync(cancellationToken);
+            } catch (Exception error) when (ProgressSources.IsUpstreamFailure(error, cancellationToken)) {
+                // A failed earlier read still allows this explicit refresh.
+            }
+            return await Read(userId, provider, generation, tracker, true, cancellationToken);
+        }
 
         async Task<IReadOnlyList<TrackerLibraryEntry>?> Load() {
             try {

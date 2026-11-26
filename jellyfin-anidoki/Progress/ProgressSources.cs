@@ -42,16 +42,19 @@ public sealed class ProgressSources(IMatchLibrary library, ISeriesItems items, I
     internal Match? Saved(LibrarySource source, Guid userId, ApiName provider, bool applySaved) =>
         applySaved ? matches.GetEffective(userId, provider, source.Info.SourceKey, true) : null;
 
-    internal Func<LibrarySource, ApiName, int, Task<EntryRef?>> LocalIds() {
+    internal Func<LibrarySource, ApiName, int, Task<(EntryRef Entry, int Episode)?>> LocalTargets() {
         var localList = new Lazy<Task<AnimeListHelpers.AnimeListXml?>>(() => animeList.Read(cachedOnly: true));
         return (source, provider, episode) => {
             SyncSource? actual = source.VisibleEpisodes?.GetValueOrDefault(episode) is { } item ? SyncSource.From(item) : null;
             var focus = (actual ?? source.Last) with { EpisodeNumber = episode, IdsOnly = source.Last.IdsOnly };
-            return Known(source with { Last = focus }, provider, cachedOnly: true, localList);
+            return KnownTarget(source with { Last = focus }, provider, cachedOnly: true, localList);
         };
     }
 
-    internal async Task<EntryRef?> Known(LibrarySource source, ApiName provider, bool cachedOnly,
+    internal async Task<EntryRef?> Known(LibrarySource source, ApiName provider, bool cachedOnly) =>
+        (await KnownTarget(source, provider, cachedOnly))?.Entry;
+
+    private async Task<(EntryRef Entry, int Episode)?> KnownTarget(LibrarySource source, ApiName provider, bool cachedOnly,
         Lazy<Task<AnimeListHelpers.AnimeListXml?>>? localList = null) {
         SyncSource last = source.Last;
         if (last.Kind == MediaKind.Series && last.SeasonNumber == 0)
@@ -68,7 +71,7 @@ public sealed class ProgressSources(IMatchLibrary library, ISeriesItems items, I
             ? ReadId(episode.Season?.ProviderIds) ?? (last.SeasonNumber == 1 ? ReadId(episode.Series?.ProviderIds) : null)
             : ReadId(last.Item.ProviderIds);
         if (direct is { } directId)
-            return new EntryRef(provider, directId, null);
+            return (new EntryRef(provider, directId, null), last.Kind == MediaKind.Movie ? SyncSource.MovieProgress : last.EpisodeNumber);
 
         SourceIds resolved = await new SourceIdResolver(arm, animeList, logger).Resolve(last, cachedOnly, localList);
         int? id = provider switch {
@@ -76,7 +79,7 @@ public sealed class ProgressSources(IMatchLibrary library, ISeriesItems items, I
             ApiName.Mal => resolved.Ids.MyAnimeList,
             _ => resolved.Ids.Kitsu
         };
-        return id is > 0 ? new EntryRef(provider, id.Value, null) : null;
+        return id is > 0 ? (new EntryRef(provider, id.Value, null), resolved.IdProgress(last)) : null;
 
         int? ReadId(Dictionary<string, string>? ids) =>
             AnimeListHelpers.TryGetProviderId(ids, key, out string? value) && int.TryParse(value, out int parsed) && parsed > 0 ? parsed : null;

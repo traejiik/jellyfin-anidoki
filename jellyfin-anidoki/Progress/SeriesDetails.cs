@@ -59,7 +59,7 @@ public sealed class SeriesDetails(ISeriesItems items, ProgressSources sources, S
             if (related.Count == 0)
                 return new RelatedView([]);
             var hits = related.Select(_ => new List<RelatedLibraryItem>()).ToArray();
-            var localIds = sources.LocalIds();
+            var localTargets = sources.LocalTargets();
             foreach (var item in sources.Items(userId)) {
                 foreach (var candidate in sources.Sources(item, userId)) {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -67,7 +67,7 @@ public sealed class SeriesDetails(ISeriesItems items, ProgressSources sources, S
                     var unseen = Enumerable.Range(0, related.Count).ToHashSet();
                     foreach (int number in candidate.Episodes) {
                         cancellationToken.ThrowIfCancellationRequested();
-                        var target = saved == null ? await localIds(candidate, provider, number)
+                        var target = saved == null ? (await localTargets(candidate, provider, number))?.Entry
                             : (RangeResolver.Map(saved, number) as MappedEpisode)?.Target.Entry;
                         if (target == null)
                             continue;

@@ -119,7 +119,7 @@ public class ProgressExtrasTests {
         fixture.Match.Trackers.Link(fixture.Alice, tracker.Object);
         var entry = new EntryRef(ApiName.AniList, 101, null);
         var second = new EntryRef(ApiName.AniList, 102, null);
-        fixture.Shared(fixture.Match.Season, Range(1, 12, entry), Range(13, 48, second));
+        fixture.Shared(fixture.Match.Season, new MatchRange(1, 12, new MatchTarget(entry, "Entry 101"), 7), Range(13, 48, second));
         var matched = AddItem(fixture, fixture.Match.Season, false);
         var movie = new LibraryFixture().Movie("Film", new Dictionary<string, string> { ["AniList"] = "333" });
         var movieItem = AddItem(fixture, fixture.Match.Library.Add(MatchApiFixture.Source(movie, [1])), true);
@@ -131,7 +131,7 @@ public class ProgressExtrasTests {
         }
         fixture.Match.WatchState.ByUser[fixture.Alice] = [1, 2];
         list.Setup(provider => provider.ReadLibraryList(It.IsAny<CancellationToken>())).ReturnsAsync([
-            new TrackerLibraryEntry(entry, new ListState(TrackerStatus.Watching, 7, false, 0, 80), 12, true, DateTimeOffset.UtcNow.AddDays(1))
+            new TrackerLibraryEntry(entry, new ListState(TrackerStatus.Watching, 8, false, 0, 80), 18, true, DateTimeOffset.UtcNow.AddDays(1))
         ]);
         var reader = new LibraryProgress(Sources(fixture), fixture.Match.Trackers, new TrackerLibraryCache(memory, TimeProvider.System),
             TimeProvider.System, NullLogger<LibraryProgress>.Instance);
@@ -141,13 +141,54 @@ public class ProgressExtrasTests {
         Assert.That(rows?[matched.Id].EntryId, Is.EqualTo(entry.Id));
         Assert.That(rows?[matched.Id].Score, Is.EqualTo(80));
         Assert.That(rows?[matched.Id].EpisodeCount, Is.EqualTo(12));
+        Assert.That(rows?[matched.Id].Progress, Is.EqualTo(8));
+        Assert.That(rows?[matched.Id].UnloggedLibraryCount, Is.EqualTo(10));
         Assert.That(rows?[movieItem.Id].EpisodeCount, Is.EqualTo(1));
         Assert.That(rows?[movieItem.Id].PlayedCount, Is.EqualTo(1));
         Assert.That(rows?[movieItem.Id].MatchState, Is.EqualTo(LibraryMatchState.NotOnList));
+        Assert.That(rows?[movieItem.Id].UnloggedLibraryCount, Is.Null);
         Assert.That(rows?[unmatched.Id].MatchState, Is.EqualTo(LibraryMatchState.Unresolved));
+        Assert.That(rows?[unmatched.Id].UnloggedLibraryCount, Is.Null);
         Assert.That(result?.NotOnListCount, Is.EqualTo(1));
         Assert.That((await reader.Read(fixture.Match.Bob.Id, null, false, true, CancellationToken.None))?.Rows, Is.Empty);
         list.Verify(provider => provider.ReadLibraryList(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task LibraryKeepsTheAutomaticCrossIdEpisodeOffset() {
+        using var fixture = new ProgressFixture();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var sent = new List<Helpers.SentRequest>();
+        var http = Helpers.RecordedSequence(sent, (HttpStatusCode.OK, """{"anidb":200,"anilist":101}"""));
+        var arm = new ArmClient(http, NullLogger<ArmClient>.Instance, () => null);
+        await arm.GetIds(200, ArmClient.Source.Anidb);
+        string directory = System.IO.Path.Combine(fixture.Match.Directory, "anidoki");
+        System.IO.Directory.CreateDirectory(directory);
+        await System.IO.File.WriteAllTextAsync(System.IO.Path.Combine(directory, "anime-list-full.xml"), """
+            <anime-list>
+              <anime anidbid="200" tvdbid="5" defaulttvdbseason="1" episodeoffset="12" />
+            </anime-list>
+            """);
+        var episode = new LibraryFixture().Episode("Split cour", 1, 18, new Dictionary<string, string> { ["Tvdb"] = "5" });
+        var source = fixture.Match.Library.Add(MatchApiFixture.Source(episode, [13, 15, 18]));
+        var item = AddItem(fixture, source, false);
+        var tracker = new Mock<ITrackerProvider>(MockBehavior.Strict);
+        var list = tracker.As<ITrackerLibraryList>();
+        tracker.SetupGet(provider => provider.Name).Returns(ApiName.AniList);
+        fixture.Match.Trackers.Link(fixture.Alice, tracker.Object);
+        list.Setup(provider => provider.ReadLibraryList(It.IsAny<CancellationToken>())).ReturnsAsync([
+            new TrackerLibraryEntry(new EntryRef(ApiName.AniList, 101, null),
+                new ListState(TrackerStatus.Watching, 3, false, null), 6, null, null)
+        ]);
+        var reader = new LibraryProgress(Sources(fixture, arm), fixture.Match.Trackers, new TrackerLibraryCache(memory, TimeProvider.System),
+            TimeProvider.System, NullLogger<LibraryProgress>.Instance);
+
+        var row = (await reader.Read(fixture.Alice, null, false, true, CancellationToken.None))?.Rows.Single(row => row.ItemId == item.Id);
+
+        Assert.That(row?.MatchState, Is.EqualTo(LibraryMatchState.OnList));
+        Assert.That(row?.EpisodeCount, Is.EqualTo(3));
+        Assert.That(row?.UnloggedLibraryCount, Is.EqualTo(1));
+        Assert.That(sent, Has.Count.EqualTo(1), "The library uses the cached ID lookup");
     }
 
     [Test]
@@ -174,6 +215,27 @@ public class ProgressExtrasTests {
         tracker.Verify(provider => provider.ReadLibraryList(It.IsAny<CancellationToken>()), Times.Exactly(4));
     }
 
+    [Test]
+    public async Task PostChangeRefreshDoesNotReuseAnInFlightListFromBeforeTheWrite() {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var cache = new TrackerLibraryCache(memory, TimeProvider.System);
+        var tracker = new Mock<ITrackerLibraryList>(MockBehavior.Strict);
+        var beforeWrite = new TaskCompletionSource<IReadOnlyList<TrackerLibraryEntry>?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var entry = new EntryRef(ApiName.AniList, 101, null);
+        var fresh = new TrackerLibraryEntry(entry, new ListState(TrackerStatus.Watching, 4, false, null), 12, null, null);
+        tracker.SetupSequence(provider => provider.ReadLibraryList(It.IsAny<CancellationToken>()))
+            .Returns(beforeWrite.Task).ReturnsAsync([fresh]);
+        var user = Guid.NewGuid();
+        var generation = Guid.NewGuid();
+        var oldRead = cache.Read(user, ApiName.AniList, generation, tracker.Object, true, CancellationToken.None);
+        var updated = cache.Read(user, ApiName.AniList, generation, tracker.Object, true, CancellationToken.None, afterChange: true);
+        Assert.That(updated.IsCompleted, Is.False);
+        beforeWrite.SetResult([]);
+        Assert.That(await oldRead, Is.Empty);
+        Assert.That(await updated, Is.EqualTo(new[] { fresh }));
+        tracker.Verify(provider => provider.ReadLibraryList(It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
     private static MatchRange Range(int first, int last, EntryRef entry) => new(first, last, new MatchTarget(entry, $"Entry {entry.Id}"), 1);
 
     private static SeriesItem AddItem(ProgressFixture fixture, LibrarySource source, bool movie) {
@@ -182,11 +244,11 @@ public class ProgressExtrasTests {
         return fixture.Items.Add(new SeriesItem(parsed.ItemId, source.Info.Title, movie, 2026, null, null, null, null, [], [key], null));
     }
 
-    private static ProgressSources Sources(ProgressFixture fixture) {
+    private static ProgressSources Sources(ProgressFixture fixture, ArmClient? armClient = null) {
         var http = new Mock<IHttpClientFactory>(MockBehavior.Strict).Object;
         var paths = new Mock<IApplicationPaths>();
         paths.SetupGet(path => path.CachePath).Returns(fixture.Match.Directory);
-        var arm = new ArmClient(http, NullLogger<ArmClient>.Instance, () => null);
+        var arm = armClient ?? new ArmClient(http, NullLogger<ArmClient>.Instance, () => null);
         var animeList = new AnimeListSource(http, paths.Object, NullLogger<AnimeListSource>.Instance, () => null);
         return new ProgressSources(fixture.Match.Library, fixture.Items, fixture.Match.WatchState, fixture.Match.Store, arm, animeList,
             NullLogger<ProgressSources>.Instance);
