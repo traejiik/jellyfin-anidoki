@@ -66,7 +66,7 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
         var query = new InternalItemsQuery(user) { IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series], IsVirtualItem = false };
         var sources = new List<LibrarySourceEntry>();
         foreach (BaseItem item in library.GetItemList(query)) {
-            if (SyncHelper.MediaShouldBeIgnored(item) || (viewer is Guid owner ? !Syncs(owner, item) : !InAnimeLibrary(item)))
+            if (SyncHelper.MediaShouldBeIgnored(item) || !Listed(item))
                 continue;
             if (item is Movie movie) {
                 sources.Add(new LibrarySourceEntry($"movie:{movie.Id:N}", MatchSourceKind.Movie, movie.Name, movie.Name));
@@ -77,6 +77,9 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
             }
         }
         return sources;
+
+        // The same answer as Syncs, without a line per item: the list holds every title, and on a mixed server most are not anime.
+        bool Listed(BaseItem item) => viewer is Guid owner && !HasSettings(owner) || InAnimeLibrary(item);
     }
 
     public LibrarySource? Find(string sourceKey, Guid? viewer) {
@@ -132,8 +135,8 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
     }
 
     /// <summary>A user's library filter applies; a user who never saved AniDoki settings has none.</summary>
-    private bool Syncs(Guid userId, BaseItem item) {
-        var config = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(entry => entry.UserId == userId);
-        return config == null || LibraryFilter.Includes(library, animeList, logger, item);
-    }
+    private bool Syncs(Guid userId, BaseItem item) => !HasSettings(userId) || LibraryFilter.Includes(library, animeList, logger, item);
+
+    private static bool HasSettings(Guid userId) =>
+        Plugin.Instance?.PluginConfiguration.UserConfig?.Any(entry => entry.UserId == userId) == true;
 }

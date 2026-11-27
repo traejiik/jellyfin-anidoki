@@ -55,6 +55,35 @@ public static class LibraryFilter {
     }
 
     /// <summary>
+    /// The items whose library is not Off, for a caller about to read many items: an Off library's titles are dropped
+    /// before their seasons, episodes or user data are read, and without a line each. A Mixed library's titles stay, because
+    /// whether one is anime is still decided per item by <see cref="Scope(ILibraryManager, AnimeListIndex, ILogger, BaseItem)"/>.
+    /// Until the admin chooses any anime library, every item stays.
+    /// </summary>
+    public static IReadOnlyList<T> WithoutOffLibraries<T>(ILibraryManager libraryManager, ILogger logger, IEnumerable<T> items) where T : BaseItem =>
+        WithoutOffLibraries(Plugin.Instance?.PluginConfiguration.AnimeLibraries, libraryManager, logger, items, item => item.GetTopParent()?.Path);
+
+    internal static IReadOnlyList<T> WithoutOffLibraries<T>(IReadOnlyCollection<AnimeLibrary>? animeLibraries, ILibraryManager libraryManager,
+        ILogger logger, IEnumerable<T> items, Func<T, string?> topFolderPath) where T : BaseItem {
+        if (animeLibraries is null or { Count: 0 })
+            return items.ToList();
+        HashSet<string> folders;
+        try {
+            // The same lookup as LibrariesOf, made once for the whole list.
+            var synced = animeLibraries.Where(entry => entry.Mode != AnimeLibraryMode.Off).Select(entry => entry.LibraryId).ToHashSet();
+            folders = libraryManager.GetVirtualFolders()
+                .Where(folder => Guid.TryParse(folder.ItemId, out Guid id) && synced.Contains(id))
+                .SelectMany(folder => folder.Locations)
+                .ToHashSet(StringComparer.Ordinal);
+        } catch (Exception e) {
+            // Each item is still checked on its own later, so reading everything is slower but never wrong.
+            logger.LogWarning(e, "Could not read the anime libraries' folders; reading every library");
+            return items.ToList();
+        }
+        return items.Where(item => topFolderPath(item) is { } path && folders.Contains(path)).ToList();
+    }
+
+    /// <summary>
     /// Whether the anime libraries sync the item, without logging: for listing many items at once. Throws as the
     /// library lookup does; a caller that cannot afford that catches it.
     /// </summary>
