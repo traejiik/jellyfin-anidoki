@@ -503,6 +503,10 @@ html.doki-popup-open, html.doki-popup-open body { overflow: hidden; overscroll-b
 }
 .anidoki .doki-popup-library-back:hover { text-decoration: underline; }
 .anidoki .doki-popup-crumb-divider { color: rgb(255 255 255 / .5); }
+/* A phone has room for one crumb beside the header buttons: keep the way back; the title below names the series. */
+@media (max-width: 540px) {
+    .anidoki .doki-popup-crumbs:has(.doki-popup-library-back) > :not(.doki-popup-library-back) { display: none; }
+}
 .anidoki .doki-popup.is-library .doki-popup-crumb-row {
     padding-inline: 0; background: none; color: var(--doki-text); backdrop-filter: none;
 }
