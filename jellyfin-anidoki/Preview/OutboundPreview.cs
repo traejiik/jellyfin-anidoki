@@ -79,8 +79,10 @@ public sealed class OutboundPreview(
                 _logger.LogDebug("Ignoring {ItemName}; it carries the ignore tag", episode.Name);
             } else {
                 long seasonStarted = Stopwatch.GetTimestamp();
+                // A season that throws may have reached a tracker, so it is paced like one that did.
+                bool asked = true;
                 try {
-                    await pipeline.ForEachProvider(episode, userId, true, null, SyncUpdateSource.ManualSync, stopped.Contains, async pass => {
+                    asked = await pipeline.ForEachProvider(episode, userId, true, null, SyncUpdateSource.ManualSync, stopped.Contains, async pass => {
                         foreach (PreviewRow row in await RowsFor(pass, applySavedMatches, operation.CancellationToken)) {
                             rows.Add(operation.OperationId, row with { Seq = sequence++ });
                             tally[row.Kind] = tally.GetValueOrDefault(row.Kind) + 1;
@@ -97,7 +99,8 @@ public sealed class OutboundPreview(
                 }
                 if (_logger.IsEnabled(LogLevel.Debug))
                     _logger.LogDebug("Previewed {SeriesName} season {SeasonNumber} in {ElapsedMs} ms", episode.SeriesName, episode.ParentIndexNumber, LogText.ElapsedMs(seasonStarted));
-                if (i < targets.Count - 1) {
+                // Only a season that asked a tracker counts toward its rate limits.
+                if (asked && i < targets.Count - 1) {
                     long waitStarted = Stopwatch.GetTimestamp();
                     await delayer.Delay(TimeSpan.FromSeconds(2));
                     if (_logger.IsEnabled(LogLevel.Debug))

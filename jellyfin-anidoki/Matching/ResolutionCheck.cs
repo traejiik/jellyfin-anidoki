@@ -59,7 +59,7 @@ public sealed class ResolutionCheck(
         UserConfig? config = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(item => item.UserId == userId);
         if (user == null || config == null)
             return targets;
-        foreach (BaseItem item in SyncHelper.GetUsersJellyfinLibrary(userId, users, library)) {
+        foreach (BaseItem item in SyncHelper.GetUsersJellyfinLibrary(userId, users, library, _logger)) {
             if (!LibraryFilter.Includes(library, animeList.Index, _logger, item))
                 continue;
             if (item is Movie movie) {

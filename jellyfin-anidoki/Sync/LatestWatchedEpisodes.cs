@@ -13,7 +13,7 @@ namespace jellyfin_anidoki;
 internal static class LatestWatchedEpisodes {
     public static List<Episode> For(Guid userId, IUserManager userManager, ILibraryManager libraryManager, ILogger logger) {
         var targets = new List<Episode>();
-        foreach (Series series in SyncHelper.GetUsersJellyfinLibrary(userId, userManager, libraryManager).OfType<Series>()) {
+        foreach (Series series in SyncHelper.GetUsersJellyfinLibrary(userId, userManager, libraryManager, logger).OfType<Series>()) {
             logger.LogDebug("Reading the latest watched episodes of {SeriesName}", series.Name);
             var latest = OfSeries(series, userId, userManager, logger);
             if (latest == null) {

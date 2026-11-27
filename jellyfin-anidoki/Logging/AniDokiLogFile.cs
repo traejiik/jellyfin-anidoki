@@ -16,6 +16,14 @@ namespace jellyfin_anidoki.Logging;
 public static class AniDokiLogFile {
     public const string FilePrefix = "anidoki_";
     private const string Category = "jellyfin_anidoki";
+
+    /// <summary>
+    /// Marks the process as already writing the file. Static fields belong to one load of this assembly, and every load
+    /// that attached would add a writer of its own to the same file, so the mark lives on the AppDomain, which every load
+    /// shares.
+    /// </summary>
+    private const string AttachedKey = "jellyfin_anidoki.LogFile.Folder";
+
     private static readonly object Gate = new();
 
     /// <summary>The file's lowest level: Debug, or Information while the admin has debug lines switched off.</summary>
@@ -36,11 +44,23 @@ public static class AniDokiLogFile {
         lock (Gate) {
             if (Folder != null)
                 return;
-            string? folder = Environment.GetEnvironmentVariable("JELLYFIN_LOG_DIR");
-            if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
-                return;
-            Log.Logger = Wrap(Log.Logger, folder, FileLevel);
-            Folder = folder;
+            AppDomain domain = AppDomain.CurrentDomain;
+            // Another load's gate is not this one; the AppDomain lock is the one both share.
+            lock (domain) {
+                if (domain.GetData(AttachedKey) is string attached) {
+                    // Another copy of AniDōki already writes the file; its wrapper takes this copy's lines too.
+                    Folder = attached;
+                    Log.Logger.ForContext(Constants.SourceContextPropertyName, typeof(AniDokiLogFile).FullName)
+                        .Warning("A second copy of AniDoki was loaded; remove older AniDoki folders from Jellyfin's plugins folder and restart Jellyfin");
+                    return;
+                }
+                string? folder = Environment.GetEnvironmentVariable("JELLYFIN_LOG_DIR");
+                if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+                    return;
+                Log.Logger = Wrap(Log.Logger, folder, FileLevel);
+                domain.SetData(AttachedKey, folder);
+                Folder = folder;
+            }
         }
     }
 
@@ -64,6 +84,9 @@ public static class AniDokiLogFile {
                     retainedFileCountLimit: 7,
                     fileSizeLimitBytes: 20_000_000,
                     rollOnFileSizeLimit: true,
+                    // Appends each line at the end of the file under a lock, so a second writer (another process
+                    // sharing the log folder) interleaves whole lines instead of overwriting this one's.
+                    shared: true,
                     outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}] [{Level:u3}] {OperationContext}{SourceContext}: {Message}{NewLine}{Exception}"))
             .CreateLogger();
 

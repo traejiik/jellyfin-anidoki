@@ -181,7 +181,7 @@ public class Sync {
 
     private async Task<List<InboundSeasonPlan>> PlanLibrary(Guid userId, List<SyncAnimeMetadata> convertedWatchList) {
         var plans = new List<InboundSeasonPlan>();
-        var userLibrary = SyncHelper.GetUsersJellyfinLibrary(userId, _userManager, _libraryManager);
+        var userLibrary = SyncHelper.GetUsersJellyfinLibrary(userId, _userManager, _libraryManager, _logger);
         var user = _userManager.GetUserById(userId);
         if (user == null) {
             _logger.LogWarning("User {UserId} was not found in Jellyfin; nothing was planned", userId);

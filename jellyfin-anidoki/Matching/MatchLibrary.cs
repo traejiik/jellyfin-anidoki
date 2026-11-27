@@ -67,20 +67,20 @@ public sealed class JellyfinMatchLibrary(ILibraryManager library, IUserManager u
             return [];
         var query = new InternalItemsQuery(user) { IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series], IsVirtualItem = false };
         var sources = new List<LibrarySourceEntry>();
-        foreach (BaseItem item in library.GetItemList(query)) {
+        // Off libraries go before their seasons are read; Mixed titles are still checked one by one below.
+        foreach (BaseItem item in LibraryFilter.WithoutOffLibraries(library, logger, library.GetItemList(query))) {
             if (SyncHelper.MediaShouldBeIgnored(item))
                 continue;
-            if (item is Movie movie && Eligible(movie)) {
+            // Every viewer sees what the admin's anime libraries sync, checked without a line per title or season.
+            if (item is Movie movie && InAnimeLibrary(movie)) {
                 sources.Add(new LibrarySourceEntry($"movie:{movie.Id:N}", MatchSourceKind.Movie, movie.Name, movie.Name));
             } else if (item is Series series) {
-                foreach (Season season in series.Children.OfType<Season>().Where(season => season.IndexNumber != null && Eligible(season)))
+                foreach (Season season in series.Children.OfType<Season>().Where(season => season.IndexNumber != null && InAnimeLibrary(season)))
                     sources.Add(new LibrarySourceEntry($"season:{series.Id:N}:{season.IndexNumber}", MatchSourceKind.Season,
                         $"{series.Name} · season {season.IndexNumber}", series.Name, season.IndexNumber));
             }
         }
         return sources;
-
-        bool Eligible(BaseItem item) => viewer.HasValue ? Scope(item) != LibraryScope.Excluded : InAnimeLibrary(item);
     }
 
     public LibrarySource? Find(string sourceKey, Guid? viewer) {

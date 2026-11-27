@@ -78,7 +78,8 @@ public class SyncPipeline {
         _resolver = new AutomaticResolver(_logger);
     }
 
-    internal Task Run(BaseItem e, Guid userId, bool playedToCompletion, PlaybackOutcomeCollector? collector,
+    /// <returns>Whether any tracker was asked about the item; see <see cref="ForEachProvider"/>.</returns>
+    internal Task<bool> Run(BaseItem e, Guid userId, bool playedToCompletion, PlaybackOutcomeCollector? collector,
         SyncUpdateSource source, CancellationToken cancellationToken = default) =>
         ForEachProvider(e, userId, playedToCompletion, collector, source, null, async pass => {
             if (pass.Failure is { } failure) {
@@ -97,8 +98,13 @@ public class SyncPipeline {
     /// asking the next provider. <see cref="Run"/> executes the answers; a preview plans them without writing.
     /// </summary>
     /// <param name="skip">Providers not to ask at all this time; nothing is read from them.</param>
-    internal async Task ForEachProvider(BaseItem e, Guid userId, bool playedToCompletion, PlaybackOutcomeCollector? collector,
+    /// <returns>
+    /// Whether any tracker was asked about the item: false when nothing was, such as for an item outside the anime
+    /// libraries, so a caller pacing its tracker calls need not wait after it.
+    /// </returns>
+    internal async Task<bool> ForEachProvider(BaseItem e, Guid userId, bool playedToCompletion, PlaybackOutcomeCollector? collector,
         SyncUpdateSource source, Func<ApiName, bool>? skip, Func<ProviderPass, Task> handle, CancellationToken cancellationToken) {
+        bool asked = false;
         PlanPolicy policy = source switch {
             SyncUpdateSource.ConfirmedManual => PlanPolicy.ConfirmedManual,
             SyncUpdateSource.ManualSync => PlanPolicy.ManualSync,
@@ -106,7 +112,7 @@ public class SyncPipeline {
         };
         if (Plugin.Instance?.StorageError is { } storageError) {
             _logger.LogWarning("Skipping tracker sync because AniDoki storage is unavailable: {StorageError}", storageError);
-            return;
+            return false;
         }
 
         // SyncProviderFromLocal reuses one instance across series, so anything resolved
@@ -118,12 +124,12 @@ public class SyncPipeline {
         UserConfig? userConfig = Plugin.Instance?.PluginConfiguration.UserConfig?.FirstOrDefault(item => item.UserId == userId);
         if (userConfig == null) {
             _logger.LogDebug("User {UserId} has no AniDoki settings; nothing to sync", userId);
-            return;
+            return false;
         }
 
         if (userConfig.UserApiAuth == null) {
             _logger.LogDebug("User {UserId} has no linked tracker; nothing to sync", userId);
-            return;
+            return false;
         }
 
         LibraryScope scope = LibraryFilter.Scope(_libraryManager, _animeListIndex, _logger, e);
@@ -131,7 +137,7 @@ public class SyncPipeline {
             var syncSource = SyncSource.From(video);
             if (syncSource == null) {
                 _logger.LogWarning("{ItemName} has no season or episode number, so it cannot be synced", e.Name);
-                return;
+                return false;
             }
             syncSource = syncSource with { IdsOnly = scope == LibraryScope.IdsOnly };
 
@@ -164,12 +170,15 @@ public class SyncPipeline {
                         _logger.LogDebug("({Provider}) Resolved {ItemName} in {ElapsedMs} ms", userApiAuth.Name, e.Name, LogText.ElapsedMs(resolveStarted));
                 } catch (TrackerFailureException failure) {
                     // continue, not rethrow: one provider's failure must not stop the providers after it
+                    asked = true;
                     await handle(new ProviderPass(tracker, executor, syncSource, null, failure));
                     continue;
                 }
 
+                asked = true;
                 await handle(new ProviderPass(tracker, executor, syncSource, resolution, null));
             }
         }
+        return asked;
     }
 }
