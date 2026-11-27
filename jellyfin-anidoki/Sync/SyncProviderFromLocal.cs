@@ -69,8 +69,10 @@ public class SyncProviderFromLocal(
                 _logger.LogDebug("Ignoring {ItemName}; it carries the ignore tag", episode.Name);
             } else {
                 long seasonStarted = Stopwatch.GetTimestamp();
+                // A season that throws may have reached a tracker, so it is paced like one that did.
+                bool asked = true;
                 try {
-                    await pipeline.Run(episode, _userId, true, collector, SyncUpdateSource.ManualSync, operation.CancellationToken);
+                    asked = await pipeline.Run(episode, _userId, true, collector, SyncUpdateSource.ManualSync, operation.CancellationToken);
                 } catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested) {
                     operation.Message = $"Cancelled after {i} of {Seasons(targets.Count)}. Updates already sent were kept.";
                     throw;
@@ -79,7 +81,8 @@ public class SyncProviderFromLocal(
                 }
                 if (_logger.IsEnabled(LogLevel.Debug))
                     _logger.LogDebug("Synced {SeriesName} season {SeasonNumber} in {ElapsedMs} ms", episode.SeriesName, episode.ParentIndexNumber, LogText.ElapsedMs(seasonStarted));
-                if (i < targets.Count - 1) {
+                // Only a season that asked a tracker counts toward its rate limits.
+                if (asked && i < targets.Count - 1) {
                     _logger.LogDebug("Waiting 2 seconds before the next season");
                     long waitStarted = Stopwatch.GetTimestamp();
                     await delayer.Delay(TimeSpan.FromSeconds(2));
