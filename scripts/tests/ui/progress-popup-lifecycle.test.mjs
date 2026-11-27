@@ -546,6 +546,31 @@ test('the expanded pill shows the editor and sync buttons with reasons', async (
     popup.dispose();
 });
 
+test('a click right after typing a rating reaches its button and keeps the rating', async () => {
+    const env = setup();
+    const popup = await openPopup(env);
+    pill(env.doc, 'AniList').click();
+    await flush();
+    const rating = env.doc.querySelector('[data-focus-key="rating"]');
+    rating.focus();
+    rating.value = '8';
+    // The browser's order: the pointer goes down on +, the rating commits as it loses focus, then the pointer comes up.
+    const plus = env.doc.querySelector('[data-focus-key="plus"]');
+    // As in Safari, the pressed button does not take focus.
+    env.doc.dispatchEvent(new Event('pointerdown'));
+    rating.blur();
+    rating.dispatchEvent(new Event('change'));
+    env.doc.dispatchEvent(new Event('pointerup'));
+    // A button replaced while the pointer was down never receives the click.
+    assert.ok(env.doc.body.contains(plus), 'the button under the pointer stays in place');
+    plus.click();
+    await env.win.advance(0);
+    assert.equal(env.doc.querySelector('[data-focus-key="pill:AniList"] .doki-pill-count').textContent, '4/26');
+    assert.equal(env.doc.querySelector('[data-focus-key="rating"]').value, '8');
+    assert.equal(env.doc.activeElement, env.doc.querySelector('[data-focus-key="plus"]'), 'focus stays on the clicked button');
+    popup.dispose();
+});
+
 test('a reused detail page drops the previous item button', async () => {
     const env = setup();
     const answers = { [seriesId]: 204, other: 404 };

@@ -1706,10 +1706,34 @@ export function startProgressPopup(win = window, doc = document) {
         return wrap;
     }
 
+    // A field commits on blur, which a press on another control causes. Re-rendering then would replace that control
+    // before the pointer comes up, and the browser would drop its click; so wait for the click, then render once.
+    let pointerHeld = false, heldRefresh = null;
+    doc.addEventListener('pointerdown', () => { pointerHeld = true; }, { capture: true, signal });
+    const releasePointer = () => {
+        if (!pointerHeld)
+            return;
+        win.setTimeout(() => {
+            pointerHeld = false;
+            const held = heldRefresh;
+            heldRefresh = null;
+            if (held)
+                refresh(held.current, held.focusKey);
+        }, 0);
+    };
+    doc.addEventListener('pointerup', releasePointer, { capture: true, signal });
+    doc.addEventListener('pointercancel', releasePointer, { capture: true, signal });
+    win.addEventListener('blur', releasePointer, { signal });
+
     /** Re-renders the parts an edit changes, keeping focus on the same control. */
     function refresh(current, focusKey = doc.activeElement?.dataset?.focusKey) {
         if (current !== popup || current.removed || !current.view)
             return;
+        if (pointerHeld) {
+            // The pressed control's edit comes last, so its focus key wins. Safari does not focus a clicked button.
+            heldRefresh = { current, focusKey: focusKey ?? heldRefresh?.focusKey };
+            return;
+        }
         current.unsaved.hidden = !anyDirty(current.drafts);
         renderDetails(current);
         renderSeasons(current);
