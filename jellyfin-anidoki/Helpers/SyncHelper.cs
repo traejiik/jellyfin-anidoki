@@ -12,7 +12,8 @@ using Microsoft.Extensions.Logging;
 namespace jellyfin_anidoki.Helpers;
 
 public class SyncHelper {
-    public static IReadOnlyList<BaseItem> GetUsersJellyfinLibrary(Guid userId, IUserManager userManager, ILibraryManager libraryManager) {
+    /// <summary>The movies and series the user can see, less those in an Off library (<see cref="LibraryFilter.WithoutOffLibraries"/>).</summary>
+    public static IReadOnlyList<BaseItem> GetUsersJellyfinLibrary(Guid userId, IUserManager userManager, ILibraryManager libraryManager, ILogger logger) {
         var query = new InternalItemsQuery(userManager.GetUserById(userId)) {
             IncludeItemTypes = new[] {
                 BaseItemKind.Movie,
@@ -21,7 +22,7 @@ public class SyncHelper {
             IsVirtualItem = false
         };
 
-        return libraryManager.GetItemList(query);
+        return LibraryFilter.WithoutOffLibraries(libraryManager, logger, libraryManager.GetItemList(query));
     }
 
     /// <summary>

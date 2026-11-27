@@ -62,7 +62,10 @@ public class ApiAuthentication {
         if (overrideProviderApiAuth != null) {
             _providerApiAuth = overrideProviderApiAuth;
         } else {
-            _providerApiAuth = Plugin.Instance?.PluginConfiguration.ProviderApiAuth?.FirstOrDefault(item => item.Name == _provider) ?? throw new NullReferenceException($"No {provider} provider API auth in plugin config");
+            _providerApiAuth = Plugin.Instance?.PluginConfiguration.ProviderApiAuth?.FirstOrDefault(item => item.Name == _provider)
+                // Kitsu has no admin client: linking passes the user's own sign-in, and a refresh sends only the refresh token.
+                ?? (provider == ApiName.Kitsu ? new ProviderApiAuth { Name = ApiName.Kitsu } : null)
+                ?? throw new NullReferenceException($"No {provider} provider API auth in plugin config");
         }
 
         var userCallbackUrl = Plugin.Instance?.PluginConfiguration.callbackUrl;

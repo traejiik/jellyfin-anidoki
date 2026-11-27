@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Models;
@@ -164,6 +165,44 @@ public class LibraryFilterTests {
     [Test]
     public void OnceTheAdminChoosesItsListDecides() =>
         Assert.That(LibraryFilter.Scope(Admin, Library().Object, AnimeList(), NullLogger.Instance, new Episode()), Is.EqualTo(LibraryScope.Excluded));
+
+    private static Mock<ILibraryManager> Folders() {
+        var library = new Mock<ILibraryManager>();
+        library.Setup(manager => manager.GetVirtualFolders()).Returns([
+            new VirtualFolderInfo { ItemId = AnimeFolder.ToString("N"), Name = "Anime", Locations = ["/media/anime"] },
+            new VirtualFolderInfo { ItemId = MixedFolder.ToString("N"), Name = "Mixed", Locations = ["/media/cartoons", "/media/more"] },
+            new VirtualFolderInfo { ItemId = SkippedFolder.ToString("N"), Name = "Shows", Locations = ["/media/shows"] },
+            new VirtualFolderInfo { ItemId = UnlistedFolder.ToString("N"), Name = "Films", Locations = ["/media/films"] }
+        ]);
+        return library;
+    }
+
+    private static List<string> Kept(IReadOnlyCollection<AnimeLibrary>? admin, ILibraryManager library, params string?[] folders) {
+        var items = folders.Select(folder => (Item: new Series { Name = folder ?? "none" }, Folder: folder)).ToList();
+        return LibraryFilter.WithoutOffLibraries(admin, library, NullLogger.Instance, items.Select(entry => entry.Item),
+            series => items.First(entry => entry.Item == series).Folder).Select(series => series.Name).ToList();
+    }
+
+    [Test]
+    public void OffAndUnlistedLibrariesAreDroppedBeforeAnythingIsRead() =>
+        Assert.That(Kept(Admin, Folders().Object, "/media/anime", "/media/shows", "/media/more", "/media/films", null),
+            Is.EqualTo(new[] { "/media/anime", "/media/more" }));
+
+    [Test]
+    public void WithNoAdminListNothingIsDropped() {
+        var library = new Mock<ILibraryManager>(MockBehavior.Strict).Object;
+
+        Assert.That(Kept([], library, "/media/shows", null), Is.EqualTo(new[] { "/media/shows", "none" }));
+    }
+
+    [Test]
+    public void UnreadableLibrariesDropNothing() {
+        // Each item is still checked on its own afterwards, so keeping everything is slower but never wrong.
+        var library = new Mock<ILibraryManager>();
+        library.Setup(manager => manager.GetVirtualFolders()).Throws(new InvalidOperationException("fixture"));
+
+        Assert.That(Kept(Admin, library.Object, "/media/shows"), Is.EqualTo(new[] { "/media/shows" }));
+    }
 
     [Test]
     public void TheMatchListAsksTheSameQuestionAsSync() {

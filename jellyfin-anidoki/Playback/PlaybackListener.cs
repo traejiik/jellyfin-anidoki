@@ -51,6 +51,7 @@ public sealed class PlaybackListener(
     ISeasonWatchState? watchState = null) : IHostedService {
     private readonly ILogger<PlaybackListener> _logger = loggerFactory.CreateLogger<PlaybackListener>();
     private readonly IAsyncDelayer _delayer = new Delayer();
+    private readonly ProgressLogGate _progressLines = new();
     private bool _started;
 
     public Task StartAsync(CancellationToken cancellationToken) {
@@ -80,7 +81,8 @@ public sealed class PlaybackListener(
     }
 
     private void PlaybackProgressed(object? sender, PlaybackProgressEventArgs e) {
-        if (e.Item != null && _logger.IsEnabled(LogLevel.Debug))
+        if (e.Item != null && _logger.IsEnabled(LogLevel.Debug)
+            && _progressLines.ShouldLog(ProgressSession(e), Seconds(e.PlaybackPositionTicks), e.IsPaused))
             _logger.LogDebug("Playback of {ItemName} is at {PositionSeconds} s, paused {IsPaused}", e.Item.Name, Seconds(e.PlaybackPositionTicks), e.IsPaused);
         Observe(e, true);
     }
@@ -128,6 +130,7 @@ public sealed class PlaybackListener(
     }
 
     private void PlaybackStopped(object? sender, PlaybackStopEventArgs e) {
+        _progressLines.Forget(ProgressSession(e));
         try {
             BaseItem? item = e.Item;
             if (item == null)
@@ -220,6 +223,10 @@ public sealed class PlaybackListener(
                 _logger.LogDebug("Finished the playback update for {ItemName} {ElapsedMs} ms after the watch counted; a toast is published only for a confirmed change", item.Name, LogText.ElapsedMs(counted));
         }
     }
+
+    /// <summary>The play session, or the item on the device when the client sent none.</summary>
+    private static string ProgressSession(PlaybackProgressEventArgs e) =>
+        string.IsNullOrEmpty(e.PlaySessionId) ? $"{e.Item?.Id:N}/{e.DeviceId}" : e.PlaySessionId;
 
     private static long Seconds(long? ticks) => (ticks ?? 0) / TimeSpan.TicksPerSecond;
 }
