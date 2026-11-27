@@ -224,6 +224,17 @@ test('the popup uses the host theme layers without the item backdrop', async () 
     const background = dialog(env.doc).querySelector('.doki-popup-background');
     assert.deepEqual(Array.from(background.children, layer => layer.style.background), ['rgb(16, 16, 16)', 'transparent', 'rgba(17, 14, 30, 0.74)']);
     assert.equal(env.doc.querySelectorAll('.backgroundContainer').length, 1);
+
+    // Jellyfin loads the user's theme after a cold deep link has opened the popup.
+    env.win.getComputedStyle = element => ({ background: element === env.doc.documentElement ? 'rgb(242, 242, 242)' : 'transparent', opacity: '1' });
+    const theme = env.doc.createElement('link');
+    const load = new Event('load');
+    Object.defineProperty(load, 'target', { value: theme });
+    env.doc.dispatchEvent(load);
+    await env.win.advance(16);
+    const layers = dialog(env.doc).querySelectorAll('.doki-popup-background');
+    assert.equal(layers.length, 1);
+    assert.equal(layers[0].children[0].style.background, 'rgb(242, 242, 242)');
     popup.dispose();
 });
 

@@ -1,4 +1,4 @@
-import { followThemeAccent, matchesSettingsRequest, popupBackground } from './common.js';
+import { followThemeAccent, matchesSettingsRequest, onThemeChange, popupBackground } from './common.js';
 import { providerName } from './outcome-lines.js';
 import { createPopupLibrary } from './popup-library.js';
 import {
@@ -639,9 +639,21 @@ export function startProgressPopup(win = window, doc = document) {
             scrim.append(panel);
             doc.body.append(scrim);
             followThemeAccent(scrim, signal, win);
+            // A deep link can open before Jellyfin loads the user's theme; take its colours again when it does.
+            onThemeChange(doc, win, signal, () => {
+                const next = popupBackground(doc, win);
+                if (!next)
+                    return;
+                const previous = shell.background;
+                shell.background = next;
+                if (previous && shell.panel.contains(previous)) {
+                    previous.remove();
+                    shell.panel.prepend(next);
+                }
+            });
         }
         const shell = current.shell;
-        const { scrim, panel, background } = shell;
+        const { scrim, panel } = shell;
         Object.assign(current, { scrim, panel });
         shell.exit?.cancel();
         shell.exit = null;
@@ -652,7 +664,7 @@ export function startProgressPopup(win = window, doc = document) {
             panel.classList.toggle('is-library', current.itemId === libraryLevel);
             if (transition)
                 body.classList.add('doki-popup-level-enter');
-            panel.replaceChildren(...[background, header, body].filter(Boolean));
+            panel.replaceChildren(...[shell.background, header, body].filter(Boolean));
             if (transition && current.libraryUi)
                 current.libraryUi.restoreFocus();
             else

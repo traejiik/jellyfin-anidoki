@@ -222,19 +222,29 @@ export function followThemeAccent(root, signal, win = window) {
             root.style.removeProperty('--doki-theme-accent');
     };
     update();
-    const doc = root.ownerDocument;
+    onThemeChange(root.ownerDocument, win, signal, update);
+}
+
+/**
+ * Calls update, at most once a frame, after the page's theme may have changed: a stylesheet loads or is swapped, or the
+ * root's classes change. Jellyfin 12.4 loads the user's theme into the body, after the page starts.
+ */
+export function onThemeChange(doc, win, signal, update) {
     let frame = null;
     const refresh = () => {
         if (frame === null)
             frame = win.requestAnimationFrame(() => { frame = null; update(); });
     };
-    doc.head.addEventListener('load', refresh, { capture: true, signal });
+    doc.addEventListener('load', event => {
+        if (event.target?.tagName === 'LINK' || event.target?.tagName === 'STYLE')
+            refresh();
+    }, { capture: true, signal });
     doc.addEventListener('change', refresh, { signal });
-    const observer = new win.MutationObserver(refresh);
-    observer.observe(doc.head, { childList: true, subtree: true, attributes: true, attributeFilter: ['href', 'media', 'disabled'] });
-    observer.observe(doc.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-color-scheme'] });
+    const observer = win.MutationObserver ? new win.MutationObserver(refresh) : null;
+    observer?.observe(doc.head, { childList: true, subtree: true, attributes: true, attributeFilter: ['href', 'media', 'disabled'] });
+    observer?.observe(doc.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-color-scheme'] });
     signal.addEventListener('abort', () => {
-        observer.disconnect();
+        observer?.disconnect();
         if (frame !== null)
             win.cancelAnimationFrame(frame);
     }, { once: true });
