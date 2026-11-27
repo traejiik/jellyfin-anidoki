@@ -71,14 +71,19 @@ public sealed class LibraryProgress(ProgressSources sources, IMatchTrackers trac
         // An account may have one entry in several custom lists. They have the same media ID.
         var byId = entries.ToLookup(entry => entry.Entry.Id);
         var rows = new List<LibraryProgressRow>();
-        var localTargets = sources.LocalTargets();
-        var now = clock.GetUtcNow();
+        var titles = new List<(SeriesItem Item, LibrarySource Source, IReadOnlyList<WatchedEpisode> Watched, Match? Saved)>();
         foreach (var item in sources.Items(userId)) {
             cancellationToken.ThrowIfCancellationRequested();
-            if (sources.Default(item, sources.Sources(item, userId), userId) is not var (source, watched))
-                continue;
+            if (sources.Default(item, sources.Sources(item, userId), userId) is var (source, watched))
+                titles.Add((item, source, watched, sources.Saved(source, userId, provider, applySaved)));
+        }
+        // ARM's answers do not outlive a restart or an hour; without them most automatic matches would read as unresolved.
+        await sources.WarmUp(titles.Where(title => title.Saved == null).Select(title => title.Source), provider, refresh, cancellationToken);
 
-            Match? saved = sources.Saved(source, userId, provider, applySaved);
+        var localTargets = sources.LocalTargets();
+        var now = clock.GetUtcNow();
+        foreach (var (item, source, watched, saved) in titles) {
+            cancellationToken.ThrowIfCancellationRequested();
             EntryRef? target = null;
             var mappedEpisodes = new List<(int Source, int Target)>();
             if (saved == null) {
