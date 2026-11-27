@@ -12,7 +12,7 @@ AniDōki is built in small phases that can each be verified on their own. Each p
 | 4 | Read-only manual-sync preview, then applying selected changes | Shipped |
 | H4 | Hardening: clearer logs, tidier internals and measured performance fixes, with no change to what is synced | Shipped |
 | 5 | Live playback updates, per-user thresholds, reliability and history, adding unlisted anime | Shipped |
-| 6 | Progress popup; supported scores, dates and rewatches | Planned |
+| 6 | Progress popup with ratings, and a library of your anime; start dates and rewatches follow later | Shipped |
 | 7 | Richer notification states and actions | Planned |
 
 Some principles hold across every phase:
