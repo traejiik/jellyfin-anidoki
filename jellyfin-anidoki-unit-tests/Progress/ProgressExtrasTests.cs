@@ -192,6 +192,64 @@ public class ProgressExtrasTests {
     }
 
     [Test]
+    public async Task LibraryLooksUpATitleArmNoLongerHasCachedOnce() {
+        // After a restart, or an hour after the last lookup, ARM's answers are gone from memory.
+        using var fixture = new ProgressFixture();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var sent = new List<Helpers.SentRequest>();
+        var arm = new ArmClient(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, """{"anidb":200,"anilist":101}""")),
+            NullLogger<ArmClient>.Instance, () => null);
+        var (item, reader) = await SplitCourLibrary(fixture, memory, arm);
+
+        var row = (await reader.Read(fixture.Alice, null, false, true, CancellationToken.None))?.Rows.Single(row => row.ItemId == item.Id);
+        await reader.Read(fixture.Alice, null, false, true, CancellationToken.None);
+
+        Assert.That(row?.MatchState, Is.EqualTo(LibraryMatchState.OnList));
+        Assert.That(row?.EntryId, Is.EqualTo(101));
+        Assert.That(row?.UnloggedLibraryCount, Is.EqualTo(1));
+        Assert.That(sent, Has.Count.EqualTo(1), "one ARM lookup, then the cached answer");
+    }
+
+    [Test]
+    public async Task LibraryRemembersATitleArmDoesNotKnowUntilARefresh() {
+        using var fixture = new ProgressFixture();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var sent = new List<Helpers.SentRequest>();
+        var arm = new ArmClient(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, "null")), NullLogger<ArmClient>.Instance, () => null);
+        var (item, reader) = await SplitCourLibrary(fixture, memory, arm);
+
+        var row = (await reader.Read(fixture.Alice, null, false, true, CancellationToken.None))?.Rows.Single(row => row.ItemId == item.Id);
+        await reader.Read(fixture.Alice, null, false, true, CancellationToken.None);
+        Assert.That(row?.MatchState, Is.EqualTo(LibraryMatchState.Unresolved));
+        Assert.That(sent, Has.Count.EqualTo(1), "a miss is not asked again on the next read");
+
+        await reader.Read(fixture.Alice, null, true, true, CancellationToken.None);
+        Assert.That(sent, Has.Count.EqualTo(2), "Refresh asks again");
+    }
+
+    /// <summary>A split cour that only ARM and the anime list map to AniList 101, which the account lists at episode 3.</summary>
+    private static async Task<(SeriesItem Item, LibraryProgress Reader)> SplitCourLibrary(ProgressFixture fixture, MemoryCache memory, ArmClient arm) {
+        string directory = System.IO.Path.Combine(fixture.Match.Directory, "anidoki");
+        System.IO.Directory.CreateDirectory(directory);
+        await System.IO.File.WriteAllTextAsync(System.IO.Path.Combine(directory, "anime-list-full.xml"), """
+            <anime-list>
+              <anime anidbid="200" tvdbid="5" defaulttvdbseason="1" episodeoffset="12" />
+            </anime-list>
+            """);
+        var episode = new LibraryFixture().Episode("Split cour", 1, 18, new Dictionary<string, string> { ["Tvdb"] = "5" });
+        var item = AddItem(fixture, fixture.Match.Library.Add(MatchApiFixture.Source(episode, [13, 15, 18])), false);
+        var tracker = new Mock<ITrackerProvider>(MockBehavior.Strict);
+        var list = tracker.As<ITrackerLibraryList>();
+        tracker.SetupGet(provider => provider.Name).Returns(ApiName.AniList);
+        fixture.Match.Trackers.Link(fixture.Alice, tracker.Object);
+        list.Setup(provider => provider.ReadLibraryList(It.IsAny<CancellationToken>())).ReturnsAsync([
+            new TrackerLibraryEntry(new EntryRef(ApiName.AniList, 101, null), new ListState(TrackerStatus.Watching, 3, false, null), 6, null, null)
+        ]);
+        return (item, new LibraryProgress(Sources(fixture, arm), fixture.Match.Trackers, new TrackerLibraryCache(memory, TimeProvider.System),
+            TimeProvider.System, NullLogger<LibraryProgress>.Instance));
+    }
+
+    [Test]
     public async Task OverlappingRefreshesShareAReadAndCacheIsolatedByLinkExpires() {
         using var memory = new MemoryCache(new MemoryCacheOptions());
         var clock = new MutableTime(DateTimeOffset.UnixEpoch);
@@ -250,7 +308,7 @@ public class ProgressExtrasTests {
         paths.SetupGet(path => path.CachePath).Returns(fixture.Match.Directory);
         var arm = armClient ?? new ArmClient(http, NullLogger<ArmClient>.Instance, () => null);
         var animeList = new AnimeListSource(http, paths.Object, NullLogger<AnimeListSource>.Instance, () => null);
-        return new ProgressSources(fixture.Match.Library, fixture.Items, fixture.Match.WatchState, fixture.Match.Store, arm, animeList,
+        return new ProgressSources(fixture.Match.Library, fixture.Items, fixture.Match.WatchState, fixture.Match.Store, arm, animeList, TimeProvider.System,
             NullLogger<ProgressSources>.Instance);
     }
 }

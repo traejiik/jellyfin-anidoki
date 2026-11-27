@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -17,7 +19,12 @@ using Microsoft.Extensions.Logging;
 namespace jellyfin_anidoki.Progress;
 
 public sealed class ProgressSources(IMatchLibrary library, ISeriesItems items, ISeasonWatchState watchState,
-    MatchStore matches, ArmClient arm, AnimeListSource animeList, ILogger<ProgressSources> logger) {
+    MatchStore matches, ArmClient arm, AnimeListSource animeList, TimeProvider clock, ILogger<ProgressSources> logger) {
+    /// <summary>How long a source ARM could not place is left alone before it is asked again.</summary>
+    internal static readonly TimeSpan MissFor = TimeSpan.FromHours(1);
+
+    private readonly ConcurrentDictionary<(string SourceKey, ApiName Provider), DateTimeOffset> _misses = new();
+
     internal IEnumerable<SeriesItem> Items(Guid userId) => library.List(userId)
         .Select(source => SourceKeys.Parse(source.SourceKey)?.ItemId)
         .OfType<Guid>().Distinct().Select(id => items.Find(id, userId)).OfType<SeriesItem>();
@@ -42,13 +49,47 @@ public sealed class ProgressSources(IMatchLibrary library, ISeriesItems items, I
     internal Match? Saved(LibrarySource source, Guid userId, ApiName provider, bool applySaved) =>
         applySaved ? matches.GetEffective(userId, provider, source.Info.SourceKey, true) : null;
 
-    internal Func<LibrarySource, ApiName, int, Task<(EntryRef Entry, int Episode)?>> LocalTargets() {
+    /// <summary>Where an episode syncs to, from Jellyfin's IDs and the cached ID lookups; with <paramref name="cachedOnly"/> false, ARM is asked too.</summary>
+    internal Func<LibrarySource, ApiName, int, Task<(EntryRef Entry, int Episode)?>> LocalTargets(bool cachedOnly = true) {
         var localList = new Lazy<Task<AnimeListHelpers.AnimeListXml?>>(() => animeList.Read(cachedOnly: true));
         return (source, provider, episode) => {
             SyncSource? actual = source.VisibleEpisodes?.GetValueOrDefault(episode) is { } item ? SyncSource.From(item) : null;
             var focus = (actual ?? source.Last) with { EpisodeNumber = episode, IdsOnly = source.Last.IdsOnly };
-            return KnownTarget(source with { Last = focus }, provider, cachedOnly: true, localList);
+            return KnownTarget(source with { Last = focus }, provider, cachedOnly, localList);
         };
+    }
+
+    /// <summary>
+    /// Asks ARM about the sources whose first episode the cached lookups cannot place, four at a time, so a read that then uses
+    /// only the caches finds them. ARM keeps an answer in memory for an hour and nothing across a restart. A source ARM cannot
+    /// place is not asked about again for <see cref="MissFor"/> unless <paramref name="retryMisses"/>.
+    /// </summary>
+    internal async Task WarmUp(IEnumerable<LibrarySource> sources, ApiName provider, bool retryMisses, CancellationToken cancellationToken) {
+        var cached = LocalTargets();
+        var now = clock.GetUtcNow();
+        var unknown = new List<LibrarySource>();
+        foreach (var source in sources) {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (source.Episodes.Count == 0 || !retryMisses && _misses.TryGetValue((source.Info.SourceKey, provider), out var until) && until > now)
+                continue;
+            if (await cached(source, provider, source.Episodes[0]) == null)
+                unknown.Add(source);
+        }
+        if (unknown.Count == 0)
+            return;
+
+        long started = Stopwatch.GetTimestamp();
+        var lookUp = LocalTargets(cachedOnly: false);
+        await Parallel.ForEachAsync(unknown, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken },
+            async (source, token) => {
+                var key = (source.Info.SourceKey, provider);
+                if (await lookUp(source, provider, source.Episodes[0]) == null)
+                    _misses[key] = clock.GetUtcNow() + MissFor;
+                else
+                    _misses.TryRemove(key, out _);
+            });
+        logger.LogDebug("({Provider}) Looked up {Count} titles the ID cache did not have in {ElapsedMs} ms", provider, unknown.Count,
+            LogText.ElapsedMs(started));
     }
 
     internal async Task<EntryRef?> Known(LibrarySource source, ApiName provider, bool cachedOnly) =>

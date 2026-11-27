@@ -224,6 +224,17 @@ test('the popup uses the host theme layers without the item backdrop', async () 
     const background = dialog(env.doc).querySelector('.doki-popup-background');
     assert.deepEqual(Array.from(background.children, layer => layer.style.background), ['rgb(16, 16, 16)', 'transparent', 'rgba(17, 14, 30, 0.74)']);
     assert.equal(env.doc.querySelectorAll('.backgroundContainer').length, 1);
+
+    // Jellyfin loads the user's theme after a cold deep link has opened the popup.
+    env.win.getComputedStyle = element => ({ background: element === env.doc.documentElement ? 'rgb(242, 242, 242)' : 'transparent', opacity: '1' });
+    const theme = env.doc.createElement('link');
+    const load = new Event('load');
+    Object.defineProperty(load, 'target', { value: theme });
+    env.doc.dispatchEvent(load);
+    await env.win.advance(16);
+    const layers = dialog(env.doc).querySelectorAll('.doki-popup-background');
+    assert.equal(layers.length, 1);
+    assert.equal(layers[0].children[0].style.background, 'rgb(242, 242, 242)');
     popup.dispose();
 });
 
@@ -543,6 +554,31 @@ test('the expanded pill shows the editor and sync buttons with reasons', async (
     await flush();
     assert.ok(env.doc.querySelector('.doki-pill-open') === null);
     assert.ok(env.doc.activeElement === pill(env.doc, 'AniList'), 'focus stays on the collapsed pill');
+    popup.dispose();
+});
+
+test('a click right after typing a rating reaches its button and keeps the rating', async () => {
+    const env = setup();
+    const popup = await openPopup(env);
+    pill(env.doc, 'AniList').click();
+    await flush();
+    const rating = env.doc.querySelector('[data-focus-key="rating"]');
+    rating.focus();
+    rating.value = '8';
+    // The browser's order: the pointer goes down on +, the rating commits as it loses focus, then the pointer comes up.
+    const plus = env.doc.querySelector('[data-focus-key="plus"]');
+    // As in Safari, the pressed button does not take focus.
+    env.doc.dispatchEvent(new Event('pointerdown'));
+    rating.blur();
+    rating.dispatchEvent(new Event('change'));
+    env.doc.dispatchEvent(new Event('pointerup'));
+    // A button replaced while the pointer was down never receives the click.
+    assert.ok(env.doc.body.contains(plus), 'the button under the pointer stays in place');
+    plus.click();
+    await env.win.advance(0);
+    assert.equal(env.doc.querySelector('[data-focus-key="pill:AniList"] .doki-pill-count').textContent, '4/26');
+    assert.equal(env.doc.querySelector('[data-focus-key="rating"]').value, '8');
+    assert.equal(env.doc.activeElement, env.doc.querySelector('[data-focus-key="plus"]'), 'focus stays on the clicked button');
     popup.dispose();
 });
 

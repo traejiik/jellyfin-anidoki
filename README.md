@@ -44,6 +44,23 @@ Administrators run a sync by hand from the **Manual sync** tab, in either direct
 
 Each ticked row is checked again just before it is written, and one that changed since the preview is skipped rather than written. While the changes are applied, each row shows its result, and **Stop** finishes the row being written and leaves the rest. A preview can be applied once, within a day, and only while it is the newest; otherwise **Refresh preview** makes a new one. **Run sync without preview** applies the current rules straight away, as before. A progress bar below the form follows the latest run; you can leave the page and come back to it.
 
+### Progress popup
+
+The progress popup shows and changes your tracker entries without leaving Jellyfin. Open it with the AniDōki button next to Favourite on a series, season or episode page in an anime library, from the AniDōki entry in the Plugin Pages menu, or from a show's title in a Discord notification.
+
+- **A series** shows its artwork and details, then one pill per linked tracker with its status and progress, plus **All trackers** when two or more are linked. Expand a pill to change the status, episodes watched and rating. With All trackers, one change sets every tracker; values that differ show as **Mixed**.
+- **Edits wait until you sync.** **Sync to <tracker>** sends your edits, or Jellyfin's progress when Jellyfin is ahead. **Sync to Jellyfin** marks episodes played up to the tracker's count, for that series only; it never marks episodes unplayed. Lowering a tracker's progress warns first. If the entry changed on the tracker since the popup read it, nothing is written and the popup shows the current values. Unsynced edits are kept while the browser tab stays open.
+- **Seasons:** a series matched to several entries, one per season or episode range, lists them under the poster. Pick one to see and edit its entries.
+- **Related** lists the entries the tracker relates to it, such as sequels, prequels and side stories, and whether each is in your library. While a show is airing, the details show its weekday and next episode, from AniList.
+- **Matches** shows which tracker entry and episodes each season syncs to, and whether that is automatic, a shared match or your own correction. You change matches in your settings.
+- **Your anime**, from the Plugin Pages entry, lists the anime libraries with one tracker's progress beside Jellyfin's, as posters or a list, filtered by type and status, or searched. It covers MyAnimeList, AniList and Kitsu for now. Selecting a title opens it.
+
+An entry being rewatched is shown but not editable, and a movie counts as one episode. Start and finish dates and rewatch counts are not editable yet.
+
+Ratings use each tracker's own scale: AniList follows your account's scoring format (100-point, 10-point decimal, 10-point, 5 stars or 3 smileys), Kitsu is out of 10 in steps of 0.5, MyAnimeList, Simkl and Shikimori are out of 10, and Annict has no rating. All trackers offers a rating only when the linked trackers share a scale. Automatic syncs never change a rating.
+
+The popup needs File Transformation, and the administrator's user authentication pages. Only the web client shows it; without File Transformation, the Plugin Pages entry keeps opening your settings page.
+
 ### What counts as watched
 
 When you stop playing an episode or movie, AniDōki updates your trackers only if Jellyfin marked it played **and** you actually played it to Jellyfin's resume percentage (90% by default, set by the administrator under **Playback → Resume**).
@@ -92,7 +109,7 @@ Pending confirmations do not auto-dismiss. They expire after two minutes and are
 
 Each user can enable Discord updates and save their own incoming **Webhook link** in tracking settings. Use a webhook for a normal Discord text channel ([Discord webhook documentation](https://docs.discord.com/developers/resources/webhook)). AniDoki's name and avatar are fixed. **Preview** shows an accessible library example without sending a message; **Send test** explicitly sends a connectivity test after the settings are saved.
 
-An administrator must set the server **Public address** so the bold show title links back to Jellyfin. Notifications include the episode number and title, a processed poster when available, and confirmed tracker results. Partial results show the other outcomes too. Only meaningful confirmed updates from playback or watched marks are sent; pending prompts, dismissed changes, manual sync and failed-only operations stay silent.
+An administrator must set the server **Public address** so the bold show title links back to Jellyfin; in the web client the link opens the show's [progress popup](#progress-popup). Notifications include the episode number and title, a processed poster when available, and confirmed tracker results. Partial results show the other outcomes too. Only meaningful confirmed updates from playback or watched marks are sent; pending prompts, dismissed changes, manual sync and failed-only operations stay silent.
 
 Webhook URLs, like tracker tokens and client secrets, are kept in the AniDōki database in the Jellyfin data folder and are never returned to clients. Delivery is bounded and best effort: only explicit Discord rate limits are retried, at most twice. An ambiguous network response is not resent. A rejected webhook pauses that saved revision until it is replaced or a test succeeds.
 
@@ -114,7 +131,7 @@ The following services are currently supported:
 The following are needed for the plugin to run:
 
 - [Jellyfin 12.4](https://github.com/jellyfin/jellyfin/releases/tag/v12.4) or newer, last tested on 12.4.0. Servers on Jellyfin 12.2 keep being offered AniDōki 1.x.
-- [File Transformation plugin](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) for toast notifications.
+- [File Transformation plugin](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) for toast notifications and the progress popup.
 - [Plugin Pages plugin](https://github.com/IAmParadox27/jellyfin-plugin-pages) 3.0.x for the personal settings page, including tracker matches. Only 3.0.1 is tested.
 
 AniDōki is designed for stock Jellyfin 12.4 and works with any theme: its pages keep the same layout and take only their colours and font from the active theme. Themes and [KefinTweaks](https://github.com/ranaldsgift/KefinTweaks/releases) (5.0 and later) are optional, and AniDōki does not require either.

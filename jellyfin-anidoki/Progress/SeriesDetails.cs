@@ -59,25 +59,28 @@ public sealed class SeriesDetails(ISeriesItems items, ProgressSources sources, S
             if (related.Count == 0)
                 return new RelatedView([]);
             var hits = related.Select(_ => new List<RelatedLibraryItem>()).ToArray();
+            var candidates = sources.Items(userId)
+                .SelectMany(item => sources.Sources(item, userId).Select(candidate => (Item: item, Source: candidate,
+                    Saved: sources.Saved(candidate, userId, provider, applySaved))))
+                .ToList();
+            await sources.WarmUp(candidates.Where(candidate => candidate.Saved == null).Select(candidate => candidate.Source), provider, false,
+                cancellationToken);
             var localTargets = sources.LocalTargets();
-            foreach (var item in sources.Items(userId)) {
-                foreach (var candidate in sources.Sources(item, userId)) {
+            foreach (var (item, candidate, saved) in candidates) {
+                cancellationToken.ThrowIfCancellationRequested();
+                var unseen = Enumerable.Range(0, related.Count).ToHashSet();
+                foreach (int number in candidate.Episodes) {
                     cancellationToken.ThrowIfCancellationRequested();
-                    var saved = sources.Saved(candidate, userId, provider, applySaved);
-                    var unseen = Enumerable.Range(0, related.Count).ToHashSet();
-                    foreach (int number in candidate.Episodes) {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        var target = saved == null ? (await localTargets(candidate, provider, number))?.Entry
-                            : (RangeResolver.Map(saved, number) as MappedEpisode)?.Target.Entry;
-                        if (target == null)
-                            continue;
-                        foreach (int index in unseen.Where(index => ProgressSources.SameEntry(target, related[index].Entry)).ToArray()) {
-                            hits[index].Add(new RelatedLibraryItem(item.Id, SourceKeys.Parse(candidate.Info.SourceKey)?.SeasonNumber));
-                            unseen.Remove(index);
-                        }
-                        if (unseen.Count == 0)
-                            break;
+                    var target = saved == null ? (await localTargets(candidate, provider, number))?.Entry
+                        : (RangeResolver.Map(saved, number) as MappedEpisode)?.Target.Entry;
+                    if (target == null)
+                        continue;
+                    foreach (int index in unseen.Where(index => ProgressSources.SameEntry(target, related[index].Entry)).ToArray()) {
+                        hits[index].Add(new RelatedLibraryItem(item.Id, SourceKeys.Parse(candidate.Info.SourceKey)?.SeasonNumber));
+                        unseen.Remove(index);
                     }
+                    if (unseen.Count == 0)
+                        break;
                 }
             }
             return new RelatedView(related.Select((relation, index) =>
