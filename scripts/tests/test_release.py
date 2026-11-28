@@ -78,8 +78,8 @@ class ReleaseTests(unittest.TestCase):
             root = Path(directory) / 'repository'
             for name in ('manifest.json', 'jellyfin-anidoki/jellyfin-anidoki.csproj',
                          'jellyfin-anidoki/build.yaml', 'jellyfin-anidoki/Plugin.cs',
-                         'jellyfin-anidoki/Configuration/ConfigPageJs.js',
-                         'jellyfin-anidoki/Configuration/CommonJs.js'):
+                         'jellyfin-anidoki/Web/ConfigPageJs.js',
+                         'jellyfin-anidoki/Web/CommonJs.js'):
                 target = root / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ROOT / name, target)
@@ -176,8 +176,8 @@ class TagDrivenReleaseTests(unittest.TestCase):
         self.root = Path(self.directory.name)
         for name in ('manifest.json', 'jellyfin-anidoki/jellyfin-anidoki.csproj',
                      'jellyfin-anidoki/build.yaml', 'jellyfin-anidoki/Plugin.cs',
-                     'jellyfin-anidoki/Configuration/ConfigPageJs.js',
-                     'jellyfin-anidoki/Configuration/CommonJs.js'):
+                     'jellyfin-anidoki/Web/ConfigPageJs.js',
+                     'jellyfin-anidoki/Web/CommonJs.js'):
             target = self.root / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / name, target)
@@ -185,7 +185,7 @@ class TagDrivenReleaseTests(unittest.TestCase):
         (self.root / 'manifest.json').write_text(self.original)
 
     def test_shared_frontend_identity_must_match_manifest(self):
-        frontend = self.root / 'jellyfin-anidoki/Configuration/CommonJs.js'
+        frontend = self.root / 'jellyfin-anidoki/Web/CommonJs.js'
         frontend.write_text(frontend.read_text().replace(
             "export const pluginId = 'dceb799c-238e-4a33-aa5e-14fc0b1efe9d'",
             "export const pluginId = '00000000-0000-0000-0000-000000000000'"))

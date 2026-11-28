@@ -7,6 +7,8 @@ using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Simkl;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Kitsu;
 using NUnit.Framework;
 using static jellyfin_anidoki_unit_tests.Matching.MatchApiFixture;
 using static jellyfin_anidoki_unit_tests.Matching.MatchTestSupport;

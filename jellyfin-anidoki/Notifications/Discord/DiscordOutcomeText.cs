@@ -6,7 +6,7 @@ using jellyfin_anidoki.Trackers.Mal;
 namespace jellyfin_anidoki.Notifications.Discord;
 
 /// <summary>
-/// The Discord embed's tracker lines, worded as Configuration/OutcomeLinesJs.js words the web toasts.
+/// The Discord embed's tracker lines, worded as Web/OutcomeLinesJs.js words the web toasts.
 /// </summary>
 internal static class DiscordOutcomeText {
     internal static string ProviderName(ApiName provider) => provider switch {

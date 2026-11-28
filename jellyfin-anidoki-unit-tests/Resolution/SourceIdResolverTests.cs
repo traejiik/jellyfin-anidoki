@@ -11,6 +11,7 @@ using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers.Mal;
 using jellyfin_anidoki_unit_tests.Characterization;
+using jellyfin_anidoki_unit_tests.Trackers.Kitsu;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;

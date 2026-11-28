@@ -3,6 +3,7 @@ using System.Text.Json;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Simkl;
+using jellyfin_anidoki_unit_tests.Trackers.Simkl;
 using NUnit.Framework;
 using IgnoreException = jellyfin_anidoki.Matching.IgnoreException;
 using static jellyfin_anidoki_unit_tests.Matching.MatchApiFixture;

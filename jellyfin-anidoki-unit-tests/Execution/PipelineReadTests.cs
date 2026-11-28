@@ -6,6 +6,9 @@ using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Mal;
 using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
+using jellyfin_anidoki_unit_tests.Trackers.Simkl;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.Execution;

@@ -1,10 +1,10 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import { createDiscordDraft, discordCommand, discordDirty } from '../../../jellyfin-anidoki/Configuration/DiscordSettingsJs.js';
+import { createDiscordDraft, discordCommand, discordDirty } from '../../../jellyfin-anidoki/Web/DiscordSettingsJs.js';
 test('blank input keeps the saved webhook without becoming dirty',()=>{const saved={enabled:false,hasWebhook:true,revision:3};const draft=createDiscordDraft(saved);assert.equal(discordCommand(draft,saved).webhookAction,'Keep');assert.equal(discordDirty(draft,saved),false);});
 test('replacement and explicit removal remain separate actions',()=>{const saved={enabled:true,hasWebhook:true,revision:3};const draft=createDiscordDraft(saved);draft.webhook='https://discord.com/example';assert.equal(discordCommand(draft,saved).webhookAction,'Replace');draft.clear=true;assert.equal(discordCommand(draft,saved).webhookAction,'Clear');assert.equal(discordCommand(draft,saved).enabled,false);});
 
-import { secretInput } from '../../../jellyfin-anidoki/Configuration/CommonJs.js';
-import mountDiscord from '../../../jellyfin-anidoki/Configuration/DiscordSettingsJs.js';
+import { secretInput } from '../../../jellyfin-anidoki/Web/CommonJs.js';
+import mountDiscord from '../../../jellyfin-anidoki/Web/DiscordSettingsJs.js';
 class Element extends EventTarget {
     constructor(tag='div',text='') { super(); this.tagName=tag; this.textContent=text; this.children=[]; }
     append(...elements) { this.children.push(...elements); for(const e of elements)e.parent=this; }

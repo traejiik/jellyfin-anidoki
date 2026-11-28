@@ -15,7 +15,7 @@ using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Trackers.Mal;
 using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
-using jellyfin_anidoki_unit_tests.LoggingTests;
+using jellyfin_anidoki_unit_tests.Logging;
 using jellyfin_anidoki_unit_tests.Operations;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Controller;

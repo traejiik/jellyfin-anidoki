@@ -37,7 +37,7 @@ internal sealed record CallbackPageModel(
 /// </summary>
 internal static partial class CallbackPage {
     private static readonly Lazy<string> Template = new(() => {
-        using var stream = typeof(CallbackPage).Assembly.GetManifestResourceStream($"{typeof(Plugin).Namespace}.Configuration.ResultPage.html")
+        using var stream = typeof(CallbackPage).Assembly.GetManifestResourceStream($"{typeof(Plugin).Namespace}.Web.ResultPage.html")
             ?? throw new InvalidOperationException("ResultPage.html is not embedded.");
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();

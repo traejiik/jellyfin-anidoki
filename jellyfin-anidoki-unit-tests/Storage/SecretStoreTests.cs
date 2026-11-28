@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using jellyfin_anidoki.Storage;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.Storage;

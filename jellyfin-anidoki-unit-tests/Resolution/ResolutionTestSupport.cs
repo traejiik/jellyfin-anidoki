@@ -4,6 +4,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki_unit_tests.Characterization;
+using jellyfin_anidoki_unit_tests.Trackers.Annict;
+using jellyfin_anidoki_unit_tests.Trackers.Shikimori;
 
 namespace jellyfin_anidoki_unit_tests.Resolution;
 

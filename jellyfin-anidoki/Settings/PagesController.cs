@@ -63,7 +63,7 @@ public sealed class PagesController : ControllerBase {
         };
         if (resource == null)
             return NotFound();
-        var stream = typeof(Plugin).Assembly.GetManifestResourceStream($"{typeof(Plugin).Namespace}.Configuration.{resource}");
+        var stream = typeof(Plugin).Assembly.GetManifestResourceStream($"{typeof(Plugin).Namespace}.Web.{resource}");
         if (stream == null)
             return NotFound();
         Response.Headers.CacheControl = "no-store";

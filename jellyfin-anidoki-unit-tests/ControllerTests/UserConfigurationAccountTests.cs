@@ -12,6 +12,12 @@ using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Annict;
+using jellyfin_anidoki_unit_tests.Trackers.Kitsu;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
+using jellyfin_anidoki_unit_tests.Trackers.Shikimori;
+using jellyfin_anidoki_unit_tests.Trackers.Simkl;
 using MediaBrowser.Common.Api;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -295,7 +301,7 @@ public partial class UserConfigurationTests {
 
     [TestCase("Anidoki.css")]
     [TestCase("../CommonJs.js")]
-    [TestCase("jellyfin_anidoki.Configuration.ConfigPage.html")]
+    [TestCase("jellyfin_anidoki.Web.ConfigPage.html")]
     [TestCase("missing.js")]
     public async Task StaticAssetRouteRejectsNamesOutsideWhitelist(string asset) {
         Assert.That(await InvokeEndpoint("GetAsset", asset), Is.TypeOf<NotFoundResult>());

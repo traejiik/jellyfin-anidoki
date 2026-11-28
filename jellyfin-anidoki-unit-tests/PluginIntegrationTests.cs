@@ -169,11 +169,21 @@ public class PluginIntegrationTests {
     [Test]
     public void TheMatchesPageAndItsControllerAreServedAsHiddenPages() {
         var pages = CreatePlugin().GetPages().ToDictionary(page => page.Name);
-        Assert.That(pages["AniDoki_Matches"].EmbeddedResourcePath, Is.EqualTo("jellyfin_anidoki.Configuration.Matches.html"));
-        Assert.That(pages["AniDoki_MatchesJs"].EmbeddedResourcePath, Is.EqualTo("jellyfin_anidoki.Configuration.MatchesJs.js"));
+        Assert.That(pages["AniDoki_Matches"].EmbeddedResourcePath, Is.EqualTo("jellyfin_anidoki.Web.Matches.html"));
+        Assert.That(pages["AniDoki_MatchesJs"].EmbeddedResourcePath, Is.EqualTo("jellyfin_anidoki.Web.MatchesJs.js"));
         Assert.That(pages["AniDoki_Matches"].EnableInMainMenu, Is.False);
         foreach (var page in pages.Values)
             Assert.That(typeof(Plugin).Assembly.GetManifestResourceInfo(page.EmbeddedResourcePath), Is.Not.Null, page.Name);
+    }
+
+    /// <summary>Web assets are named after the Web folder; a stale name only shows up as a blank page.</summary>
+    [Test]
+    public void EveryWebAssetIsEmbeddedUnderWeb() {
+        var names = typeof(Plugin).Assembly.GetManifestResourceNames();
+        Assert.That(names.Where(name => name.StartsWith("jellyfin_anidoki.Configuration.", StringComparison.Ordinal)), Is.Empty);
+        Assert.That(names.Where(name => name.StartsWith("jellyfin_anidoki.Web.", StringComparison.Ordinal)), Is.Not.Empty);
+        foreach (var page in CreatePlugin().GetPages())
+            Assert.That(page.EmbeddedResourcePath, Does.StartWith("jellyfin_anidoki.Web."), page.Name);
     }
 
     [Test]
@@ -185,6 +195,6 @@ public class PluginIntegrationTests {
         Assert.That(visible[0].DisplayName, Is.EqualTo("AniDōki"));
         Assert.That(visible[0].MenuIcon, Is.EqualTo("sync"));
         Assert.That(visible[0].EmbeddedResourcePath,
-            Is.EqualTo("jellyfin_anidoki.Configuration.ConfigPage.html"));
+            Is.EqualTo("jellyfin_anidoki.Web.ConfigPage.html"));
     }
 }

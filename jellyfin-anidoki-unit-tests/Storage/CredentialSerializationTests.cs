@@ -5,6 +5,8 @@ using System.Xml.Serialization;
 using jellyfin_anidoki.Auth;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.Storage;

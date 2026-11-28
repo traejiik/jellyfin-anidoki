@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { allTrackers, buildSyncRequest, describeOperation, describeRequest, isFinished, runProgress } from '../../../jellyfin-anidoki/Configuration/ManualSyncJs.js';
+import { allTrackers, buildSyncRequest, describeOperation, describeRequest, isFinished, runProgress } from '../../../jellyfin-anidoki/Web/ManualSyncJs.js';
 
 const form = () => ({ userId: 'u1', provider: 'AniList', trackers: 'All', syncAction: 'UpdateJellyfin', completed: true, watching: true });
 test('both inbound statuses encode Both', () => assert.equal(buildSyncRequest(form(), ['AniList']).status, 'Both'));

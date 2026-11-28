@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
     defaultFilter, defaultSelection, describeRow, emptyLabel, episodeRange, filterCount, filters, filterSelection, filtersFor, groupRows, groupSummary, noteLabel,
     outOfDateLabel, pageLabel, paged, reasonLabel, resultLabel, rowsPath, selectAll, selectionSummary
-} from '../../../jellyfin-anidoki/Configuration/PreviewStateJs.js';
+} from '../../../jellyfin-anidoki/Web/PreviewStateJs.js';
 
 const names = key => ({ AniList: 'AniList', Mal: 'MyAnimeList', Annict: 'Annict' })[key] ?? key;
 const outbound = changes => ({

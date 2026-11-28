@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { errorMessage, json, request, safeExternalUrl } from '../../../jellyfin-anidoki/Configuration/CommonJs.js';
+import { errorMessage, json, request, safeExternalUrl } from '../../../jellyfin-anidoki/Web/CommonJs.js';
 
 test('JSON request errors show their message instead of serialized JSON', async () => {
     assert.equal(await errorMessage(Response.json('Check the address — then try again.', { status: 400 })), 'Check the address — then try again.');

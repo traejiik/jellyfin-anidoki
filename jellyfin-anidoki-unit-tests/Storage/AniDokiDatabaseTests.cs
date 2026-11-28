@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Trackers.Simkl;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Kitsu;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
 

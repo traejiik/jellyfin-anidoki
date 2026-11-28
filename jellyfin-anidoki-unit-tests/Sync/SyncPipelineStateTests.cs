@@ -1,0 +1,164 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading.Tasks;
+using jellyfin_anidoki;
+using jellyfin_anidoki.AnimeIds;
+using jellyfin_anidoki.Auth;
+using jellyfin_anidoki.Common;
+using jellyfin_anidoki.Notifications;
+using jellyfin_anidoki.Settings;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.AniList;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Kitsu;
+using jellyfin_anidoki_unit_tests.Trackers.Shikimori;
+using jellyfin_anidoki_unit_tests.Trackers.Simkl;
+using MediaBrowser.Common.Configuration;
+using MediaBrowser.Controller;
+using MediaBrowser.Controller.Configuration;
+using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Library;
+using MediaBrowser.Model.Serialization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
+using NUnit.Framework;
+
+namespace jellyfin_anidoki_unit_tests;
+
+/// <summary>
+/// Drives <see cref="SyncPipeline.Run"/> end to end against fixed HTTP fixtures.
+/// Movies are used because they need no Season/Series wiring to reach the ID-resolution and provider loop.
+/// </summary>
+[TestFixture, NonParallelizable]
+public class SyncPipelineStateTests {
+    private const int ResolvedAniListId = 101;
+    private const int ResolvedMalId = 201;
+
+    private string _directory = null!;
+    private Plugin _plugin = null!;
+    private readonly Guid _user = Guid.NewGuid();
+    private SyncPipeline _pipeline = null!;
+
+    [SetUp]
+    public void SetUp() {
+        _directory = Path.Combine(Path.GetTempPath(), "anidoki-update-state-" + Guid.NewGuid());
+        Directory.CreateDirectory(_directory);
+        var paths = new Mock<IApplicationPaths>();
+        paths.SetupGet(p => p.PluginsPath).Returns(_directory);
+        paths.SetupGet(p => p.PluginConfigurationsPath).Returns(_directory);
+        paths.SetupGet(p => p.DataPath).Returns(_directory);
+        var xml = new Mock<IXmlSerializer>();
+        xml.Setup(x => x.DeserializeFromFile(typeof(PluginConfiguration), It.IsAny<string>())).Returns(new PluginConfiguration());
+        _plugin = new Plugin(paths.Object, new Mock<IServerConfigurationManager>().Object, xml.Object, NullLogger<Plugin>.Instance);
+
+        IHttpClientFactory httpClientFactory = null!;
+        Helpers.MockHttpCalls(new List<Helpers.HttpCall> {
+            new() {
+                RequestMethod = HttpMethod.Get,
+                RequestUrlMatch = url => url.EndsWith("/ids"),
+                ResponseCode = HttpStatusCode.OK,
+                ResponseContent = JsonSerializer.Serialize(new ArmClient.OfflineDatabaseResponse {
+                    Anilist = ResolvedAniListId,
+                    MyAnimeList = ResolvedMalId
+                })
+            },
+            new() {
+                RequestMethod = HttpMethod.Post,
+                RequestUrlMatch = url => url.Contains("anilist"),
+                ResponseCode = HttpStatusCode.OK,
+                ResponseContent = JsonSerializer.Serialize(new AniListSearch.AniListSearchMedia {
+                    Data = new AniListSearch.AniListSearchData {
+                        Page = new AniListSearch.Page {
+                            Media = new List<AniListSearch.Media>(),
+                            PageInfo = new AniListSearch.PageInfo { HasNextPage = false }
+                        }
+                    }
+                })
+            }
+        }, ref httpClientFactory);
+
+        _pipeline = new SyncPipeline(new Mock<ILibraryManager>().Object, new NullLoggerFactory(),
+            new Mock<IHttpContextAccessor>().Object, new Mock<IServerApplicationHost>().Object, httpClientFactory,
+            IdServices.Arm(httpClientFactory), IdServices.AnimeList(httpClientFactory), new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object);
+    }
+
+    [TearDown]
+    public void TearDown() => Directory.Delete(_directory, true);
+
+    private void ConfigureUser(params ApiName[] providers) {
+        _plugin.Configuration.UserConfig = [
+            new UserConfig {
+                UserId = _user,
+                LibraryToCheck = Array.Empty<string>(),
+                UserApiAuth = providers.Select(provider => new UserApiAuth {
+                    Name = provider,
+                    AccessToken = "accessToken",
+                    RefreshToken = "refreshToken"
+                }).ToArray()
+            }
+        ];
+    }
+
+    private static Movie MovieWithIds(string name, Dictionary<string, string> providerIds) =>
+        new() { Id = Guid.NewGuid(), Name = name, ProviderIds = providerIds };
+
+    /// <summary>
+    /// SyncProviderFromLocal reuses one instance across series. An item that resolves no IDs must not inherit the
+    /// previous item's IDs, or its progress is written to the previous item's tracker entry.
+    /// </summary>
+    [Test]
+    public async Task SecondUpdateWithoutIdsDoesNotReuseFirstUpdatesIds() {
+        ConfigureUser();
+
+        await _pipeline.Run(
+            MovieWithIds("First", new Dictionary<string, string> { ["AniList"] = ResolvedAniListId.ToString() }),
+            _user, true, null, SyncUpdateSource.Playback);
+        Assert.That(_pipeline.ResolvedIds.MyAnimeList, Is.EqualTo(ResolvedMalId), "first update should resolve IDs");
+
+        await _pipeline.Run(
+            MovieWithIds("Second", new Dictionary<string, string>()),
+            _user, true, null, SyncUpdateSource.Playback);
+
+        Assert.That(_pipeline.ResolvedIds.Anilist, Is.Null);
+        Assert.That(_pipeline.ResolvedIds.MyAnimeList, Is.Null);
+        Assert.That(_pipeline.ResolvedIds.Kitsu, Is.Null);
+        Assert.That(_pipeline.ResolvedIds.AniDb, Is.Null);
+    }
+
+    [Test]
+    public void ANewInstallWithNoUserSettingsSyncsNothing() {
+        // No user has saved AniDoki settings yet, so the plugin has no user list at all.
+        _plugin.Configuration.UserConfig = null;
+
+        Assert.DoesNotThrowAsync(() => _pipeline.Run(
+            MovieWithIds("First", new Dictionary<string, string> { ["AniList"] = ResolvedAniListId.ToString() }),
+            _user, true, null, SyncUpdateSource.Playback));
+        Assert.That(_pipeline.ResolvedIds.Anilist, Is.Null);
+    }
+
+    /// <summary>
+    /// A provider that is missing its server-side configuration must be skipped on its own, not end the loop for
+    /// every provider configured after it.
+    /// </summary>
+    [TestCase(ApiName.Shikimori)]
+    [TestCase(ApiName.Simkl)]
+    public async Task UnconfiguredProviderDoesNotSkipLaterProviders(ApiName unconfiguredProvider) {
+        ConfigureUser(unconfiguredProvider, ApiName.AniList);
+        var collector = new PlaybackOutcomeCollector();
+
+        await _pipeline.Run(
+            MovieWithIds("Unknown Movie", new Dictionary<string, string>()),
+            _user, true, collector, SyncUpdateSource.Playback);
+
+        Assert.That(collector.Outcomes.Select(outcome => outcome.Provider), Does.Contain(ApiName.AniList));
+        Assert.That(collector.Outcomes.Select(outcome => outcome.Provider), Does.Not.Contain(unconfiguredProvider));
+    }
+}

@@ -2,6 +2,8 @@ using System.Linq;
 using System.Text.Json;
 using jellyfin_anidoki.Auth;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
 using Microsoft.AspNetCore.Mvc;
 using NUnit.Framework;
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { animeLibraryChoices, animeLibraryMode, createDraft, changedValues, describeAnimeLibraries, mergeChanges, mergePreferences, orderByReadiness, providerStatus, seededLibraryNames, thresholdChoices, thresholdFallsBack, userPreferences, withAnimeLibraryMode, secretChanges, withoutSecrets } from '../../../jellyfin-anidoki/Configuration/ConfigStateJs.js';
+import { animeLibraryChoices, animeLibraryMode, createDraft, changedValues, describeAnimeLibraries, mergeChanges, mergePreferences, orderByReadiness, providerStatus, seededLibraryNames, thresholdChoices, thresholdFallsBack, userPreferences, withAnimeLibraryMode, secretChanges, withoutSecrets } from '../../../jellyfin-anidoki/Web/ConfigStateJs.js';
 
 const saved = () => ({ callbackUrl: '', updateNsfw: true, ProviderApiAuth: [
     { Name: 'AniList', ClientId: 'one', ClientSecret: 'keep' },

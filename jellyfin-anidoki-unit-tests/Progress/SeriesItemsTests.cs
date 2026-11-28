@@ -5,6 +5,8 @@ using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Progress;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki_unit_tests.Characterization;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Annict;
 using MediaBrowser.Controller.Entities.TV;
 using Microsoft.Extensions.Caching.Memory;
 using NUnit.Framework;

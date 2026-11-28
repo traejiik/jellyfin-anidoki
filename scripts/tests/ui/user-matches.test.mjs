@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { openMatchesFromSettingsLink } from '../../../jellyfin-anidoki/Configuration/ConfigPageUserJs.js';
+import { openMatchesFromSettingsLink } from '../../../jellyfin-anidoki/Web/ConfigPageUserJs.js';
 import { createDocument } from './fake-dom.mjs';
-import startUserMatches, { guardSettingsForm } from '../../../jellyfin-anidoki/Configuration/UserMatchesJs.js';
+import startUserMatches, { guardSettingsForm } from '../../../jellyfin-anidoki/Web/UserMatchesJs.js';
 
 class Section {
     constructor() { this.listeners = []; }
@@ -100,7 +100,7 @@ test('the show shortcut initializes the episode map, correction, breadcrumbs and
         table.append(get(id));
     }
 
-    const state = new URL('../../../jellyfin-anidoki/Configuration/MatchEditorStateJs.js', import.meta.url).href;
+    const state = new URL('../../../jellyfin-anidoki/Web/MatchEditorStateJs.js', import.meta.url).href;
     const editor = 'data:text/javascript,' + encodeURIComponent(`
         export const createEntryPicker = () => ({ close() {} });
         export const bindEditor = () => {};
