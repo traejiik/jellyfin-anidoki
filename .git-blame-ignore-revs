@@ -21,3 +21,8 @@ e3d72ed30dda97820468d649ca1c4d17a6ba3ab1
 
 # Feature folders: web assets moved from Configuration/ to Web/, resources renamed with them.
 6f59c0c9540748fb7c8df542a12b71c724d85040
+
+# Feature folders: tests moved to mirror the plugin layout.
+8fda89a1a119e6a17fc6cbbb1d02de2ad6793ca8
+# Test namespaces renamed after their folders.
+312a880f78c326ca805b38ae52a2aa203beb9aac
