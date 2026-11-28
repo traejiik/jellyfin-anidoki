@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Notifications;
+using jellyfin_anidoki.Settings;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

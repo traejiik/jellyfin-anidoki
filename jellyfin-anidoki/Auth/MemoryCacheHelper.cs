@@ -4,13 +4,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
-using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Trackers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.Auth;
 
 public class MemoryCacheHelper {
     private static string GetNextAllowedKey(ApiName provider) => $"{provider}NextAllowedUtc";

@@ -1,6 +1,6 @@
 using System.IO;
 using System.Xml.Serialization;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Settings;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.HelperTests;

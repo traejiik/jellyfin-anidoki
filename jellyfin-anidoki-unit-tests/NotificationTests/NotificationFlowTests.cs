@@ -1,4 +1,5 @@
 using jellyfin_anidoki.Operations;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Storage;
 using System;
 using System.IO;
@@ -7,8 +8,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki;
-using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Playback;
 using Jellyfin.Database.Implementations.Entities;

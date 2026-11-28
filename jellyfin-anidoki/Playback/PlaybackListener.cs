@@ -13,6 +13,7 @@ using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Notifications.Discord;
 using jellyfin_anidoki.Operations;
 using Jellyfin.Database.Implementations.Entities;
+using jellyfin_anidoki.Settings;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;

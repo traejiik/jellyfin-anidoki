@@ -1,7 +1,7 @@
 using System.Net.Http;
 using jellyfin_anidoki;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Common.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;

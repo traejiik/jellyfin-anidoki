@@ -1,7 +1,6 @@
 using System.Linq;
 using System.Text.Json;
-using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Auth;
 using jellyfin_anidoki.Trackers;
 using Microsoft.AspNetCore.Mvc;
 using NUnit.Framework;

@@ -1,6 +1,6 @@
 using System;
 
-namespace jellyfin_anidoki.Configuration;
+namespace jellyfin_anidoki.Settings;
 
 /// <summary>How AniDōki treats one Jellyfin library.</summary>
 public enum AnimeLibraryMode {

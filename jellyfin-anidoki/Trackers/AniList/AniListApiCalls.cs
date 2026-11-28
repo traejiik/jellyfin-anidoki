@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Interfaces;
-using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Common.Net;

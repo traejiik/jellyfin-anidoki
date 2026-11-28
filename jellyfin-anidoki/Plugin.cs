@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Loader;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Storage;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;

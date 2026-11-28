@@ -7,13 +7,9 @@ using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Extensions;
 using jellyfin_anidoki.Interfaces;
-using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Playback;
-using jellyfin_anidoki.Enums;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.AniList;
 using jellyfin_anidoki.Trackers.Annict;
@@ -32,7 +28,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Jellyfin.Database.Implementations.Entities;
 
-namespace jellyfin_anidoki.Api;
+namespace jellyfin_anidoki.Settings;
 
 /// <summary>What the admin and user settings pages read and save: page parameters, a user's settings, the linked-account check and the anime-list folder check.</summary>
 [ApiController]

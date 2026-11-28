@@ -1,9 +1,9 @@
 using System;
 using System.Linq;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Auth;
 using jellyfin_anidoki.Trackers;
 
-namespace jellyfin_anidoki.Models;
+namespace jellyfin_anidoki.Settings;
 
 public sealed class UserConfigurationResponse {
     public UserConfigurationResponse(UserConfig? config) {

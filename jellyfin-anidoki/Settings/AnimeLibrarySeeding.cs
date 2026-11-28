@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using jellyfin_anidoki.Auth;
 using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Configuration;
+namespace jellyfin_anidoki.Settings;
 
 /// <summary>One Jellyfin library as seeding sees it: its ID and collection type (null for mixed content).</summary>
 public sealed record SeedLibrary(Guid Id, string? Type);

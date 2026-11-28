@@ -1,5 +1,6 @@
 using System.Collections.Generic;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Auth;
+using jellyfin_anidoki.Settings;
 
 namespace jellyfin_anidoki.Storage;
 

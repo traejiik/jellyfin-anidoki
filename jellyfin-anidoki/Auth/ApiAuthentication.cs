@@ -6,10 +6,8 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
-using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Shikimori;
 using jellyfin_anidoki.Trackers.Simkl;
@@ -20,7 +18,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Api;
+namespace jellyfin_anidoki.Auth;
 
 public class ApiAuthentication {
     private ApiName _provider;

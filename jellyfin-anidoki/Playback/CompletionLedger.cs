@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using jellyfin_anidoki.Operations;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Storage;
 using Microsoft.Data.Sqlite;
 

@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 using System.Xml.Serialization;
-using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Settings;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.HelperTests;

@@ -2,7 +2,7 @@ using System;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.Auth;
 
 public static class CallbackUrlHelper {
     public static string Build(string address) {

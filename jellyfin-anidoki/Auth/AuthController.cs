@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Extensions;
 using jellyfin_anidoki.Interfaces;
-using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Notifications.Discord;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Kitsu;
 using MediaBrowser.Common.Api;
@@ -19,7 +18,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Api;
+namespace jellyfin_anidoki.Auth;
 
 /// <summary>Links and unlinks tracker accounts, and serves the OAuth callback with its result and address-check pages.</summary>
 [ApiController]

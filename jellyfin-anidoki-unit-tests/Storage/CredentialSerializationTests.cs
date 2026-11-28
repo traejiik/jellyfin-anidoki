@@ -2,8 +2,8 @@ using System;
 using System.IO;
 using System.Text.Json;
 using System.Xml.Serialization;
-using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Auth;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
 using NUnit.Framework;
 

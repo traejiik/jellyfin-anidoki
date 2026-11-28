@@ -5,10 +5,9 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
-using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller;
@@ -16,7 +15,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Api;
+namespace jellyfin_anidoki.Auth;
 
 public class AuthApiCall {
     private readonly IHttpClientFactory _httpClientFactory;

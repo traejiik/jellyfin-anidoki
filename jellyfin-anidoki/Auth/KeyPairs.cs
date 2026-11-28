@@ -1,4 +1,4 @@
-namespace jellyfin_anidoki.Configuration;
+namespace jellyfin_anidoki.Auth;
 
 public class KeyPairs {
     public string? Key { get; set; }

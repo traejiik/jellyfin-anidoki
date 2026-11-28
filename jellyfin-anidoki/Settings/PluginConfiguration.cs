@@ -1,7 +1,7 @@
-using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Auth;
 using MediaBrowser.Model.Plugins;
 
-namespace jellyfin_anidoki.Configuration;
+namespace jellyfin_anidoki.Settings;
 /// <summary>
 /// Plugin configuration.
 /// </summary>

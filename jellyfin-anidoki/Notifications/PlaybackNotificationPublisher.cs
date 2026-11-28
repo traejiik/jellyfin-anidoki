@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using jellyfin_anidoki.Settings;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Entities.Movies;
