@@ -1,24 +1,8 @@
 using System;
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using System.Xml.Serialization;
 
 namespace jellyfin_anidoki.Configuration;
-
-public enum ApiName {
-    [Display(Name = "MyAnimeList")]
-    Mal,
-    [Display(Name = "AniList")]
-    AniList,
-    [Display(Name = "Kitsu")]
-    Kitsu,
-    [Display(Name = "Annict")]
-    Annict,
-    [Display(Name = "Shikimori")]
-    Shikimori,
-    [Display(Name = "Simkl")]
-    Simkl
-}
 
 public class UserApiAuth {
     /// <summary>
