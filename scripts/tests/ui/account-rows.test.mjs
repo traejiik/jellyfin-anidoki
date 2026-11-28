@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as common from '../../../jellyfin-anidoki/Configuration/CommonJs.js';
+import * as common from '../../../jellyfin-anidoki/Web/CommonJs.js';
 
 let focused = null;
 

@@ -92,7 +92,7 @@ public partial class UserConfigurationTests {
     [TestCase("provider-annict.svg")]
     [TestCase("../Images/provider-anilist.svg")]
     [TestCase("provider-anilist.svg/../CommonJs.js")]
-    [TestCase("jellyfin_anidoki.Configuration.Images.provider-anilist.svg")]
+    [TestCase("jellyfin_anidoki.Web.Images.provider-anilist.svg")]
     public void PublicProviderAssetWhitelistRejectsUnknownNamesAndResourcePaths(string asset) {
         Assert.That(_pages.GetAsset(asset), Is.TypeOf<NotFoundResult>());
     }

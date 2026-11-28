@@ -255,43 +255,43 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages {
                 DisplayName = "AniDōki",
                 EnableInMainMenu = true,
                 MenuIcon = "sync",
-                EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.ConfigPage.html"
+                EmbeddedResourcePath = $"{GetType().Namespace}.Web.ConfigPage.html"
             },
             new PluginPageInfo {
                 Name = "AniDoki_ConfigPageJs",
-                EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.ConfigPageJs.js"
+                EmbeddedResourcePath = $"{GetType().Namespace}.Web.ConfigPageJs.js"
             },
             new PluginPageInfo {
                 Name = "AniDoki_CommonJs",
-                EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.CommonJs.js"
+                EmbeddedResourcePath = $"{GetType().Namespace}.Web.CommonJs.js"
             },
             new PluginPageInfo {
                 Name = "AniDoki_Styles",
-                EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.Anidoki.css"
+                EmbeddedResourcePath = $"{GetType().Namespace}.Web.Anidoki.css"
             },
             new PluginPageInfo {
                 Name = "AniDoki_ConfigStateJs",
-                EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.ConfigStateJs.js"
+                EmbeddedResourcePath = $"{GetType().Namespace}.Web.ConfigStateJs.js"
             },
             new PluginPageInfo {
                 Name = "AniDoki_ConfigPageUserJs",
-                EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.ConfigPageUserJs.js"
+                EmbeddedResourcePath = $"{GetType().Namespace}.Web.ConfigPageUserJs.js"
             },
             new PluginPageInfo {
                 Name = "AniDoki_ManualSync",
-                EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.ManualSync.html"
+                EmbeddedResourcePath = $"{GetType().Namespace}.Web.ManualSync.html"
             },
             new PluginPageInfo {
                 Name = "AniDoki_ManualSyncJs",
-                EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.ManualSyncJs.js"
+                EmbeddedResourcePath = $"{GetType().Namespace}.Web.ManualSyncJs.js"
             },
             new PluginPageInfo {
                 Name = "AniDoki_Matches",
-                EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.Matches.html"
+                EmbeddedResourcePath = $"{GetType().Namespace}.Web.Matches.html"
             },
             new PluginPageInfo {
                 Name = "AniDoki_MatchesJs",
-                EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.MatchesJs.js"
+                EmbeddedResourcePath = $"{GetType().Namespace}.Web.MatchesJs.js"
             }
         };
     }
@@ -305,7 +305,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages {
         {
             new PluginPageInfo {
                 Name = "settings",
-                EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.ConfigPageUser.html"
+                EmbeddedResourcePath = $"{GetType().Namespace}.Web.ConfigPageUser.html"
             }
         };
     }

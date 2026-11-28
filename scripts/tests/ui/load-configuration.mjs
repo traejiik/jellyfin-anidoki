@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 const served = { 'common.js': 'CommonJs.js', 'outcome-lines.js': 'OutcomeLinesJs.js', 'notification-state.js': 'NotificationStateJs.js', 'manual-mark-state.js': 'ManualMarkStateJs.js', 'plugin-pages-guard.js': 'PluginPagesGuardJs.js', 'history-state.js': 'HistoryStateJs.js', 'history.js': 'HistoryJs.js', 'popup-state.js': 'PopupStateJs.js', 'popup-library-state.js': 'PopupLibraryStateJs.js', 'popup-library.js': 'PopupLibraryJs.js', 'progress-popup.js': 'ProgressPopupJs.js' };
 
 export async function configurationUrl(file) {
-    let source = await readFile(new URL(`../../../jellyfin-anidoki/Configuration/${file}`, import.meta.url), 'utf8');
+    let source = await readFile(new URL(`../../../jellyfin-anidoki/Web/${file}`, import.meta.url), 'utf8');
     for (const [asset, name] of Object.entries(served))
         if (source.includes(`'./${asset}'`))
             source = source.replaceAll(`'./${asset}'`, JSON.stringify(await configurationUrl(name)));

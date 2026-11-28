@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as editor from '../../../jellyfin-anidoki/Configuration/MatchEditorStateJs.js';
+import * as editor from '../../../jellyfin-anidoki/Web/MatchEditorStateJs.js';
 
 const entry = id => ({ id, title: `Entry ${id}` });
 const range = (sourceStart, sourceEnd, id, targetStart = 1) => ({ sourceStart, sourceEnd, target: entry(id), targetStart });

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setImmediate as nextTurn } from 'node:timers/promises';
-import adminController from '../../../jellyfin-anidoki/Configuration/ConfigPageJs.js';
+import adminController from '../../../jellyfin-anidoki/Web/ConfigPageJs.js';
 import { configurationUrl } from './load-configuration.mjs';
 
 // The page imports history-state.js, which imports outcome-lines.js; served inlined, as the browser would resolve them.
@@ -84,9 +84,9 @@ async function setupAdmin(t, users = [], localLookup = async () => Response.json
     setGlobal(t, 'IntersectionObserver', class { observe() {} disconnect() {} });
     setGlobal(t, 'ApiClient', {
         getUrl: path => /^AniDoki\/assets\/v\/[^/]+\/common\.js$/.test(path)
-            ? new URL('../../../jellyfin-anidoki/Configuration/CommonJs.js', import.meta.url).href
+            ? new URL('../../../jellyfin-anidoki/Web/CommonJs.js', import.meta.url).href
             : /^AniDoki\/assets\/v\/[^/]+\/config-state\.js$/.test(path)
-                ? new URL('../../../jellyfin-anidoki/Configuration/ConfigStateJs.js', import.meta.url).href
+                ? new URL('../../../jellyfin-anidoki/Web/ConfigStateJs.js', import.meta.url).href
                 : /^AniDoki\/assets\/v\/[^/]+\/history-state\.js$/.test(path)
                     ? historyStateUrl
                     : `https://jellyfin.example.test/${path}`,

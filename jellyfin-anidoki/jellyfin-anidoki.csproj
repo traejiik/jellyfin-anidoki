@@ -32,102 +32,102 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Remove="Configuration\NotificationsJs.js"/>
-        <EmbeddedResource Include="Configuration\NotificationsJs.js"/>
-        <None Remove="Configuration\DiscordSettingsJs.js"/>
-        <EmbeddedResource Include="Configuration\DiscordSettingsJs.js"/>
-        <None Remove="Configuration\Images\branding\anidoki-avatar.png"/>
-        <EmbeddedResource Include="Configuration\Images\branding\anidoki-avatar.png" LogicalName="jellyfin_anidoki.Configuration.Images.anidoki-avatar.png"/>
-        <None Remove="Configuration\Images\branding\anidoki-symbol.svg"/>
-        <EmbeddedResource Include="Configuration\Images\branding\anidoki-symbol.svg" LogicalName="jellyfin_anidoki.Configuration.Images.anidoki-symbol.svg"/>
-        <None Remove="Configuration\ManualMarkStateJs.js"/>
-        <EmbeddedResource Include="Configuration\ManualMarkStateJs.js"/>
-        <None Remove="Configuration\PluginPagesGuardJs.js"/>
-        <EmbeddedResource Include="Configuration\PluginPagesGuardJs.js"/>
-        <None Remove="Configuration\NotificationStateJs.js"/>
-        <EmbeddedResource Include="Configuration\NotificationStateJs.js"/>
-        <None Remove="Configuration\PopupStateJs.js"/>
-        <EmbeddedResource Include="Configuration\PopupStateJs.js"/>
-        <None Remove="Configuration\PopupLibraryJs.js"/>
-        <EmbeddedResource Include="Configuration\PopupLibraryJs.js"/>
-        <None Remove="Configuration\PopupLibraryStateJs.js"/>
-        <EmbeddedResource Include="Configuration\PopupLibraryStateJs.js"/>
-        <None Remove="Configuration\ProgressPopupJs.js"/>
-        <EmbeddedResource Include="Configuration\ProgressPopupJs.js"/>
-        <None Remove="Configuration\ProgressPopup.css"/>
-        <EmbeddedResource Include="Configuration\ProgressPopup.css"/>
-        <None Remove="Configuration\OutcomeLinesJs.js"/>
-        <EmbeddedResource Include="Configuration\OutcomeLinesJs.js"/>
-        <None Remove="Configuration\Anidoki.css"/>
-        <EmbeddedResource Include="Configuration\Anidoki.css"/>
-        <None Remove="Configuration\ConfigStateJs.js"/>
-        <EmbeddedResource Include="Configuration\ConfigStateJs.js"/>
-        <None Remove="Configuration\HistoryJs.js"/>
-        <EmbeddedResource Include="Configuration\HistoryJs.js"/>
-        <None Remove="Configuration\HistoryStateJs.js"/>
-        <EmbeddedResource Include="Configuration\HistoryStateJs.js"/>
-        <None Remove="Configuration\ConfigPageUserJs.js"/>
-        <EmbeddedResource Include="Configuration\ConfigPageUserJs.js"/>
-        <None Remove="Configuration\ConfigPage.html"/>
-        <EmbeddedResource Include="Configuration\ConfigPage.html"/>
-        <None Remove="Configuration\ConfigPageJs.js"/>
-        <EmbeddedResource Include="Configuration\ConfigPageJs.js"/>
-        <None Remove="Configuration\ConfigPageUser.html"/>
-        <EmbeddedResource Include="Configuration\ConfigPageUser.html"/>
-        <None Remove="Configuration\CommonJs.js"/>
-        <EmbeddedResource Include="Configuration\CommonJs.js"/>
-        <None Remove="Configuration\ManualSync.html"/>
-        <EmbeddedResource Include="Configuration\ManualSync.html"/>
-        <None Remove="Configuration\ManualSyncJs.js"/>
-        <EmbeddedResource Include="Configuration\ManualSyncJs.js"/>
-        <None Remove="Configuration\Matches.html"/>
-        <EmbeddedResource Include="Configuration\Matches.html"/>
-        <None Remove="Configuration\MatchesJs.js"/>
-        <EmbeddedResource Include="Configuration\MatchesJs.js"/>
-        <None Remove="Configuration\MatchEditorJs.js"/>
-        <EmbeddedResource Include="Configuration\MatchEditorJs.js"/>
-        <None Remove="Configuration\MatchEditorStateJs.js"/>
-        <EmbeddedResource Include="Configuration\MatchEditorStateJs.js"/>
-        <None Remove="Configuration\PreviewStateJs.js"/>
-        <EmbeddedResource Include="Configuration\PreviewStateJs.js"/>
-        <None Remove="Configuration\UserMatchesJs.js"/>
-        <EmbeddedResource Include="Configuration\UserMatchesJs.js"/>
-        <None Remove="Configuration\Images\provider-anilist.svg"/>
-        <EmbeddedResource Include="Configuration\Images\provider-anilist.svg" LogicalName="jellyfin_anidoki.Configuration.Images.provider-anilist.svg"/>
-        <None Remove="Configuration\Images\provider-mal.svg"/>
-        <EmbeddedResource Include="Configuration\Images\provider-mal.svg" LogicalName="jellyfin_anidoki.Configuration.Images.provider-mal.svg"/>
-        <None Remove="Configuration\Images\provider-kitsu.svg"/>
-        <EmbeddedResource Include="Configuration\Images\provider-kitsu.svg" LogicalName="jellyfin_anidoki.Configuration.Images.provider-kitsu.svg"/>
-        <None Remove="Configuration\Images\provider-annict.png"/>
-        <EmbeddedResource Include="Configuration\Images\provider-annict.png" LogicalName="jellyfin_anidoki.Configuration.Images.provider-annict.png"/>
-        <None Remove="Configuration\Images\provider-shikimori.svg"/>
-        <EmbeddedResource Include="Configuration\Images\provider-shikimori.svg" LogicalName="jellyfin_anidoki.Configuration.Images.provider-shikimori.svg"/>
-        <None Remove="Configuration\Images\provider-simkl.svg"/>
-        <EmbeddedResource Include="Configuration\Images\provider-simkl.svg" LogicalName="jellyfin_anidoki.Configuration.Images.provider-simkl.svg"/>
-        <None Remove="Configuration\Images\jellyfin.svg"/>
-        <EmbeddedResource Include="Configuration\Images\jellyfin.svg" LogicalName="jellyfin_anidoki.Configuration.Images.jellyfin.svg"/>
-        <None Remove="Configuration\Images\jellyfin-banner.svg"/>
-        <EmbeddedResource Include="Configuration\Images\jellyfin-banner.svg" LogicalName="jellyfin_anidoki.Configuration.Images.jellyfin-banner.svg"/>
-        <None Remove="Configuration\ResultPage.html"/>
-        <EmbeddedResource Include="Configuration\ResultPage.html"/>
-        <EmbeddedResource Include="Configuration\Images\PROVIDER-ASSETS.md" LogicalName="jellyfin_anidoki.Configuration.Images.PROVIDER-ASSETS.md"/>
-        <EmbeddedResource Include="Configuration\Images\LICENSE-Simple-Icons.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Simple-Icons.txt"/>
-        <EmbeddedResource Include="Configuration\Images\LICENSE-Annict.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Annict.txt"/>
-        <EmbeddedResource Include="Configuration\Images\LICENSE-Kitsu.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Kitsu.txt"/>
-        <EmbeddedResource Include="Configuration\Images\LICENSE-Shikimori.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Shikimori.txt"/>
-        <None Remove="Configuration\Fonts\noto-sans-latin-400.woff2"/>
-        <EmbeddedResource Include="Configuration\Fonts\noto-sans-latin-400.woff2" LogicalName="jellyfin_anidoki.Configuration.Fonts.noto-sans-latin-400.woff2"/>
-        <None Remove="Configuration\Fonts\noto-sans-latin-700.woff2"/>
-        <EmbeddedResource Include="Configuration\Fonts\noto-sans-latin-700.woff2" LogicalName="jellyfin_anidoki.Configuration.Fonts.noto-sans-latin-700.woff2"/>
-        <None Remove="Configuration\Fonts\noto-sans-latin-ext-400.woff2"/>
-        <EmbeddedResource Include="Configuration\Fonts\noto-sans-latin-ext-400.woff2" LogicalName="jellyfin_anidoki.Configuration.Fonts.noto-sans-latin-ext-400.woff2"/>
-        <None Remove="Configuration\Fonts\noto-sans-latin-ext-700.woff2"/>
-        <EmbeddedResource Include="Configuration\Fonts\noto-sans-latin-ext-700.woff2" LogicalName="jellyfin_anidoki.Configuration.Fonts.noto-sans-latin-ext-700.woff2"/>
-        <None Remove="Configuration\Fonts\LICENSE-Noto-Sans.txt"/>
-        <EmbeddedResource Include="Configuration\Fonts\LICENSE-Noto-Sans.txt" LogicalName="jellyfin_anidoki.Configuration.Fonts.LICENSE-Noto-Sans.txt"/>
-        <None Remove="Configuration\Fonts\FONTS.md"/>
-        <EmbeddedResource Include="Configuration\Fonts\FONTS.md" LogicalName="jellyfin_anidoki.Configuration.Fonts.FONTS.md"/>
-        <EmbeddedResource Include="Configuration\Images\LICENSE-Jellyfin-branding.txt" LogicalName="jellyfin_anidoki.Configuration.Images.LICENSE-Jellyfin-branding.txt"/>
+        <None Remove="Web\NotificationsJs.js"/>
+        <EmbeddedResource Include="Web\NotificationsJs.js"/>
+        <None Remove="Web\DiscordSettingsJs.js"/>
+        <EmbeddedResource Include="Web\DiscordSettingsJs.js"/>
+        <None Remove="Web\Images\branding\anidoki-avatar.png"/>
+        <EmbeddedResource Include="Web\Images\branding\anidoki-avatar.png" LogicalName="jellyfin_anidoki.Web.Images.anidoki-avatar.png"/>
+        <None Remove="Web\Images\branding\anidoki-symbol.svg"/>
+        <EmbeddedResource Include="Web\Images\branding\anidoki-symbol.svg" LogicalName="jellyfin_anidoki.Web.Images.anidoki-symbol.svg"/>
+        <None Remove="Web\ManualMarkStateJs.js"/>
+        <EmbeddedResource Include="Web\ManualMarkStateJs.js"/>
+        <None Remove="Web\PluginPagesGuardJs.js"/>
+        <EmbeddedResource Include="Web\PluginPagesGuardJs.js"/>
+        <None Remove="Web\NotificationStateJs.js"/>
+        <EmbeddedResource Include="Web\NotificationStateJs.js"/>
+        <None Remove="Web\PopupStateJs.js"/>
+        <EmbeddedResource Include="Web\PopupStateJs.js"/>
+        <None Remove="Web\PopupLibraryJs.js"/>
+        <EmbeddedResource Include="Web\PopupLibraryJs.js"/>
+        <None Remove="Web\PopupLibraryStateJs.js"/>
+        <EmbeddedResource Include="Web\PopupLibraryStateJs.js"/>
+        <None Remove="Web\ProgressPopupJs.js"/>
+        <EmbeddedResource Include="Web\ProgressPopupJs.js"/>
+        <None Remove="Web\ProgressPopup.css"/>
+        <EmbeddedResource Include="Web\ProgressPopup.css"/>
+        <None Remove="Web\OutcomeLinesJs.js"/>
+        <EmbeddedResource Include="Web\OutcomeLinesJs.js"/>
+        <None Remove="Web\Anidoki.css"/>
+        <EmbeddedResource Include="Web\Anidoki.css"/>
+        <None Remove="Web\ConfigStateJs.js"/>
+        <EmbeddedResource Include="Web\ConfigStateJs.js"/>
+        <None Remove="Web\HistoryJs.js"/>
+        <EmbeddedResource Include="Web\HistoryJs.js"/>
+        <None Remove="Web\HistoryStateJs.js"/>
+        <EmbeddedResource Include="Web\HistoryStateJs.js"/>
+        <None Remove="Web\ConfigPageUserJs.js"/>
+        <EmbeddedResource Include="Web\ConfigPageUserJs.js"/>
+        <None Remove="Web\ConfigPage.html"/>
+        <EmbeddedResource Include="Web\ConfigPage.html"/>
+        <None Remove="Web\ConfigPageJs.js"/>
+        <EmbeddedResource Include="Web\ConfigPageJs.js"/>
+        <None Remove="Web\ConfigPageUser.html"/>
+        <EmbeddedResource Include="Web\ConfigPageUser.html"/>
+        <None Remove="Web\CommonJs.js"/>
+        <EmbeddedResource Include="Web\CommonJs.js"/>
+        <None Remove="Web\ManualSync.html"/>
+        <EmbeddedResource Include="Web\ManualSync.html"/>
+        <None Remove="Web\ManualSyncJs.js"/>
+        <EmbeddedResource Include="Web\ManualSyncJs.js"/>
+        <None Remove="Web\Matches.html"/>
+        <EmbeddedResource Include="Web\Matches.html"/>
+        <None Remove="Web\MatchesJs.js"/>
+        <EmbeddedResource Include="Web\MatchesJs.js"/>
+        <None Remove="Web\MatchEditorJs.js"/>
+        <EmbeddedResource Include="Web\MatchEditorJs.js"/>
+        <None Remove="Web\MatchEditorStateJs.js"/>
+        <EmbeddedResource Include="Web\MatchEditorStateJs.js"/>
+        <None Remove="Web\PreviewStateJs.js"/>
+        <EmbeddedResource Include="Web\PreviewStateJs.js"/>
+        <None Remove="Web\UserMatchesJs.js"/>
+        <EmbeddedResource Include="Web\UserMatchesJs.js"/>
+        <None Remove="Web\Images\provider-anilist.svg"/>
+        <EmbeddedResource Include="Web\Images\provider-anilist.svg" LogicalName="jellyfin_anidoki.Web.Images.provider-anilist.svg"/>
+        <None Remove="Web\Images\provider-mal.svg"/>
+        <EmbeddedResource Include="Web\Images\provider-mal.svg" LogicalName="jellyfin_anidoki.Web.Images.provider-mal.svg"/>
+        <None Remove="Web\Images\provider-kitsu.svg"/>
+        <EmbeddedResource Include="Web\Images\provider-kitsu.svg" LogicalName="jellyfin_anidoki.Web.Images.provider-kitsu.svg"/>
+        <None Remove="Web\Images\provider-annict.png"/>
+        <EmbeddedResource Include="Web\Images\provider-annict.png" LogicalName="jellyfin_anidoki.Web.Images.provider-annict.png"/>
+        <None Remove="Web\Images\provider-shikimori.svg"/>
+        <EmbeddedResource Include="Web\Images\provider-shikimori.svg" LogicalName="jellyfin_anidoki.Web.Images.provider-shikimori.svg"/>
+        <None Remove="Web\Images\provider-simkl.svg"/>
+        <EmbeddedResource Include="Web\Images\provider-simkl.svg" LogicalName="jellyfin_anidoki.Web.Images.provider-simkl.svg"/>
+        <None Remove="Web\Images\jellyfin.svg"/>
+        <EmbeddedResource Include="Web\Images\jellyfin.svg" LogicalName="jellyfin_anidoki.Web.Images.jellyfin.svg"/>
+        <None Remove="Web\Images\jellyfin-banner.svg"/>
+        <EmbeddedResource Include="Web\Images\jellyfin-banner.svg" LogicalName="jellyfin_anidoki.Web.Images.jellyfin-banner.svg"/>
+        <None Remove="Web\ResultPage.html"/>
+        <EmbeddedResource Include="Web\ResultPage.html"/>
+        <EmbeddedResource Include="Web\Images\PROVIDER-ASSETS.md" LogicalName="jellyfin_anidoki.Web.Images.PROVIDER-ASSETS.md"/>
+        <EmbeddedResource Include="Web\Images\LICENSE-Simple-Icons.txt" LogicalName="jellyfin_anidoki.Web.Images.LICENSE-Simple-Icons.txt"/>
+        <EmbeddedResource Include="Web\Images\LICENSE-Annict.txt" LogicalName="jellyfin_anidoki.Web.Images.LICENSE-Annict.txt"/>
+        <EmbeddedResource Include="Web\Images\LICENSE-Kitsu.txt" LogicalName="jellyfin_anidoki.Web.Images.LICENSE-Kitsu.txt"/>
+        <EmbeddedResource Include="Web\Images\LICENSE-Shikimori.txt" LogicalName="jellyfin_anidoki.Web.Images.LICENSE-Shikimori.txt"/>
+        <None Remove="Web\Fonts\noto-sans-latin-400.woff2"/>
+        <EmbeddedResource Include="Web\Fonts\noto-sans-latin-400.woff2" LogicalName="jellyfin_anidoki.Web.Fonts.noto-sans-latin-400.woff2"/>
+        <None Remove="Web\Fonts\noto-sans-latin-700.woff2"/>
+        <EmbeddedResource Include="Web\Fonts\noto-sans-latin-700.woff2" LogicalName="jellyfin_anidoki.Web.Fonts.noto-sans-latin-700.woff2"/>
+        <None Remove="Web\Fonts\noto-sans-latin-ext-400.woff2"/>
+        <EmbeddedResource Include="Web\Fonts\noto-sans-latin-ext-400.woff2" LogicalName="jellyfin_anidoki.Web.Fonts.noto-sans-latin-ext-400.woff2"/>
+        <None Remove="Web\Fonts\noto-sans-latin-ext-700.woff2"/>
+        <EmbeddedResource Include="Web\Fonts\noto-sans-latin-ext-700.woff2" LogicalName="jellyfin_anidoki.Web.Fonts.noto-sans-latin-ext-700.woff2"/>
+        <None Remove="Web\Fonts\LICENSE-Noto-Sans.txt"/>
+        <EmbeddedResource Include="Web\Fonts\LICENSE-Noto-Sans.txt" LogicalName="jellyfin_anidoki.Web.Fonts.LICENSE-Noto-Sans.txt"/>
+        <None Remove="Web\Fonts\FONTS.md"/>
+        <EmbeddedResource Include="Web\Fonts\FONTS.md" LogicalName="jellyfin_anidoki.Web.Fonts.FONTS.md"/>
+        <EmbeddedResource Include="Web\Images\LICENSE-Jellyfin-branding.txt" LogicalName="jellyfin_anidoki.Web.Images.LICENSE-Jellyfin-branding.txt"/>
     </ItemGroup>
 
     <ItemGroup>

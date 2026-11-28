@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bindDialog, bindEditor, bindPageActions, describeMapping } from '../../../jellyfin-anidoki/Configuration/MatchEditorJs.js';
+import { bindDialog, bindEditor, bindPageActions, describeMapping } from '../../../jellyfin-anidoki/Web/MatchEditorJs.js';
 
 // Just enough of an element to count listeners and route events by target, as the page's delegation needs.
 class Fake {

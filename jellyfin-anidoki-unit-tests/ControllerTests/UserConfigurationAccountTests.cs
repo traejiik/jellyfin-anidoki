@@ -295,7 +295,7 @@ public partial class UserConfigurationTests {
 
     [TestCase("Anidoki.css")]
     [TestCase("../CommonJs.js")]
-    [TestCase("jellyfin_anidoki.Configuration.ConfigPage.html")]
+    [TestCase("jellyfin_anidoki.Web.ConfigPage.html")]
     [TestCase("missing.js")]
     public async Task StaticAssetRouteRejectsNamesOutsideWhitelist(string asset) {
         Assert.That(await InvokeEndpoint("GetAsset", asset), Is.TypeOf<NotFoundResult>());
