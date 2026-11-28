@@ -1,8 +1,8 @@
 using System;
 using System.Linq;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Simkl;
 using NUnit.Framework;
 using static jellyfin_anidoki_unit_tests.Matching.MatchTestSupport;
 

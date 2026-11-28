@@ -1,0 +1,26 @@
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
+using jellyfin_anidoki.Trackers.Mal;
+
+namespace jellyfin_anidoki.Trackers.Simkl;
+
+public class SimklUserList {
+    [JsonPropertyName("anime")] public List<SimklUserEntry>? Entry { get; set; }
+}
+
+public class SimklUserEntry {
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    [JsonPropertyName("status")] public SimklStatus Status { get; set; }
+
+    [JsonPropertyName("watched_episodes_count")]
+    public int WatchedEpisodesCount { get; set; }
+
+    [JsonPropertyName("total_episodes_count")]
+    public int TotalEpisodesCount { get; set; }
+
+    [JsonPropertyName("show")] public Show? Show { get; set; }
+    [JsonPropertyName("anime_type")] public string? AnimeType { get; set; }
+
+    /// <summary>The user's rating, 1–10; null when unrated.</summary>
+    [JsonPropertyName("user_rating")] public int? UserRating { get; set; }
+}

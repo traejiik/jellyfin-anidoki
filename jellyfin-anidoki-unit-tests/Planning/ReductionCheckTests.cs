@@ -1,5 +1,4 @@
 using System;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Planning;
 using jellyfin_anidoki.Trackers;
 using NUnit.Framework;

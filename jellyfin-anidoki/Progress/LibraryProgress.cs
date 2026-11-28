@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 

@@ -2,13 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Preview;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Operations;
 using NUnit.Framework;
 
@@ -130,7 +131,7 @@ public class PreviewStoreTests {
         var row = new PreviewRow(0, PreviewDirection.FromTrackers, ApiName.AniList, "season:abc:1", season, "Show · season 1", 2, "1001", "Show", 2,
             PreviewRowKind.Change, "mark-played", null, null, null, false, "", null, null, true, true, null,
             new InboundChange(season, episodes, new DateTime(2026, 1, 2), true),
-            new InboundEntry(ApiName.AniList, 1001, "Show", jellyfin_anidoki.Models.Mal.Status.Completed, 2, "2026-01-02"));
+            new InboundEntry(ApiName.AniList, 1001, "Show", jellyfin_anidoki.Trackers.Mal.Status.Completed, 2, "2026-01-02"));
 
         _store.Add(id, row);
 

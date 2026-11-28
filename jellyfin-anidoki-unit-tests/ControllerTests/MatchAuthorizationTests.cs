@@ -10,6 +10,7 @@ using Jellyfin.Database.Implementations.Enums;
 using jellyfin_anidoki.Enums;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 using jellyfin_anidoki_unit_tests.Matching;
 using MediaBrowser.Common.Api;
 using Microsoft.AspNetCore.Authorization;

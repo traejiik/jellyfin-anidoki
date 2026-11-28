@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Resolution;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
 using NUnit.Framework;
 

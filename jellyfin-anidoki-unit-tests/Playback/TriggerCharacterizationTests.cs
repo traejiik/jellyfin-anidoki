@@ -12,6 +12,8 @@ using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Playback;
 using jellyfin_anidoki.Storage;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
 using jellyfin_anidoki_unit_tests.LoggingTests;
 using jellyfin_anidoki_unit_tests.Operations;

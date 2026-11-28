@@ -5,13 +5,12 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Api.Shikimori;
-using jellyfin_anidoki.Api.Simkl;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
-using jellyfin_anidoki.Models.Simkl;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
@@ -19,7 +18,6 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using jellyfin_anidoki.Trackers;
-using jellyfin_anidoki.Models.Mal;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.API_tests;
@@ -238,7 +236,7 @@ public class Simkl {
 
     private const string HistoryAdded = "{\"added\":{\"shows\":0,\"movies\":0,\"episodes\":1,\"statuses\":[{\"request\":{\"ids\":{\"simkl\":45006}},\"response\":{\"status\":\"watching\"}}]},\"not_found\":{\"shows\":[],\"movies\":[],\"episodes\":[]}}";
 
-    private static jellyfin_anidoki.Trackers.SimklTrackerClient RatingClient(List<Helpers.SentRequest> sent, params (HttpStatusCode Code, string Body)[] responses) =>
+    private static jellyfin_anidoki.Trackers.Simkl.SimklTrackerClient RatingClient(List<Helpers.SentRequest> sent, params (HttpStatusCode Code, string Body)[] responses) =>
         new(new SimklApiCalls(Helpers.RecordedSequence(sent, responses),
             new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object, new Mock<IHttpContextAccessor>().Object,
             new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object, new Dictionary<string, string> { { "simkl-api-key", "client" } },
@@ -251,7 +249,7 @@ public class Simkl {
     public void TheRatingIsReadFromTheUserList(int? rating, int? raw) {
         var entry = JsonSerializer.Deserialize<SimklUserEntry>(rating == null ? "{\"status\":\"watching\"}" : $"{{\"status\":\"watching\",\"user_rating\":{rating}}}")!;
 
-        var anime = jellyfin_anidoki.Helpers.ClassConversions.ConvertSimklAnime(new SimklExtendedMedia { Title = "Show" }, entry);
+        var anime = jellyfin_anidoki.Trackers.ClassConversions.ConvertSimklAnime(new SimklExtendedMedia { Title = "Show" }, entry);
 
         Assert.That(anime.MyListStatus!.ScoreRaw, Is.EqualTo(raw));
     }

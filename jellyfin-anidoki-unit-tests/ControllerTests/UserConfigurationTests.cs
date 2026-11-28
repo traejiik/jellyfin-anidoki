@@ -17,6 +17,8 @@ using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Enums;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Authentication;

@@ -4,7 +4,9 @@ using System.Threading.Tasks;
 using System.Xml.Serialization;
 using jellyfin_anidoki;
 using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
 using NUnit.Framework;
 

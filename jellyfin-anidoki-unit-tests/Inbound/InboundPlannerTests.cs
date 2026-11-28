@@ -1,7 +1,8 @@
 using System;
 using System.Linq;
 using jellyfin_anidoki;
-using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
 using MediaBrowser.Controller.Entities.TV;
 using NUnit.Framework;

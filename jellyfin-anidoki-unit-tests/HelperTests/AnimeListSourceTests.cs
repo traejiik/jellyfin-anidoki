@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.Trackers.Mal;
 using jellyfin_anidoki_unit_tests.LoggingTests;
 using MediaBrowser.Common.Configuration;
 using Microsoft.Extensions.Logging;

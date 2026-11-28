@@ -1,7 +1,7 @@
 using System;
-using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Notifications;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Controller.Entities.TV;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;

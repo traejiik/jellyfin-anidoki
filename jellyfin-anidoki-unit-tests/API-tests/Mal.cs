@@ -5,11 +5,12 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
-using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki.Trackers.Simkl;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -158,7 +159,7 @@ public class Mal {
     [TestCase("7", 70)]
     [TestCase("0", null)]
     public async Task TheScoreIsReadAsTenPoint(string score, int? raw) {
-        var client = new jellyfin_anidoki.Trackers.MalTrackerClient(SignedInApi(Helpers.Sequence((HttpStatusCode.OK, EntryWithScore.Replace("SCORE", score)))));
+        var client = new jellyfin_anidoki.Trackers.Mal.MalTrackerClient(SignedInApi(Helpers.Sequence((HttpStatusCode.OK, EntryWithScore.Replace("SCORE", score)))));
 
         var anime = await client.GetAnime(500);
 
@@ -168,7 +169,7 @@ public class Mal {
     [Test]
     public async Task AScoreIsSentAsAnInteger() {
         var sent = new List<Helpers.SentRequest>();
-        var client = new jellyfin_anidoki.Trackers.MalTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedStatus.Replace("SCORE", "9")))));
+        var client = new jellyfin_anidoki.Trackers.Mal.MalTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedStatus.Replace("SCORE", "9")))));
 
         var response = await client.UpdateAnime(500, 5, Status.Watching, scoreRaw: 85);
 
@@ -179,7 +180,7 @@ public class Mal {
     [Test]
     public async Task ClearingSendsZero() {
         var sent = new List<Helpers.SentRequest>();
-        var client = new jellyfin_anidoki.Trackers.MalTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedStatus.Replace("SCORE", "0")))));
+        var client = new jellyfin_anidoki.Trackers.Mal.MalTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedStatus.Replace("SCORE", "0")))));
 
         var response = await client.UpdateAnime(500, 5, Status.Watching, clearScore: true);
 
@@ -190,7 +191,7 @@ public class Mal {
     [Test]
     public async Task AWriteWithoutAScoreHasNoScoreField() {
         var sent = new List<Helpers.SentRequest>();
-        var client = new jellyfin_anidoki.Trackers.MalTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedStatus.Replace("SCORE", "7")))));
+        var client = new jellyfin_anidoki.Trackers.Mal.MalTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedStatus.Replace("SCORE", "7")))));
 
         var response = await client.UpdateAnime(500, 5, Status.Watching);
 

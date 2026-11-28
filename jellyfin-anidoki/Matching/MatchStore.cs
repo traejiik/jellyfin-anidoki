@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Trackers;

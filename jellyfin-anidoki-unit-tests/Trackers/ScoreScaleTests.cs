@@ -1,7 +1,6 @@
 using System;
 using System.Globalization;
 using System.Linq;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Trackers;
 using NUnit.Framework;
 

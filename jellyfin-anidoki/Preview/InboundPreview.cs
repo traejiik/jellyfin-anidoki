@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Operations;
 using Jellyfin.Database.Implementations.Entities;
+using jellyfin_anidoki.Trackers;
 using MediaBrowser.Controller.Library;
 
 namespace jellyfin_anidoki.Preview;

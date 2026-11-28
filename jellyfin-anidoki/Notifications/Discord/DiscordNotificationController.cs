@@ -1,6 +1,8 @@
 using System;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -44,9 +46,9 @@ public sealed class DiscordNotificationController(AuthenticatedSessionResolver r
         if (DiscordSettingsService.ReadyAddress is { } address && summary.ShowItemId != Guid.Empty)
             link = JellyfinShowLink.Build(address, summary.ShowItemId, host.SystemId);
         var example = summary with {
-            Outcomes = [new ProviderWriteOutcome(Configuration.ApiName.AniList, "preview", summary.ShowTitle,
+            Outcomes = [new ProviderWriteOutcome(jellyfin_anidoki.Trackers.ApiName.AniList, "preview", summary.ShowTitle,
             OutcomeKind.Confirmed, summary.IsMovie ? null : summary.EpisodeEndNumber ?? summary.EpisodeNumber ?? 1,
-            summary.IsMovie ? Models.Mal.Status.Completed : Models.Mal.Status.Watching, summary.IsMovie, "preview", true)]
+            summary.IsMovie ? jellyfin_anidoki.Trackers.Mal.Status.Completed : jellyfin_anidoki.Trackers.Mal.Status.Watching, summary.IsMovie, "preview", true)]
         };
         return Ok(new {
             empty = false,

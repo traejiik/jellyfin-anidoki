@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki_unit_tests.Characterization;
 

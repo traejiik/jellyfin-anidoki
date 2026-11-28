@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using jellyfin_anidoki;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki_unit_tests.Characterization;
 using MediaBrowser.Controller.Entities.Movies;
 using NUnit.Framework;

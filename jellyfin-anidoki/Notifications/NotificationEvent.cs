@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Text.Json.Serialization;
+using jellyfin_anidoki.Trackers.Mal;
 
 namespace jellyfin_anidoki.Notifications;
 

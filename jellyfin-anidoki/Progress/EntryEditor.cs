@@ -8,6 +8,7 @@ using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 using Microsoft.Extensions.Logging;
 
 namespace jellyfin_anidoki.Progress;

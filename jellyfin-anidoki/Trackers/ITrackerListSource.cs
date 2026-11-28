@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Api;
-using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Trackers.Mal;
 
 namespace jellyfin_anidoki.Trackers;
 

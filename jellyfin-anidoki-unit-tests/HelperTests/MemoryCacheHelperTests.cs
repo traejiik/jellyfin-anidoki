@@ -1,7 +1,7 @@
 using System;
 using System.Net.Http;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.Trackers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;

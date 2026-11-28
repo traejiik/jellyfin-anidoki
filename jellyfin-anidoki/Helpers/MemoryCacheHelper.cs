@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Trackers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 

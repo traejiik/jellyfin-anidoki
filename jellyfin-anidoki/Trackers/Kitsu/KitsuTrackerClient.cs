@@ -1,0 +1,189 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.Trackers.Mal;
+
+namespace jellyfin_anidoki.Trackers.Kitsu;
+
+public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITrackerListSource, ITrackerLibraryClient {
+    public async Task<List<Anime>?> SearchAnime(string query) => ConvertSearchResults(await api.SearchAnime(query));
+
+    internal static List<Anime> ConvertSearchResults(List<KitsuSearch.KitsuAnime>? animeList) {
+        var converted = new List<Anime>();
+        if (animeList != null) {
+            foreach (KitsuSearch.KitsuAnime anime in animeList)
+                converted.Add(ClassConversions.ConvertKitsuAnime(anime));
+        }
+
+        return converted;
+    }
+
+    public async Task<Anime?> GetAnime(int id, string? alternativeId = null, bool getRelated = false) {
+        KitsuGet.KitsuGetAnime? anime = await api.GetAnime(id);
+        if (anime == null)
+            return null;
+        // A reply without its data is malformed and stays a failed read, never "not on the list".
+        Anime converted = ClassConversions.ConvertKitsuAnime(anime.KitsuAnimeData!);
+        converted.MyListStatus = await GetConvertedUserList(id);
+        return converted;
+    }
+
+    /// <summary>The user's list status for an anime, or an empty status when it is not on the list.</summary>
+    internal async Task<MyListStatus> GetConvertedUserList(int id) {
+        int? userId = await api.GetUserId();
+        var userList = new MyListStatus();
+        if (userId == null)
+            return userList;
+        KitsuUpdate.KitsuLibraryEntry? entry = await api.GetUserAnimeStatus(userId.Value, id);
+        if (entry is not { Attributes: { } })
+            return userList;
+        userList = new MyListStatus {
+            NumEpisodesWatched = entry.Attributes.Progress ?? 0,
+            IsRewatching = entry.Attributes.Reconsuming ?? false,
+            RewatchCount = entry.Attributes.ReconsumeCount ?? 0,
+            ScoreRaw = entry.Attributes.RatingTwenty is > 0 and var rating ? rating * 5 : null
+        };
+        switch (entry.Attributes.Status) {
+            case KitsuUpdate.Status.completed:
+                userList.Status = Status.Completed;
+                break;
+            case KitsuUpdate.Status.current:
+                userList.Status = Status.Watching;
+                break;
+            case KitsuUpdate.Status.dropped:
+                userList.Status = Status.Dropped;
+                break;
+            case KitsuUpdate.Status.on_hold:
+                userList.Status = Status.On_hold;
+                break;
+            case KitsuUpdate.Status.planned:
+                userList.Status = Status.Plan_to_watch;
+                break;
+        }
+
+        return userList;
+    }
+
+    public Task<Anime?> GetAnime(ArmClient.OfflineDatabaseResponse ids, string title, bool getRelated = false) =>
+        Task.FromResult<Anime?>(null);
+
+    public async Task<UpdateAnimeStatusResponse?> UpdateAnime(int animeId, int numberOfWatchedEpisodes, Status status, bool? isRewatching = null,
+        int? numberOfTimesRewatched = null, DateTime? startDate = null, DateTime? endDate = null, string? alternativeId = null,
+        ArmClient.OfflineDatabaseResponse? ids = null, bool? isShow = null, int? scoreRaw = null, bool clearScore = false) {
+        KitsuUpdate.Status kitsuStatus = status switch {
+            Status.Watching => KitsuUpdate.Status.current,
+            Status.Completed or Status.Rewatching => isRewatching == true ? KitsuUpdate.Status.current : KitsuUpdate.Status.completed,
+            Status.On_hold => KitsuUpdate.Status.on_hold,
+            Status.Dropped => KitsuUpdate.Status.dropped,
+            Status.Plan_to_watch => KitsuUpdate.Status.planned,
+            _ => KitsuUpdate.Status.current
+        };
+        // Kitsu rates 2–20 in steps of one, which is 10–100 in steps of five on the contracts' scale.
+        int? ratingTwenty = scoreRaw == null ? null : Math.Clamp((int)Math.Round(scoreRaw.Value / 5m, MidpointRounding.AwayFromZero), 2, 20);
+        KitsuUpdate.Attributes? acknowledged = await api.UpdateAnimeStatusReceipt(animeId, numberOfWatchedEpisodes, kitsuStatus, isRewatching,
+            numberOfTimesRewatched, startDate, endDate, ratingTwenty, clearScore);
+        if (acknowledged == null)
+            return null;
+        return new UpdateAnimeStatusResponse {
+            UsesAcknowledgementFields = true,
+            AcknowledgedProgress = numberOfWatchedEpisodes,
+            AcknowledgedStatus = kitsuStatus == KitsuUpdate.Status.current ? Status.Watching : status == Status.Rewatching ? Status.Completed : status,
+            AcknowledgedScoreRaw = clearScore ? (acknowledged.RatingTwenty == null ? 0 : null)
+                : ratingTwenty != null ? acknowledged.RatingTwenty * 5 : null
+        };
+    }
+
+    public async Task<MalApiCalls.User?> GetUser() {
+        int? user = await api.GetUserId();
+        return user == null ? null : new MalApiCalls.User { Id = user.Value };
+    }
+
+    public async Task<List<Anime>?> GetAnimeList(Status status, int? userId = null) {
+        if (userId == null)
+            return null;
+        KitsuUpdate.Status kitsuStatus = status switch {
+            Status.Watching or Status.Rewatching => KitsuUpdate.Status.current,
+            Status.Completed => KitsuUpdate.Status.completed,
+            Status.On_hold => KitsuUpdate.Status.on_hold,
+            Status.Dropped => KitsuUpdate.Status.dropped,
+            Status.Plan_to_watch => KitsuUpdate.Status.planned,
+            _ => KitsuUpdate.Status.current
+        };
+        KitsuUpdate.KitsuLibraryEntryListRoot? animeList = await api.GetUserAnimeList(userId.Value, status: kitsuStatus);
+        if (animeList == null)
+            return null;
+        return ConvertList(animeList, status);
+    }
+
+    async Task<List<Anime>?> ITrackerLibraryClient.ReadWholeList(CancellationToken cancellationToken) {
+        if (await api.GetUserId() is not { } userId)
+            return null;
+        cancellationToken.ThrowIfCancellationRequested();
+        var list = await api.GetUserAnimeList(userId, status: null);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (list?.Data == null)
+            return null;
+
+        var media = new Dictionary<int, KitsuSearch.Attributes>();
+        foreach (var anime in list.Included ?? []) {
+            if (anime.Attributes != null)
+                media[anime.Id] = anime.Attributes;
+        }
+
+        var result = new List<Anime>(list.Data.Count);
+        foreach (var row in list.Data) {
+            if (row.Relationships?.AnimeData?.Anime is not { } reference || row.Attributes is not { Status: { } status } attributes)
+                return null;
+            var details = media.GetValueOrDefault(reference.Id);
+            result.Add(new Anime {
+                Id = reference.Id,
+                NumEpisodes = details?.EpisodeCount ?? 0,
+                LibraryIsAiring = details?.Status == null ? null : details.Status == "current",
+                MyListStatus = new MyListStatus {
+                    Status = status switch {
+                        KitsuUpdate.Status.completed => Status.Completed,
+                        KitsuUpdate.Status.dropped => Status.Dropped,
+                        KitsuUpdate.Status.on_hold => Status.On_hold,
+                        KitsuUpdate.Status.planned => Status.Plan_to_watch,
+                        _ => Status.Watching
+                    },
+                    NumEpisodesWatched = attributes.Progress ?? 0,
+                    IsRewatching = attributes.Reconsuming ?? false,
+                    RewatchCount = attributes.ReconsumeCount ?? 0,
+                    ScoreRaw = attributes.RatingTwenty is > 0 and <= 20 ? attributes.RatingTwenty * 5 : null
+                }
+            });
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// The list as read for one status: each entry carries that status, since the request filters by it, and the title of
+    /// the anime the response includes for it.
+    /// </summary>
+    internal static List<Anime> ConvertList(KitsuUpdate.KitsuLibraryEntryListRoot animeList, Status status) {
+        var titles = new Dictionary<int, string?>();
+        foreach (KitsuSearch.KitsuAnime included in animeList.Included ?? [])
+            titles[included.Id] = included.Attributes?.Titles?.English ?? included.Attributes?.CanonicalTitle;
+        var converted = new List<Anime>();
+        foreach (KitsuUpdate.KitsuLibraryEntry entry in animeList.Data!) {
+            var anime = new Anime();
+            if (entry.Relationships?.AnimeData?.Anime is { } related) {
+                anime.Id = related.Id;
+                anime.Title = titles.GetValueOrDefault(related.Id);
+            }
+            anime.MyListStatus = new MyListStatus { Status = status };
+            if (entry.Attributes != null) {
+                anime.MyListStatus.FinishDate = entry.Attributes.FinishedAt.ToString();
+                if (entry.Attributes.Progress != null)
+                    anime.MyListStatus.NumEpisodesWatched = entry.Attributes.Progress.Value;
+            }
+
+            converted.Add(anime);
+        }
+
+        return converted;
+    }
+}

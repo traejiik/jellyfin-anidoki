@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Trackers;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.HelperTests;

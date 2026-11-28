@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 
 namespace jellyfin_anidoki.Preview;
 
@@ -70,7 +70,7 @@ public sealed record InboundEntry(
     [property: JsonPropertyName("provider")] ApiName Provider,
     [property: JsonPropertyName("id")] int Id,
     [property: JsonPropertyName("title")] string Title,
-    [property: JsonPropertyName("status")] jellyfin_anidoki.Models.Mal.Status? Status,
+    [property: JsonPropertyName("status")] jellyfin_anidoki.Trackers.Mal.Status? Status,
     [property: JsonPropertyName("progress")] int Progress,
     [property: JsonPropertyName("finishDate")] string? FinishDate);
 

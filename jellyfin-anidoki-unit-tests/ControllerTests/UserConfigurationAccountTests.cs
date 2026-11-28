@@ -11,6 +11,8 @@ using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Models;
 using Jellyfin.Database.Implementations.Enums;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Common.Api;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

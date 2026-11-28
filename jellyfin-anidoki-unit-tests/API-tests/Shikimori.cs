@@ -5,11 +5,13 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Api.Shikimori;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
-using jellyfin_anidoki.Models.Shikimori;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki.Trackers.Shikimori;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
@@ -337,7 +339,7 @@ public class Shikimori {
     [TestCase("0", null)]
     public async Task TheScoreIsReadAsTenPoint(string score, int? raw) {
         var sent = new List<Helpers.SentRequest>();
-        var client = new jellyfin_anidoki.Trackers.ShikimoriTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, RatedAnime(score)))));
+        var client = new jellyfin_anidoki.Trackers.Shikimori.ShikimoriTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, RatedAnime(score)))));
 
         var anime = await client.GetAnime(500, "500");
 
@@ -348,9 +350,9 @@ public class Shikimori {
     [Test]
     public async Task AScoreIsSent() {
         var sent = new List<Helpers.SentRequest>();
-        var client = new jellyfin_anidoki.Trackers.ShikimoriTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedRate("9")))));
+        var client = new jellyfin_anidoki.Trackers.Shikimori.ShikimoriTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedRate("9")))));
 
-        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Models.Mal.Status.Watching, alternativeId: "500", scoreRaw: 85);
+        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Trackers.Mal.Status.Watching, alternativeId: "500", scoreRaw: 85);
 
         Assert.That(SentRate(sent.Single()).GetProperty("score").GetInt32(), Is.EqualTo(9));
         Assert.That(response!.AcknowledgedScoreRaw, Is.EqualTo(90));
@@ -359,9 +361,9 @@ public class Shikimori {
     [Test]
     public async Task ClearingSendsZero() {
         var sent = new List<Helpers.SentRequest>();
-        var client = new jellyfin_anidoki.Trackers.ShikimoriTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedRate("0")))));
+        var client = new jellyfin_anidoki.Trackers.Shikimori.ShikimoriTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedRate("0")))));
 
-        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Models.Mal.Status.Watching, alternativeId: "500", clearScore: true);
+        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Trackers.Mal.Status.Watching, alternativeId: "500", clearScore: true);
 
         Assert.That(SentRate(sent.Single()).GetProperty("score").GetInt32(), Is.EqualTo(0));
         Assert.That(response!.AcknowledgedScoreRaw, Is.EqualTo(0));
@@ -370,9 +372,9 @@ public class Shikimori {
     [Test]
     public async Task AWriteWithoutAScoreHasNoScoreKey() {
         var sent = new List<Helpers.SentRequest>();
-        var client = new jellyfin_anidoki.Trackers.ShikimoriTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedRate("7")))));
+        var client = new jellyfin_anidoki.Trackers.Shikimori.ShikimoriTrackerClient(SignedInApi(Helpers.RecordedSequence(sent, (HttpStatusCode.OK, SavedRate("7")))));
 
-        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Models.Mal.Status.Watching, alternativeId: "500");
+        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Trackers.Mal.Status.Watching, alternativeId: "500");
 
         Assert.That(SentRate(sent.Single()).TryGetProperty("score", out _), Is.False);
         Assert.That(response!.AcknowledgedScoreRaw, Is.Null);

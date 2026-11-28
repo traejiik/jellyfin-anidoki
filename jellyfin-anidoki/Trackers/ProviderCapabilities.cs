@@ -1,5 +1,4 @@
 using System;
-using jellyfin_anidoki.Configuration;
 
 namespace jellyfin_anidoki.Trackers;
 

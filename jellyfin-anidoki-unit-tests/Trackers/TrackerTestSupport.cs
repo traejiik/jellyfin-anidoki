@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
 
 namespace jellyfin_anidoki_unit_tests.Trackers;

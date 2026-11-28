@@ -1,5 +1,5 @@
 using System;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Trackers;
 
 namespace jellyfin_anidoki.Models;
 
