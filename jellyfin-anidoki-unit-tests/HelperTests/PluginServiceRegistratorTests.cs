@@ -1,5 +1,5 @@
 using jellyfin_anidoki;
-using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.AnimeIds;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using Microsoft.Extensions.DependencyInjection;

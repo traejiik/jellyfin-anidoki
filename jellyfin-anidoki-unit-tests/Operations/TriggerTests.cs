@@ -4,7 +4,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki;
 using jellyfin_anidoki.ManualMarks;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;

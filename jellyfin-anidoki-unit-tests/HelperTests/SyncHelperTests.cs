@@ -1,5 +1,5 @@
 using System;
-using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;

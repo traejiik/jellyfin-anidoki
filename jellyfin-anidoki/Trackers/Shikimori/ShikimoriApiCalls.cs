@@ -8,7 +8,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Auth;
-using jellyfin_anidoki.Interfaces;
+using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Controller;

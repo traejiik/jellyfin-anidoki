@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki;
 
 public sealed class SyncExecutionGate {
     public static SyncExecutionGate Shared { get; } = new();

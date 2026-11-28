@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
+using jellyfin_anidoki.AnimeIds;
 using jellyfin_anidoki.Settings;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Entities;
@@ -10,7 +11,7 @@ using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki;
 
 public class SyncHelper {
     /// <summary>The movies and series the user can see, less those in an Off library (<see cref="LibraryFilter.WithoutOffLibraries"/>).</summary>

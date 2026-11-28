@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using jellyfin_anidoki;
-using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.AnimeIds;
 using jellyfin_anidoki.ManualMarks;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers.Mal;

@@ -2,12 +2,11 @@ using System;
 using System.Linq;
 using System.Security.Claims;
 using Jellyfin.Extensions;
-using jellyfin_anidoki.Enums;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Enums;
 using MediaBrowser.Controller.Library;
 
-namespace jellyfin_anidoki.Extensions;
+namespace jellyfin_anidoki.Common;
 
 public static class UserManagerExtensions {
     /// <summary>

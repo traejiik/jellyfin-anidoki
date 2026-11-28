@@ -8,13 +8,14 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
+using jellyfin_anidoki.Logging;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Net;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.AnimeIds;
 
 /// <summary>
 /// The anime list file (Anime-Lists' <c>anime-list-full.xml</c>): where it is kept, keeping it up to date, downloading it

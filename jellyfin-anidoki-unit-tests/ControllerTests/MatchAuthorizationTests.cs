@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Enums;
-using jellyfin_anidoki.Enums;
+using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Mal;

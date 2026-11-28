@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.Common;
 
 public class StringFormatter {
     public static string RemoveSpecialCharacters(string str) {

@@ -1,4 +1,4 @@
-namespace jellyfin_anidoki.Enums;
+namespace jellyfin_anidoki;
 
 public enum SyncAction {
     UpdateProvider,

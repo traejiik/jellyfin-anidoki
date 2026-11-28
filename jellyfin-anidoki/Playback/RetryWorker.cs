@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Operations;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;

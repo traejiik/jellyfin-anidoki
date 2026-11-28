@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.Logging;
 
 /// <summary>Text shaping for log lines.</summary>
 internal static class LogText {

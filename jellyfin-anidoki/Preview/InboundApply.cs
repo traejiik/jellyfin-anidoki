@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Auth;
-using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using Jellyfin.Database.Implementations.Entities;

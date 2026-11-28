@@ -5,7 +5,7 @@ using System.Net.Http;
 using System.Text.Json;
 using jellyfin_anidoki;
 using jellyfin_anidoki.Auth;
-using jellyfin_anidoki.Interfaces;
+using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
 using MediaBrowser.Common.Configuration;

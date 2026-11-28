@@ -1,9 +1,8 @@
 using System;
 using System.Security.Claims;
-using jellyfin_anidoki.Enums;
-using jellyfin_anidoki.Extensions;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Enums;
+using jellyfin_anidoki.Common;
 using MediaBrowser.Controller.Library;
 using Moq;
 using NUnit.Framework;

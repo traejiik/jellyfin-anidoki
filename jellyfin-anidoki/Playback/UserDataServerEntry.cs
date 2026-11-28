@@ -2,8 +2,8 @@ using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Helpers;
-using jellyfin_anidoki.Interfaces;
+using jellyfin_anidoki.AnimeIds;
+using jellyfin_anidoki.Common;
 using jellyfin_anidoki.ManualMarks;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Notifications.Discord;
@@ -21,7 +21,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki;
+namespace jellyfin_anidoki.Playback;
 
 /// <summary>
 /// Listens to Jellyfin's user-data saves. A watched toggle either waits for the user's confirmation (manual marks)
