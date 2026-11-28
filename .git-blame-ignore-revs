@@ -1,3 +1,10 @@
 # Whitespace-only reformat to the .editorconfig rules.
 # Use with: git config blame.ignoreRevsFile .git-blame-ignore-revs
 544af4465562bf65bcad5e5b4782c75447587bc2
+
+# Feature folders: each tracker's calls, client and models moved into Trackers/<Name>/.
+e3d72ed30dda97820468d649ca1c4d17a6ba3ab1
+# ApiName moved into its own file.
+0228d22e9ae4e4e506bacb62d26578de80259cb8
+# Tracker namespaces renamed after their folders.
+5fd5978fdb6a3f642fd1b614667158f53c078382
