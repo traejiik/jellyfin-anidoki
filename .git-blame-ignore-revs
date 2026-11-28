@@ -13,3 +13,8 @@ e3d72ed30dda97820468d649ca1c4d17a6ba3ab1
 927f3fe48158eb69bcaeab6faa2d8605b65c750f
 # Auth and Settings namespaces renamed after their folders.
 7b93746cb08d8e93d8bdec87cbf28f8192dc6874
+
+# Feature folders: Helpers, Enums, Extensions, Interfaces, Tasks and root files sorted into AnimeIds/, Common/, Sync/, Playback/ and Logging/.
+04a467b725df783b36e8d44c86e6c611dbed65a5
+# Their namespaces renamed after their folders.
+1c118ce75d05ce1c355219ff8074d466e08d66bf
