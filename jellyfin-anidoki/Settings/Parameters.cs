@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Dynamic;
 
-namespace jellyfin_anidoki.Models;
+namespace jellyfin_anidoki.Settings;
 
 public class Parameters {
     public string? localIpAddress { get; set; }

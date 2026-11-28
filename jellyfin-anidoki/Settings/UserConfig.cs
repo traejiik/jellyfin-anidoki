@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
 using System.Xml.Serialization;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Auth;
 
-namespace jellyfin_anidoki.Models;
+namespace jellyfin_anidoki.Settings;
 
 public class UserConfig : UserEditableConfig {
     public UserConfig() {
@@ -74,7 +74,7 @@ public class UserEditableConfig {
     /// <summary>
     /// The percentage at which playback updates the trackers while the video plays (60 to the server's
     /// <c>MaxResumePct</c>, in steps of 5); 0 updates them on player exit at Jellyfin's own percentage; null follows the
-    /// admin's <see cref="Configuration.PluginConfiguration.DefaultTrackerThresholdPercent"/>.
+    /// admin's <see cref="PluginConfiguration.DefaultTrackerThresholdPercent"/>.
     /// </summary>
     public int? TrackerThresholdPercent { get; set; }
 }

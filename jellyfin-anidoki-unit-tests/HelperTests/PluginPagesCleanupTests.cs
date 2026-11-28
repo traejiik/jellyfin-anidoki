@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Settings;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json.Nodes;
 using NUnit.Framework;

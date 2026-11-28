@@ -6,7 +6,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
 using MediaBrowser.Common.Net;
 using Microsoft.Extensions.Logging;

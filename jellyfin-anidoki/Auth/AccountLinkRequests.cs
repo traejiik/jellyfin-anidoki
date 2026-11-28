@@ -2,7 +2,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using jellyfin_anidoki.Trackers;
 
-namespace jellyfin_anidoki.Models;
+namespace jellyfin_anidoki.Auth;
 
 public sealed class PasswordGrantRequest {
     public ApiName Provider { get; set; }

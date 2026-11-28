@@ -6,6 +6,7 @@ using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
+using jellyfin_anidoki.Settings;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;

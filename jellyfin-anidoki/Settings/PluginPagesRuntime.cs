@@ -3,7 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
 
-namespace jellyfin_anidoki.Configuration;
+namespace jellyfin_anidoki.Settings;
 
 internal static class PluginPagesRuntime {
     internal static void RemovePage(string id) {

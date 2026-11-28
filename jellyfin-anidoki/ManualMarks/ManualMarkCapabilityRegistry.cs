@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Storage;
 using Microsoft.Data.Sqlite;
 

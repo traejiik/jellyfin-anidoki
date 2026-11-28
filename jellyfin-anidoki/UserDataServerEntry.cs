@@ -9,6 +9,7 @@ using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Notifications.Discord;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Playback;
+using jellyfin_anidoki.Settings;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;

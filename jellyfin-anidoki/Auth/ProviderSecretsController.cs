@@ -1,13 +1,12 @@
 using System;
 using System.Linq;
-using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
 using MediaBrowser.Common.Api;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace jellyfin_anidoki.Api;
+namespace jellyfin_anidoki.Auth;
 
 /// <summary>Reports the storage state and saves or clears the trackers' app secrets.</summary>
 [ApiController]

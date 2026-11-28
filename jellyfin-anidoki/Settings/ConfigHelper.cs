@@ -1,11 +1,10 @@
 using System;
 using System.Linq;
-using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Auth;
 using jellyfin_anidoki.Trackers;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.Settings;
 
 public class ConfigHelper {
     public static string? GetShikimoriAppName(ILogger logger) {

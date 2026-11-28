@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Settings;
 
 namespace jellyfin_anidoki.Trackers;
 

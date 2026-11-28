@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Net.Http;
+using jellyfin_anidoki.Auth;
+using jellyfin_anidoki.Settings;
 using MediaBrowser.Common.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using MediaBrowser.Controller;
@@ -37,14 +39,14 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
             var cache = provider.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
             return new Operations.RetryQueue(Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath),
                 provider.GetRequiredService<TimeProvider>(), item => Playback.RetryWorker.SeriesKey(library, item),
-                tracker => Helpers.MemoryCacheHelper.RateLimitedUntil(tracker, cache));
+                tracker => Auth.MemoryCacheHelper.RateLimitedUntil(tracker, cache));
         });
         serviceCollection.AddSingleton(provider => new Operations.AccountAttention(
             Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath)));
         serviceCollection.AddSingleton(provider => new Operations.HistoryReader(
             Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath), provider.GetRequiredService<TimeProvider>()));
         // D9: before anything syncs, so the first start of 2.0.0 scans the libraries the users had picked.
-        serviceCollection.AddHostedService<Configuration.AnimeLibrarySeeding>();
+        serviceCollection.AddHostedService<Settings.AnimeLibrarySeeding>();
         serviceCollection.AddSingleton<Operations.OperationRunner>();
         // Registered before the triggers so leftovers from the previous run are marked before new work is queued.
         serviceCollection.AddHostedService(provider => provider.GetRequiredService<Operations.OperationRunner>());

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json.Serialization;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Resolution;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Trackers;
 

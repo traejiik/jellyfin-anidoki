@@ -10,6 +10,7 @@ using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Resolution;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Mal;

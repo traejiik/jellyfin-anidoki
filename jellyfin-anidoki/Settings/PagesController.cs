@@ -1,14 +1,13 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using jellyfin_anidoki.Helpers;
 using MediaBrowser.Model;
 using MediaBrowser.Model.Plugins;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Api;
+namespace jellyfin_anidoki.Settings;
 
 /// <summary>Serves the plugin's static assets and the user pages.</summary>
 [ApiController]

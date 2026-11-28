@@ -3,10 +3,11 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Notifications.Discord;
 using jellyfin_anidoki.Trackers;
 
-namespace jellyfin_anidoki.Api;
+namespace jellyfin_anidoki.Auth;
 
 public enum CallbackOutcome {
     Linked,

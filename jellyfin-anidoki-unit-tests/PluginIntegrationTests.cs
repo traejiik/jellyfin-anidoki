@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using jellyfin_anidoki;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Settings;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Configuration;

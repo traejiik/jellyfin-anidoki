@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using jellyfin_anidoki.Auth;
+using jellyfin_anidoki.Settings;
 
 namespace jellyfin_anidoki.ManualMarks;
 

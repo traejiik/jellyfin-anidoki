@@ -1,4 +1,4 @@
-namespace jellyfin_anidoki.Enums;
+namespace jellyfin_anidoki.Settings;
 
 public enum ParameterInclude {
     ProviderList = 0,

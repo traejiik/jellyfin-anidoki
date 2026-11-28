@@ -1,7 +1,7 @@
 using System;
 using jellyfin_anidoki.Trackers;
 
-namespace jellyfin_anidoki.Models;
+namespace jellyfin_anidoki.Auth;
 
 public class StoredState {
     public Guid UserId { get; set; }

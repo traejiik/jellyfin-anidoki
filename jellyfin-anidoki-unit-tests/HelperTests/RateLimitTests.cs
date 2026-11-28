@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.Auth;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Trackers;
 using Microsoft.Extensions.Caching.Memory;

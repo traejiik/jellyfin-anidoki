@@ -1,7 +1,7 @@
 using System;
 using jellyfin_anidoki.Trackers;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.Auth;
 
 /// <summary>
 /// Sign-in state keys: a random key, then a short marker of the issuing server and the provider,

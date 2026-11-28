@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using jellyfin_anidoki.Trackers;
 
-namespace jellyfin_anidoki.Models;
+namespace jellyfin_anidoki.Auth;
 
 /// <summary>Replaces or clears one provider's client secret. The secret is never returned.</summary>
 public sealed class ProviderSecretRequest {

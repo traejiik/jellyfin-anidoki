@@ -1,8 +1,9 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using jellyfin_anidoki.Planning;
 
-namespace jellyfin_anidoki.Configuration;
+namespace jellyfin_anidoki.Settings;
 
 /// <summary>
 /// Reads and writes the Plugin Pages plugin's config.json, which AniDoki edits in place

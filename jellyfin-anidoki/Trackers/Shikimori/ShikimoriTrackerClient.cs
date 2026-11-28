@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers.Mal;
 
 namespace jellyfin_anidoki.Trackers.Shikimori;

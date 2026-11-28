@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using System.Text.Json.Serialization;
 using jellyfin_anidoki.Extensions;
-using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.Settings;
 using MediaBrowser.Common.Api;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;

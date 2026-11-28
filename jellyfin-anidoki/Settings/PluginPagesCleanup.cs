@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace jellyfin_anidoki.Configuration;
+namespace jellyfin_anidoki.Settings;
 
 internal static class PluginPagesCleanup {
     private static readonly object FileLock = new();
