@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Jellyfin.Database.Implementations.Entities;
-using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;

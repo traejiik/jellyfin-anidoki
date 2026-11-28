@@ -1,7 +1,9 @@
 using System;
 using System.IO;
 using System.Net.Http;
+using jellyfin_anidoki.AnimeIds;
 using jellyfin_anidoki.Auth;
+using jellyfin_anidoki.Playback;
 using jellyfin_anidoki.Settings;
 using MediaBrowser.Common.Configuration;
 using Microsoft.AspNetCore.Mvc;
@@ -25,12 +27,12 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator {
         serviceCollection.AddHostedService(provider => provider.GetRequiredService<Notifications.Discord.DiscordNotificationDispatcher>());
         serviceCollection.AddSingleton(TimeProvider.System);
         // The ID lookups read the plugin settings on every use, so a changed ARM server or save location applies at once.
-        serviceCollection.AddSingleton(provider => new Helpers.ArmClient(provider.GetRequiredService<IHttpClientFactory>(),
-            provider.GetRequiredService<ILogger<Helpers.ArmClient>>(), () => Plugin.Instance?.PluginConfiguration));
-        serviceCollection.AddSingleton(provider => new Helpers.AnimeListSource(provider.GetRequiredService<IHttpClientFactory>(),
-            provider.GetRequiredService<IApplicationPaths>(), provider.GetRequiredService<ILogger<Helpers.AnimeListSource>>(),
+        serviceCollection.AddSingleton(provider => new AnimeIds.ArmClient(provider.GetRequiredService<IHttpClientFactory>(),
+            provider.GetRequiredService<ILogger<AnimeIds.ArmClient>>(), () => Plugin.Instance?.PluginConfiguration));
+        serviceCollection.AddSingleton(provider => new AnimeIds.AnimeListSource(provider.GetRequiredService<IHttpClientFactory>(),
+            provider.GetRequiredService<IApplicationPaths>(), provider.GetRequiredService<ILogger<AnimeIds.AnimeListSource>>(),
             () => Plugin.Instance?.PluginConfiguration));
-        serviceCollection.AddSingleton(provider => provider.GetRequiredService<Helpers.AnimeListSource>().Index);
+        serviceCollection.AddSingleton(provider => provider.GetRequiredService<AnimeIds.AnimeListSource>().Index);
         serviceCollection.AddSingleton(provider => new Operations.OperationStore(
             Storage.AniDokiDatabase.ForDataPath(provider.GetRequiredService<IApplicationPaths>().DataPath), provider.GetRequiredService<TimeProvider>()));
         // D6: the season key and the rate-limit window come from Jellyfin's library and the trackers' shared limiter.

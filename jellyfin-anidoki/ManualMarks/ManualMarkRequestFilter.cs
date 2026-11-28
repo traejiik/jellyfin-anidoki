@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.AnimeIds;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Settings;
 using MediaBrowser.Controller.Entities.TV;

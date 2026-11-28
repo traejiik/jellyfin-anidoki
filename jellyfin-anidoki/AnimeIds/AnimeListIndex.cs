@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.AnimeIds;
 
 /// <summary>
 /// The anime list's TMDB movie IDs and the AniDB entries they map to, and each AniDB entry's own TMDB and IMDb IDs,

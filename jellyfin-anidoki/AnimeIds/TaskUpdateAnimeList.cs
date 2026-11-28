@@ -2,11 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Model.Tasks;
 
-namespace jellyfin_anidoki;
+namespace jellyfin_anidoki.AnimeIds;
 
 public class TaskUpdateAnimeList : IScheduledTask {
     private readonly AnimeListSource _animeList;

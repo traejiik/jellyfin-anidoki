@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using jellyfin_anidoki;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Mal;

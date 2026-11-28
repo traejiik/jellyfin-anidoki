@@ -6,7 +6,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.AnimeIds;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki_unit_tests.LoggingTests;
 using Microsoft.Extensions.Logging;

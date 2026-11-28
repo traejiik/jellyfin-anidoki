@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.AnimeIds;
 using jellyfin_anidoki.Trackers.Mal;
 
 namespace jellyfin_anidoki.Trackers.Kitsu;

@@ -8,6 +8,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Jellyfin.Database.Implementations.Enums;
 using jellyfin_anidoki.Auth;
+using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Mal;

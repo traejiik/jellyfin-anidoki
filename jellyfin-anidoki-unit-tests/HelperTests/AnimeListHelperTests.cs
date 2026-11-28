@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using jellyfin_anidoki.AnimeIds;
 using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Controller.Entities.Movies;
 using Microsoft.Extensions.Logging.Abstractions;
-using jellyfin_anidoki.Helpers;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.HelperTests;

@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using MediaBrowser.Controller.Entities.Movies;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.AnimeIds;
 
 /// <summary>
 /// How far a movie's AniDB ID can be trusted. Jellyfin's AniDB metadata plugin finds movies by title, so it can give a

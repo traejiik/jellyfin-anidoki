@@ -1,4 +1,4 @@
-using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.Logging;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.LoggingTests;

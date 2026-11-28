@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Linq;
 using Jellyfin.Data.Enums;
 using Jellyfin.Database.Implementations.Entities;
-using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.AnimeIds;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Settings;
 using MediaBrowser.Controller.Dto;

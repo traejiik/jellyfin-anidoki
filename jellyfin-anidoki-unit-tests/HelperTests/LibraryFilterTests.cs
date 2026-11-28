@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.AnimeIds;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers.Mal;
 using jellyfin_anidoki.Trackers.Simkl;

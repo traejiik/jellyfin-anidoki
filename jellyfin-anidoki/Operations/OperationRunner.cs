@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Notifications;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Hosting;

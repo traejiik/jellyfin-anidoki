@@ -10,7 +10,7 @@ using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Entities.Movies;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.AnimeIds;
 
 public class AnimeListHelpers {
     /// <summary>

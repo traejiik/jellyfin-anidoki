@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using jellyfin_anidoki.Helpers;
 using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;

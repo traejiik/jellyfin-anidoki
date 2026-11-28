@@ -3,7 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
 using jellyfin_anidoki;
-using jellyfin_anidoki.Interfaces;
+using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Storage;

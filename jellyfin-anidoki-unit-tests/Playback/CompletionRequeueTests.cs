@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Playback;
 using jellyfin_anidoki.Trackers;

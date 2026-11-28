@@ -3,7 +3,7 @@ using System.IO;
 using System.Reflection;
 using System.Security.Claims;
 using jellyfin_anidoki;
-using jellyfin_anidoki.Enums;
+using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Storage;

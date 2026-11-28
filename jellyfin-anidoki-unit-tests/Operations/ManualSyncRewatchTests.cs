@@ -4,7 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using jellyfin_anidoki;
-using jellyfin_anidoki.Interfaces;
+using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Trackers;

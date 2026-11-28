@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using jellyfin_anidoki;
 using jellyfin_anidoki.Logging;
 using Microsoft.Extensions.Logging;
 using NUnit.Framework;

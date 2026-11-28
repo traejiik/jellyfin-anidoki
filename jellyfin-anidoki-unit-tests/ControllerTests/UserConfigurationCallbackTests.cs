@@ -3,7 +3,7 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Auth;
-using jellyfin_anidoki.Interfaces;
+using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Trackers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

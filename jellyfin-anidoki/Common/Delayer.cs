@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace jellyfin_anidoki.Interfaces;
+namespace jellyfin_anidoki.Common;
 
 public interface IAsyncDelayer {
     Task Delay(TimeSpan timeSpan);

@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Extensions;
+using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Settings;

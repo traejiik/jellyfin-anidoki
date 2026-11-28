@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.AnimeIds;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.HelperTests;
