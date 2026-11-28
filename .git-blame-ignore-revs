@@ -18,3 +18,6 @@ e3d72ed30dda97820468d649ca1c4d17a6ba3ab1
 04a467b725df783b36e8d44c86e6c611dbed65a5
 # Their namespaces renamed after their folders.
 1c118ce75d05ce1c355219ff8074d466e08d66bf
+
+# Feature folders: web assets moved from Configuration/ to Web/, resources renamed with them.
+6f59c0c9540748fb7c8df542a12b71c724d85040
