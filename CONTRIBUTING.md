@@ -6,9 +6,12 @@ Thanks for helping out. This guide covers how the repository is laid out, how to
 
 AniDōki targets .NET 10 and Jellyfin 12.4. The solution is `jellyfin-anidoki.sln`.
 
-- `jellyfin-anidoki/`: the plugin. It contains tracker integrations (`Api/`), provider models, helpers, synchronization and scheduled tasks.
-- `jellyfin-anidoki/Configuration/`: settings plus the embedded HTML, JavaScript and CSS for the plugin pages. When you add a resource, register it as an `EmbeddedResource` in `jellyfin-anidoki.csproj`.
-- `jellyfin-anidoki-unit-tests/`: NUnit tests for the APIs, helpers and sync flows.
+- `jellyfin-anidoki/`: the plugin, in one folder per feature. Each folder's namespace follows its path (`Trackers/Kitsu/` is `jellyfin_anidoki.Trackers.Kitsu`), except `Sync/`, which keeps the root `jellyfin_anidoki` namespace because of its `Sync` class.
+  - `Trackers/`: the tracker contracts, and one folder per tracker (`AniList/`, `Kitsu/`, `Mal/` and so on) with its API calls, client and models.
+  - `Auth/` (sign-in, callbacks and tracker tokens), `Settings/` (plugin and user settings, anime libraries, Plugin Pages), `AnimeIds/` (the anime list and ARM lookups) and `Common/` (small shared helpers).
+  - `Sync/`, `Playback/`, `Matching/`, `Resolution/`, `Planning/`, `Execution/`, `Preview/`, `Progress/`, `ManualMarks/`, `Notifications/`, `Operations/`, `Storage/` and `Logging/`: the sync pipeline and the features built on it.
+- `jellyfin-anidoki/Web/`: the embedded HTML, JavaScript, CSS and images for the plugin pages, the popup and the notifications. When you add a file, register it as an `EmbeddedResource` in `jellyfin-anidoki.csproj`; it is served as `jellyfin_anidoki.Web.<file>`.
+- `jellyfin-anidoki-unit-tests/`: NUnit tests, in folders that mirror the plugin's.
 - `scripts/`: release tooling (`release.py`) and its Python and Node tests.
 - `.github/workflows/`: CI, releases and the optional Docker image.
 - `docs/releasing.md`: how releases are tagged and published.
