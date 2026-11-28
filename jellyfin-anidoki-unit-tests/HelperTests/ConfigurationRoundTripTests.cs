@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Xml;
@@ -89,6 +90,24 @@ public class ConfigurationRoundTripTests {
             ("Full, saved", full), ("Full, read back and saved again", Again(full)),
             ("Empty, saved", empty), ("Empty, read back and saved again", Again(empty))));
     }
+
+    /// <summary>A configuration saved by AniDōki 2.0.0 on a test server, with its IDs replaced; Jellyfin's XML names no .NET namespace.</summary>
+    [Test]
+    public void A2_0_0ConfigurationStillLoads() {
+        var loaded = FromXml(File.ReadAllText(Fixture("configuration-2.0.0.xml")));
+
+        Assert.That(loaded.UserConfig, Has.Exactly(2).Items);
+        Assert.That(loaded.UserConfig?[0].UserApiAuth?.Select(auth => auth.Name), Is.EqualTo(new[] { ApiName.AniList, ApiName.Kitsu }));
+        Assert.That(loaded.UserConfig?[0].KeyPairs?.Single().Value, Is.EqualTo("1000"));
+        Assert.That(loaded.UserConfig?[1].TrackerThresholdPercent, Is.EqualTo(60));
+        Assert.That(loaded.ProviderApiAuth?.Single().ClientId, Is.EqualTo("client-id"));
+        Assert.That(loaded.AnimeLibraries?.Select(library => library.Mode), Is.EqualTo(Enumerable.Repeat(AnimeLibraryMode.Dedicated, 3)));
+        Assert.That(loaded.DefaultTrackerThresholdPercent, Is.EqualTo(70));
+        Assert.That(loaded.enableUserPages, Is.True);
+    }
+
+    private static string Fixture(string name, [CallerFilePath] string callerPath = "") =>
+        Path.Combine(Path.GetDirectoryName(callerPath)!, "Approved", name);
 
     private static string Sections(params (string Title, string Text)[] sections) =>
         string.Join("\n", sections.Select(section => $"# {section.Title}\n{section.Text}\n"));
