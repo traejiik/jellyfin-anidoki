@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace jellyfin_anidoki.Models.Kitsu;
+namespace jellyfin_anidoki.Trackers.Kitsu;
 
 public class KitsuGetUser {
     public class KitsuUser {

@@ -1,4 +1,5 @@
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 
 namespace jellyfin_anidoki.Planning;
 

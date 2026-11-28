@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Models.Mal;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 
 namespace jellyfin_anidoki.Notifications;
 

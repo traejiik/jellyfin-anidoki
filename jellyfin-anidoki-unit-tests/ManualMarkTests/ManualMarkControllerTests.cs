@@ -7,6 +7,7 @@ using jellyfin_anidoki.ManualMarks;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Notifications;
 using Jellyfin.Database.Implementations.Entities;
+using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Library;

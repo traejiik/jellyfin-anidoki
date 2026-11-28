@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Trackers;
 using Microsoft.Extensions.Logging;
 
 namespace jellyfin_anidoki.Helpers;

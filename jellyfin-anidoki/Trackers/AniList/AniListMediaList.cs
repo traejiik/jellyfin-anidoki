@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using jellyfin_anidoki.Trackers.Mal;
 
-namespace jellyfin_anidoki.Models;
+namespace jellyfin_anidoki.Trackers.AniList;
 
 public class AniListMediaList {
     public class Data {

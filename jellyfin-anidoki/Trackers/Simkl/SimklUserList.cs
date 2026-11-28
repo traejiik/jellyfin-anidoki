@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using jellyfin_anidoki.Trackers.Mal;
 
-namespace jellyfin_anidoki.Models.Simkl;
+namespace jellyfin_anidoki.Trackers.Simkl;
 
 public class SimklUserList {
     [JsonPropertyName("anime")] public List<SimklUserEntry>? Entry { get; set; }

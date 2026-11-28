@@ -5,18 +5,17 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Api.Kitsu;
-using jellyfin_anidoki.Api.Shikimori;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
-using jellyfin_anidoki.Models.Annict;
-using jellyfin_anidoki.Models.Kitsu;
-using jellyfin_anidoki.Models.Mal;
-using jellyfin_anidoki.Models.Shikimori;
-using jellyfin_anidoki.Models.Simkl;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.AniList;
+using jellyfin_anidoki.Trackers.Annict;
+using jellyfin_anidoki.Trackers.Kitsu;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki.Trackers.Shikimori;
+using jellyfin_anidoki.Trackers.Simkl;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -526,7 +525,7 @@ public class TrackerClientConversionTests {
             new() { RequestUrlMatch = url => url.Contains("/sync/all-items"), ResponseCode = HttpStatusCode.OK, ResponseContent = "{\"anime\":[]}" }
         }, ref http);
         var user = new UserConfig { UserApiAuth = [new UserApiAuth { Name = ApiName.Simkl, AccessToken = "access", RefreshToken = "refresh" }] };
-        var client = new SimklTrackerClient(new jellyfin_anidoki.Api.Simkl.SimklApiCalls(http, new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object,
+        var client = new SimklTrackerClient(new jellyfin_anidoki.Trackers.Simkl.SimklApiCalls(http, new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object,
             new Mock<IHttpContextAccessor>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object,
             new Dictionary<string, string> { { "simkl-api-key", "client" } }, user));
 
@@ -548,7 +547,7 @@ public class TrackerClientConversionTests {
             new() { RequestUrlMatch = url => url.Contains("/sync/all-items"), ResponseCode = status, ResponseContent = listBody }
         }, ref http);
         var user = new UserConfig { UserApiAuth = [new UserApiAuth { Name = ApiName.Simkl, AccessToken = "access", RefreshToken = "refresh" }] };
-        return new SimklTrackerClient(new jellyfin_anidoki.Api.Simkl.SimklApiCalls(http, new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object,
+        return new SimklTrackerClient(new jellyfin_anidoki.Trackers.Simkl.SimklApiCalls(http, new NullLoggerFactory(), new Mock<IServerApplicationHost>().Object,
             new Mock<IHttpContextAccessor>().Object, new MemoryCache(new MemoryCacheOptions()), new Mock<IAsyncDelayer>().Object,
             new Dictionary<string, string> { { "simkl-api-key", "client" } }, user));
     }

@@ -7,6 +7,7 @@ using Jellyfin.Database.Implementations.Entities;
 using jellyfin_anidoki.Matching;
 using Match = jellyfin_anidoki.Matching.Match;
 using jellyfin_anidoki.Storage;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Operations;
 using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Logging.Abstractions;

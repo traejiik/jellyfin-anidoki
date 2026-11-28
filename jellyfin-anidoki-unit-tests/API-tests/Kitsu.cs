@@ -5,11 +5,12 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Api.Kitsu;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
-using jellyfin_anidoki.Models.Kitsu;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Kitsu;
+using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -367,7 +368,7 @@ public class Kitsu {
             (7, (KitsuMediaRelationship.RelationType?)KitsuMediaRelationship.RelationType.prequel),
             (8, (KitsuMediaRelationship.RelationType?)KitsuMediaRelationship.RelationType.alternative_version)
         }));
-        Assert.That(jellyfin_anidoki.Helpers.ClassConversions.ConvertKitsuAnime(related!.First()).MainPicture?.Medium,
+        Assert.That(jellyfin_anidoki.Trackers.ClassConversions.ConvertKitsuAnime(related!.First()).MainPicture?.Medium,
             Is.EqualTo("https://example.test/kitsu.jpg"));
     }
 
@@ -393,7 +394,7 @@ public class Kitsu {
     [TestCase("17", 85)]
     [TestCase("null", null)]
     public async Task TheRatingIsReadFromRatingTwenty(string rating, int? raw) {
-        var client = new jellyfin_anidoki.Trackers.KitsuTrackerClient(Api(Helpers.Sequence((HttpStatusCode.OK, LibraryEntry(rating))), KitsuUser));
+        var client = new jellyfin_anidoki.Trackers.Kitsu.KitsuTrackerClient(Api(Helpers.Sequence((HttpStatusCode.OK, LibraryEntry(rating))), KitsuUser));
 
         var status = await client.GetConvertedUserList(500);
 
@@ -403,10 +404,10 @@ public class Kitsu {
     [Test]
     public async Task AScoreIsSentAsRatingTwenty() {
         var sent = new List<Helpers.SentRequest>();
-        var client = new jellyfin_anidoki.Trackers.KitsuTrackerClient(Api(Helpers.RecordedSequence(sent,
+        var client = new jellyfin_anidoki.Trackers.Kitsu.KitsuTrackerClient(Api(Helpers.RecordedSequence(sent,
             (HttpStatusCode.OK, LibraryEntry("null")), (HttpStatusCode.OK, SavedEntry("17"))), KitsuUser));
 
-        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Models.Mal.Status.Watching, scoreRaw: 85);
+        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Trackers.Mal.Status.Watching, scoreRaw: 85);
 
         Assert.That(SentAttributes(sent[1]).GetProperty("ratingTwenty").GetInt32(), Is.EqualTo(17));
         Assert.That(response!.AcknowledgedScoreRaw, Is.EqualTo(85));
@@ -415,10 +416,10 @@ public class Kitsu {
     [Test]
     public async Task ClearingSendsAnExplicitNull() {
         var sent = new List<Helpers.SentRequest>();
-        var client = new jellyfin_anidoki.Trackers.KitsuTrackerClient(Api(Helpers.RecordedSequence(sent,
+        var client = new jellyfin_anidoki.Trackers.Kitsu.KitsuTrackerClient(Api(Helpers.RecordedSequence(sent,
             (HttpStatusCode.OK, LibraryEntry("17")), (HttpStatusCode.OK, SavedEntry("null"))), KitsuUser));
 
-        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Models.Mal.Status.Watching, clearScore: true);
+        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Trackers.Mal.Status.Watching, clearScore: true);
 
         Assert.That(SentAttributes(sent[1]).TryGetProperty("ratingTwenty", out var rating), Is.True);
         Assert.That(rating.ValueKind, Is.EqualTo(System.Text.Json.JsonValueKind.Null));
@@ -428,10 +429,10 @@ public class Kitsu {
     [Test]
     public async Task AWriteWithoutAScoreHasNoRatingKey() {
         var sent = new List<Helpers.SentRequest>();
-        var client = new jellyfin_anidoki.Trackers.KitsuTrackerClient(Api(Helpers.RecordedSequence(sent,
+        var client = new jellyfin_anidoki.Trackers.Kitsu.KitsuTrackerClient(Api(Helpers.RecordedSequence(sent,
             (HttpStatusCode.OK, LibraryEntry("17")), (HttpStatusCode.OK, SavedEntry("17"))), KitsuUser));
 
-        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Models.Mal.Status.Watching);
+        var response = await client.UpdateAnime(500, 5, jellyfin_anidoki.Trackers.Mal.Status.Watching);
 
         Assert.That(SentAttributes(sent[1]).TryGetProperty("ratingTwenty", out _), Is.False);
         Assert.That(response!.AcknowledgedScoreRaw, Is.Null);

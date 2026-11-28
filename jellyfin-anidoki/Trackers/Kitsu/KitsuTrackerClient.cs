@@ -2,13 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Api;
-using jellyfin_anidoki.Api.Kitsu;
 using jellyfin_anidoki.Helpers;
-using jellyfin_anidoki.Models.Kitsu;
-using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Trackers.Mal;
 
-namespace jellyfin_anidoki.Trackers;
+namespace jellyfin_anidoki.Trackers.Kitsu;
 
 public sealed class KitsuTrackerClient(KitsuApiCalls api) : ITrackerClient, ITrackerListSource, ITrackerLibraryClient {
     public async Task<List<Anime>?> SearchAnime(string query) => ConvertSearchResults(await api.SearchAnime(query));

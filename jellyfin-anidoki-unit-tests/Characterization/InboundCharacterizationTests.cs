@@ -2,8 +2,8 @@ using System;
 using System.Text;
 using System.Threading.Tasks;
 using jellyfin_anidoki;
-using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Operations;
+using jellyfin_anidoki.Trackers.Mal;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 

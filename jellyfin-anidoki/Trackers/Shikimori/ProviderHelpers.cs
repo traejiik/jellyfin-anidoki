@@ -1,6 +1,7 @@
 using System;
+using jellyfin_anidoki.Configuration;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.Trackers.Shikimori;
 
 public class ProviderHelpers {
     public static string GetShikimoriDomain() {

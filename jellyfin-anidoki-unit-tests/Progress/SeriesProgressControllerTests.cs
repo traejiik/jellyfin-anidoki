@@ -11,6 +11,7 @@ using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Progress;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Operations;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Configuration;

@@ -6,18 +6,15 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
-using jellyfin_anidoki.Models.Annict;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Api.Annict;
+namespace jellyfin_anidoki.Trackers.Annict;
 
 /// <remarks>
 /// A 200 reply without its data still throws where it is read, as it always has: the pipeline then treats the read as

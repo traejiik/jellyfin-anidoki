@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Trackers;
@@ -218,6 +217,6 @@ public sealed class OperationStore(AniDokiDatabase database, TimeProvider clock)
 public sealed record RecordedAction(ApiName Provider, string TargetId, OutcomeKind Outcome, string Step, EntryState? PlannedAgainst);
 
 /// <summary>One recorded action: who synced which item, on which tracker, and how it came out.</summary>
-/// <param name="Provider">The tracker's <see cref="Configuration.ApiName"/>, by name.</param>
+/// <param name="Provider">The tracker's <see cref="jellyfin_anidoki.Trackers.ApiName"/>, by name.</param>
 /// <param name="Outcome">The <see cref="OutcomeKind"/>, by name.</param>
 public sealed record RecordedResolution(Guid UserId, Guid SourceItem, string Provider, string Outcome, string? Note);

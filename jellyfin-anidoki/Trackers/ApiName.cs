@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace jellyfin_anidoki.Configuration;
+namespace jellyfin_anidoki.Trackers;
 
 public enum ApiName {
     [Display(Name = "MyAnimeList")]

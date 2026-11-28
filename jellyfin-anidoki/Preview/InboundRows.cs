@@ -1,9 +1,9 @@
 using System;
 using System.Globalization;
 using System.Linq;
-using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Models.Mal;
 using Jellyfin.Database.Implementations.Entities;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;

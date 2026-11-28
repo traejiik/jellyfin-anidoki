@@ -4,6 +4,8 @@ using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Resolution;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
 using jellyfin_anidoki_unit_tests.Operations;
 using MediaBrowser.Controller.Entities;
@@ -101,7 +103,7 @@ public class MatchProblemsTests {
         Guid id = Guid.NewGuid();
         _store.Create(id, user, OperationKind.Playback, "Split Show");
         _store.AddAction(id, 0, OperationTestSupport.Outcome(OutcomeKind.Unresolved), new OutcomeDetail(episode.Id, 20, null, null, "no-cour-covers-episode", null, null));
-        _store.AddAction(id, 1, new ProviderWriteOutcome(jellyfin_anidoki.Configuration.ApiName.Kitsu, "7", "Split Show", OutcomeKind.Confirmed, 20, null, false, "progress", true),
+        _store.AddAction(id, 1, new ProviderWriteOutcome(jellyfin_anidoki.Trackers.ApiName.Kitsu, "7", "Split Show", OutcomeKind.Confirmed, 20, null, false, "progress", true),
             new OutcomeDetail(episode.Id, 20, 20, ResolvedBy.Ids, null, null, null));
 
         Assert.That(Problems().SourceKeys(user).Of(MatchProblem.NeedsMatch), Has.Count.EqualTo(1));

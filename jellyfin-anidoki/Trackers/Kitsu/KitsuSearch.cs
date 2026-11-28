@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using jellyfin_anidoki.Trackers.Mal;
 
-namespace jellyfin_anidoki.Models.Kitsu;
+namespace jellyfin_anidoki.Trackers.Kitsu;
 
 public class KitsuSearch {
     public class Titles {

@@ -1,11 +1,12 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Playback;
 using jellyfin_anidoki.Storage;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Simkl;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace jellyfin_anidoki_unit_tests.Operations;

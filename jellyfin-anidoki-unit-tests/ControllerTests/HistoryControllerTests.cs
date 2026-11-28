@@ -7,6 +7,8 @@ using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Enums;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Storage;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Operations;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Enums;

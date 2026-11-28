@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Extensions;
 using jellyfin_anidoki.Trackers;
 using MediaBrowser.Common.Api;

@@ -1,7 +1,8 @@
 using System;
 using System.Text.Json.Serialization;
+using jellyfin_anidoki.Trackers.Mal;
 
-namespace jellyfin_anidoki.Models.Shikimori;
+namespace jellyfin_anidoki.Trackers.Shikimori;
 
 public class ShikimoriUpdate {
     public class UpdateBody {

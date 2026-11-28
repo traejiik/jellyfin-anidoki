@@ -8,7 +8,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Api;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Trackers;
@@ -17,7 +17,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.Trackers;
 
 public class GraphQlHelper {
     public static async Task<HttpResponseMessage?> Request(HttpClient httpClient, ILogger logger, ApiName provider, IMemoryCache memoryCache, IAsyncDelayer delayer, string query, Dictionary<string, object>? variables = null, CancellationToken cancellationToken = default) {

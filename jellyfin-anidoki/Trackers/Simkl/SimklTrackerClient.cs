@@ -2,12 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Api.Simkl;
 using jellyfin_anidoki.Helpers;
-using jellyfin_anidoki.Models.Mal;
-using jellyfin_anidoki.Models.Simkl;
+using jellyfin_anidoki.Trackers.Mal;
 
-namespace jellyfin_anidoki.Trackers;
+namespace jellyfin_anidoki.Trackers.Simkl;
 
 /// <summary>Simkl reads and writes by cross IDs; it has no numeric-ID read, and sync never searches it.</summary>
 public sealed class SimklTrackerClient(SimklApiCalls api) : ITrackerClient {

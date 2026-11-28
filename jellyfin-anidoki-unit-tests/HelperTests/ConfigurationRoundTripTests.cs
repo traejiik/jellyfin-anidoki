@@ -7,6 +7,7 @@ using System.Xml;
 using System.Xml.Serialization;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Models;
+using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki_unit_tests.Characterization;
 using NUnit.Framework;
 

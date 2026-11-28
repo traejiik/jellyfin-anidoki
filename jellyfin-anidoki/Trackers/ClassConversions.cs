@@ -1,15 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using jellyfin_anidoki.Api;
-using jellyfin_anidoki.Models;
-using jellyfin_anidoki.Models.Annict;
-using jellyfin_anidoki.Models.Kitsu;
-using jellyfin_anidoki.Models.Mal;
-using jellyfin_anidoki.Models.Shikimori;
-using jellyfin_anidoki.Models.Simkl;
+using jellyfin_anidoki.Trackers.AniList;
+using jellyfin_anidoki.Trackers.Annict;
+using jellyfin_anidoki.Trackers.Kitsu;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki.Trackers.Shikimori;
+using jellyfin_anidoki.Trackers.Simkl;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.Trackers;
 
 public class ClassConversions {
     public static Anime ConvertAniListAnime(AniListSearch.Media aniListAnime) {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 
 namespace jellyfin_anidoki.Matching;
 

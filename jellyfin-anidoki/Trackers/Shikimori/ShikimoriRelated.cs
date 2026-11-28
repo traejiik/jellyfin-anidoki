@@ -1,8 +1,9 @@
 using System;
 using System.Text.Json.Serialization;
-using jellyfin_anidoki.Models.Shikimori;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki.Trackers.Simkl;
 
-namespace jellyfin_anidoki.Models.Shikimori;
+namespace jellyfin_anidoki.Trackers.Shikimori;
 
 public class ShikimoriRelated {
     [JsonPropertyName("anime")]

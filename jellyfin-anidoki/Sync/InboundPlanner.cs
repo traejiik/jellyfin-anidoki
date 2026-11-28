@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using jellyfin_anidoki.Helpers;
-using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Controller.Entities.TV;
 
 namespace jellyfin_anidoki;

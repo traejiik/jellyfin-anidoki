@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Controller.Entities.Movies;
 using Microsoft.Extensions.Logging.Abstractions;
 using jellyfin_anidoki.Helpers;

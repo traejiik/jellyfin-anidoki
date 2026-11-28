@@ -6,6 +6,7 @@ using jellyfin_anidoki;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Storage;
+using jellyfin_anidoki.Trackers;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Model.Serialization;

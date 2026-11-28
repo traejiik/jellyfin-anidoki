@@ -1,5 +1,5 @@
-using jellyfin_anidoki.Helpers;
-using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Trackers.Mal;
+
 
 namespace jellyfin_anidoki.ManualMarks;
 

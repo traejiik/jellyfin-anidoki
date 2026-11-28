@@ -1,5 +1,6 @@
-using jellyfin_anidoki.Models.Mal;
-using jellyfin_anidoki.Configuration;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
+
 
 namespace jellyfin_anidoki.Notifications;
 

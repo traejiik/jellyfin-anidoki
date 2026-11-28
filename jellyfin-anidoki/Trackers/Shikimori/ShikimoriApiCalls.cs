@@ -7,17 +7,17 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using jellyfin_anidoki.Api;
 using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Interfaces;
 using jellyfin_anidoki.Models;
-using jellyfin_anidoki.Models.Shikimori;
+using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki.Api.Shikimori;
+namespace jellyfin_anidoki.Trackers.Shikimori;
 
 public class ShikimoriApiCalls {
     private readonly ILogger<ShikimoriApiCalls> _logger;

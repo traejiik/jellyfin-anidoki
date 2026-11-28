@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace jellyfin_anidoki.Models;
+namespace jellyfin_anidoki.Trackers.AniList;
 
 public class AniListViewer {
     public class Viewer {

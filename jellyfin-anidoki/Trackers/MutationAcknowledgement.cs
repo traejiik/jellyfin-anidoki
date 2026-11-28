@@ -3,7 +3,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.Trackers;
 
 // Validate the receipt already returned by a mutation. Never issue a verification request.
 internal static class MutationAcknowledgement {

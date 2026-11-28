@@ -6,6 +6,7 @@ using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;

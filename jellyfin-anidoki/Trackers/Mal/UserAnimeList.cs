@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
-namespace jellyfin_anidoki.Models.Mal;
+namespace jellyfin_anidoki.Trackers.Mal;
 
 public class Paging {
     [JsonPropertyName("next")] public string? Next { get; set; }

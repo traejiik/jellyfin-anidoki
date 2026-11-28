@@ -1,6 +1,5 @@
 using System;
 using System.Globalization;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Execution;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Planning;

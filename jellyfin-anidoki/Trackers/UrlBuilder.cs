@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using jellyfin_anidoki.Models;
 
-namespace jellyfin_anidoki.Helpers;
+namespace jellyfin_anidoki.Trackers;
 
 public class UrlBuilder {
     /// <summary>

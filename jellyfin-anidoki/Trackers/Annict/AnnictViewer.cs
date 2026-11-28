@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace jellyfin_anidoki.Models.Annict;
+namespace jellyfin_anidoki.Trackers.Annict;
 
 public class AnnictViewer {
     public class AnnictViewerRoot {

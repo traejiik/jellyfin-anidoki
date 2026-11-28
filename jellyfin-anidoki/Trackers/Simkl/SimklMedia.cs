@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using jellyfin_anidoki.Trackers.Mal;
 
-namespace jellyfin_anidoki.Models.Simkl;
+namespace jellyfin_anidoki.Trackers.Simkl;
 
 public class SimklBaseMedia {
     [JsonPropertyName("title")] public string? Title { get; set; }

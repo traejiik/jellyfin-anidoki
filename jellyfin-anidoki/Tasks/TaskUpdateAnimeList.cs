@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Model.Tasks;
 
 namespace jellyfin_anidoki;

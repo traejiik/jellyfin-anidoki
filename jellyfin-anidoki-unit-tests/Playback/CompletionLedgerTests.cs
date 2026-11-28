@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Playback;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Operations;
 using NUnit.Framework;
 using static jellyfin_anidoki_unit_tests.Operations.OperationTestSupport;

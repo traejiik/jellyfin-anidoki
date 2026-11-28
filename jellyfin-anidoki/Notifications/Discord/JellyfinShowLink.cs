@@ -1,5 +1,6 @@
 using System;
 using jellyfin_anidoki.Helpers;
+using jellyfin_anidoki.Trackers.Simkl;
 namespace jellyfin_anidoki.Notifications.Discord;
 
 public static class JellyfinShowLink {

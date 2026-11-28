@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Models.Mal;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Planning;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
 using Microsoft.Extensions.Logging;
 
 namespace jellyfin_anidoki.Execution;

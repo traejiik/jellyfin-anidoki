@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using jellyfin_anidoki;
-using jellyfin_anidoki.Configuration;
-using jellyfin_anidoki.Models.Mal;
+using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki.Trackers.Simkl;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.Characterization;

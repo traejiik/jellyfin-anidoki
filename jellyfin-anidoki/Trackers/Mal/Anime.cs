@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace jellyfin_anidoki.Models.Mal;
+namespace jellyfin_anidoki.Trackers.Mal;
 
 public class MainPicture {
     [JsonPropertyName("medium")] public string? Medium { get; set; }

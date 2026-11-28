@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Simkl;
 using NUnit.Framework;
 using static jellyfin_anidoki_unit_tests.Operations.OperationTestSupport;
 

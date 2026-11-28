@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using System.Xml.Serialization;
+using jellyfin_anidoki.Trackers;
 
 namespace jellyfin_anidoki.Configuration;
 

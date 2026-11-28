@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace jellyfin_anidoki.Models.Shikimori;
+namespace jellyfin_anidoki.Trackers.Shikimori;
 
 public class ShikimoriAnime {
     [JsonPropertyName("id")]

@@ -16,6 +16,8 @@ using jellyfin_anidoki.Preview;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Matching;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Common.Configuration;
@@ -338,7 +340,7 @@ public class PreviewControllerTests {
             Guid season = Guid.NewGuid();
             _rows.Add(id, new PreviewRow(seq, PreviewDirection.FromTrackers, ApiName.AniList, "season:x:1", season, "Show · season 1", 4, "1001",
                 "Show", 4, PreviewRowKind.Change, "mark-played", null, null, null, false, "", null, null, true, true, null,
-                new InboundChange(season, [], new DateTime(2026, 1, 2), true), new InboundEntry(ApiName.AniList, 1001, "Show", jellyfin_anidoki.Models.Mal.Status.Completed, 4, null)));
+                new InboundChange(season, [], new DateTime(2026, 1, 2), true), new InboundEntry(ApiName.AniList, 1001, "Show", jellyfin_anidoki.Trackers.Mal.Status.Completed, 4, null)));
         }
         return id;
     }

@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using jellyfin_anidoki.Api;
+using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
-using jellyfin_anidoki.Models.Mal;
 
-namespace jellyfin_anidoki.Trackers;
+namespace jellyfin_anidoki.Trackers.Mal;
 
 public sealed class MalTrackerClient(MalApiCalls api) : ITrackerClient, ITrackerListSource, ITrackerLibraryClient {
     public async Task<List<Anime>?> SearchAnime(string query) {

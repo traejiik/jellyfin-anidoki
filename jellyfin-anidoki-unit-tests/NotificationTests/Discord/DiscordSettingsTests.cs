@@ -5,6 +5,7 @@ using jellyfin_anidoki;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Models;
 using jellyfin_anidoki.Notifications.Discord;
+using jellyfin_anidoki.Trackers.Mal;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Model.Serialization;

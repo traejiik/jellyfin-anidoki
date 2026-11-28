@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using jellyfin_anidoki.Configuration;
 using jellyfin_anidoki.Helpers;
 using jellyfin_anidoki.Resolution;
+using jellyfin_anidoki.Trackers.Mal;
 using jellyfin_anidoki_unit_tests.Characterization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
