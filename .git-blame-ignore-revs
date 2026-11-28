@@ -8,3 +8,8 @@ e3d72ed30dda97820468d649ca1c4d17a6ba3ab1
 0228d22e9ae4e4e506bacb62d26578de80259cb8
 # Tracker namespaces renamed after their folders.
 5fd5978fdb6a3f642fd1b614667158f53c078382
+
+# Feature folders: Api, Models and Configuration code split into Auth/ and Settings/.
+927f3fe48158eb69bcaeab6faa2d8605b65c750f
+# Auth and Settings namespaces renamed after their folders.
+7b93746cb08d8e93d8bdec87cbf28f8192dc6874
