@@ -3,9 +3,10 @@ using System.Linq;
 using jellyfin_anidoki.Auth;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.HelperTests;
+namespace jellyfin_anidoki_unit_tests.Settings;
 
 /// <summary>D9: the first start of 2.0.0 fills the admin's anime libraries from the users' earlier choices, once.</summary>
 [TestFixture]

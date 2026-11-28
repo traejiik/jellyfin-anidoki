@@ -20,7 +20,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.API_tests;
+namespace jellyfin_anidoki_unit_tests.Trackers.Kitsu;
 
 /// <summary>
 /// Kitsu is linked with the user's own sign-in, so the admin never sets up a Kitsu client. A refresh used to look for one

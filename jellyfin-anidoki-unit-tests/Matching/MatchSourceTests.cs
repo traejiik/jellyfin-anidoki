@@ -3,6 +3,7 @@ using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Resolution;
 using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.Matching;

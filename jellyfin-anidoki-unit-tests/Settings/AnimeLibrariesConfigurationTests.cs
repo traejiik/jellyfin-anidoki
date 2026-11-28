@@ -8,9 +8,10 @@ using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Mal;
 using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.HelperTests;
+namespace jellyfin_anidoki_unit_tests.Settings;
 
 [TestFixture, NonParallelizable]
 public class AnimeLibrariesConfigurationTests {

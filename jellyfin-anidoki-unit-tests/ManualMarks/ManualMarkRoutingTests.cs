@@ -3,7 +3,7 @@ using jellyfin_anidoki.ManualMarks;
 using jellyfin_anidoki.Trackers.Mal;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.ManualMarkTests;
+namespace jellyfin_anidoki_unit_tests.ManualMarks;
 
 [TestFixture]
 public class ManualMarkRoutingTests {

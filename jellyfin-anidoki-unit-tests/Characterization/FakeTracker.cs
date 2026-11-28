@@ -5,6 +5,11 @@ using System.Threading.Tasks;
 using jellyfin_anidoki.AnimeIds;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki_unit_tests.Trackers.Annict;
+using jellyfin_anidoki_unit_tests.Trackers.Kitsu;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
+using jellyfin_anidoki_unit_tests.Trackers.Shikimori;
+using jellyfin_anidoki_unit_tests.Trackers.Simkl;
 
 namespace jellyfin_anidoki_unit_tests.Characterization;
 

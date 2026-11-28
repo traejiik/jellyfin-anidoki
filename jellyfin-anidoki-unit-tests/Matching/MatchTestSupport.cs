@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using jellyfin_anidoki.Matching;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
 
 namespace jellyfin_anidoki_unit_tests.Matching;
 

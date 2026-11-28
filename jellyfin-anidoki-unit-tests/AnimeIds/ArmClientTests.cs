@@ -8,13 +8,16 @@ using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki.AnimeIds;
 using jellyfin_anidoki.Settings;
-using jellyfin_anidoki_unit_tests.LoggingTests;
+using jellyfin_anidoki_unit_tests.Common;
+using jellyfin_anidoki_unit_tests.Logging;
+using jellyfin_anidoki_unit_tests.Operations;
+using jellyfin_anidoki_unit_tests.Trackers.Kitsu;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.HelperTests;
+namespace jellyfin_anidoki_unit_tests.AnimeIds;
 
 public class ArmClientTests {
     private IHttpClientFactory _httpClientFactory = null!;

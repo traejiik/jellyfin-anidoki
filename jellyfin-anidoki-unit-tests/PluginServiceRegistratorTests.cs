@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.HelperTests;
+namespace jellyfin_anidoki_unit_tests;
 
 /// <summary>The ID lookups are one shared instance each, so every caller goes through the same client and the same list.</summary>
 public class PluginServiceRegistratorTests {

@@ -12,6 +12,7 @@ using jellyfin_anidoki.Trackers.Mal;
 using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
 using Jellyfin.Database.Implementations.Entities;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Model.Entities;
 using Microsoft.Extensions.Logging.Abstractions;

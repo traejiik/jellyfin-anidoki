@@ -10,6 +10,9 @@ using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki_unit_tests.Characterization;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Shikimori;
+using jellyfin_anidoki_unit_tests.Trackers.Simkl;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -17,7 +20,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.API_tests;
+namespace jellyfin_anidoki_unit_tests.Auth;
 
 public class AuthApiCallTests {
     private sealed class SequenceHandler(params Func<HttpRequestMessage, HttpResponseMessage>[] responses) : HttpMessageHandler {

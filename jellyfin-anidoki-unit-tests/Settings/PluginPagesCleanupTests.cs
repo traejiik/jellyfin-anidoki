@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json.Nodes;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.HelperTests;
+namespace jellyfin_anidoki_unit_tests.Settings;
 
 [TestFixture]
 public class PluginPagesCleanupTests {

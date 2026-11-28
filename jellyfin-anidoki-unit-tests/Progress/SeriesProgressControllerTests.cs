@@ -13,6 +13,8 @@ using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Operations;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Kitsu;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Model.Serialization;

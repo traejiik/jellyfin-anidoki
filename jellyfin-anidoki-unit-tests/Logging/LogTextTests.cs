@@ -1,7 +1,7 @@
 using jellyfin_anidoki.Logging;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.LoggingTests;
+namespace jellyfin_anidoki_unit_tests.Logging;
 
 [TestFixture]
 public class LogTextTests {

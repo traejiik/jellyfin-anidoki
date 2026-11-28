@@ -12,6 +12,8 @@ using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki_unit_tests.Characterization;
 using jellyfin_anidoki_unit_tests.Matching;
 using jellyfin_anidoki_unit_tests.Operations;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
 using MediaBrowser.Common.Configuration;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;

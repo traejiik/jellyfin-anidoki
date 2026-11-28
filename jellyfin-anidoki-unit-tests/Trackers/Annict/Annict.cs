@@ -17,7 +17,7 @@ using Moq;
 using NUnit.Framework;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
-namespace jellyfin_anidoki_unit_tests.API_tests;
+namespace jellyfin_anidoki_unit_tests.Trackers.Annict;
 
 public class Annict {
     private AnnictApiCalls _annictApiCalls = null!;

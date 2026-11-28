@@ -15,12 +15,13 @@ using jellyfin_anidoki.Trackers.Mal;
 using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
 using jellyfin_anidoki_unit_tests.Trackers;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
 using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 using static jellyfin_anidoki_unit_tests.Operations.OperationTestSupport;
 using static jellyfin_anidoki_unit_tests.Trackers.TrackerTestSupport;
 
-namespace jellyfin_anidoki_unit_tests.LoggingTests;
+namespace jellyfin_anidoki_unit_tests.Logging;
 
 /// <summary>The Information lines an admin reads at the default level: one per outcome, and what each says.</summary>
 [TestFixture, NonParallelizable]

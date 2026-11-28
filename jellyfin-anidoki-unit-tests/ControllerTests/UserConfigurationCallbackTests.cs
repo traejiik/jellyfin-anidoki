@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using jellyfin_anidoki.Auth;
 using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
+using jellyfin_anidoki_unit_tests.Trackers.Shikimori;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;

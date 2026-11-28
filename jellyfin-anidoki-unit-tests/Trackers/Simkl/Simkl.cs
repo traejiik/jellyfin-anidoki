@@ -20,7 +20,7 @@ using Moq;
 using jellyfin_anidoki.Trackers;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.API_tests;
+namespace jellyfin_anidoki_unit_tests.Trackers.Simkl;
 
 public class Simkl {
     private SimklApiCalls _simklApiCalls = null!;

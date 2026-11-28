@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using jellyfin_anidoki.ManualMarks;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.ManualMarkTests;
+namespace jellyfin_anidoki_unit_tests.ManualMarks;
 
 [TestFixture]
 public class ManualMarkStoreTests {

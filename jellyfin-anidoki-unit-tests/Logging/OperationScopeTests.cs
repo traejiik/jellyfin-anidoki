@@ -7,11 +7,12 @@ using jellyfin_anidoki.Operations;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Simkl;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
 using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 using static jellyfin_anidoki_unit_tests.Operations.OperationTestSupport;
 
-namespace jellyfin_anidoki_unit_tests.LoggingTests;
+namespace jellyfin_anidoki_unit_tests.Logging;
 
 /// <summary>Every line written while an operation runs carries the operation's IDs, whichever class wrote it.</summary>
 [TestFixture, NonParallelizable]

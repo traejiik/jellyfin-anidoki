@@ -3,7 +3,7 @@ using System.IO;
 using jellyfin_anidoki.AnimeIds;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.HelperTests;
+namespace jellyfin_anidoki_unit_tests.AnimeIds;
 
 /// <summary>The anime list's TMDB movie IDs, which tell an anime movie apart in a Mixed library.</summary>
 public class AnimeListIndexTests {

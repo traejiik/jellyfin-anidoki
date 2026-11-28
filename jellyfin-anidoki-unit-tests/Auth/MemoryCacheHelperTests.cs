@@ -2,12 +2,13 @@ using System;
 using System.Net.Http;
 using jellyfin_anidoki.Auth;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki.Tests.Helpers;
+namespace jellyfin_anidoki_unit_tests.Auth;
 
 public class MemoryCacheHelperTests {
     private IMemoryCache memoryCache = null!;

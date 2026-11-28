@@ -19,7 +19,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.API_tests;
+namespace jellyfin_anidoki_unit_tests.Trackers.Mal;
 
 public class Mal {
     private MalApiCalls _malApiCalls = null!;

@@ -3,7 +3,7 @@ using System.Xml.Serialization;
 using jellyfin_anidoki.Settings;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.HelperTests;
+namespace jellyfin_anidoki_unit_tests.Settings;
 
 [TestFixture]
 public class PluginConfigurationDefaultsTests {

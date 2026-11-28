@@ -7,6 +7,7 @@ using jellyfin_anidoki.Playback;
 using jellyfin_anidoki.Storage;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Simkl;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace jellyfin_anidoki_unit_tests.Operations;

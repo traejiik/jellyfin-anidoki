@@ -8,6 +8,7 @@ using jellyfin_anidoki.Auth;
 using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Configuration;
@@ -21,7 +22,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.HelperTests;
+namespace jellyfin_anidoki_unit_tests.Auth;
 
 [TestFixture, NonParallelizable]
 public class CallbackUrlHelperTests {

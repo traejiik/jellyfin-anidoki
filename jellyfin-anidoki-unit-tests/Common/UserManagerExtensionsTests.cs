@@ -7,7 +7,7 @@ using MediaBrowser.Controller.Library;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.HelperTests;
+namespace jellyfin_anidoki_unit_tests.Common;
 
 [TestFixture]
 public class UserManagerExtensionsTests {

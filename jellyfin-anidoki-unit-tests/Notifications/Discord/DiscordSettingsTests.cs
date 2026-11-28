@@ -11,7 +11,7 @@ using MediaBrowser.Model.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
-namespace jellyfin_anidoki_unit_tests.NotificationTests.Discord;
+namespace jellyfin_anidoki_unit_tests.Notifications.Discord;
 
 [TestFixture]
 public class DiscordSettingsTests {

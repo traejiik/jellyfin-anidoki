@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using jellyfin_anidoki.Notifications.Discord;
 using Moq;
 using NUnit.Framework;
-namespace jellyfin_anidoki_unit_tests.NotificationTests.Discord;
+namespace jellyfin_anidoki_unit_tests.Notifications.Discord;
 
 [TestFixture]
 public class DiscordWebhookSenderTests {

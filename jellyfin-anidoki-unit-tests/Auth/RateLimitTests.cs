@@ -5,11 +5,13 @@ using System.Threading.Tasks;
 using jellyfin_anidoki.Auth;
 using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Kitsu;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki.Tests.Helpers;
+namespace jellyfin_anidoki_unit_tests.Auth;
 
 /// <summary>
 /// Each tracker has a next allowed time. A call waits the time left until it, never the time since the last call (H4.8),

@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.NotificationTests;
+namespace jellyfin_anidoki_unit_tests.Notifications;
 
 [TestFixture]
 public class NotificationControllerTests {

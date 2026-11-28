@@ -10,6 +10,8 @@ using jellyfin_anidoki.Trackers.Mal;
 using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
 using jellyfin_anidoki_unit_tests.Operations;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Kitsu;
 using MediaBrowser.Controller.Entities.TV;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;

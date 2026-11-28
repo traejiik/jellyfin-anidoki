@@ -1,6 +1,8 @@
 using System;
 using jellyfin_anidoki.Planning;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Annict;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.Planning;

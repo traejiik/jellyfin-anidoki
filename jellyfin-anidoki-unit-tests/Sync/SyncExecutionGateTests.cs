@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using jellyfin_anidoki;
 using NUnit.Framework;
-namespace jellyfin_anidoki_unit_tests.ManualMarkTests;
+namespace jellyfin_anidoki_unit_tests;
 
 [TestFixture]
 public class SyncExecutionGateTests {

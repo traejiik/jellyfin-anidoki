@@ -3,9 +3,12 @@ using System.Threading.Tasks;
 using jellyfin_anidoki.Notifications;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Annict;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.NotificationTests;
+namespace jellyfin_anidoki_unit_tests.Notifications;
 
 public class PlaybackOutcomeCollectorTests {
     private static Anime Target(string title = "Mapped season") => new() {

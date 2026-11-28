@@ -12,6 +12,7 @@ using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
 using jellyfin_anidoki_unit_tests.Operations;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
 using MediaBrowser.Controller.Library;
 using Moq;
 

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading;
 using Microsoft.Extensions.Logging;
 
-namespace jellyfin_anidoki_unit_tests.LoggingTests;
+namespace jellyfin_anidoki_unit_tests.Logging;
 
 /// <summary>One log call as a test sees it: the rendered message, the named values behind it, and the scope it was written in.</summary>
 internal sealed record LogEntry(string Category, LogLevel Level, string Message, Exception? Exception,

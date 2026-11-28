@@ -13,6 +13,9 @@ using jellyfin_anidoki.Playback;
 using Jellyfin.Database.Implementations.Entities;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki_unit_tests.Playback;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Configuration;
@@ -26,7 +29,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.NotificationTests;
+namespace jellyfin_anidoki_unit_tests.Notifications;
 
 [TestFixture, NonParallelizable]
 public class NotificationFlowTests {

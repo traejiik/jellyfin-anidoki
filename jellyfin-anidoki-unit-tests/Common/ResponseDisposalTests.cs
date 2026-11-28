@@ -6,12 +6,13 @@ using jellyfin_anidoki.Common;
 using jellyfin_anidoki.Settings;
 using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.HelperTests;
+namespace jellyfin_anidoki_unit_tests.Common;
 
 /// <summary>The anime-list update and the GraphQL read dispose the response they read.</summary>
 public class ResponseDisposalTests {

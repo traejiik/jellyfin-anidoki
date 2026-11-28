@@ -11,6 +11,9 @@ using jellyfin_anidoki.Trackers;
 using jellyfin_anidoki.Trackers.AniList;
 using jellyfin_anidoki.Trackers.Kitsu;
 using jellyfin_anidoki.Trackers.Mal;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Kitsu;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -18,7 +21,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.API_tests;
+namespace jellyfin_anidoki_unit_tests.Trackers;
 
 public class WholeTrackerListTests {
     [TestCase(ApiName.Mal, false)]

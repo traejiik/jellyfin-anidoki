@@ -2,6 +2,12 @@ using System;
 using System.Globalization;
 using System.Linq;
 using jellyfin_anidoki.Trackers;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Annict;
+using jellyfin_anidoki_unit_tests.Trackers.Kitsu;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
+using jellyfin_anidoki_unit_tests.Trackers.Shikimori;
+using jellyfin_anidoki_unit_tests.Trackers.Simkl;
 using NUnit.Framework;
 
 namespace jellyfin_anidoki_unit_tests.Trackers;

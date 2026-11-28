@@ -13,6 +13,7 @@ using jellyfin_anidoki.Trackers.Mal;
 using jellyfin_anidoki.Trackers.Shikimori;
 using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
+using jellyfin_anidoki_unit_tests.Trackers.Mal;
 using MediaBrowser.Controller;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -21,7 +22,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
 
-namespace jellyfin_anidoki_unit_tests.API_tests;
+namespace jellyfin_anidoki_unit_tests.Trackers.Shikimori;
 
 public class Shikimori {
     private ShikimoriApiCalls _shikimoriApiCalls = null!;

@@ -15,6 +15,8 @@ using jellyfin_anidoki.Trackers.Mal;
 using jellyfin_anidoki.Trackers.Simkl;
 using jellyfin_anidoki_unit_tests.Characterization;
 using jellyfin_anidoki_unit_tests.Matching;
+using jellyfin_anidoki_unit_tests.Trackers.AniList;
+using jellyfin_anidoki_unit_tests.Trackers.Kitsu;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
